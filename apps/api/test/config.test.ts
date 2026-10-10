@@ -24,6 +24,33 @@ describe("config", () => {
     );
   });
 
+  it("blocks a production Supabase pooler pointing to the wrong project", () => {
+    const ref = "aaaaaaaaaaaaaaaaaaaa";
+    const expected = "bbbbbbbbbbbbbbbbbbbb";
+    const url = `postgresql://postgres.${ref}:test@aws-0-ca-central-1.pooler.supabase.com:5432/postgres`;
+    expect(() => loadConfig({
+      NODE_ENV: "production", DATABASE_URL: url, MIMT_DATABASE_PROJECT_REF: expected,
+    })).toThrow(/Database project does not match the configured dedicated MIMT Supabase project/);
+  });
+
+  it("requires a declared MIMT project reference for production Supabase", () => {
+    const url = "postgresql://postgres.aaaaaaaaaaaaaaaaaaaa:test@aws-0-ca-central-1.pooler.supabase.com:5432/postgres";
+    expect(() => loadConfig({ NODE_ENV: "production", DATABASE_URL: url })).toThrow(
+      /Dedicated MIMT Supabase project reference must be explicitly configured/,
+    );
+  });
+
+  it("accepts a matching dedicated project reference without an isolation error", () => {
+    const ref = "aaaaaaaaaaaaaaaaaaaa";
+    const url = `postgresql://postgres.${ref}:test@aws-0-ca-central-1.pooler.supabase.com:5432/postgres`;
+    try {
+      loadConfig({ NODE_ENV: "production", DATABASE_URL: url, MIMT_DATABASE_PROJECT_REF: ref });
+    } catch (err) {
+      expect(String(err)).not.toContain("dedicated MIMT Supabase project");
+      expect(String(err)).not.toContain("Database project does not match");
+    }
+  });
+
   it("requires Twilio, Stripe, keys and the database in production", () => {
     expect(() => loadConfig({ NODE_ENV: "production" })).toThrow(/TWILIO_ACCOUNT_SID.*required/);
     expect(() => loadConfig({ NODE_ENV: "production" })).toThrow(/STRIPE_SECRET_KEY/);
