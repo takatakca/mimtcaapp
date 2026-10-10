@@ -23,6 +23,7 @@ import { sendTwiml, twilioParams, VoiceResponse } from "./twiml.js";
 export const AI_RECEPTIONIST_WS_PATH = "/ws/ai/receptionist";
 /** The token only has to survive the time between our TwiML and Twilio opening the socket. */
 const WS_TOKEN_TTL_S = 120;
+const SETUP_TIMEOUT_MS = 10_000;
 const wsResource = (businessId: string, callSid: string) => `ai-receptionist:${businessId}:${callSid}`;
 
 const Q = z.object({ b: z.uuid(), n: z.string().max(64).optional() });
@@ -149,6 +150,11 @@ export function handleRelaySocket(deps: AppDeps, socket: RelaySocket, log: { war
   let setup: Promise<void> | null = null;
   const pending: string[] = [];
   const send = (msg: Record<string, unknown>) => socket.send(JSON.stringify(msg));
+  // Unauthenticated sockets do not linger: Twilio sends "setup" right after connecting.
+  const setupTimer = setTimeout(() => {
+    if (!session) socket.close(1008);
+  }, SETUP_TIMEOUT_MS);
+  setupTimer.unref?.();
 
   async function start(raw: Record<string, unknown>) {
     const params = (raw.customParameters ?? {}) as Record<string, unknown>;
@@ -194,6 +200,7 @@ export function handleRelaySocket(deps: AppDeps, socket: RelaySocket, log: { war
       log,
       limits: { maxSeconds: AI_LIMITS.receptionistMaxSeconds },
     });
+    clearTimeout(setupTimer);
     session.start();
     for (const m of pending.splice(0)) void session.handle(m);
   }
@@ -216,13 +223,17 @@ export function handleRelaySocket(deps: AppDeps, socket: RelaySocket, log: { war
       pending.push(raw);
     }
   });
-  socket.on("close", () => session?.close());
+  socket.on("close", () => {
+    clearTimeout(setupTimer);
+    session?.close();
+  });
   return { idle: () => setup ?? Promise.resolve(), session: () => session };
 }
 
 /** WebSocket route. Needs @fastify/websocket registered on the app. */
 export async function aiReceptionistSocket(app: FastifyInstance, deps: AppDeps) {
-  app.get(AI_RECEPTIONIST_WS_PATH, { websocket: true }, (socket, req) => {
+  // Twilio connects once per call from its own pool; the per-call token authenticates, not the IP.
+  app.get(AI_RECEPTIONIST_WS_PATH, { websocket: true, config: { rateLimit: false } }, (socket, req) => {
     handleRelaySocket(deps, socket as unknown as RelaySocket, req.log);
   });
 }
