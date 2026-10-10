@@ -1,0 +1,161 @@
+name: Emergency MIMT Homepage Root Repair
+
+# One-off production repair; do not merge this workflow.
+# Back up legacy root index and .htaccess, then upload new MIMT build.
+# Never remove unrelated remote files, use verified FTPS.
+on:
+  push:
+    branches: [diag/mimt-ftp-root-20261010]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: emergency-mimt-homepage-root
+  cancel-in-progress: false
+
+jobs:
+  homepage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @mimt/shared build
+      - run: pnpm --filter @mimt/web build
+
+      - name: Backup old root index and rewrite rules
+        env:
+          FTP_SERVER: ${{ secrets.MOCHAHOST_FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.MOCHAHOST_FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
+          BACKUP_DIR: ${{ runner.temp }}/mimt-backup
+        run: |
+          python - <<'PY'
+          import ftplib, ssl, os
+          from pathlib import Path
+          class FTP(ftplib.FTP_TLS):
+              def auth(self):
+                  original=self.host
+                  try:
+                      self.host="whgi.net"
+                      return super().auth()
+                  finally: self.host=original
+              def ntransfercmd(self,cmd,rest=None):
+                  sock,size=super(ftplib.FTP_TLS,self).ntransfercmd(cmd,rest)
+                  if self._prot_p:
+                      sock=self.context.wrap_socket(sock,server_hostname="whgi.net")
+                  return sock,size
+          ftp=FTP(context=ssl.create_default_context(),timeout=45)
+          try:
+              ftp.connect(os.environ["FTP_SERVER"],21)
+              ftp.login(os.environ["FTP_USERNAME"],os.environ["FTP_PASSWORD"])
+              ftp.prot_p()
+              ftp.cwd("/")
+              old=bytearray()
+              ftp.retrbinary("RETR index.html",old.extend)
+              if b"fongo" not in old.lower():
+                  raise SystemExit("Safety stop: unexpected FTP root. No production changes.")
+              root=Path(os.environ["BACKUP_DIR"])
+              root.mkdir(parents=True,exist_ok=True)
+              (root/"index.html").write_bytes(old)
+              try:
+                  rules=bytearray()
+                  ftp.retrbinary("RETR .htaccess",rules.extend)
+                  (root/"htaccess.backup").write_bytes(rules)
+              except ftplib.error_perm:
+                  print("Rewrite file not readable; left untouched.")
+              print("Backup secured in GitHub runner; FTP site unchanged.")
+          finally:
+              try: ftp.quit()
+              except Exception: ftp.close()
+          PY
+
+      - name: Store seven-day backup of legacy homepage
+        uses: actions/upload-artifact@v4
+        with:
+          name: mimt-prerepair-homepage-backup
+          path: ${{ runner.temp }}/mimt-backup/
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload MIMT website into verified FTP login root
+        env:
+          FTP_SERVER: ${{ secrets.MOCHAHOST_FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.MOCHAHOST_FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
+        run: |
+          python - <<'PY'
+          import ftplib, ssl, os
+          from pathlib import Path
+          class FTP(ftplib.FTP_TLS):
+              def auth(self):
+                  original=self.host
+                  try:
+                      self.host="whgi.net"
+                      return super().auth()
+                  finally: self.host=original
+              def ntransfercmd(self,cmd,rest=None):
+                  sock,size=super(ftplib.FTP_TLS,self).ntransfercmd(cmd,rest)
+                  if self._prot_p:
+                      sock=self.context.wrap_socket(sock,server_hostname="whgi.net")
+                  return sock,size
+          src=Path("apps/web/out")
+          index=src/"index.html"
+          if not index.exists() or b"votre num" not in index.read_bytes().lower():
+              raise SystemExit("Build output is not expected MIMT French site.")
+          ftp=FTP(context=ssl.create_default_context(),timeout=45)
+          try:
+              ftp.connect(os.environ["FTP_SERVER"],21)
+              ftp.login(os.environ["FTP_USERNAME"],os.environ["FTP_PASSWORD"])
+              ftp.prot_p()
+              ftp.cwd("/")
+              old=bytearray()
+              ftp.retrbinary("RETR index.html",old.extend)
+              if b"fongo" not in old.lower():
+                  raise SystemExit("Safety stop: legacy index changed since backup.")
+              def ensure_directory(parts):
+                  ftp.cwd("/")
+                  for name in parts:
+                      if name in ("","."): continue
+                      try: ftp.cwd(name)
+                      except ftplib.error_perm:
+                          ftp.mkd(name)
+                          ftp.cwd(name)
+              files=[p for p in src.rglob("*") if p.is_file() and p!=index]
+              for n,path in enumerate(files,1):
+                  rel=path.relative_to(src)
+                  ensure_directory(rel.parts[:-1])
+                  with path.open("rb") as f:
+                      ftp.storbinary("STOR "+rel.name,f,blocksize=131072)
+                  if n % 50 == 0:
+                      print("Uploaded",n,"site assets and pages.")
+              ftp.cwd("/")
+              with index.open("rb") as f:
+                  ftp.storbinary("STOR index.html",f,blocksize=131072)
+              print("Published",len(files)+1,"MIMT files at correct FTP root, without deleting unrelated content.")
+          finally:
+              try: ftp.quit()
+              except Exception: ftp.close()
+          PY
+
+      - name: Verify mimt.ca shows original French MIMT homepage
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..10}; do
+            page="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://mimt.ca/?repair=${GITHUB_SHA}-$attempt" 2>/dev/null || true)"
+            if [[ "$page" == *"Votre numéro canadien"* ]] && ! grep -Eiq 'Fongo (Mobile|Works|Internet|World|Home Phone)|Waterloo, Ontario|About Fongo' <<<"$page"; then
+              echo "SUCCESS: public mimt.ca shows MIMT French homepage."
+              exit 0
+            fi
+            echo "Attempt $attempt/10: FTP root updated but public site still not verified."
+            sleep 10
+          done
+          echo "::error::FTP files published; public site still not verified. Check DNS/document root/.htaccess."
+          exit 1
