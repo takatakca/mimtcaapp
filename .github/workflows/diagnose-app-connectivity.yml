@@ -42,4 +42,32 @@ jobs:
             echo "HTML TITLE and visible server errors:"
             grep -Eio '<title>[^<]{0,200}</title>|no available server|forbidden|index of /|access denied|error 403|error 503|service unavailable' /tmp/mimt-body | head -n 8 || true
           done
+
+          echo "BUNDLED ASSET AND SPA-ROUTE CHECK:"
+          python - <<'PY'
+          import re, urllib.request, urllib.error
+          base = "https://app.mimt.ca"
+          req = urllib.request.Request(base+"/",headers={"User-Agent":"MIMT-public-diagnostic/1.0"})
+          with urllib.request.urlopen(req,timeout=15) as res:
+              html = res.read().decode("utf-8","replace")
+          refs = sorted(set(re.findall(r'(?:src|href)=["\'](/assets/[^"\']+)["\']',html)))
+          print("Referenced assets:",len(refs))
+          for ref in refs[:12]:
+              try:
+                  with urllib.request.urlopen(base+ref,timeout=15) as res:
+                      print(ref,"status",res.status,"type",res.headers.get("content-type"),"bytes",res.headers.get("content-length","?"))
+              except urllib.error.HTTPError as e:
+                  print(ref,"status",e.code)
+              except Exception as e:
+                  print(ref,type(e).__name__)
+          for route in ("/connexion","/messages"):
+              try:
+                  with urllib.request.urlopen(base+route,timeout=15) as res:
+                      contents=res.read(2000).decode("utf8","replace")
+                      print("SPA route",route,"status",res.status,"app shell",bool("MIMT Web" in contents))
+              except urllib.error.HTTPError as e:
+                  print("SPA route",route,"status",e.code)
+              except Exception as e:
+                  print("SPA route",route,type(e).__name__)
+          PY
           echo "Read-only checks complete"
