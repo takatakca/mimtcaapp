@@ -1,10 +1,10 @@
 // Ads for the free plan only (Google Mobile Ads). Privacy by default (Quebec Law 25):
 // - Ads are NON-personalised unless the user opts in inside MIMT (Confidentialité) AND, on iOS,
 //   allows App Tracking Transparency AND Google's UMP consent allows ads.
-// - Plans with the "no_ads" feature never load ads.
+// - Plans with the "no_ads" feature, and the "Sans pub" add-on, never load ads.
 // Only Google's public TEST ad unit ids are used in this codebase. TODO(launch): real unit ids
 // from AdMob, set through EAS env vars, after the PIA for Google (Law 25 s. 17).
-import { planHas, type PlanCode } from "@mimt/shared";
+import { adFreeFor, type PlanCode } from "@mimt/shared";
 import * as SecureStore from "expo-secure-store";
 import { getTrackingPermissionsAsync, requestTrackingPermissionsAsync } from "expo-tracking-transparency";
 import { Platform } from "react-native";
@@ -30,8 +30,8 @@ export function loadAdsSdk(): AdsSdk | null {
   return sdk;
 }
 
-export function adsEnabledFor(plan: PlanCode | undefined): boolean {
-  return !!plan && !planHas(plan, "no_ads");
+export function adsEnabledFor(plan: PlanCode | undefined, addOns: readonly string[] = []): boolean {
+  return !!plan && !adFreeFor(plan, addOns);
 }
 
 export async function getPersonalisedConsent(): Promise<boolean> {

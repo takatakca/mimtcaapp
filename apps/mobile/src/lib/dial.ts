@@ -26,6 +26,31 @@ export function toDialable(input: string): string | null {
   return e164 && NANP_E164.test(e164) ? e164 : null;
 }
 
+/**
+ * Like toDialable, plus international numbers typed with + or 011 (voice only: texts stay Canada/US).
+ * The server decides whether the plan, credit and destination list allow it; the dial screen shows
+ * the rate first (GET /v1/rates).
+ */
+export function toDialableVoice(input: string): string | null {
+  const domestic = toDialable(input);
+  if (domestic) return domestic;
+  const n = normalizeDialInput(input);
+  if (/[*#]/.test(n)) return null;
+  const digits = n.replace(/\D/g, "");
+  const intl = n.startsWith("+") ? digits : digits.startsWith("011") ? digits.slice(3) : null;
+  if (!intl || intl.startsWith("1")) return null;
+  return /^[2-9]\d{6,14}$/.test(intl) ? `+${intl}` : null;
+}
+
+/**
+ * The number to ask GET /v1/rates about while typing, or null (incomplete, 9-1-1). The server says
+ * whether it is domestic (no rate line) or international, Caribbean +1 codes included.
+ */
+export function rateQuoteTarget(input: string): string | null {
+  const to = toDialableVoice(input);
+  return to && to !== "911" ? to : null;
+}
+
 /** Display a NANP number the Quebec way: "514 555-0123". Leaves other input unchanged. */
 export function formatPhone(value: string): string {
   if (isEmergencyNumber(value)) return "9-1-1";
@@ -58,6 +83,6 @@ export interface CallGate {
  */
 export function canPlaceCall(dialed: string, gate: CallGate | null | undefined): boolean {
   if (isEmergencyNumber(dialed)) return true;
-  if (!toDialable(dialed)) return false;
+  if (!toDialableVoice(dialed)) return false;
   return !!gate && gate.addressRegistered && gate.noticeAccepted;
 }
