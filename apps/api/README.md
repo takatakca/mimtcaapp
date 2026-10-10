@@ -31,6 +31,8 @@ Sans configuration, l'API démarre quand même : stockage en mémoire (sans `DAT
 | `APP_BASE_URL` | | Retour après paiement Stripe (défaut `https://app.mimt.ca`) |
 | `CORS_ORIGINS` | | Liste séparée par virgules (défaut `mimt.ca`, `app.mimt.ca`, `takatak.ca`) |
 | `DATABASE_URL` | oui | Postgres Supabase (connexion directe / service role) |
+| `MIMT_DATABASE_PROJECT_REF` | oui (Supabase en production) | Référence du projet Supabase **exclusif à MIMT**. L'API vérifie que l'URL PostgreSQL (pooler ou directe) cible précisément ce projet. Jamais le projet TAKATAK central ou un autre client. |
+| `DATABASE_SSL_CA_PEM` | si certificat privé | Certificat d'autorité CA au format PEM pour **vérifier** le certificat TLS PostgreSQL. Dans Coolify, ajouter la CA authentique de la base, pas un certificat inventé. Les retours à la ligne réels ou `\\n` sont acceptés. Ne jamais définir `NODE_TLS_REJECT_UNAUTHORIZED=0` ni `rejectUnauthorized: false`. |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_API_KEY_SID`, `TWILIO_API_KEY_SECRET` | oui | Appels REST Twilio (clé API, pas le jeton maître) |
 | `TWILIO_AUTH_TOKEN` | oui | **Uniquement** pour valider les signatures des webhooks |
 | `TWILIO_TWIML_APP_SID` | oui | TwiML App des appels sortants de l'application |
@@ -50,6 +52,15 @@ Sans configuration, l'API démarre quand même : stockage en mémoire (sans `DAT
 | `USD_TO_CAD`, `INTL_ASSUMED_RATE_CENTS_PER_MIN` | | Conversion des prix Twilio ; tarif prudent pour limiter la durée des appels internationaux |
 
 Les secrets vont dans les secrets de Coolify, jamais dans le code ni dans le clavardage.
+
+### PostgreSQL TLS on Coolify
+
+- Keep `DATABASE_URL` pointed to the MIMT database, with `sslmode=verify-full` when the database certificate hostname matches the connection hostname. Do not turn certificate validation off.
+- `DATABASE_SSL_CA_PEM` must contain a **real, complete, valid X.509 CA certificate** from the database provider. Quoted/escaped newlines are accepted, but placeholders and truncated certificates are rejected without weakening verification.
+- For a Coolify PostgreSQL CA, first obtain the genuine public CA certificate from **Coolify → Server advanced CA certificates** or the verified host file `/data/coolify/ssl/coolify-ca.crt`; never use the database private key. Coolify documents a read-only mount to `/etc/ssl/certs/coolify-ca.crt` for client containers.
+- Postgres.js **does not** load the libpq `sslrootcert` URL query parameter as a trusted CA; the MIMT adapter removes it before connecting. If it references a readable absolute file path mounted inside the API container, the adapter can load the CA from that path as a fallback.
+- When a supplied CA cannot be parsed, MIMT logs `category=database_ca_invalid` without logging certificate contents. `GET /readyz` must return `ok:true,db:"up"` before the system is considered database-ready.
+- Do not set `NODE_TLS_REJECT_UNAUTHORIZED=0` or `rejectUnauthorized:false` to hide certificate problems. Do not publish `DATABASE_URL` or private keys in GitHub, logs or chat.
 
 ### Configuration de la console Twilio
 
