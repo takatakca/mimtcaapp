@@ -10,6 +10,11 @@ import type {
   BusinessRecordingsResponse,
   BusinessResponse,
   BusinessUsageResponse,
+  BusinessClaimNumberRequest,
+  CallRecordingResponse,
+  ClaimInvitesResponse,
+  ClaimNumberResponse,
+  UpdateBusinessRequest,
   DidRoute,
   DidRouteRequest,
   DidRoutesResponse,
@@ -37,6 +42,10 @@ const seg = (id: string) => encodeURIComponent(id);
 export function businessEndpoints(request: HttpClient["request"]) {
   return {
     businesses: () => request<BusinessesResponse>("GET", "/v1/business"),
+    business: (id: string) => request<BusinessResponse>("GET", b(id)),
+    updateBusiness: (id: string, body: UpdateBusinessRequest) => request<BusinessResponse>("PATCH", b(id), { body }),
+    /** Joins the businesses that invited the signed-in user's email. */
+    claimInvites: () => request<ClaimInvitesResponse>("POST", "/v1/business/invites/claim"),
     businessUsage: (id: string) => request<BusinessUsageResponse>("GET", `${b(id)}/usage`),
     businessCalls: (id: string, cursor?: string) =>
       request<BusinessCallsResponse>("GET", `${b(id)}/calls`, { query: { cursor, limit: 25 } }),
@@ -73,9 +82,17 @@ export function businessEndpoints(request: HttpClient["request"]) {
 
     dids: (id: string) => request<DidRoutesResponse>("GET", `${b(id)}/dids`),
     putDid: (id: string, body: DidRouteRequest) => request<DidRoute>("PUT", `${b(id)}/dids`, { body }),
+    deleteDid: (id: string, routeId: string) => request<void>("DELETE", `${b(id)}/dids/${seg(routeId)}`),
+    claimBusinessNumber: (id: string, body: BusinessClaimNumberRequest) =>
+      request<ClaimNumberResponse>("POST", `${b(id)}/numbers/claim`, { body }),
 
+    /** Each item carries a 15-minute signed audioUrl (no header needed); re-list for a fresh one. */
     recordings: (id: string) => request<BusinessRecordingsResponse>("GET", `${b(id)}/recordings`),
+    /** On-demand recording of one of the user's own calls (Affaires Pro, policy all/on_demand). */
+    callRecording: (callSid: string, action: "start" | "stop") =>
+      request<CallRecordingResponse>("POST", `/v1/calls/${seg(callSid)}/recording`, { body: { action } }),
 
+    /** Admins read and edit; only the owner may send accept: true (AI_RECEPTIONIST_TERMS_VERSION). */
     aiReceptionist: (id: string) => request<AiReceptionistConfigDto>("GET", `${b(id)}/ai-receptionist`),
     putAiReceptionist: (id: string, body: AiReceptionistConfigRequest) =>
       request<AiReceptionistConfigDto>("PUT", `${b(id)}/ai-receptionist`, { body }),

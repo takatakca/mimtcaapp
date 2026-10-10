@@ -24,6 +24,8 @@ import { Members } from "./pages/business/Members";
 import { Numbers } from "./pages/business/Numbers";
 import { BusinessOverview } from "./pages/business/Overview";
 import { RingGroups } from "./pages/business/RingGroups";
+import { AiReceptionist } from "./pages/business/AiReceptionist";
+import { Recordings } from "./pages/business/Recordings";
 import { Offers } from "./pages/services/Offers";
 import { OrderDetail } from "./pages/services/OrderDetail";
 import { Orders } from "./pages/services/Orders";
@@ -91,6 +93,8 @@ export function AppRoutes() {
           <Route path="heures" element={<Hours />} />
           <Route path="numeros" element={<Numbers />} />
           <Route path="membres" element={<Members />} />
+          <Route path="enregistrements" element={<Recordings />} />
+          <Route path="receptionniste-ia" element={<AiReceptionist />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Route>

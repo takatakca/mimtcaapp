@@ -1,5 +1,6 @@
-// Services (resale): offers sold at a postal code, then an order with the Critical Information
-// Summary (Wireless Code / Internet Code) shown and accepted before anything is created.
+// Services (resale): offers sold at a postal code, then a draft order (SIM kind / service address).
+// The Critical Information Summary is previewed here; the customer accepts the version frozen on the
+// order (and gives the consumer-code and credit-check consents) on the order page before submitting.
 import { formatCad, generateContractSummary, normalizePostalCode, type Offer, type ProductLine, type ServiceAddress } from "@mimt/shared";
 import { useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -109,7 +110,6 @@ function OrderPanel({ offer, postalCode, onCancel }: { offer: Offer; postalCode:
   const needsAddress = offer.productLine !== "mobile" && offer.productLine !== "voip_consumer" && offer.productLine !== "voip_business";
   const [simKind, setSimKind] = useState<"sim" | "esim">(offer.attributes.esim ? "esim" : "sim");
   const [addr, setAddr] = useState({ street: "", unit: "", city: "", province: "QC", postalCode });
-  const [accepted, setAccepted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<TKey | null>(null);
   const [busy, setBusy] = useState(false);
@@ -125,7 +125,6 @@ function OrderPanel({ offer, postalCode, onCancel }: { offer: Offer; postalCode:
       if (!postal) found.postal = t("address.invalidPostal");
       if (postal) serviceAddress = { street: addr.street.trim(), unit: addr.unit.trim() || null, city: addr.city.trim(), province: addr.province, postalCode: postal };
     }
-    if (!accepted) found.accept = t("offers.mustAccept");
     setErrors(found);
     if (Object.keys(found).length) return;
     setBusy(true);
@@ -186,6 +185,7 @@ function OrderPanel({ offer, postalCode, onCancel }: { offer: Offer; postalCode:
             </div>
           </fieldset>
         ) : null}
+        <p className="muted small">{t("order.contract.preview")}</p>
         <div className="summary" tabIndex={0} aria-label={summary.title}>
           <h3>{summary.title}</h3>
           {summary.sections.map((s) => (
@@ -199,19 +199,10 @@ function OrderPanel({ offer, postalCode, onCancel }: { offer: Offer; postalCode:
             </div>
           ))}
         </div>
-        <label className="check">
-          <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
-          <span>{t("offers.accept")}</span>
-        </label>
-        {errors.accept ? (
-          <p className="field__error" role="alert">
-            {errors.accept}
-          </p>
-        ) : null}
         <ErrorNote error={error} />
         <div className="row">
           <button type="submit" className="btn btn--primary" disabled={busy}>
-            {t("offers.confirm")}
+            {t("order.contract.continue")}
           </button>
           <button type="button" className="btn btn--ghost" onClick={onCancel}>
             {t("common.cancel")}

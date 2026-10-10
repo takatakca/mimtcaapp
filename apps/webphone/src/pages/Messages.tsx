@@ -4,10 +4,12 @@ import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../api/client";
 import { toErrorKey } from "../api/errors";
 import { useSession } from "../auth/SessionProvider";
+import { AiErrorNote } from "../components/AiErrorNote";
 import { Icon } from "../components/Icon";
 import { Badge, Empty, ErrorNote, Loading, PageHeader } from "../components/ui";
 import { useI18n } from "../i18n/I18nProvider";
 import type { TKey } from "../i18n/core";
+import { aiErrorKey } from "../lib/aiErrors";
 import { formatPhone, toDialable } from "../lib/dial";
 import { formatWhen } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
@@ -171,6 +173,8 @@ function Thread({ peer, ourNumber, onSent }: { peer: string; ourNumber?: string;
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState<TKey | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   const load = async (c?: string) => {
@@ -190,12 +194,27 @@ function Thread({ peer, ourNumber, onSent }: { peer: string; ourNumber?: string;
 
   useEffect(() => {
     void load();
-    api
-      .suggestions(peer)
-      .then((s) => setSuggestions(s.suggestions))
-      .catch(() => setSuggestions([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [peer]);
+
+  /**
+   * Smart replies only on request: the last messages of the thread go to the AI provider, so nothing
+   * is sent just by opening a conversation. Suggestions are never sent automatically.
+   */
+  const suggest = async () => {
+    setSuggesting(true);
+    setSuggestError(null);
+    setSuggestions([]);
+    try {
+      const r = await api.suggestions(peer);
+      setSuggestions(r.suggestions);
+      if (r.suggestions.length === 0) setSuggestError("ai.suggestions.none");
+    } catch (err) {
+      setSuggestError(aiErrorKey(err));
+    } finally {
+      setSuggesting(false);
+    }
+  };
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
@@ -206,6 +225,7 @@ function Thread({ peer, ourNumber, onSent }: { peer: string; ourNumber?: string;
       setMessages((prev) => [m, ...prev]);
       setBody("");
       setSuggestions([]);
+      setSuggestError(null);
       setError(null);
       onSent();
       requestAnimationFrame(() => endRef.current?.scrollIntoView?.({ block: "end" }));
@@ -237,7 +257,11 @@ function Thread({ peer, ourNumber, onSent }: { peer: string; ourNumber?: string;
         {loading && messages.length === 0 ? <Loading /> : null}
         {ordered.map((m) => (
           <div key={m.id} className={`bubble bubble--${m.direction === "outbound" ? "out" : "in"}`}>
-            {m.spamLabel ? <Badge tone="warn">{t("spam.message")}</Badge> : null}
+            {m.spamLabel ? (
+              <span title={t("ai.spam.hint")}>
+                <Badge tone="warn">{t("spam.message")}</Badge>
+              </span>
+            ) : null}
             <p>{m.body}</p>
             <span className="bubble__meta">
               {formatWhen(m.createdAt, locale, t("common.yesterday"))}
@@ -248,16 +272,29 @@ function Thread({ peer, ourNumber, onSent }: { peer: string; ourNumber?: string;
         <div ref={endRef} />
       </div>
       <ErrorNote error={error} />
-      {suggestions.length > 0 ? (
-        <div className="chips" role="group" aria-label={t("messages.suggestions")}>
-          <Icon name="sparkle" size={16} />
-          {suggestions.map((s) => (
-            <button key={s} type="button" className="chip" onClick={() => setBody(s)}>
-              {s}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      <div className="chips" role="group" aria-label={t("messages.suggestions")}>
+        {suggestions.length > 0 ? (
+          <>
+            <Icon name="sparkle" size={16} />
+            {suggestions.map((s) => (
+              <button key={s} type="button" className="chip" onClick={() => setBody(s)}>
+                {s}
+              </button>
+            ))}
+          </>
+        ) : (
+          <button type="button" className="chip" onClick={() => void suggest()} disabled={suggesting} title={t("ai.suggestions.hint")}>
+            <Icon name="sparkle" size={14} /> {suggesting ? t("common.loading") : t("ai.suggestions.ask")}
+          </button>
+        )}
+      </div>
+      {suggestError === "ai.suggestions.none" ? (
+        <p className="muted small pad" role="status">
+          {t(suggestError)}
+        </p>
+      ) : (
+        <AiErrorNote error={suggestError} />
+      )}
       <Composer value={body} onChange={setBody} busy={busy} />
     </form>
   );

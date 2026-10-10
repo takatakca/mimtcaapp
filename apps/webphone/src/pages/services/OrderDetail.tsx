@@ -1,13 +1,17 @@
 import type { OrderEventRecord } from "@mimt/shared";
 import { formatCad } from "@mimt/shared";
+import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { api } from "../../api/client";
+import { toErrorKey } from "../../api/errors";
 import { Badge, ErrorNote, Loading, PageHeader } from "../../components/ui";
 import { useI18n } from "../../i18n/I18nProvider";
 import type { TKey } from "../../i18n/core";
 import { formatDateTime } from "../../lib/format";
 import { useAsync } from "../../lib/useAsync";
+import { formatPhone } from "../../lib/dial";
 import { LINE_KEY, ORDER_STATE_KEY, orderTone, priceText, termText } from "./catalogText";
+import { AppointmentStep, CANCELLABLE, CancelStep, ContractStep, EsimStep, PORTING_STATES, PortingStep, SimStep, needsInstall } from "./OrderSteps";
 
 const ACTOR_KEY: Record<OrderEventRecord["actor"], TKey> = {
   customer: "order.actor.customer",
@@ -21,6 +25,22 @@ export function OrderDetail() {
   const { orderId = "" } = useParams();
   const detail = useAsync(() => api.order(orderId), [orderId]);
   const o = detail.data?.order;
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<TKey | null>(null);
+
+  /** POST .../sync: asks the wholesaler for the latest state. */
+  const sync = async () => {
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      await api.syncOrder(orderId);
+      detail.reload();
+    } catch (e) {
+      setSyncError(toErrorKey(e));
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   return (
     <div className="page">
@@ -28,13 +48,38 @@ export function OrderDetail() {
         title={o ? (detail.data?.offer?.name[lang] ?? o.offerCode) : t("orders.title")}
         sub={o ? t(LINE_KEY[o.productLine]) : undefined}
         actions={
-          <Link to="/services/commandes" className="btn btn--ghost btn--sm">
-            {t("common.back")}
-          </Link>
+          <>
+            {o && o.state !== "draft" && o.state !== "cancelled" && o.state !== "failed" ? (
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => void sync()} disabled={syncing}>
+                {t("order.sync")}
+              </button>
+            ) : null}
+            <Link to="/services/commandes" className="btn btn--ghost btn--sm">
+              {t("common.back")}
+            </Link>
+          </>
         }
       />
       <ErrorNote error={detail.error} onRetry={detail.reload} />
-      {detail.loading ? <Loading /> : null}
+      <ErrorNote error={syncError} />
+      {detail.loading && !detail.data ? <Loading /> : null}
+      {o && detail.data ? (
+        <div className="stack">
+          {o.state === "draft" ? <ContractStep order={o} onSubmitted={detail.reload} /> : null}
+          {o.productLine === "mobile" && o.simKind === "sim" && o.state !== "draft" && CANCELLABLE.includes(o.state) ? (
+            <SimStep detail={detail.data} onActivated={detail.reload} />
+          ) : null}
+          {o.productLine === "mobile" && o.simKind === "esim" && o.state !== "draft" && CANCELLABLE.includes(o.state) ? (
+            <EsimStep detail={detail.data} onActivated={detail.reload} />
+          ) : null}
+          {o.productLine === "mobile" && (PORTING_STATES.includes(o.state) || detail.data.porting) ? (
+            <PortingStep detail={detail.data} onSent={detail.reload} />
+          ) : null}
+          {needsInstall(o) && o.providerOrderId && (o.state === "pending_provider" || o.state === "scheduled") ? (
+            <AppointmentStep detail={detail.data} onBooked={detail.reload} />
+          ) : null}
+        </div>
+      ) : null}
       {o ? (
         <div className="grid grid--2">
           <section className="card" aria-labelledby="od-h">
@@ -69,6 +114,18 @@ export function OrderDetail() {
                   </dd>
                 </>
               ) : null}
+              {detail.data?.service?.phoneE164 ? (
+                <>
+                  <dt>{t("order.phone")}</dt>
+                  <dd>{formatPhone(detail.data.service.phoneE164)}</dd>
+                </>
+              ) : null}
+              {detail.data?.service?.termEndsAt ? (
+                <>
+                  <dt>{t("order.termEnds")}</dt>
+                  <dd>{formatDateTime(detail.data.service.termEndsAt, locale)}</dd>
+                </>
+              ) : null}
               {o.contractAcceptedAt ? (
                 <>
                   <dt>{t("order.contractAccepted")}</dt>
@@ -96,6 +153,7 @@ export function OrderDetail() {
           </section>
         </div>
       ) : null}
+      {o && o.state !== "cancel_requested" && CANCELLABLE.includes(o.state) ? <CancelStep order={o} onCancelled={detail.reload} /> : null}
     </div>
   );
 }

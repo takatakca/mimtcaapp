@@ -54,7 +54,11 @@ export function Calls() {
             <span className="list__main">
               <span className="list__title">
                 {c.kind === "emergency" ? "9-1-1" : formatPhone(c.peer)}{" "}
-                {c.spamLabel ? <Badge tone="warn">{t("spam.call")}</Badge> : null}
+                {c.spamLabel ? (
+                  <span title={t("ai.spam.hint")}>
+                    <Badge tone="warn">{t("spam.call")}</Badge>
+                  </span>
+                ) : null}
               </span>
               <span className="list__sub">
                 {c.missed ? (

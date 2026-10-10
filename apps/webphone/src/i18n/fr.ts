@@ -3,7 +3,10 @@
 // québécois : courriel, texto, messagerie vocale, composer, cellulaire. Les textes communs avec
 // l'application mobile reprennent apps/mobile/src/i18n/fr.ts.
 
+import { frExtra } from "./fr.extra";
+
 export const fr = {
+  ...frExtra,
   "account.billingPortal": "Gérer la facturation",
   "account.complaints": "Plaintes : CPRST (Commission des plaintes relatives aux services de télécom-télévision)",
   "account.complaintsHint": "Si nous ne réglons pas votre plainte, la CPRST peut vous aider gratuitement.",
@@ -405,8 +408,6 @@ export const fr = {
   "phone.tab.keypad": "Clavier",
   "phone.title": "Téléphone",
 
-  "privacy.ai": "Assistance par IA (Claude)",
-  "privacy.aiHint": "Résumés de messages vocaux et suggestions de réponses. Le texte est traité par Anthropic, hors Québec. Désactivé par défaut.",
   "privacy.intro": "Chaque consentement est distinct et facultatif. Vous pouvez le retirer en tout temps (Loi 25).",
   "privacy.marketing": "Courriels et textos promotionnels de MIMT",
   "privacy.marketingHint": "Offres et nouveautés. Désabonnement en tout temps (LCAP).",

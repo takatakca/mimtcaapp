@@ -1,4 +1,4 @@
-import { AI_CONSENT_KIND, PLANS, formatCad, type E911NoticeResponse, type PaidPlanCode, type UserConsentKind } from "@mimt/shared";
+import { AI_CONSENT_KIND, PLANS, formatCad, type AiStatusResponse, type E911NoticeResponse, type PaidPlanCode, type UserConsentKind } from "@mimt/shared";
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../api/client";
 import { ApiClientError, toErrorKey } from "../api/errors";
@@ -10,6 +10,7 @@ import type { TKey } from "../i18n/core";
 import { PROVINCES, normalizePostalCode } from "../lib/address";
 import { formatPhone } from "../lib/dial";
 import { usageRows } from "../lib/usage";
+
 import { useAsync } from "../lib/useAsync";
 
 const USAGE_LABEL: Record<"outboundMinutes" | "inboundMinutes" | "outboundSms", TKey> = {
@@ -244,36 +245,44 @@ function E911Section() {
   );
 }
 
-const CONSENTS: Array<{ kind: UserConsentKind; label: TKey; hint: TKey }> = [
-  { kind: "casl_marketing", label: "privacy.marketing", hint: "privacy.marketingHint" },
-  { kind: AI_CONSENT_KIND, label: "privacy.ai", hint: "privacy.aiHint" },
+/** Version recorded with the AI consent: bump it whenever "ai.consent.details" changes (fr or en). */
+export const AI_CONSENT_VERSION = "web-2026-10-ai-1";
+
+const CONSENTS: Array<{ kind: UserConsentKind; label: TKey; hint: TKey; version: string; anchor?: string }> = [
+  { kind: "casl_marketing", label: "privacy.marketing", hint: "privacy.marketingHint", version: "web-2026-10" },
+  // Law 25 (s. 14 and 17): separate, specific consent; the wording names the processor and where the data goes.
+  { kind: AI_CONSENT_KIND, label: "ai.consent.label", hint: "ai.consent.details", version: AI_CONSENT_VERSION, anchor: "ia" },
 ];
 
-/** Version string recorded with each consent (bump when the wording changes). */
-const CONSENT_VERSION = "web-2026-10";
-
 function ConsentsSection() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   // There is no GET /v1/consents: the AI consent comes from GET /v1/ai/status; the others start off
   // (opt-in) and reflect what was set in this session.
   const [state, setState] = useState<Partial<Record<UserConsentKind, boolean>>>({});
+  const [status, setStatus] = useState<AiStatusResponse | null>(null);
   const [msg, setMsg] = useState<TKey | null>(null);
   useEffect(() => {
+    // Links from the AI features land on /compte#ia.
+    if (window.location.hash === "#ia") document.getElementById("ia")?.scrollIntoView?.({ block: "center" });
     api
       .aiStatus()
-      .then((s) => setState((st) => ({ ...st, [AI_CONSENT_KIND]: s.consent })))
+      .then((s) => {
+        setStatus(s);
+        setState((st) => ({ ...st, [AI_CONSENT_KIND]: s.consent }));
+      })
       .catch(() => undefined);
   }, []);
-  const toggle = async (kind: UserConsentKind, granted: boolean) => {
+  const toggle = async (kind: UserConsentKind, granted: boolean, version: string) => {
     setState((s) => ({ ...s, [kind]: granted }));
     try {
-      await api.setConsent({ kind, granted, version: CONSENT_VERSION, source: "web" });
-      setMsg("privacy.saved");
+      await api.setConsent({ kind, granted, version, source: "web" });
+      setMsg(kind === AI_CONSENT_KIND ? (granted ? "ai.consent.granted" : "ai.consent.withdrawn") : "privacy.saved");
     } catch (e) {
       setState((s) => ({ ...s, [kind]: !granted }));
       setMsg(toErrorKey(e));
     }
   };
+  const ok = msg === "privacy.saved" || msg === "ai.consent.granted" || msg === "ai.consent.withdrawn";
   return (
     <section className="card" aria-labelledby="privacy-h">
       <h2 id="privacy-h" className="card__title">
@@ -281,16 +290,36 @@ function ConsentsSection() {
       </h2>
       <p className="muted small">{t("privacy.intro")}</p>
       {CONSENTS.map((c) => (
-        <label key={c.kind} className="switch-row">
-          <span>
-            <span className="switch-row__label">{t(c.label)}</span>
-            <span className="field__hint">{t(c.hint)}</span>
-          </span>
-          <input type="checkbox" role="switch" className="switch" checked={state[c.kind] ?? false} onChange={(e) => void toggle(c.kind, e.target.checked)} />
-        </label>
+        <div key={c.kind} id={c.anchor}>
+          <label className="switch-row">
+            <span>
+              <span className="switch-row__label">{t(c.label)}</span>
+              <span className="field__hint">{t(c.hint)}</span>
+            </span>
+            <input
+              type="checkbox"
+              role="switch"
+              className="switch"
+              checked={state[c.kind] ?? false}
+              onChange={(e) => void toggle(c.kind, e.target.checked, c.version)}
+            />
+          </label>
+          {c.kind === AI_CONSENT_KIND && status ? (
+            <p className="muted small">
+              {!status.configured
+                ? t("ai.error.notConfigured")
+                : status.monthlyBudgetCadCents === 0
+                  ? t("ai.consent.noBudget")
+                  : t("ai.consent.budget", {
+                      used: formatCad(status.usedCadCents, lang),
+                      budget: formatCad(status.monthlyBudgetCadCents, lang),
+                    })}
+            </p>
+          ) : null}
+        </div>
       ))}
       {msg ? (
-        <p className={msg === "privacy.saved" ? "ok-text" : "note note--error"} role="status">
+        <p className={ok ? "ok-text" : "note note--error"} role="status">
           {t(msg)}
         </p>
       ) : null}

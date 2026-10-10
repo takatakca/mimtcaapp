@@ -8,6 +8,8 @@ import type {
   IvrMenu,
   MeResponse,
   MessageDto,
+  OffersResponse,
+  OrderDetailResponse,
   ServiceOrder,
 } from "@mimt/shared";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -15,7 +17,6 @@ import { createHttpClient, type HttpClient } from "./http";
 import { isOpenNow, mockFetch, resetMockState } from "./mock";
 import { createTokenStore } from "./tokens";
 import { ApiClientError } from "./errors";
-import type { OffersResponse, OrderDetailResponse } from "./pending";
 
 let http: HttpClient;
 let signedOut = 0;
@@ -82,7 +83,8 @@ describe("mock API", () => {
     const updated = await http.request<Extension>("PATCH", `${b}/extensions/${e.id}`, { body: { displayName: "Livraisons (soir)" } });
     expect(updated.displayName).toBe("Livraisons (soir)");
     await http.request("DELETE", `${b}/extensions/${e.id}`);
-    await expect(http.request("GET", "/v1/business/other/extensions")).rejects.toMatchObject({ key: "error.forbidden" });
+    // Like apps/api: a business you are not a member of does not exist for you.
+    await expect(http.request("GET", "/v1/business/other/extensions")).rejects.toMatchObject({ status: 404, key: "error.notFound" });
   });
 
   it("saves an IVR menu and business hours", async () => {
@@ -109,11 +111,11 @@ describe("mock API", () => {
     expect(rimouski.offers.some((o) => o.code === "INT-1G-24")).toBe(false);
     expect(all.offers.length).toBeGreaterThanOrEqual(montreal.offers.length);
 
+    // Draft first (like apps/api): nothing is accepted or sent before /submit.
     const order = await http.request<ServiceOrder>("POST", "/v1/catalog/orders", { body: { offerId: "off-mob-20", simKind: "esim" } });
-    expect(order).toMatchObject({ state: "submitted", simKind: "esim", productLine: "mobile" });
-    expect(order.contractSummaryVersion).toMatch(/^cis-/);
+    expect(order).toMatchObject({ state: "draft", simKind: "esim", productLine: "mobile", contractSummaryVersion: null });
     const detail = await http.request<OrderDetailResponse>("GET", `/v1/catalog/orders/${order.id}`);
-    expect(detail.events.map((e) => e.event)).toEqual(["submit"]);
+    expect(detail).toMatchObject({ service: null, appointments: [], devices: [], porting: null });
     await expect(http.request("POST", "/v1/catalog/orders", { body: { offerId: "off-int-400" } })).rejects.toMatchObject({ status: 400 });
   });
 });

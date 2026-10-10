@@ -1,9 +1,12 @@
 import type { Urgency, VoicemailDto } from "@mimt/shared";
+import { useState } from "react";
 import { api } from "../api/client";
+import { AiErrorNote } from "../components/AiErrorNote";
 import { Icon } from "../components/Icon";
 import { Badge, Empty, ErrorNote, Loading, PageHeader } from "../components/ui";
 import { useI18n } from "../i18n/I18nProvider";
 import type { TKey } from "../i18n/core";
+import { aiErrorKey } from "../lib/aiErrors";
 import { formatPhone } from "../lib/dial";
 import { formatDuration, formatWhen } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
@@ -19,6 +22,22 @@ export function Voicemail() {
   const { t, locale } = useI18n();
   const { prepare } = usePhone();
   const vms = useAsync(() => api.voicemails(), []);
+  const [summarizing, setSummarizing] = useState<string | null>(null);
+  const [aiErrors, setAiErrors] = useState<Record<string, TKey>>({});
+
+  /** POST /v1/voicemails/:id/summary: sends the transcript to the AI provider (needs consent). */
+  const summarize = async (vm: VoicemailDto) => {
+    setSummarizing(vm.id);
+    setAiErrors(({ [vm.id]: _gone, ...rest }) => rest);
+    try {
+      const updated = await api.summarizeVoicemail(vm.id);
+      vms.setData((d) => d && { voicemails: d.voicemails.map((v) => (v.id === vm.id ? updated : v)) });
+    } catch (e) {
+      setAiErrors((errs) => ({ ...errs, [vm.id]: aiErrorKey(e) }));
+    } finally {
+      setSummarizing(null);
+    }
+  };
 
   const remove = async (vm: VoicemailDto) => {
     if (!window.confirm(t("voicemail.deleteConfirm"))) return;
@@ -65,12 +84,25 @@ export function Voicemail() {
                     <Icon name="sparkle" size={14} /> {t("voicemail.aiSummary")}
                     {urgency ? <Badge tone={urgency.tone}>{t(urgency.key)}</Badge> : null}
                     {vm.ai.callbackSuggested ? <Badge tone="info">{t("voicemail.callbackSuggested")}</Badge> : null}
-                    {vm.ai.spamLikelihood >= 0.7 ? <Badge tone="warn">{t("spam.call")}</Badge> : null}
+                    {vm.ai.spamLikelihood >= 0.7 ? <span title={t("ai.spam.hint")}><Badge tone="warn">{t("spam.call")}</Badge></span> : null}
                   </p>
                   <p>{vm.ai.summary}</p>
                   {vm.ai.callerIntent ? <p className="muted small">{t("voicemail.intent", { intent: vm.ai.callerIntent })}</p> : null}
                 </div>
+              ) : vm.transcript ? (
+                <div className="row row--wrap">
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => void summarize(vm)}
+                    disabled={summarizing === vm.id}
+                    aria-label={t("ai.vm.summarizeLabel")}
+                  >
+                    <Icon name="sparkle" size={14} /> {summarizing === vm.id ? t("ai.vm.summarizing") : t("ai.vm.summarize")}
+                  </button>
+                </div>
               ) : null}
+              <AiErrorNote error={aiErrors[vm.id]} />
               {vm.audioUrl ? (
                 <audio className="vm__audio" controls preload="none" src={vm.audioUrl} aria-label={t("voicemail.play")} />
               ) : (
