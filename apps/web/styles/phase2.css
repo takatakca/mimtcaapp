@@ -1,0 +1,118 @@
+/* Phase 2 pages (Affaires, IA, app Web, comparaison). Same brand tokens as globals.css. */
+
+/* status badges: blue = at launch, neutral = planned (green is never used as decoration) */
+.status {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.status--launch {
+  background: rgba(21, 101, 216, 0.1);
+  color: var(--brand);
+}
+.status--planned {
+  background: #eef1f5;
+  color: #4b5b73;
+}
+.feature h3 {
+  margin-top: 0;
+}
+
+/* IVR / receptionist call flow (text, no image) */
+.callflow {
+  list-style: none;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.callflow li {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--midnight);
+  color: var(--white);
+}
+.callflow .key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--brand);
+  color: #fff;
+  font-family: var(--font-h);
+  font-weight: 800;
+  font-size: 1rem;
+}
+.callflow p {
+  margin: 0;
+  color: var(--silver);
+}
+.callflow strong {
+  color: var(--white);
+}
+.quote {
+  margin: 1rem 0 0;
+  padding: 14px 18px;
+  border-left: 4px solid var(--electric);
+  background: var(--tint);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-style: italic;
+}
+.split {
+  display: grid;
+  gap: 28px;
+  align-items: start;
+}
+@media (min-width: 900px) {
+  .split {
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+  }
+}
+.holidays {
+  columns: 2 220px;
+  padding-left: 1.2em;
+  margin: 0.5rem 0 0;
+}
+.holidays li {
+  break-inside: avoid;
+  margin-bottom: 0.35em;
+}
+.holidays time {
+  font-weight: 600;
+}
+.consent {
+  border-left: 4px solid var(--electric);
+  margin-top: 1.5rem;
+}
+.consent h3 {
+  margin-top: 0;
+}
+.compare--2 {
+  min-width: 560px;
+}
+.faq-group {
+  margin-top: 2.2rem;
+}
+.faq__more {
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+}
+.placeholder {
+  background: var(--warn-bg);
+  color: #4a3200;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-weight: 600;
+}

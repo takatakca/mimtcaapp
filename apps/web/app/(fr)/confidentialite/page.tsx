@@ -1,7 +1,7 @@
 import { PrivacyPage } from "@/components/pages/PrivacyPage";
-import { pageMeta } from "@/lib/site";
+import { metadataFor } from "@/lib/meta";
 
-export const metadata = pageMeta("fr", "privacy", "Confidentialité", "Politique de confidentialité de MIMT (Loi 25) : renseignements recueillis, fournisseurs, vos droits et notre responsable.");
+export const metadata = metadataFor("fr", "privacy");
 
 export default function Page() {
   return <PrivacyPage lang="fr" />;

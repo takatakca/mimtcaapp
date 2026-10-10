@@ -1,7 +1,7 @@
 import { PlansPage } from "@/components/pages/PlansPage";
-import { pageMeta } from "@/lib/site";
+import { metadataFor } from "@/lib/meta";
 
-export const metadata = pageMeta("fr", "plans", "Forfaits", "Forfaits MIMT : Gratuit, Verrouillage du numéro, Premium, Affaires et Affaires Pro. Prix clairs et limites affichées.");
+export const metadata = metadataFor("fr", "plans");
 
 export default function Page() {
   return <PlansPage lang="fr" />;

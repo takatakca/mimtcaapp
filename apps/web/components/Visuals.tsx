@@ -107,7 +107,26 @@ export function StoreBadges({ lang }: { lang: Lang }) {
 }
 
 /** Small inline icons for feature cards. */
-export function Icon({ name }: { name: "number" | "wifi" | "voicemail" | "free" | "lock" | "sos" | "phone" | "team" | "desk" | "record" | "menu" | "admin" }) {
+export type IconName =
+  | "number"
+  | "wifi"
+  | "voicemail"
+  | "free"
+  | "lock"
+  | "sos"
+  | "phone"
+  | "team"
+  | "desk"
+  | "record"
+  | "menu"
+  | "admin"
+  | "spark"
+  | "shield"
+  | "calendar"
+  | "chat"
+  | "globe";
+
+export function Icon({ name }: { name: IconName }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   const paths: Record<typeof name, ReactNode> = {
     number: <><rect x="6" y="2.5" width="12" height="19" rx="2.5" {...common} /><path d="M10 18.5h4" {...common} /></>,
@@ -122,6 +141,11 @@ export function Icon({ name }: { name: "number" | "wifi" | "voicemail" | "free" 
     record: <><circle cx="12" cy="12" r="8.5" {...common} /><circle cx="12" cy="12" r="3.5" fill="currentColor" /></>,
     menu: <path d="M4 6h16M4 12h10M4 18h13" {...common} />,
     admin: <><path d="M12 2.5l8 3v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10v-6z" {...common} /><path d="M8.5 12l2.5 2.5 4.5-5" {...common} /></>,
+    spark: <><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" {...common} /><path d="M19 16v4M17 18h4" {...common} /></>,
+    shield: <><path d="M12 2.5l8 3v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10v-6z" {...common} /><path d="M12 8v5M12 16h0" {...common} /></>,
+    calendar: <><rect x="3.5" y="5" width="17" height="15.5" rx="2" {...common} /><path d="M3.5 10h17M8 3v4M16 3v4M8 14h2M14 14h2" {...common} /></>,
+    chat: <><path d="M4 5h16v11H9l-5 4z" {...common} /><path d="M8 9.5h8M8 12.5h5" {...common} /></>,
+    globe: <><circle cx="12" cy="12" r="9" {...common} /><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3" {...common} /></>,
   };
   return (
     <svg className="icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">

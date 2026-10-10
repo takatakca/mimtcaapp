@@ -5,12 +5,19 @@ export type Lang = "fr" | "en";
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://mimt.ca").replace(/\/$/, "");
 export const CONTACT_EMAIL = "info@mimt.ca";
 export const CCTS_URL = "https://www.ccts-cprst.ca";
+/** The MIMT web app (softphone + business admin portal), apps/webphone. */
+export const APP_URL = "https://app.mimt.ca";
+/** Shown wherever the docs leave a legal or business fact blank. Never replace it with a guess. */
+export const TBC = { fr: "[À confirmer par MIMT]", en: "[To be confirmed by MIMT]" } as const;
 
 /** Every page, with its French and English path (trailing slash: static export writes folders). */
 export const ROUTES = {
   home: { fr: "/", en: "/en/" },
   plans: { fr: "/forfaits/", en: "/en/plans/" },
   business: { fr: "/affaires/", en: "/en/business/" },
+  ai: { fr: "/ia/", en: "/en/ai/" },
+  webapp: { fr: "/app-web/", en: "/en/web-app/" },
+  compare: { fr: "/comparer/", en: "/en/compare/" },
   soon: { fr: "/bientot/", en: "/en/coming-soon/" },
   e911: { fr: "/9-1-1/", en: "/en/9-1-1/" },
   help: { fr: "/aide/", en: "/en/help/" },
@@ -31,6 +38,9 @@ export const LABELS: Record<RouteKey, { fr: string; en: string }> = {
   home: { fr: "Accueil", en: "Home" },
   plans: { fr: "Forfaits", en: "Plans" },
   business: { fr: "Affaires", en: "Business" },
+  ai: { fr: "IA", en: "AI" },
+  webapp: { fr: "App Web", en: "Web app" },
+  compare: { fr: "Comparer", en: "Compare" },
   soon: { fr: "Bientôt", en: "Coming soon" },
   e911: { fr: "9-1-1", en: "9-1-1" },
   help: { fr: "Aide", en: "Help" },
@@ -41,9 +51,12 @@ export const LABELS: Record<RouteKey, { fr: string; en: string }> = {
   contact: { fr: "Contact", en: "Contact" },
 };
 
-export const MAIN_NAV: RouteKey[] = ["plans", "business", "soon", "help", "contact"];
+export const MAIN_NAV: RouteKey[] = ["plans", "business", "ai", "soon", "help", "contact"];
 
 /** Per-page metadata with canonical, hreflang (fr-CA / en-CA) and Open Graph. */
+// The image is in French (French first); the alt text describes it as it is.
+const OG_ALT = "MIMT par GROUPE TAKATAK : Votre numéro canadien, partout. MIMT Mobile, MIMT Affaires, fait au Québec.";
+
 export function pageMeta(lang: Lang, key: RouteKey, title: string, description: string): Metadata {
   const url = SITE_URL + ROUTES[key][lang];
   const fullTitle = key === "home" ? title : `${title} | MIMT`;
@@ -59,6 +72,7 @@ export function pageMeta(lang: Lang, key: RouteKey, title: string, description: 
         "x-default": SITE_URL + ROUTES[key].fr,
       },
     },
+    robots: { index: true, follow: true },
     openGraph: {
       type: "website",
       siteName: "MIMT",
@@ -67,9 +81,9 @@ export function pageMeta(lang: Lang, key: RouteKey, title: string, description: 
       url,
       locale: lang === "fr" ? "fr_CA" : "en_CA",
       alternateLocale: lang === "fr" ? "en_CA" : "fr_CA",
-      images: [{ url: "/og.png", width: 1200, height: 630, alt: "MIMT" }],
+      images: [{ url: "/og.png", width: 1200, height: 630, alt: OG_ALT }],
     },
-    twitter: { card: "summary_large_image", title: fullTitle, description, images: ["/og.png"] },
+    twitter: { card: "summary_large_image", title: fullTitle, description, images: [{ url: "/og.png", alt: OG_ALT }] },
     icons: { icon: "/favicon.svg" },
   };
 }

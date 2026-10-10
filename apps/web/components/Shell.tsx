@@ -1,5 +1,12 @@
 import type { ReactNode } from "react";
-import { LABELS, MAIN_NAV, ROUTES, href, type Lang, type RouteKey } from "@/lib/site";
+import { PAGE_META } from "@/lib/meta";
+import { breadcrumbLd, graph, jsonLdString, organizationLd, webPageLd, websiteLd, type JsonLdObject } from "@/lib/seo";
+import { APP_URL, CCTS_URL, LABELS, MAIN_NAV, ROUTES, href, type Lang, type RouteKey } from "@/lib/site";
+
+/** schema.org data for search engines and AI assistants. */
+export function JsonLd({ data }: { data: JsonLdObject }) {
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdString(data) }} />;
+}
 
 function Wordmark({ lang }: { lang: Lang }) {
   return (
@@ -79,10 +86,19 @@ function Footer({ lang }: { lang: Lang }) {
   const fr = lang === "fr";
   const year = new Date().getFullYear();
   const cols: { title: string; keys: RouteKey[] }[] = [
-    { title: fr ? "Produits" : "Products", keys: ["home", "plans", "business", "soon"] },
-    { title: fr ? "Soutien" : "Support", keys: ["help", "contact", "complaints", "e911"] },
-    { title: fr ? "Légal" : "Legal", keys: ["privacy", "terms", "accessibility"] },
+    { title: fr ? "Produits" : "Products", keys: ["home", "business", "ai", "webapp", "plans", "compare", "soon"] },
+    { title: fr ? "Soutien" : "Support", keys: ["help", "contact", "complaints"] },
+    { title: fr ? "Légal" : "Legal", keys: ["e911", "privacy", "terms", "accessibility"] },
   ];
+  const footerLabel = (key: RouteKey): string => {
+    if (key === "home") return "MIMT Mobile";
+    if (key === "business") return fr ? "MIMT Affaires" : "MIMT Business";
+    if (key === "ai") return fr ? "Intelligence artificielle" : "Artificial intelligence";
+    if (key === "help") return fr ? "Aide et FAQ" : "Help and FAQ";
+    if (key === "e911") return fr ? "Limites du 9-1-1" : "9-1-1 limitations";
+    if (key === "privacy") return fr ? "Confidentialité (Loi 25)" : "Privacy (Law 25)";
+    return LABELS[key][lang];
+  };
   return (
     <footer className="site-footer">
       <div className="container">
@@ -112,9 +128,23 @@ function Footer({ lang }: { lang: Lang }) {
               <ul>
                 {col.keys.map((key) => (
                   <li key={key}>
-                    <a href={href(lang, key)}>{key === "home" ? "MIMT Mobile" : LABELS[key][lang]}</a>
+                    <a href={href(lang, key)}>{footerLabel(key)}</a>
                   </li>
                 ))}
+                {col.keys.includes("complaints") ? (
+                  <li>
+                    <a href={CCTS_URL} rel="noopener">
+                      {fr ? "CPRST (plaintes télécom)" : "CCTS (telecom complaints)"}
+                    </a>
+                  </li>
+                ) : null}
+                {col.keys.includes("webapp") ? (
+                  <li>
+                    <a href={APP_URL} rel="noopener">
+                      app.mimt.ca
+                    </a>
+                  </li>
+                ) : null}
               </ul>
             </nav>
           ))}
@@ -136,9 +166,23 @@ function Footer({ lang }: { lang: Lang }) {
   );
 }
 
-export function Shell({ lang, page, children }: { lang: Lang; page: RouteKey; children: ReactNode }) {
+export function Shell({
+  lang,
+  page,
+  children,
+  ld = [],
+}: {
+  lang: Lang;
+  page: RouteKey;
+  children: ReactNode;
+  /** Extra JSON-LD nodes for this page (Service, FAQPage…), added to the site-wide graph. */
+  ld?: JsonLdObject[];
+}) {
+  const meta = PAGE_META[page][lang];
+  const data = graph([organizationLd(lang), websiteLd(lang), webPageLd(lang, page, meta.title, meta.description), breadcrumbLd(lang, page), ...ld]);
   return (
     <>
+      <JsonLd data={data} />
       <a className="skip-link" href="#contenu">
         {lang === "fr" ? "Aller au contenu" : "Skip to content"}
       </a>

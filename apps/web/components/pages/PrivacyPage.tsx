@@ -1,6 +1,7 @@
 import { PageHero, Shell } from "@/components/Shell";
 import { LegalReview } from "@/components/LegalReview";
-import { CONTACT_EMAIL, href, type Lang } from "@/lib/site";
+import { DEFAULT_RECORDING_POLICY } from "@mimt/shared";
+import { CONTACT_EMAIL, TBC, href, type Lang } from "@/lib/site";
 
 const PROCESSORS = [
   {
@@ -17,10 +18,19 @@ const PROCESSORS = [
   { name: "Apple", fr: "Notifications iPhone et achats sur l'App Store.", en: "iPhone notifications and App Store purchases." },
   {
     name: "Supabase",
-    fr: "Base de données et stockage du service (région Canada visée).",
-    en: "Service database and storage (Canadian region targeted).",
+    fr: "Base de données et stockage du service (région Canada, ca-central-1, visée).",
+    en: "Service database and storage (Canada region, ca-central-1, targeted).",
+  },
+  {
+    name: "Anthropic (Claude)",
+    fr: "Fonctions d'intelligence artificielle, seulement avec votre consentement ou, pour le réceptionniste IA, l'acceptation de l'entreprise. Traitement à l'extérieur du Canada.",
+    en: "Artificial intelligence features, only with your consent or, for the AI receptionist, the business's acceptance. Processed outside Canada.",
   },
 ];
+
+function Placeholder({ lang }: { lang: Lang }) {
+  return <span className="placeholder">{TBC[lang]}</span>;
+}
 
 export function PrivacyPage({ lang }: { lang: Lang }) {
   const fr = lang === "fr";
@@ -31,7 +41,7 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
         title={fr ? "Politique de confidentialité" : "Privacy policy"}
         lead={fr ? "Ce que nous recueillons, pourquoi, et vos droits." : "What we collect, why, and your rights."}
       />
-      <LegalReview note="politique de confidentialité complète (Loi 25 / P-39.1, LPRPDE, règles de confidentialité du CRTC), liste des fournisseurs et transferts hors Québec" />
+      <LegalReview note="section IA (consentement ai_processing), réceptionniste IA et enregistrement des appels; politique de confidentialité complète (Loi 25 / P-39.1, LPRPDE, règles de confidentialité du CRTC), liste des fournisseurs et transferts hors Québec" />
       <section className="section">
         <div className="container prose">
           <div className="notice notice--info" role="note">
@@ -44,7 +54,10 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
             {fr ? "Responsable de la protection des renseignements personnels" : "Person in charge of the protection of personal information"}
           </h2>
           <address className="card contact-card">
-            <strong>{fr ? "[Nom et titre — à confirmer]" : "[Name and title — to be confirmed]"}</strong>
+            <strong>
+              {fr ? "Nom et titre : " : "Name and title: "}
+              <Placeholder lang={lang} />
+            </strong>
             <br />
             MIMT · GROUPE TAKATAK
             <br />
@@ -52,7 +65,8 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
             <br />
             {fr ? "Courriel : " : "Email: "}
             <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(fr ? "Confidentialité" : "Privacy")}`}>{CONTACT_EMAIL}</a>{" "}
-            {fr ? "(objet « Confidentialité »; adresse dédiée à confirmer)" : "(subject “Privacy”; dedicated address to be confirmed)"}
+            {fr ? "(objet « Confidentialité »). Adresse dédiée : " : "(subject “Privacy”). Dedicated address: "}
+            <Placeholder lang={lang} />
           </address>
 
           {fr ? (
@@ -78,11 +92,42 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
               </ul>
               <p>Nous ne vendons pas vos renseignements personnels.</p>
 
-              <h2>Où sont vos données</h2>
+              <h2 id="donnees">Où sont vos données</h2>
               <p>
-                Nous hébergeons les données au Canada lorsque c&apos;est possible. Certains fournisseurs peuvent traiter des
-                renseignements à l&apos;extérieur du Québec ou du Canada. Avant toute communication hors du Québec, nous évaluons les
-                facteurs relatifs à la vie privée et concluons une entente écrite qui protège vos renseignements.
+                La base de données et le stockage du service (comptes, registres d&apos;appels, textos, messages vocaux) sont prévus
+                dans un centre de données au Canada (région ca-central-1). Certains fournisseurs, comme ceux qui acheminent les
+                appels, traitent les paiements ou fournissent l&apos;IA, peuvent traiter des renseignements à l&apos;extérieur du
+                Québec ou du Canada. Avant toute communication hors du Québec, nous évaluons les facteurs relatifs à la vie privée et
+                concluons une entente écrite qui protège vos renseignements.
+              </p>
+
+              <h2 id="ia">Intelligence artificielle</h2>
+              <p>
+                MIMT offre des fonctions d&apos;IA fournies par Claude, d&apos;Anthropic : résumés de messages vocaux, réponses
+                suggérées à vos textos et analyse des textos douteux. Ces fonctions sont <strong>facultatives et désactivées par
+                défaut</strong>. Elles demandent votre consentement distinct (« traitement par l&apos;IA »), donné dans l&apos;app,
+                séparé de l&apos;acceptation des conditions.
+              </p>
+              <ul>
+                <li>Ce qui est envoyé : la transcription d&apos;un message vocal, ou les derniers messages d&apos;une conversation (au plus 10) pour suggérer une réponse.</li>
+                <li>Sans votre consentement, rien n&apos;est envoyé au fournisseur d&apos;IA; les appels, les textos et la messagerie vocale fonctionnent normalement.</li>
+                <li>Vous pouvez retirer votre consentement en tout temps dans l&apos;app.</li>
+                <li>Le fournisseur d&apos;IA traite ces renseignements à l&apos;extérieur du Canada. Durée de conservation chez le fournisseur : <Placeholder lang={lang} /></li>
+                <li>Les étiquettes « Appel suspect » par règles simples (sans IA) s&apos;appliquent à tous et ne bloquent jamais un appel.</li>
+              </ul>
+              <p>
+                <strong>Réceptionniste IA (MIMT Affaires).</strong> Quand une entreprise l&apos;active, l&apos;agent virtuel se
+                présente comme une IA dès le début de l&apos;appel et avise que la conversation est transcrite. La conversation est
+                traitée par le fournisseur d&apos;IA pour le compte de l&apos;entreprise, qui accepte d&apos;abord les conditions du
+                réceptionniste IA. Les numéros de carte de paiement dictés pendant l&apos;appel sont masqués avant tout envoi.
+              </p>
+
+              <h2 id="enregistrement">Enregistrement des appels (MIMT Affaires)</h2>
+              <p>
+                Une entreprise abonnée à Affaires Pro peut enregistrer ses appels avec l&apos;extérieur. Un message avise toujours
+                l&apos;autre personne avant tout enregistrement. Les enregistrements sont supprimés après{" "}
+                {DEFAULT_RECORDING_POLICY.retentionDays} jours par défaut, ou selon le délai fixé par l&apos;entreprise. Pour un
+                enregistrement vous concernant, adressez-vous d&apos;abord à l&apos;entreprise que vous avez appelée.
               </p>
 
               <h2>Nos fournisseurs</h2>
@@ -110,10 +155,38 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
               </ul>
               <p>We don&apos;t sell your personal information.</p>
 
-              <h2>Where your data is</h2>
+              <h2 id="donnees">Where your data is</h2>
               <p>
-                We host data in Canada where possible. Some providers may process information outside Québec or Canada. Before any
-                transfer outside Québec, we assess the privacy factors and sign a written agreement that protects your information.
+                The service database and storage (accounts, call records, texts, voicemails) are planned in a data centre in Canada
+                (ca-central-1 region). Some providers, such as those that route calls, process payments or provide AI, may process
+                information outside Québec or Canada. Before any transfer outside Québec, we assess the privacy factors and sign a
+                written agreement that protects your information.
+              </p>
+
+              <h2 id="ia">Artificial intelligence</h2>
+              <p>
+                MIMT offers AI features provided by Claude, from Anthropic: voicemail summaries, suggested replies to your texts and
+                checks of doubtful texts. These features are <strong>optional and off by default</strong>. They need your separate
+                consent (“AI processing”), given in the app, apart from accepting the terms.
+              </p>
+              <ul>
+                <li>What is sent: a voicemail transcript, or the latest messages of a conversation (10 at most) to suggest a reply.</li>
+                <li>Without your consent, nothing is sent to the AI provider; calls, texts and voicemail work normally.</li>
+                <li>You can withdraw your consent at any time in the app.</li>
+                <li>The AI provider processes this information outside Canada. Retention period at the provider: <Placeholder lang={lang} /></li>
+                <li>Rule-based “Suspicious call” labels (no AI) apply to everyone and never block a call.</li>
+              </ul>
+              <p>
+                <strong>AI receptionist (MIMT Business).</strong> When a business turns it on, the virtual agent says it is an AI at
+                the start of the call and that the conversation is transcribed. The conversation is processed by the AI provider on
+                behalf of the business, which first accepts the AI receptionist terms. Payment card numbers spoken during the call are masked before anything is sent.
+              </p>
+
+              <h2 id="enregistrement">Call recording (MIMT Business)</h2>
+              <p>
+                A business on Business Pro can record its calls with outside parties. A message always tells the other person before
+                any recording. Recordings are deleted after {DEFAULT_RECORDING_POLICY.retentionDays} days by default, or after the
+                period the business sets. For a recording about you, first contact the business you called.
               </p>
 
               <h2>Our providers</h2>
@@ -142,8 +215,8 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
             <>
               <h2>Combien de temps nous les gardons</h2>
               <p>
-                Seulement le temps nécessaire aux fins indiquées ou exigé par la loi. Les durées précises par type de renseignement
-                seront publiées ici. [À compléter]
+                Seulement le temps nécessaire aux fins indiquées ou exigé par la loi. Durées précises par type de renseignement
+                (registres d&apos;appels, textos, messages vocaux, adresse 9-1-1, consentements) : <Placeholder lang={lang} />
               </p>
 
               <h2>Vos droits</h2>
@@ -172,8 +245,8 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
             <>
               <h2>How long we keep it</h2>
               <p>
-                Only as long as needed for the stated purposes or as required by law. Specific periods per type of information will
-                be published here. [To be completed]
+                Only as long as needed for the stated purposes or as required by law. Specific periods per type of information (call
+                records, texts, voicemails, 9-1-1 address, consents): <Placeholder lang={lang} />
               </p>
 
               <h2>Your rights</h2>
@@ -199,7 +272,9 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
             </>
           )}
           <p className="fineprint">
-            {fr ? "Dernière mise à jour : [date à confirmer]. Voir aussi nos " : "Last updated: [date to be confirmed]. See also our "}
+            {fr ? "Dernière mise à jour : " : "Last updated: "}
+            <Placeholder lang={lang} />
+            {fr ? ". Voir aussi nos " : ". See also our "}
             <a href={href(lang, "terms")}>{fr ? "conditions" : "terms"}</a>.
           </p>
         </div>

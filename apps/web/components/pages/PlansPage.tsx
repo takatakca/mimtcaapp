@@ -14,6 +14,7 @@ import {
   type Feature,
   type Plan,
 } from "@/lib/plans-view";
+import { serviceLd } from "@/lib/seo";
 import { href, type Lang } from "@/lib/site";
 
 const ROW_FEATURES: Feature[] = [
@@ -26,6 +27,7 @@ const ROW_FEATURES: Feature[] = [
   "ring_groups",
   "admin_portal",
   "call_recording",
+  "ai_assist",
 ];
 
 function Yes({ lang }: { lang: Lang }) {
@@ -104,7 +106,7 @@ export function PlansPage({ lang }: { lang: Lang }) {
   ];
 
   return (
-    <Shell lang={lang} page="plans">
+    <Shell lang={lang} page="plans" ld={[serviceLd(lang, "mobile"), serviceLd(lang, "business")]}>
       <PageHero
         eyebrow={fr ? "Forfaits" : "Plans"}
         title={fr ? "Des forfaits clairs, sans surprise" : "Clear plans, no surprises"}
@@ -212,6 +214,11 @@ export function PlansPage({ lang }: { lang: Lang }) {
             </li>
           </ul>
           <p className="fineprint">
+            {fr ? "Le réceptionniste IA est inclus avec Affaires et Affaires Pro. " : "The AI receptionist is included with Business and Business Pro. "}
+            <a href={href(lang, "ai")}>{fr ? "Fonctions IA" : "AI features"}</a>
+            {" · "}
+            <a href={href(lang, "compare")}>{fr ? "Comparer avec les applis de numéro gratuit" : "Compare with free-number apps"}</a>
+            <br />
             {fr ? "Une question sur les forfaits? " : "Questions about plans? "}
             <a href={href(lang, "help")}>{fr ? "Consultez l'aide" : "Visit help"}</a>
             {fr ? " ou " : " or "}

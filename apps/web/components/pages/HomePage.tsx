@@ -3,13 +3,14 @@ import { LeadForm } from "@/components/LeadForm";
 import { Icon, PhoneMockup, StoreBadges } from "@/components/Visuals";
 import { PlanCard } from "@/components/PlanCard";
 import { CONSUMER_PLANS, PLANS, formatCad } from "@/lib/plans-view";
-import { href, type Lang } from "@/lib/site";
+import { serviceLd } from "@/lib/seo";
+import { APP_URL, href, type Lang } from "@/lib/site";
 
 export function HomePage({ lang }: { lang: Lang }) {
   const fr = lang === "fr";
   const t = fr ? FR : EN;
   return (
-    <Shell lang={lang} page="home">
+    <Shell lang={lang} page="home" ld={[serviceLd(lang, "mobile"), serviceLd(lang, "business")]}>
       <section className="hero">
         <div className="container hero__inner">
           <div className="hero__copy">
@@ -118,6 +119,48 @@ export function HomePage({ lang }: { lang: Lang }) {
         </div>
       </section>
 
+      <section className="section" aria-labelledby="ai-title">
+        <div className="container">
+          <p className="kicker">{fr ? "Intelligence artificielle" : "Artificial intelligence"}</p>
+          <h2 id="ai-title">{t.aiTitle}</h2>
+          <p className="section-lead">{t.aiLead}</p>
+          <ul className="grid grid--4 features">
+            {t.ai.map((f) => (
+              <li key={f.title} className="card feature">
+                <span className="feature__icon">
+                  <Icon name={f.icon} />
+                </span>
+                <h3>{f.title}</h3>
+                <p>{f.text}</p>
+              </li>
+            ))}
+          </ul>
+          <p className="fineprint">
+            <a href={href(lang, "ai")}>{fr ? "Tout savoir sur l'IA et le consentement" : "All about AI and consent"}</a>
+            {" · "}
+            <a href={href(lang, "compare")}>{fr ? "Comparer MIMT aux applis de numéro gratuit" : "Compare MIMT with free-number apps"}</a>
+          </p>
+        </div>
+      </section>
+
+      <section className="section section--tint" aria-labelledby="web-title">
+        <div className="container business-teaser__inner">
+          <div>
+            <p className="kicker">{fr ? "App Web" : "Web app"}</p>
+            <h2 id="web-title">{t.webTitle}</h2>
+            <p className="section-lead">{t.webLead}</p>
+          </div>
+          <div className="cta-row">
+            <a className="btn btn--primary" href={APP_URL} rel="noopener">
+              {fr ? "Ouvrir app.mimt.ca" : "Open app.mimt.ca"}
+            </a>
+            <a className="btn btn--outline" href={href(lang, "webapp")}>
+              {fr ? "En savoir plus" : "Learn more"}
+            </a>
+          </div>
+        </div>
+      </section>
+
       <section className="section quebec" aria-labelledby="qc-title">
         <div className="container quebec__inner">
           <h2 id="qc-title">{fr ? "Fait au Québec · écosystème GROUPE TAKATAK" : "Made in Québec · GROUPE TAKATAK ecosystem"}</h2>
@@ -175,16 +218,26 @@ const FR = {
   plansLead: "Prix proposés pour le lancement. Chaque limite est écrite noir sur blanc.",
   taxNote: "Prix en dollars canadiens. Taxes en sus (TPS/TVQ) et taxe municipale 9-1-1 du Québec.",
   bizTitle: "Le téléphone d'affaires, sans le matériel",
-  bizLead: "Une ligne par employé, sur cellulaire et ordinateur. Un accueil professionnel pour vos clients, un portail simple pour vous.",
+  bizLead: "Une ligne par employé, sur cellulaire et ordinateur. Un accueil bilingue professionnel pour vos clients, un portail simple pour vous.",
   bizList: [
     "Postes et numéros directs",
-    "Réceptionniste automatique et heures d'ouverture",
+    "Réceptionniste automatique bilingue",
+    "Heures d'ouverture et jours fériés du Québec",
     "Groupes de sonnerie",
-    "Messagerie vocale par courriel",
-    "Applications mobile et ordinateur",
-    "Portail administrateur",
-    "Enregistrement des appels (Affaires Pro)",
+    "Réceptionniste IA",
+    "App mobile, app Web et portail administrateur",
+    "Enregistrement des appels avec avis (Affaires Pro)",
   ],
+  aiTitle: "Une IA utile, jamais sans votre accord",
+  aiLead: "Facultative et désactivée par défaut. Rien n'est envoyé à l'IA sans votre consentement distinct (Loi 25).",
+  ai: [
+    { icon: "voicemail" as IconName, title: "Résumés vocaux", text: "Qui a appelé, pourquoi, et si c'est urgent, en une phrase." },
+    { icon: "chat" as IconName, title: "Réponses suggérées", text: "Trois réponses courtes à vos textos. Rien ne part sans vous." },
+    { icon: "shield" as IconName, title: "Appels suspects", text: "Une étiquette sur les appels et textos douteux. Rien n'est bloqué." },
+    { icon: "spark" as IconName, title: "Réceptionniste IA", text: "Pour les entreprises : il répond, renseigne et transfère." },
+  ],
+  webTitle: "Votre numéro, aussi sur l'ordinateur",
+  webLead: "Avec l'app Web app.mimt.ca, appelez, textez et écoutez vos messages dans le navigateur, avec le même compte. Ouverture avec le lancement de MIMT.",
   qcText: "MIMT est conçu à Montréal, en français d'abord. MIMT fait partie de l'écosystème GROUPE TAKATAK, qui aide les entreprises d'ici à croître en ligne.",
   wlTitle: "Soyez parmi les premiers",
   wlLead: "MIMT n'est pas encore offert. Laissez votre courriel : nous vous écrirons une seule fois au lancement, sauf si vous acceptez nos nouvelles.",
@@ -218,13 +271,23 @@ const EN: typeof FR = {
   bizLead: "One line per employee, on mobile and desktop. A professional greeting for your customers, a simple portal for you.",
   bizList: [
     "Extensions and direct numbers",
-    "Auto-attendant and business hours",
+    "Bilingual auto-attendant",
+    "Business hours and Québec holidays",
     "Ring groups",
-    "Voicemail to email",
-    "Mobile and desktop apps",
-    "Admin portal",
-    "Call recording (Business Pro)",
+    "AI receptionist",
+    "Mobile app, web app and admin portal",
+    "Call recording with notice (Business Pro)",
   ],
+  aiTitle: "Useful AI, never without your consent",
+  aiLead: "Optional and off by default. Nothing is sent to the AI without your separate consent (Québec Law 25).",
+  ai: [
+    { icon: "voicemail", title: "Voicemail summaries", text: "Who called, why, and whether it's urgent, in one sentence." },
+    { icon: "chat", title: "Suggested replies", text: "Three short replies to your texts. Nothing is sent without you." },
+    { icon: "shield", title: "Suspicious calls", text: "A label on doubtful calls and texts. Nothing is blocked." },
+    { icon: "spark", title: "AI receptionist", text: "For businesses: it answers, informs and transfers." },
+  ],
+  webTitle: "Your number, on your computer too",
+  webLead: "With the web app app.mimt.ca, call, text and play voicemail in your browser, with the same account. Opens with the MIMT launch.",
   qcText: "MIMT is built in Montréal, French first. MIMT is part of the GROUPE TAKATAK ecosystem, which helps local businesses grow online.",
   wlTitle: "Be among the first",
   wlLead: "MIMT is not available yet. Leave your email: we'll write once at launch, unless you also opt in to our news.",
