@@ -487,3 +487,43 @@ jobs:
                   print("CA",source,mode,"has block",bool(blocks),"X509 valid",ok,"CA true",ca,"not expired",today)
           print("All checks are local to the runner. No CA text or credentials printed.")
           PY
+
+
+      - name: Validate effective database SSL host and mounted CA target
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          python - <<'PY'
+          import os,json,urllib.request,urllib.parse,re
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          h={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"]}
+          def get(path):
+            with urllib.request.urlopen(urllib.request.Request(base+path,headers=h),timeout=25) as r:return json.load(r)
+          data=get("/applications/"+os.environ["COOLIFY_API_UUID"]+"/envs")
+          if isinstance(data,dict):data=data.get("data",data.get("envs",[]))
+          d=next((o.get("value") for o in data if o.get("key")=="DATABASE_URL"),None)
+          if not isinstance(d,str):raise SystemExit("No DB URL value found")
+          url=urllib.parse.urlsplit(d)
+          host=url.hostname or ""
+          print("Effective URL scheme valid:",url.scheme in ("postgresql","postgres"))
+          print("Effective hostname class:", "local" if host in ("localhost","127.0.0.1") else ("docker-service" if "." not in host else "external"))
+          print("Effective host length:",len(host))
+          print("Effective port:",url.port or 5432)
+          opts=urllib.parse.parse_qs(url.query)
+          sr=(opts.get("sslrootcert") or [""])[0]
+          print("sslrootcert is standard Coolify CA mount:",sr=="/etc/ssl/certs/coolify-ca.crt")
+          print("sslrootcert references another absolute file:",sr.startswith("/") and sr!="/etc/ssl/certs/coolify-ca.crt")
+          print("sslmode verify full:",(opts.get("sslmode") or [""])[0]=="verify-full")
+          services=get("/services")
+          if isinstance(services,dict):services=services.get("data",services.get("services",[]))
+          for x in services:
+            raw=str(x.get("docker_compose_raw") or "")
+            if not re.search(r"postgres",raw,re.I):continue
+            print("Effective hostname referenced by compose:",bool(host and host in raw))
+            print("Compose contains CA host path:", "/data/coolify/ssl/coolify-ca.crt" in raw)
+            print("Compose contains CA-mounted container path:","/etc/ssl/certs/coolify-ca.crt" in raw)
+            print("Compose has PostgreSQL TLS cert file parameter:",bool(re.search(r"ssl_cert_file|server.crt",raw)))
+          print("Database hostname and credentials never printed.")
+          PY
