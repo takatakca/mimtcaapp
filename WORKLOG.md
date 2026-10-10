@@ -3,5 +3,11 @@
 Newest first, one line per piece of work. Rule: `AGENTS.md` › Work log rule.
 Format: `YYYY-MM-DD | agent | branch → PR | status | what | next step`
 
-- 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | Phase 2 platform: web softphone (WebRTC), business PBX, AI (Claude), catalog + Vidéotron provisioning adapter | PR for owner review; no merge/deploy (TAKATAK-V1 control rule)
+- 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | Auto-deploy workflow (.github/workflows/deploy.yml): mimt.ca + app.mimt.ca by FTPS, API by Coolify | owner: add GitHub secrets MOCHAHOST_FTP_* and COOLIFY_*; create app./api.mimt.ca subdomains
+- 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | Business PBX (MIMT Affaires): extensions, ring groups, bilingual IVR, Quebec hours/holidays, recording with consent, per-line seats | finish tests, merge to main
+- 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | AI (Claude): voicemail summaries, smart SMS replies, spam scoring, AI receptionist (ConversationRelay), Law 25 consent, cost caps | finish tests; owner: ANTHROPIC_API_KEY in secrets
+- 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | Web softphone app.mimt.ca (WebRTC, Twilio Voice JS) + business admin portal | finish, screenshots, merge
+- 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | Resale: catalog, orders, SIM/eSIM, porting, Wireless/Internet Code summaries, Vidéotron adapter (skeleton) + sandbox provider | owner: Vidéotron API docs and credentials to fill the adapter
+- 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | TextNow/Fongo/Fizz/Unison feature-parity scan → docs/MIMT-PARITY.md | build the P0/P1 gaps (lock-in number, SIM, rewards, etc.)
+- 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | (next) | planned | Video conferencing for offices (meetings, screen share) in PBX + web app | start after webphone lands
 - 2026-10-09 | claude (MIMT agent 2, session 01GtWamF) | main | done | Bootstrap: shared package, API (125 tests), mobile app (29), website (22 pages), DB schema, CI | owner: Twilio sub-account + secrets, Supabase MIMT project; dev: deploy API on Coolify, apply migrations, dev build on a real phone, first real call
