@@ -1,0 +1,122 @@
+name: MIMT Coolify Read-only Runtime Audit
+
+# Temporary diagnostic: never prints secret values, environment connection
+# strings, database names, application UUIDs, or API response bodies.
+on:
+  push:
+    branches: [diag/mimt-coolify-runtime-audit-20261010]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect Coolify application and database configuration safely
+        shell: bash
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os, urllib.request, urllib.error, urllib.parse
+
+          endpoint=os.environ.get("COOLIFY_URL","").rstrip("/")
+          token=os.environ.get("COOLIFY_TOKEN","")
+          uuid=os.environ.get("COOLIFY_API_UUID","")
+          if not endpoint.startswith("https://") or not token or not uuid:
+              raise SystemExit("Audit cannot proceed: missing HTTPS Coolify connection or credentials")
+          url=endpoint+"/api/v1"
+          hdr={"Authorization":"Bearer "+token,"Accept":"application/json"}
+
+          def get(path):
+              req=urllib.request.Request(url+path,headers=hdr,method="GET")
+              try:
+                  with urllib.request.urlopen(req,timeout=18) as res:
+                      data=json.loads(res.read(1500000).decode())
+                      return data
+              except urllib.error.HTTPError as exc:
+                  print("Coolify GET",path.rsplit("/",1)[-1] if not path.startswith("/applications/") else "application endpoint","HTTP",exc.code)
+                  return None
+              except Exception as exc:
+                  print("Coolify API request failed:",type(exc).__name__)
+                  return None
+
+          app=get("/applications/"+urllib.parse.quote(uuid,safe=""))
+          if isinstance(app,dict):
+              for k in ("status","build_pack","dockerfile","base_directory","publish_directory","ports_exposes"):
+                  val=app.get(k)
+                  if val is None: continue
+                  if k == "status" and isinstance(val,str):
+                      print("Coolify app status:",val[:60])
+                  elif k=="ports_exposes":
+                      print("Coolify exposes 8080:", "8080" in str(val))
+                  elif k=="build_pack":
+                      print("Coolify build pack Dockerfile:",str(val).lower()=="dockerfile")
+                  else:
+                      print("Coolify",k,"configured:",bool(val))
+          else:
+              print("Coolify application metadata unavailable.")
+
+          env=get("/applications/"+urllib.parse.quote(uuid,safe="")+"/envs")
+          keys={}
+          if isinstance(env,dict):
+              env=env.get("data",env.get("envs",[]))
+          if isinstance(env,list):
+              for v in env:
+                  if isinstance(v,dict) and isinstance(v.get("key"),str):
+                      keys[v["key"]]=v
+              print("Coolify env variable count:",len(keys))
+              for k in ("DATABASE_URL","DATABASE_SSL_CA_PEM","NODE_EXTRA_CA_CERTS","NODE_TLS_REJECT_UNAUTHORIZED","PUBLIC_BASE_URL","NODE_ENV","PORT"):
+                  print("CONFIG",k,"present:",k in keys)
+              def retrieve(k):
+                  ob=keys.get(k,{})
+                  v=ob.get("real_value") or ob.get("value")
+                  return v if isinstance(v,str) else None
+              conn=retrieve("DATABASE_URL")
+              if conn:
+                  try:
+                      parsed=urllib.parse.urlsplit(conn)
+                      host=(parsed.hostname or "").lower()
+                      group="supabase" if "supabase" in host else ("internal-docker" if not "." in host or host.endswith(".internal") else "external-other")
+                      print("DB host class:",group)
+                      print("DB URL port:",parsed.port or "default")
+                      opts=urllib.parse.parse_qs(parsed.query)
+                      print("DB URL SSL flags:",{k:("present" if k in opts else "absent") for k in ("sslmode","ssl","sslrootcert")})
+                      for k in ("sslmode",):
+                          if k in opts:
+                              print("DB SSL mode:",opts[k][0] if opts[k][0] in ("disable","allow","prefer","require","verify-ca","verify-full","no-verify") else "other")
+                  except (ValueError,AttributeError):
+                      print("DB URL could not be structurally parsed.")
+              else:
+                  print("DB URL value hidden from this API (presence alone doesn't prove correctness).")
+              pem=retrieve("DATABASE_SSL_CA_PEM")
+              if pem:
+                  print("Database CA PEM formatting:", "valid PEM markers" if "BEGIN CERTIFICATE" in pem and "END CERTIFICATE" in pem else "NOT PEM")
+              elif "DATABASE_SSL_CA_PEM" in keys:
+                  print("Database CA PEM is defined but value hidden, can't validate.")
+              else:
+                  print("Database CA PEM not configured in Coolify.")
+              if retrieve("NODE_TLS_REJECT_UNAUTHORIZED")=="0":
+                  print("WARNING: TLS verification globally disabled! Remove unsafe setting.")
+          else:
+              print("Could not inspect Coolify environment variable names.")
+          dbs=get("/databases")
+          if isinstance(dbs,dict):
+              dbs=dbs.get("data",dbs.get("databases",[]))
+          if isinstance(dbs,list):
+              print("Coolify standalone database resources:",len(dbs))
+              for d in dbs[:30]:
+                  if not isinstance(d,dict):continue
+                  nam=str(d.get("name",""))
+                  print("DB Resource: type=",str(d.get("type") or d.get("database_type") or "unknown")[:30],
+                        "is MIMT-named=",("mimt" in nam.lower()),
+                        "status=",str(d.get("status") or "unknown")[:60],
+                        "SSL field present=",any("ssl" in k.lower() for k in d.keys()))
+          else:
+              print("Coolify database listing unavailable (possibly insufficient token permissions).")
+          print("Audit complete. No secrets, database URLs, or private endpoints printed. NO resources modified.")
+          PY
