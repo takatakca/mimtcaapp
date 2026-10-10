@@ -131,7 +131,7 @@ export class ClaudeGateway implements AiGateway {
 /** Token usage across every attempt (usage.iterations covers a server-side fallback; top-level usage only the last one). */
 export function usageOf(message: Pick<Anthropic.Beta.Messages.BetaMessage, "model" | "usage">): TokenUsage {
   const u = message.usage;
-  const iterations = (u.iterations ?? []) as Array<Record<string, unknown>>;
+  const iterations = (u.iterations ?? []) as unknown as Array<Record<string, unknown>>;
   const num = (v: unknown) => (typeof v === "number" ? v : 0);
   if (iterations.length > 0) {
     return iterations.reduce<TokenUsage>(

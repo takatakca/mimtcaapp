@@ -18,7 +18,7 @@ import type { Call } from "./types.js";
 const clone = <T>(v: T): T => structuredClone(v);
 const ACTIVE_CALL_STATUSES = new Set(["queued", "initiated", "ringing", "in-progress"]);
 
-function patchRow<T extends object>(map: Map<string, T>, id: string, patch: Partial<T>, what: string): T {
+function patchRow<T extends object>(map: Map<string, T>, id: string, patch: Partial<NoInfer<T>>, what: string): T {
   const row = map.get(id);
   if (!row) throw new Error(`${what} ${id} not found`);
   Object.assign(row, Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)));
