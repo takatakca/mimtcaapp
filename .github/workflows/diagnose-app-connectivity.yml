@@ -1,0 +1,34 @@
+name: Diagnose MIMT App DNS and HTTPS
+
+# Read-only public connectivity check. No credentials or files changed.
+on:
+  push:
+    branches: [diag/mimt-app-connectivity-20261010]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Diagnose public DNS and HTTP for MIMT hosts
+        shell: bash
+        run: |
+          set +e
+          for host in mimt.ca app.mimt.ca api.mimt.ca; do
+            echo "----- HOST: $host -----"
+            echo "DNS A:"
+            dig +time=3 +tries=1 +short "$host" A || true
+            echo "DNS AAAA:"
+            dig +time=3 +tries=1 +short "$host" AAAA || true
+            echo "DNS CNAME:"
+            dig +time=3 +tries=1 +short "$host" CNAME || true
+            echo "DNS response:"
+            dig +time=3 +tries=1 "$host" A | grep -E 'status:|ANSWER SECTION|IN[[:space:]]+A[[:space:]]' | head -n 12 || true
+            echo "HTTPS result (status, ip, tls, error):"
+            curl --max-time 12 --connect-timeout 5 -sS -o /dev/null -w 'status=%{http_code} remote_ip=%{remote_ip} tls_verify=%{ssl_verify_result} err=%{errormsg}\n' "https://$host/" || true
+          done
+          echo "Health endpoints:"
+          for url in https://api.mimt.ca/healthz https://api.mimt.ca/readyz; do
+            curl --max-time 12 --connect-timeout 5 -sS -o /dev/null -w "url=$url status=%{http_code} remote_ip=%{remote_ip} err=%{errormsg}\n" "$url" || true
+          done
+          echo "Read-only checks complete"
