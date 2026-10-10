@@ -28,6 +28,7 @@ jobs:
           import ftplib
           import os
           import ssl
+          import socket
 
           host = os.environ["FTP_SERVER"]
           user = os.environ["FTP_USERNAME"]
@@ -36,8 +37,23 @@ jobs:
               raise SystemExit("MochaHost FTP secrets are missing")
           ftp = ftplib.FTP_TLS(context=ssl.create_default_context(), timeout=30)
           try:
-              ftp.connect(host, 21)
-              ftp.login(user, password)
+              try:
+                  ftp.connect(host, 21)
+                  ftp.login(user, password)
+              except ssl.SSLCertVerificationError:
+                  # Never disable TLS certificate checks or send credentials to an
+                  # unverified server. Try only the account's previously known
+                  # MochaHost hostname if it resolves to the same FTP server IP.
+                  ftp.close()
+                  alias = "s3650.can1.stableserver.net"
+                  actual_ips = {x[4][0] for x in socket.getaddrinfo(host, 21, type=socket.SOCK_STREAM)}
+                  alias_ips = {x[4][0] for x in socket.getaddrinfo(alias, 21, type=socket.SOCK_STREAM)}
+                  if not actual_ips.intersection(alias_ips):
+                      raise SystemExit("FTP server certificate mismatch. Known MochaHost hostname resolves elsewhere; no credentials sent. Confirm FTP hostname in cPanel.")
+                  print("FTP host certificate mismatch; retrying the independently known MochaHost server hostname with full TLS verification.")
+                  ftp = ftplib.FTP_TLS(context=ssl.create_default_context(), timeout=30)
+                  ftp.connect(alias, 21)
+                  ftp.login(user, password)
               ftp.prot_p()
               base = ftp.pwd()
               print("FTP login working directory:", base)
