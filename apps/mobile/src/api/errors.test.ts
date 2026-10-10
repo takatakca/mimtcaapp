@@ -15,6 +15,14 @@ describe("errorKeyFor (API error codes → messages)", () => {
     expect(errorKeyFor(501, "not_implemented")).toBe("error.notImplemented");
   });
 
+  it("maps call blocking and forwarding refusals", () => {
+    expect(errorKeyFor(400, "cannot_block_emergency")).toBe("error.cannotBlockEmergency");
+    expect(errorKeyFor(409, "block_limit")).toBe("error.blockLimit");
+    expect(errorKeyFor(400, "forwarding_destination_not_allowed")).toBe("error.forwardingDestination");
+    expect(errorKeyFor(400, "forwarding_target_required")).toBe("error.forwardingTarget");
+    expect(errorKeyFor(403, "plan_required")).toBe("error.featureRequired");
+  });
+
   it("falls back on the HTTP status", () => {
     expect(errorKeyFor(null)).toBe("error.network");
     expect(errorKeyFor(401, "unauthorized")).toBe("error.session");

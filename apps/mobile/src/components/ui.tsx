@@ -189,6 +189,7 @@ export function Row({
   subtitle,
   icon,
   onPress,
+  onLongPress,
   right,
   label,
   danger,
@@ -197,6 +198,8 @@ export function Row({
   subtitle?: string;
   icon?: IconName;
   onPress?: () => void;
+  /** Secondary actions (e.g. the call-log menu). */
+  onLongPress?: () => void;
   right?: ReactNode;
   label?: string;
   danger?: boolean;
@@ -205,8 +208,11 @@ export function Row({
     <Pressable
       accessibilityRole={onPress ? "button" : undefined}
       accessibilityLabel={label ?? [title, subtitle].filter(Boolean).join(", ")}
-      disabled={!onPress}
+      disabled={!onPress && !onLongPress}
       onPress={onPress}
+      onLongPress={onLongPress}
+      accessibilityActions={onLongPress ? [{ name: "longpress" }] : undefined}
+      onAccessibilityAction={(e) => e.nativeEvent.actionName === "longpress" && onLongPress?.()}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.midnightRaised }]}
     >
       {icon ? <Ionicons name={icon} size={24} color={danger ? colors.danger : colors.electric} /> : null}

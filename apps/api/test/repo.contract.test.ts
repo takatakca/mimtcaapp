@@ -8,7 +8,7 @@ import type { Repository } from "../src/repo/types.js";
 const pgUrl = process.env.TEST_DATABASE_URL;
 
 const TABLES =
-  "users, refresh_tokens, telecom_accounts, subscriptions, entitlements, phone_numbers, e911_addresses, e911_acknowledgements, calls, messages, voicemails, consents, usage_ledger, fraud_events, handoffs, used_once_keys, sms_opt_outs, takatak_outbox, audit_log, push_tokens, attested_devices, ad_rewards";
+  "users, refresh_tokens, telecom_accounts, subscriptions, entitlements, phone_numbers, e911_addresses, e911_acknowledgements, calls, messages, voicemails, consents, usage_ledger, fraud_events, handoffs, used_once_keys, sms_opt_outs, takatak_outbox, audit_log, push_tokens, attested_devices, ad_rewards, blocked_numbers, call_settings";
 
 const impls: Array<[string, () => Repository, boolean]> = [
   ["memory", () => new MemoryRepository(), true],
@@ -215,6 +215,41 @@ for (const [name, make, enabled] of impls) {
 
       await repo.audit({ actorUserId: user.id, action: "test", meta: { a: 1 } });
       await repo.ping();
+    });
+
+    it("call controls: blocks and call settings", async () => {
+      const { account } = await seed();
+      const cc = repo.callControls;
+      const a = await cc.addBlock({ telecomAccountId: account.id, e164: "+14165550123", label: "spam" });
+      expect(a.created).toBe(true);
+      expect(a.block).toMatchObject({ e164: "+14165550123", label: "spam", telecomAccountId: account.id });
+      expect(a.block.createdAt).toBeInstanceOf(Date);
+      const again = await cc.addBlock({ telecomAccountId: account.id, e164: "+14165550123", label: null });
+      expect(again).toMatchObject({ created: false, block: { id: a.block.id } });
+      await cc.addBlock({ telecomAccountId: account.id, e164: "+15145550111", label: null });
+      expect(await cc.listBlocks(account.id)).toHaveLength(2);
+      expect(await cc.isBlocked(account.id, "+14165550123")).toBe(true);
+      expect(await cc.isBlocked(account.id, "+14165550999")).toBe(false);
+      expect(await cc.removeBlock(account.id, a.block.id)).toBe(true);
+      expect(await cc.removeBlock(account.id, a.block.id)).toBe(false);
+      expect(await cc.isBlocked(account.id, "+14165550123")).toBe(false);
+
+      expect(await cc.getCallSettings(account.id)).toEqual({
+        forwarding: { mode: "off", target: null, timeoutS: 20 },
+        dnd: { enabled: false, schedule: null },
+        blockedCallAction: "reject",
+      });
+      const schedule = { mon: [{ open: "22:00", close: "07:00" }], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
+      const next = {
+        forwarding: { mode: "no_answer" as const, target: "+14385550147", timeoutS: 15 },
+        dnd: { enabled: true, schedule },
+        blockedCallAction: "voicemail" as const,
+      };
+      expect(await cc.saveCallSettings(account.id, next)).toEqual(next);
+      expect(await cc.getCallSettings(account.id)).toEqual(next);
+      const off = { ...next, forwarding: { ...next.forwarding, mode: "off" as const }, dnd: { enabled: false, schedule: null } };
+      await cc.saveCallSettings(account.id, off);
+      expect(await cc.getCallSettings(account.id)).toEqual(off);
     });
   });
 }

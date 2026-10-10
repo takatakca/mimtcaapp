@@ -21,5 +21,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    // The demo-mode App test walks several screens in jsdom; give it room on loaded CI runners.
+    testTimeout: 20_000,
   },
 });

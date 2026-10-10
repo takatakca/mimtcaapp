@@ -12,6 +12,8 @@ import { DialPad } from "../../src/components/DialPad";
 import { RoundButton } from "../../src/components/RoundButton";
 import { EmergencyBanner } from "../../src/components/EmergencyBanner";
 import { Body, ErrorText, Notice, Row, Screen, Title } from "../../src/components/ui";
+import { canBlock, isBlockedPeer } from "../../src/lib/callControls";
+import { confirmBlockToggle } from "../../src/services/blocks";
 import { useI18n, type TKey } from "../../src/i18n";
 import { canPlaceCall, formatAsYouType, formatPhone, normalizeDialInput } from "../../src/lib/dial";
 import { formatDuration, formatWhen } from "../../src/lib/format";
@@ -110,8 +112,19 @@ function Recents() {
   const router = useRouter();
   // First page on focus; older pages are appended as the list scrolls (GET /v1/calls?cursor=).
   const list = useAsync(() => api.calls());
+  const blocks = useAsync(() => api.blocks());
   const [loadingMore, setLoadingMore] = useState(false);
+  const [info, setInfo] = useState<TKey | null>(null);
   useFocusEffect(useCallback(() => void list.reload(), [list.reload]));
+
+  /** Call-log menu: "Bloquer" / "Débloquer" (never offered for 9-1-1). */
+  async function menu(peer: string) {
+    if (!canBlock(peer)) return;
+    const key = await confirmBlockToggle(t, peer, isBlockedPeer(blocks.data?.blocks, peer));
+    if (!key) return;
+    setInfo(key);
+    await blocks.reload();
+  }
 
   async function loadMore() {
     const current = list.data;
@@ -129,24 +142,38 @@ function Recents() {
 
   const renderItem = ({ item }: { item: CallRecord }) => {
     const kind = item.missed ? t("calls.missed") : t(item.direction === "inbound" ? "calls.incoming" : "calls.outgoing");
+    const blocked = isBlockedPeer(blocks.data?.blocks, item.peer);
     return (
       <Row
-        icon={item.missed ? "call-outline" : item.direction === "inbound" ? "arrow-down" : "arrow-up"}
+        icon={blocked ? "ban" : item.missed ? "call-outline" : item.direction === "inbound" ? "arrow-down" : "arrow-up"}
         danger={item.missed}
         title={formatPhone(item.peer)}
         subtitle={`${kind} · ${formatWhen(item.startedAt, locale, t)}${item.durationS ? ` · ${formatDuration(item.durationS)}` : ""}`}
         label={`${t("calls.callNumber", { number: formatPhone(item.peer) })}. ${kind}`}
         onPress={() => callService.connect(item.peer)}
+        {...(item.kind === "emergency" ? {} : { onLongPress: () => menu(item.peer) })}
         right={
           item.kind === "emergency" ? undefined : (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("contacts.text", { name: formatPhone(item.peer) })}
-            onPress={() => router.push(`/thread/${encodeURIComponent(item.peer)}`)}
-            style={styles.iconButton}
-          >
-            <Ionicons name="chatbubble" size={22} color={colors.electric} />
-          </Pressable>
+          <View style={{ flexDirection: "row" }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("contacts.text", { name: formatPhone(item.peer) })}
+              onPress={() => router.push(`/thread/${encodeURIComponent(item.peer)}`)}
+              style={styles.iconButton}
+            >
+              <Ionicons name="chatbubble" size={22} color={colors.electric} />
+            </Pressable>
+            {canBlock(item.peer) ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${t(blocked ? "blocks.unblock" : "blocks.block")} ${formatPhone(item.peer)}`}
+                onPress={() => menu(item.peer)}
+                style={styles.iconButton}
+              >
+                <Ionicons name="ellipsis-vertical" size={22} color={colors.silver} />
+              </Pressable>
+            ) : null}
+          </View>
           )
         }
       />
@@ -162,7 +189,13 @@ function Recents() {
       renderItem={renderItem}
       contentContainerStyle={{ padding: spacing.md }}
       refreshControl={<RefreshControl refreshing={list.loading} onRefresh={list.reload} tintColor={colors.electric} />}
-      ListHeaderComponent={list.errorKey ? <ErrorText>{t(list.errorKey)}</ErrorText> : null}
+      extraData={blocks.data}
+      ListHeaderComponent={
+        <>
+          {list.errorKey ? <ErrorText>{t(list.errorKey)}</ErrorText> : null}
+          {info ? <Notice tone={info.startsWith("error.") ? "warning" : "success"}>{t(info)}</Notice> : null}
+        </>
+      }
       ListEmptyComponent={!list.loading ? <Body muted>{t("calls.empty")}</Body> : null}
     />
   );

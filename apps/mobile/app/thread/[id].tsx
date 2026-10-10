@@ -11,8 +11,10 @@ import type { MessageDto } from "../../src/api/types";
 import { useSession } from "../../src/auth/session";
 import { Button, ErrorText, Field, Notice } from "../../src/components/ui";
 import { useI18n, type TKey } from "../../src/i18n";
+import { canBlock, isBlockedPeer } from "../../src/lib/callControls";
 import { formatPhone, toDialable } from "../../src/lib/dial";
 import { formatWhen } from "../../src/lib/format";
+import { confirmBlockToggle } from "../../src/services/blocks";
 import { callService } from "../../src/services/call";
 import { colors, radius, spacing, TAP } from "../../src/theme";
 
@@ -41,6 +43,25 @@ export default function Thread() {
   const stickToEnd = useRef(true);
   const canMms = !!me && planHas(me.account.plan, "mms");
   const from = me?.numbers[0]?.e164;
+  const [blocked, setBlocked] = useState(false);
+  const [info, setInfo] = useState<TKey | null>(null);
+
+  useEffect(() => {
+    if (isNew || !peer || !canBlock(peer)) return;
+    api
+      .blocks()
+      .then((r) => setBlocked(isBlockedPeer(r.blocks, peer)))
+      .catch(() => undefined);
+  }, [isNew, peer]);
+
+  /** Thread menu: "Bloquer" / "Débloquer" (never offered for 9-1-1). */
+  async function toggleBlock() {
+    if (!peer) return;
+    const key = await confirmBlockToggle(t, peer, blocked);
+    if (!key) return;
+    setInfo(key);
+    if (key === "blocks.blocked" || key === "blocks.unblocked") setBlocked(key === "blocks.blocked");
+  }
 
   useEffect(() => {
     if (isNew || !peer) return;
@@ -116,14 +137,26 @@ export default function Thread() {
           headerBackTitle: t("common.back"),
           headerRight: () =>
             !isNew && peer ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t("messages.call")}
-                onPress={() => callService.connect(peer)}
-                style={styles.headerButton}
-              >
-                <Ionicons name="call" size={24} color={colors.electric} />
-              </Pressable>
+              <View style={{ flexDirection: "row" }}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("messages.call")}
+                  onPress={() => callService.connect(peer)}
+                  style={styles.headerButton}
+                >
+                  <Ionicons name="call" size={24} color={colors.electric} />
+                </Pressable>
+                {canBlock(peer) ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t(blocked ? "blocks.unblock" : "blocks.block")}
+                    onPress={toggleBlock}
+                    style={styles.headerButton}
+                  >
+                    <Ionicons name={blocked ? "checkmark-circle" : "ban"} size={24} color={blocked ? colors.electric : colors.silver} />
+                  </Pressable>
+                ) : null}
+              </View>
             ) : null,
         }}
       />
@@ -176,6 +209,8 @@ export default function Thread() {
             );
           }}
         />
+        {blocked ? <Notice tone="warning">{t("blocks.isBlocked")}</Notice> : null}
+        {info ? <Notice tone={info.startsWith("error.") ? "warning" : "success"}>{t(info)}</Notice> : null}
         {mmsHint ? <Notice>{t("messages.attachPremium")}</Notice> : null}
         {errorKey ? (
           <View style={{ paddingHorizontal: spacing.md }}>

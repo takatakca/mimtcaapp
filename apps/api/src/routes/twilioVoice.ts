@@ -13,6 +13,7 @@ import { scoreInboundCall } from "../ai/spam.js";
 import { processVoicemailTranscript } from "../ai/voicemail.js";
 import { pbxInbound, pbxOutbound } from "../pbx/engine.js";
 import { getFeatures, HELD_STATES, outboundBlocked, setAccountStatus, usagePeriods } from "../services/accounts.js";
+import { afterDialControls, inboundCallControls } from "../services/callControls.js";
 import { e911Ready } from "./e911.js";
 import { NOT_IN_SERVICE, sayBilingual, sendTwiml, twilioParams, VoiceResponse } from "./twiml.js";
 
@@ -233,6 +234,9 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
       return sendTwiml(reply, vr);
     }
     const now = deps.now();
+    // Consumer call controls (services/callControls.ts): blocks, do not disturb, forwarding.
+    const controls = await inboundCallControls(deps, { account, number, from: p.From, callSid: p.CallSid, now });
+    if (controls.reject) return sendTwiml(reply, controls.reject);
     if (p.CallSid) {
       await repo.upsertCall({
         twilioCallSid: p.CallSid,
@@ -252,9 +256,11 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
     if (!checkInboundCaps({ caps, usage: await repo.getUsage(account.id, monthPeriod(now)) }).ok) {
       return sendTwiml(reply, await voicemail(number, account));
     }
+    if (controls.voicemail) return sendTwiml(reply, await voicemail(number, account));
+    if (controls.forward) return sendTwiml(reply, controls.forward);
     const vr = new VoiceResponse();
     vr.dial({
-      timeout: RING_TIMEOUT_S,
+      timeout: controls.ringTimeoutS ?? RING_TIMEOUT_S,
       answerOnBridge: true,
       action: `${base}/webhooks/twilio/voice/dial-result?n=${number.id}`,
       method: "POST",
@@ -292,6 +298,8 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
   app.post("/webhooks/twilio/voice/dial-result", async (req, reply) => {
     const p = twilioParams(req);
     const numberId = (req.query as { n?: string }).n;
+    const controlled = await afterDialControls(deps, { numberId, forwarded: (req.query as { fw?: string }).fw === "1", params: p });
+    if (controlled) return sendTwiml(reply, controlled);
     if (p.DialCallStatus === "completed") return sendTwiml(reply, hangupResponse());
     const number = numberId ? await repo.getNumber(numberId) : null;
     const account = number?.telecomAccountId ? await repo.getAccount(number.telecomAccountId) : null;

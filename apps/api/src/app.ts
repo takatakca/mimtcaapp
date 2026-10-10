@@ -11,6 +11,7 @@ import { aiRoutes } from "./routes/ai.js";
 import { authRoutes } from "./routes/auth.js";
 import { billingRoutes } from "./routes/billing.js";
 import { businessRoutes } from "./routes/business.js";
+import { blockRoutes } from "./routes/blocks.js";
 import { callRoutes } from "./routes/calls.js";
 import { catalogRoutes } from "./routes/catalog.js";
 import { captureException } from "./monitoring/report.js";
@@ -77,6 +78,7 @@ export async function buildApp(deps: AppDeps) {
     messageRoutes,
     billingRoutes,
     meRoutes,
+    blockRoutes,
     pushRoutes,
     rewardRoutes,
     catalogRoutes,

@@ -5,6 +5,7 @@
 import type { NumberState } from "./numbers.js";
 import type { PlanCode } from "./plans.js";
 import type { SpamLabel, VoicemailInsight } from "./ai.js";
+import type { CallSettings, CallSettingsPatch } from "./callControls.js";
 
 export type Locale = "fr-CA" | "en-CA";
 export type Direction = "inbound" | "outbound";
@@ -62,10 +63,12 @@ export interface MeResponse {
   numbers: Array<{ id: string; e164: string; state: NumberState }>;
   e911: { addressRegistered: boolean; noticeAccepted: boolean; noticeVersion: string };
   usage: { outboundMinutes: number; inboundMinutes: number; outboundSms: number; periodStart: string };
+  /** Forwarding, do not disturb and blocked-call handling (callControls.ts). */
+  callSettings?: CallSettings;
 }
 
 /** PATCH /v1/me */
-export interface UpdateMeRequest {
+export interface UpdateMeRequest extends CallSettingsPatch {
   locale?: Locale;
   displayName?: string | null;
 }
@@ -73,6 +76,7 @@ export interface UpdateMeResponse {
   id: string;
   locale: Locale;
   displayName: string | null;
+  callSettings?: CallSettings;
 }
 
 /** DELETE /v1/me → 202 */

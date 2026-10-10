@@ -11,6 +11,7 @@ import { UsageBar } from "../../src/components/UsageBar";
 import { Body, Button, Card, ErrorText, Heading, Label, Notice, Row, Screen, Title } from "../../src/components/ui";
 import { useI18n, type TKey } from "../../src/i18n";
 import { formatPhone } from "../../src/lib/dial";
+import { dndSummaryKey, forwardingSummaryKey } from "../../src/lib/callControls";
 import { usageRows } from "../../src/lib/usage";
 import { callService } from "../../src/services/call";
 import { colors, radius, spacing, TAP } from "../../src/theme";
@@ -177,6 +178,14 @@ export default function Account() {
             </Pressable>
           ))}
         </View>
+        <Row
+          icon="arrow-redo"
+          title={t("forwarding.title")}
+          subtitle={t(forwardingSummaryKey(me?.callSettings))}
+          onPress={() => router.push("/settings/forwarding")}
+        />
+        <Row icon="moon" title={t("dnd.title")} subtitle={t(dndSummaryKey(me?.callSettings))} onPress={() => router.push("/settings/dnd")} />
+        <Row icon="ban" title={t("blocks.title")} onPress={() => router.push("/settings/blocked")} />
         <Row icon="location" title={t("account.e911Address")} onPress={() => router.push("/settings/address")} />
         <Row icon="alert-circle" title={t("account.e911Notice")} onPress={() => router.push("/settings/notice")} />
         <Row icon="shield-checkmark" title={t("account.privacy")} onPress={() => router.push("/settings/privacy")} />
