@@ -16,6 +16,14 @@ describe("config", () => {
     expect(loadConfig({ TWILIO_ACCOUNT_SID: "" }).TWILIO_ACCOUNT_SID).toBeUndefined();
   });
 
+  it("accepts an additional PostgreSQL CA PEM from Coolify environment variables", () => {
+    const pem = "-----BEGIN CERTIFICATE-----\\nEXAMPLE_CA_FOR_CONFIGURATION_TEST_ONLY\\n-----END CERTIFICATE-----";
+    const c = loadConfig({ DATABASE_SSL_CA_PEM: pem });
+    expect(c.DATABASE_SSL_CA_PEM).toBe(
+      "-----BEGIN CERTIFICATE-----\nEXAMPLE_CA_FOR_CONFIGURATION_TEST_ONLY\n-----END CERTIFICATE-----",
+    );
+  });
+
   it("requires Twilio, Stripe, keys and the database in production", () => {
     expect(() => loadConfig({ NODE_ENV: "production" })).toThrow(/TWILIO_ACCOUNT_SID.*required/);
     expect(() => loadConfig({ NODE_ENV: "production" })).toThrow(/STRIPE_SECRET_KEY/);

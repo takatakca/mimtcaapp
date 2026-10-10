@@ -25,7 +25,10 @@ export const createLogger = (config: Config): Logger =>
 export function createDeps(config: Config, log: Logger): AppDeps {
   let repo;
   if (config.DATABASE_URL) {
-    repo = new PostgresRepository(config.DATABASE_URL);
+    repo = new PostgresRepository(
+      config.DATABASE_URL,
+      config.DATABASE_SSL_CA_PEM ? { sslCaPem: config.DATABASE_SSL_CA_PEM } : {},
+    );
   } else {
     log.warn("DATABASE_URL not set: using the in-memory repository (data is lost on restart)");
     repo = new MemoryRepository();
