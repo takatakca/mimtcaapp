@@ -180,6 +180,8 @@ export default function Account() {
         <Row icon="location" title={t("account.e911Address")} onPress={() => router.push("/settings/address")} />
         <Row icon="alert-circle" title={t("account.e911Notice")} onPress={() => router.push("/settings/notice")} />
         <Row icon="shield-checkmark" title={t("account.privacy")} onPress={() => router.push("/settings/privacy")} />
+        <Row icon="sparkles" title={t("ai.entry")} subtitle={t("ai.entryHint")} onPress={() => router.push("/settings/ai")} />
+        <Row icon="business" title={t("business.entry")} subtitle={t("business.entryHint")} onPress={() => router.push("/settings/business")} />
         <Row icon="download" title={t("account.export")} onPress={exportData} />
         <Row icon="help-buoy" title={t("account.support")} onPress={() => WebBrowser.openBrowserAsync(SUPPORT_URL[lang])} />
         <Row

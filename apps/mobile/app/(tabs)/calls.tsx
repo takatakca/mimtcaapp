@@ -8,6 +8,7 @@ import { api } from "../../src/api/client";
 import type { CallRecord } from "../../src/api/types";
 import { useSession } from "../../src/auth/session";
 import { AdBanner } from "../../src/components/Ads";
+import { useSpamText } from "../../src/components/Ai";
 import { DialPad } from "../../src/components/DialPad";
 import { RoundButton } from "../../src/components/RoundButton";
 import { EmergencyBanner } from "../../src/components/EmergencyBanner";
@@ -111,6 +112,7 @@ function Recents() {
   // First page on focus; older pages are appended as the list scrolls (GET /v1/calls?cursor=).
   const list = useAsync(() => api.calls());
   const [loadingMore, setLoadingMore] = useState(false);
+  const spamText = useSpamText();
   useFocusEffect(useCallback(() => void list.reload(), [list.reload]));
 
   async function loadMore() {
@@ -128,7 +130,10 @@ function Recents() {
   }
 
   const renderItem = ({ item }: { item: CallRecord }) => {
-    const kind = item.missed ? t("calls.missed") : t(item.direction === "inbound" ? "calls.incoming" : "calls.outgoing");
+    const kindText = item.missed ? t("calls.missed") : t(item.direction === "inbound" ? "calls.incoming" : "calls.outgoing");
+    // « Spam probable » never blocks calling back; the server never labels 9-1-1.
+    const spam = spamText(item.spamLabel);
+    const kind = spam ? `${spam} · ${kindText}` : kindText;
     return (
       <Row
         icon={item.missed ? "call-outline" : item.direction === "inbound" ? "arrow-down" : "arrow-up"}

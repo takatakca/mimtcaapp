@@ -2,8 +2,10 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback } from "react";
 import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { api } from "../../src/api/client";
+import type { SpamLabel } from "@mimt/shared";
 import type { ConversationDto } from "../../src/api/types";
 import { AdBanner } from "../../src/components/Ads";
+import { useSpamText } from "../../src/components/Ai";
 import { Body, Button, ErrorText, Row, Screen, Title } from "../../src/components/ui";
 import { useI18n } from "../../src/i18n";
 import { formatPhone } from "../../src/lib/dial";
@@ -16,14 +18,16 @@ export default function Messages() {
   const router = useRouter();
   const list = useAsync(() => api.conversations().then((r) => r.conversations));
   useFocusEffect(useCallback(() => void list.reload(), [list.reload]));
+  const spamText = useSpamText();
 
   // TODO(api): unread counts need read receipts on the API (not tracked yet); no badge until then.
-  const renderItem = ({ item }: { item: ConversationDto }) => (
+  // TODO(api): GET /v1/conversations has no spamLabel yet; shown as soon as the API adds it.
+  const renderItem = ({ item }: { item: ConversationDto & { spamLabel?: SpamLabel } }) => (
     <Row
       icon="person-circle"
       title={formatPhone(item.peer)}
-      subtitle={item.lastMessage.preview}
-      label={`${formatPhone(item.peer)}, ${item.lastMessage.preview}, ${formatWhen(item.lastMessageAt, locale, t)}`}
+      subtitle={[spamText(item.spamLabel), item.lastMessage.preview].filter(Boolean).join(" · ")}
+      label={`${formatPhone(item.peer)}, ${[spamText(item.spamLabel), item.lastMessage.preview].filter(Boolean).join(", ")}, ${formatWhen(item.lastMessageAt, locale, t)}`}
       onPress={() => router.push(`/thread/${encodeURIComponent(item.peer)}`)}
       right={
         <View style={{ alignItems: "flex-end" }}>

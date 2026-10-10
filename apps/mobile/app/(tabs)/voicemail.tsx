@@ -6,6 +6,7 @@ import { Alert, FlatList, RefreshControl, View } from "react-native";
 import { api } from "../../src/api/client";
 import type { VoicemailDto } from "../../src/api/types";
 import { useSession } from "../../src/auth/session";
+import { VoicemailAiSummary } from "../../src/components/Ai";
 import { Body, Button, Card, ErrorText, Label, Row, Screen, Title } from "../../src/components/ui";
 import { useI18n } from "../../src/i18n";
 import { formatPhone } from "../../src/lib/dial";
@@ -97,6 +98,7 @@ function VoicemailDetail({ vm, onDelete }: { vm: VoicemailDto; onDelete: () => v
       )}
       <Label>{t("voicemail.transcript")}</Label>
       <Body muted={!vm.transcript}>{vm.transcript ?? (canTranscribe ? t("common.empty") : t("voicemail.noTranscript"))}</Body>
+      <VoicemailAiSummary vm={vm} />
       <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm, flexWrap: "wrap" }}>
         <Button icon="call" variant="success" label={t("voicemail.callBack")} onPress={() => vm.from && callService.connect(vm.from)} style={{ flexGrow: 1 }} />
         <Button icon="trash" variant="ghost" label={t("common.delete")} onPress={onDelete} style={{ flexGrow: 1 }} />
