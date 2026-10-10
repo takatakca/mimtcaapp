@@ -3,6 +3,9 @@ name: Diagnose MochaHost FTP Paths
 # Read-only FTP inspection. Never uploads, deletes, or modifies files.
 on:
   workflow_dispatch:
+  # Temporary read-only diagnostic execution on this branch only.
+  push:
+    branches: [diag/mimt-ftp-root-20261010]
 
 permissions:
   contents: read
