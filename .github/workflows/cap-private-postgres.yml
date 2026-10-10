@@ -1,0 +1,51 @@
+name: Cap Stopped MIMT Private Database Resource
+on:
+  push:
+    branches: [ops/mimt-private-coolify-postgres-20261010]
+permissions:
+  contents: read
+jobs:
+  cap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set resource limit only on private, stopped, dedicated MIMT PostgreSQL
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json,os,urllib.request,urllib.error
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          headers={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"],"Accept":"application/json","Content-Type":"application/json"}
+          def request(method,path,payload=None):
+              req=urllib.request.Request(base+path,headers=headers,method=method,data=json.dumps(payload).encode() if payload is not None else None)
+              try:
+                  with urllib.request.urlopen(req,timeout=25) as r:
+                      body=r.read(150000)
+                      return r.status,(json.loads(body) if body else {})
+              except urllib.error.HTTPError as e: return e.code,{}
+          status,dbs=request("GET","/databases")
+          if isinstance(dbs,dict):dbs=dbs.get("data",dbs.get("databases",[]))
+          matches=[d for d in dbs if isinstance(d,dict) and d.get("name")=="mimt-prod-postgres"]
+          if len(matches)!=1:raise SystemExit("Could not identify a unique dedicated MIMT DB. No changes.")
+          uuid=matches[0].get("uuid")
+          st,db=request("GET","/databases/"+uuid)
+          if not isinstance(db,dict) or db.get("is_public") is not False:
+              raise SystemExit("Database is not private. No changes.")
+          if str(db.get("status","")).startswith("running"):
+              raise SystemExit("Database already running; will not change live resources.")
+          payload={"limits_memory":"536870912","limits_cpus":"0.5"}
+          if str(db.get("limits_memory"))=="536870912" and str(db.get("limits_cpus")) in ("0.5","0.50"):
+              print("Stopped MIMT DB already capped at 512 MiB and 0.5 CPU.")
+              raise SystemExit(0)
+          code,_=request("PATCH","/databases/"+uuid,payload)
+          print("Coolify resource limits update HTTP:",code)
+          if code!=200:
+              raise SystemExit("Could not apply memory/CPU caps; stopped resource retained unchanged.")
+          _,after=request("GET","/databases/"+uuid)
+          print("Memory cap 512 MiB:",str(after.get("limits_memory"))=="536870912")
+          print("CPU cap half core:",str(after.get("limits_cpus")) in ("0.5","0.50"))
+          print("Resource remains stopped:",not str(after.get("status","")).startswith("running"))
+          print("No paid service, running containers, secrets or existing databases touched.")
+          PY
