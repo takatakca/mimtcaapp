@@ -4,6 +4,7 @@
 
 import type { NumberState } from "./numbers.js";
 import type { PlanCode } from "./plans.js";
+import type { SpamLabel, VoicemailInsight } from "./ai.js";
 
 export type Locale = "fr-CA" | "en-CA";
 export type Direction = "inbound" | "outbound";
@@ -87,7 +88,14 @@ export interface MeExportResponse {
   [section: string]: unknown;
 }
 
-export type ConsentKind = "casl_marketing" | "ads_personalised" | "call_recording_notice" | "privacy_policy" | "terms";
+export type ConsentKind =
+  | "casl_marketing"
+  | "ads_personalised"
+  | "call_recording_notice"
+  | "privacy_policy"
+  | "terms"
+  /** Law 25: processing of voicemails/SMS by the AI provider (Anthropic, outside Quebec). See ai.ts. */
+  | "ai_processing";
 
 /** POST /v1/consents → 201 ConsentResponse */
 export interface ConsentRequest {
@@ -209,6 +217,8 @@ export interface CallRecord {
   durationS: number | null;
   /** Inbound call that was never answered. */
   missed: boolean;
+  /** Set when the call looks like spam/fraud: the app shows « Appel suspect ». Absent when the call looks fine. */
+  spamLabel?: SpamLabel;
 }
 
 /** GET /v1/calls?cursor&limit (newest first). */
@@ -239,6 +249,8 @@ export interface MessageDto {
   segments: number;
   numMedia: number;
   createdAt: string;
+  /** Inbound messages only, when flagged: the app shows « Message suspect ». */
+  spamLabel?: SpamLabel;
 }
 
 export interface ConversationDto {
@@ -274,6 +286,8 @@ export interface VoicemailDto {
    */
   audioUrl: string | null;
   audioUrlExpiresAt: string | null;
+  /** AI summary (Claude), present only when the user consented to "ai_processing" and it was produced. */
+  ai?: VoicemailInsight;
 }
 
 /** GET /v1/voicemails (newest first). DELETE /v1/voicemails/:id → 204. */

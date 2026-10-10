@@ -19,10 +19,12 @@
     "job:numbers": "node dist/jobs/numberLifecycle.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "@fastify/cors": "^11.3.1",
     "@fastify/formbody": "^9.0.1",
     "@fastify/helmet": "^13.1.2",
     "@fastify/rate-limit": "^11.2.1",
+    "@fastify/websocket": "^11.3.4",
     "@mimt/shared": "workspace:*",
     "fastify": "^5.12.5",
     "jose": "^6.2.12",

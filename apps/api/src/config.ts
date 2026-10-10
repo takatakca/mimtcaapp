@@ -54,6 +54,12 @@ const EnvSchema = z
     USD_TO_CAD: z.coerce.number().positive().default(1.4),
     /** Conservative per-minute estimate used to size <Dial timeLimit> for prepaid international calls. */
     INTL_ASSUMED_RATE_CENTS_PER_MIN: z.coerce.number().int().positive().default(50),
+
+    /** Claude (AI features). Optional: when unset every AI feature answers 503 not_configured. */
+    ANTHROPIC_API_KEY: optional,
+    ANTHROPIC_MODEL: z.string().min(1).default("claude-opus-5-5"),
+    /** Public wss:// URL of the AI receptionist WebSocket. Default: PUBLIC_BASE_URL with wss + /ws/ai/receptionist. */
+    AI_RECEPTIONIST_WS_URL: z.url().optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== "production") return;
@@ -99,3 +105,4 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
 
 export const twilioRestConfigured = (c: Config) => Boolean(c.TWILIO_ACCOUNT_SID && c.TWILIO_API_KEY_SID && c.TWILIO_API_KEY_SECRET);
 export const stripeConfigured = (c: Config) => Boolean(c.STRIPE_SECRET_KEY && c.STRIPE_WEBHOOK_SECRET);
+export const aiConfigured = (c: Config) => Boolean(c.ANTHROPIC_API_KEY);
