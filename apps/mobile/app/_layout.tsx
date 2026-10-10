@@ -62,6 +62,7 @@ export default function RootLayout() {
             <Stack.Screen name="settings/address" options={headerOptions} />
             <Stack.Screen name="settings/notice" options={headerOptions} />
             <Stack.Screen name="settings/privacy" options={headerOptions} />
+            <Stack.Screen name="settings/voicemail" options={headerOptions} />
           </Stack>
         </SessionProvider>
       </I18nProvider>

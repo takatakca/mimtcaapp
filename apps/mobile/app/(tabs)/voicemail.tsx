@@ -1,6 +1,6 @@
 import { planHas } from "@mimt/shared";
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Alert, FlatList, RefreshControl, View } from "react-native";
 import { api } from "../../src/api/client";
@@ -16,6 +16,7 @@ import { colors, spacing } from "../../src/theme";
 
 export default function VoicemailTab() {
   const { t, locale } = useI18n();
+  const router = useRouter();
   const list = useAsync(() => api.voicemails().then((r) => r.voicemails));
   const [openId, setOpenId] = useState<string | null>(null);
   useFocusEffect(useCallback(() => void list.reload(), [list.reload]));
@@ -46,6 +47,7 @@ export default function VoicemailTab() {
     <Screen scroll={false} edges={["top"]}>
       <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.md }}>
         <Title>{t("voicemail.title")}</Title>
+        <Button icon="settings" variant="ghost" label={t("voicemail.settings")} onPress={() => router.push("/settings/voicemail")} />
         {list.errorKey ? <ErrorText>{t(list.errorKey)}</ErrorText> : null}
       </View>
       <FlatList

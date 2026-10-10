@@ -26,6 +26,15 @@ const CODE_TO_KEY: Record<string, TKey> = {
   not_implemented: "error.notImplemented",
   device_attestation_required: "error.deviceRequired",
   reward_pending: "error.rewardPending",
+  vm_greeting_not_in_plan: "error.featureRequired",
+  vm_email_not_in_plan: "error.featureRequired",
+  media_too_large: "error.mediaTooLarge",
+  unsupported_media_type: "error.mediaInvalid",
+  invalid_media: "error.mediaInvalid",
+  media_not_uploaded: "error.mediaInvalid",
+  media_already_used: "error.mediaInvalid",
+  no_email: "error.noEmail",
+  no_number: "error.noNumber",
 };
 
 export function errorKeyFor(status: number | null, code?: string | null): TKey {
