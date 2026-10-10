@@ -21,3 +21,7 @@ jobs:
       - run: pnpm test
       - run: pnpm --filter @mimt/web build
       - run: pnpm --filter @mimt/webphone build
+      - name: Verify Apache SPA routing file included in built webphone
+        run: |
+          test -f apps/webphone/dist/.htaccess
+          grep -Fq 'RewriteRule ^ index.html [L]' apps/webphone/dist/.htaccess
