@@ -6,6 +6,7 @@ import { TakatakOidc } from "../src/auth/takatak.js";
 import { loadConfig } from "../src/config.js";
 import type { AppDeps } from "../src/deps.js";
 import { InMemoryRateLimiter } from "../src/fraud/rateLimiter.js";
+import { createDeviceVerifier } from "../src/devices/verify.js";
 import { expectedTwilioSignature, type TwilioGateway } from "../src/gateways/twilio.js";
 import { MessageCipher } from "../src/lib/crypto.js";
 import { MemoryRepository } from "../src/repo/memory.js";
@@ -68,6 +69,9 @@ export async function setup(opts: { config?: Record<string, string>; twilio?: Tw
     takatak: new TakatakOidc(config, repo, { jwks: keys.jwks }),
     twilio,
     billing: null,
+    media: null,
+    deviceVerifier: createDeviceVerifier(config),
+    admobKeys: async () => new Map(),
     cipher: new MessageCipher(MessageCipher.generateKey()),
     rateLimiter: new InMemoryRateLimiter(),
     notifier,

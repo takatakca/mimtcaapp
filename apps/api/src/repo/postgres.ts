@@ -424,4 +424,40 @@ export class PostgresRepository implements Repository {
       values (${e.actorUserId}, ${e.action}, ${e.targetType ?? null}, ${e.targetId ?? null}, ${e.ip ?? null},
               ${this.sql.json((e.meta ?? {}) as postgres.JSONValue)})`;
   }
+
+  async bindDevice(input: { platform: "ios" | "android"; deviceKey: string; userId: string; verifiedAt: Date }) {
+    const rows = await this.sql`
+      insert into attested_devices (platform, device_key, user_id, verified_at)
+      values (${input.platform}, ${input.deviceKey}, ${input.userId}, ${input.verifiedAt})
+      on conflict (platform, device_key) do update
+        set verified_at = excluded.verified_at
+        where attested_devices.user_id = excluded.user_id
+      returning user_id`;
+    return rows.length === 1 ? "ok" : "taken";
+  }
+
+  async grantAdReward(input: { userId: string; transactionId: string; minutes: number; createdAt: Date }) {
+    const rows = await this.sql`
+      insert into ad_rewards (user_id, transaction_id, minutes, created_at)
+      values (${input.userId}, ${input.transactionId}, ${input.minutes}, ${input.createdAt})
+      on conflict (transaction_id) do nothing
+      returning id`;
+    return rows.length === 1;
+  }
+
+  async countAdRewardsSince(userId: string, since: Date) {
+    const rows = await this.sql`select count(*)::int as n from ad_rewards where user_id = ${userId} and created_at >= ${since}`;
+    return Number((rows[0] as { n?: number } | undefined)?.n ?? 0);
+  }
+
+  async claimAdReward(userId: string, at: Date) {
+    const rows = await this.sql`
+      update ad_rewards set claimed_at = ${at}
+      where id = (
+        select id from ad_rewards where user_id = ${userId} and claimed_at is null order by created_at limit 1
+      )
+      returning transaction_id, minutes`;
+    const row = rows[0] as { transactionId: string; minutes: number } | undefined;
+    return row ? { transactionId: row.transactionId, minutes: row.minutes } : null;
+  }
 }

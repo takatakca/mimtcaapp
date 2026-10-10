@@ -8,7 +8,7 @@ import type { Repository } from "../src/repo/types.js";
 const pgUrl = process.env.TEST_DATABASE_URL;
 
 const TABLES =
-  "users, refresh_tokens, telecom_accounts, subscriptions, entitlements, phone_numbers, e911_addresses, e911_acknowledgements, calls, messages, voicemails, consents, usage_ledger, fraud_events, handoffs, used_once_keys, sms_opt_outs, takatak_outbox, audit_log, push_tokens";
+  "users, refresh_tokens, telecom_accounts, subscriptions, entitlements, phone_numbers, e911_addresses, e911_acknowledgements, calls, messages, voicemails, consents, usage_ledger, fraud_events, handoffs, used_once_keys, sms_opt_outs, takatak_outbox, audit_log, push_tokens, attested_devices, ad_rewards";
 
 const impls: Array<[string, () => Repository, boolean]> = [
   ["memory", () => new MemoryRepository(), true],

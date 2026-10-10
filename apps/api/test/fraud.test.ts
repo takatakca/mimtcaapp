@@ -42,6 +42,7 @@ describe("destinations", () => {
     expect(classifyDestination("+19005550123")).toBe("nanp_premium");
     expect(classifyDestination("+14169765555")).toBe("nanp_premium");
     expect(classifyDestination("+18765550123")).toBe("nanp_high_cost");
+    expect(classifyDestination("+5355550100")).toBe("cuba");
     expect(classifyDestination("+442071234567")).toBe("intl");
     expect(classifyDestination("+1123")).toBe("invalid");
   });

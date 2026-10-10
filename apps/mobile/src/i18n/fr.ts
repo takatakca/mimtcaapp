@@ -238,6 +238,8 @@ export const fr = {
   "error.server": "Le service est temporairement indisponible. Réessayez plus tard.",
   "error.generic": "Une erreur est survenue. Réessayez.",
   "error.notImplemented": "Cette fonction arrive bientôt.",
+  "error.deviceRequired": "Confirmez cet appareil avant d'obtenir un numéro gratuit.",
+  "error.rewardPending": "La vérification de la publicité n'est pas encore arrivée. Réessayez dans un instant.",
 } as const;
 
 export type TKey = keyof typeof fr;

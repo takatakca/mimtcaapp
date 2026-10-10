@@ -14,6 +14,8 @@ export interface BillingGateway {
     customerId: string;
     mode: "subscription" | "payment";
     line: CheckoutLine;
+    /** TPS, TVQ and the Quebec 9-1-1 tax, shown as their own invoice lines. */
+    taxLines?: CheckoutLine[];
     metadata: Record<string, string>;
     successUrl: string;
     cancelUrl: string;
@@ -72,23 +74,21 @@ export class StripeGateway implements BillingGateway {
       currency: "cad",
       // Taxes: Stripe Tax is off until GST/QST registration is done (MIMT-REGULATORY.md §11).
       automatic_tax: { enabled: false },
-      line_items: [
-        {
-          quantity: line.quantity,
-          price_data: {
-            currency: "cad",
-            unit_amount: line.unitAmountCents,
-            product_data: { name: line.name, description: line.description },
-            ...(line.recurring ? { recurring: { interval: line.recurring } } : {}),
-          },
+      line_items: [line, ...(input.taxLines ?? [])].map((item) => ({
+        quantity: item.quantity,
+        price_data: {
+          currency: "cad",
+          unit_amount: item.unitAmountCents,
+          product_data: { name: item.name, description: item.description },
+          ...(item.recurring ? { recurring: { interval: item.recurring } } : {}),
         },
-      ],
+      })),
       custom_text: {
         submit: {
           message:
             input.locale === "fr-CA"
-              ? "Prix avant taxes. La TPS, la TVQ et la taxe municipale 9-1-1 du Québec s'appliquent selon votre adresse."
-              : "Prices before taxes. GST, QST and the Quebec municipal 9-1-1 tax apply based on your address.",
+              ? "La TPS, la TVQ et la taxe municipale 9-1-1 du Québec figurent comme lignes distinctes sur la facture."
+              : "GST, QST and the Quebec municipal 9-1-1 tax are separate lines on this invoice.",
         },
       },
       metadata: input.metadata,

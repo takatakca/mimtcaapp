@@ -55,7 +55,10 @@ export async function voicemailRoutes(app: FastifyInstance, deps: AppDeps) {
     const vm = await ownVoicemail(req);
     await repo.deleteVoicemail(vm.id);
     // Best effort: also remove the audio from Twilio (Law 25 minimisation). The row is already gone.
-    if (deps.twilio && vm.recordingSid) {
+    if (deps.media && vm.audioPath) {
+      await deps.media.delete(vm.audioPath).catch((err: unknown) => req.log.warn({ err, voicemailId: vm.id }, "private voicemail delete failed"));
+    }
+    if (deps.twilio && vm.recordingSid && !vm.audioPath) {
       const accountSid = recordingAccountSid(vm.audioUrl);
       await deps.twilio
         .deleteRecording({ recordingSid: vm.recordingSid, ...(accountSid ? { accountSid } : {}) })
@@ -79,7 +82,12 @@ export async function voicemailRoutes(app: FastifyInstance, deps: AppDeps) {
       vm = await ownVoicemail(req);
     }
     if (!hasAudio(vm)) throw notFound("no_audio");
-    // TODO(storage): once recordings are copied to private Supabase Storage (audioPath), serve or sign from there.
+    if (vm.audioPath && deps.media) {
+      const stored = await deps.media.get(vm.audioPath);
+      if (!stored) throw new HttpError(502, "audio_unavailable", "The recording could not be retrieved");
+      await repo.markVoicemailListened(vm.id, deps.now());
+      return sendAudio(req, reply, stored);
+    }
     if (!deps.twilio) throw notConfigured("Voicemail audio");
 
     let audio: { contentType: string; body: Buffer };

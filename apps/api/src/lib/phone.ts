@@ -24,10 +24,12 @@ const HIGH_COST_NANP = new Set(
   "242 246 264 268 284 340 345 441 473 649 658 664 670 671 684 721 758 767 784 809 829 849 868 869 876".split(" "),
 );
 
-export type DestinationZone = "ca" | "us" | "nanp_premium" | "nanp_high_cost" | "intl" | "invalid";
+export type DestinationZone = "ca" | "us" | "nanp_premium" | "nanp_high_cost" | "cuba" | "intl" | "invalid";
 
 export function classifyDestination(e164: string): DestinationZone {
   if (!E164.test(e164)) return "invalid";
+  // Twilio has no Cuba destination. +53 is routed through the second carrier.
+  if (/^\+53\d{6,12}$/.test(e164)) return "cuba";
   if (!e164.startsWith("+1")) return "intl";
   if (!NANP_E164.test(e164)) return "invalid";
   const npa = e164.slice(2, 5);

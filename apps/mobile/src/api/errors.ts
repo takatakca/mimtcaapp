@@ -24,6 +24,8 @@ const CODE_TO_KEY: Record<string, TKey> = {
   new_recipient_limit: "error.rateLimited",
   bulk_identical_blocked: "error.rateLimited",
   not_implemented: "error.notImplemented",
+  device_attestation_required: "error.deviceRequired",
+  reward_pending: "error.rewardPending",
 };
 
 export function errorKeyFor(status: number | null, code?: string | null): TKey {

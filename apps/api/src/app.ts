@@ -9,6 +9,8 @@ import { loggerOptions } from "./logger.js";
 import { authRoutes } from "./routes/auth.js";
 import { billingRoutes } from "./routes/billing.js";
 import { callRoutes } from "./routes/calls.js";
+import { captureException } from "./monitoring/report.js";
+import { deviceRoutes } from "./routes/devices.js";
 import { e911Routes } from "./routes/e911.js";
 import { handoffRoutes } from "./routes/handoff.js";
 import { healthRoutes } from "./routes/health.js";
@@ -46,6 +48,9 @@ export async function buildApp(deps: AppDeps) {
     const status = err.statusCode ?? 500;
     if (status >= 500) {
       req.log.error({ err }, "request failed");
+      if (deps.config.SENTRY_DSN) {
+        void captureException(deps.config.SENTRY_DSN, { name: err.name, message: err.message }).catch(() => undefined);
+      }
       return reply.code(500).send({ error: "internal_error", message: "Internal error" });
     }
     return reply.code(status).send({ error: err.code ?? "error", message: err.message });
@@ -55,6 +60,7 @@ export async function buildApp(deps: AppDeps) {
   const routes: Routes[] = [
     healthRoutes,
     authRoutes,
+    deviceRoutes,
     handoffRoutes,
     e911Routes,
     numberRoutes,

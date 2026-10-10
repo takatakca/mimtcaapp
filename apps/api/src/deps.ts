@@ -2,8 +2,10 @@ import type { Config } from "./config.js";
 import type { AiServices } from "./ai/service.js";
 import type { SessionService } from "./auth/sessions.js";
 import type { TakatakClient } from "./auth/takatak.js";
+import type { DeviceVerifier } from "./devices/verify.js";
 import type { BillingGateway } from "./gateways/billing.js";
 import type { ProvisioningProvider } from "./catalog/providers/types.js";
+import type { MediaStore } from "./gateways/media.js";
 import type { TwilioGateway } from "./gateways/twilio.js";
 import type { MessageCipher } from "./lib/crypto.js";
 import type { RateLimiter } from "./fraud/rateLimiter.js";
@@ -19,6 +21,11 @@ export interface AppDeps {
   twilio: TwilioGateway | null;
   /** null when Stripe is not configured. */
   billing: BillingGateway | null;
+  /** null until Supabase Storage credentials are set. Voicemail then stays on Twilio. */
+  media: MediaStore | null;
+  deviceVerifier: DeviceVerifier;
+  /** AdMob SSV public keys, keyed by key id. Tests inject a fixed map. */
+  admobKeys: () => Promise<ReadonlyMap<string, string>>;
   cipher: MessageCipher;
   rateLimiter: RateLimiter;
   notifier: Notifier;

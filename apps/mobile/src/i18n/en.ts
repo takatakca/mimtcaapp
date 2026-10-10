@@ -218,4 +218,6 @@ export const en: Record<TKey, string> = {
   "error.server": "The service is temporarily unavailable. Try again later.",
   "error.generic": "Something went wrong. Please try again.",
   "error.notImplemented": "This feature is coming soon.",
+  "error.deviceRequired": "Confirm this device before getting a free number.",
+  "error.rewardPending": "The ad check has not arrived yet. Try again in a moment.",
 };

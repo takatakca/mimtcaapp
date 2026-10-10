@@ -4,8 +4,11 @@ import type { AppDeps } from "./deps.js";
 import { loadSigningKey, SessionService } from "./auth/sessions.js";
 import { TakatakOidc } from "./auth/takatak.js";
 import { InMemoryRateLimiter } from "./fraud/rateLimiter.js";
+import { admobKeyLoader } from "./ads/ssv.js";
+import { createDeviceVerifier } from "./devices/verify.js";
 import { StripeGateway } from "./gateways/billing.js";
 import { createProvisioningProvider } from "./catalog/providers/index.js";
+import { SupabaseMediaStore } from "./gateways/media.js";
 import { TwilioRestGateway } from "./gateways/twilio.js";
 import { MessageCipher } from "./lib/crypto.js";
 import { REDACT_PATHS } from "./logger.js";
@@ -42,6 +45,9 @@ export function createDeps(config: Config, log: Logger): AppDeps {
   const provisioning = createProvisioningProvider(config);
   if (!provisioning) log.warn("PROVISIONING_PROVIDER not set: internet/mobile ordering answers 503");
   else if (provisioning.code === "sandbox") log.warn("Provisioning uses the SANDBOX provider: orders create fake services");
+  const media =
+    config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY ? new SupabaseMediaStore(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY) : null;
+  if (!media) log.warn("Supabase Storage not configured: voicemail audio stays at Twilio until it is copied");
 
   return {
     config,
@@ -50,6 +56,9 @@ export function createDeps(config: Config, log: Logger): AppDeps {
     takatak: new TakatakOidc(config, repo),
     twilio,
     billing,
+    media,
+    deviceVerifier: createDeviceVerifier(config),
+    admobKeys: admobKeyLoader(config.ADMOB_SSV_KEYS_URL),
     cipher: new MessageCipher(cipherKey),
     rateLimiter: new InMemoryRateLimiter(),
     notifier: new LogNotifier(log),

@@ -165,6 +165,13 @@ export class TwilioRestGateway implements TwilioGateway {
     const res = await fetch(this.recordingUrl(input, ".json"), { method: "DELETE", headers: { authorization: this.basicAuth() } });
     if (!res.ok && res.status !== 404) throw new Error(`Twilio recording delete failed with HTTP ${res.status}`);
   }
+
+  /** Twilio totalprice for a window, in USD. Used by the daily cost report. */
+  async usagePriceUsd(start: Date, end: Date): Promise<number | null> {
+    const records = await this.client.usage.records.list({ category: "totalprice", startDate: start, endDate: end, limit: 1 });
+    const price = records[0]?.price;
+    return price == null || Number.isNaN(Number(price)) ? null : Number(price);
+  }
 }
 
 /** Validates X-Twilio-Signature against PUBLIC_BASE_URL + the request path and query. */

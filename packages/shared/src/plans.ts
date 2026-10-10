@@ -95,6 +95,19 @@ export function planHas(plan: PlanCode, feature: Feature): boolean {
   return PLANS[plan].features.includes(feature);
 }
 
+/** App Store and Play product ids. Business plans stay on the web (Stripe). */
+export const STORE_PRODUCTS = {
+  "ca.mimt.app.lock.monthly": { plan: "lock", interval: "month" },
+  "ca.mimt.app.lock.yearly": { plan: "lock", interval: "year" },
+  "ca.mimt.app.premium.monthly": { plan: "premium", interval: "month" },
+  "ca.mimt.app.premium.yearly": { plan: "premium", interval: "year" },
+} as const satisfies Record<string, { plan: "lock" | "premium"; interval: "month" | "year" }>;
+
+export function storeProduct(id: string): (typeof STORE_PRODUCTS)[keyof typeof STORE_PRODUCTS] | undefined {
+  if (id in STORE_PRODUCTS) return STORE_PRODUCTS[id as keyof typeof STORE_PRODUCTS];
+  return undefined;
+}
+
 /** Format CAD cents the Quebec way: "19,99 $" (fr) or "$19.99" (en). */
 export function formatCad(cents: number, locale: "fr" | "en" = "fr"): string {
   return new Intl.NumberFormat(locale === "fr" ? "fr-CA" : "en-CA", { style: "currency", currency: "CAD" }).format(cents / 100);

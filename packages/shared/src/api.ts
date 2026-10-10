@@ -88,18 +88,24 @@ export interface MeExportResponse {
   [section: string]: unknown;
 }
 
-export type ConsentKind =
-  | "casl_marketing"
-  | "ads_personalised"
-  | "call_recording_notice"
-  | "privacy_policy"
-  | "terms"
+/** Consents a user can give or withdraw through POST /v1/consents. */
+export const USER_CONSENT_KINDS = [
+  "casl_marketing",
+  "ads_personalised",
+  "call_recording_notice",
+  "privacy_policy",
+  "terms",
   /** Law 25: processing of voicemails/SMS by the AI provider (Anthropic, outside Quebec). See ai.ts. */
-  | "ai_processing";
+  "ai_processing",
+] as const;
+/** Consents recorded by the resale order flow (contract summary, consumer codes, credit check). */
+export const ORDER_CONSENT_KINDS = ["contract_summary", "wireless_code", "internet_code", "credit_check"] as const;
+export type UserConsentKind = (typeof USER_CONSENT_KINDS)[number];
+export type ConsentKind = UserConsentKind | (typeof ORDER_CONSENT_KINDS)[number];
 
 /** POST /v1/consents → 201 ConsentResponse */
 export interface ConsentRequest {
-  kind: ConsentKind;
+  kind: UserConsentKind;
   granted: boolean;
   version: string;
   /** Where the consent was given ("mobile", "web"…). Defaults to "app". */
@@ -322,7 +328,7 @@ export interface BillingPortalResponse {
 
 // ------------------------------------------------------------------------------------------ rewards
 
-/** POST /v1/rewards/claim — answers 501 not_implemented until AdMob SSV verification exists. */
+/** POST /v1/rewards/claim — credits minutes only after AdMob's signed callback has arrived. */
 export interface RewardClaimRequest {
   kind: "rewarded_ad_10min";
   adUnitId: string;

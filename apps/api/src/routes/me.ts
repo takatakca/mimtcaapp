@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { ConsentResponse, DeleteMeResponse, MeExportResponse, MeResponse, UpdateMeResponse } from "@mimt/shared";
-import { QUARANTINE_DAYS } from "@mimt/shared";
+import { QUARANTINE_DAYS, USER_CONSENT_KINDS } from "@mimt/shared";
 import { z } from "zod";
 import type { AppDeps } from "../deps.js";
 import { loadContext, requireUser } from "../auth/guard.js";
@@ -19,7 +19,7 @@ const PatchBody = z
   .strict();
 
 const ConsentBody = z.object({
-  kind: z.enum(["casl_marketing", "ads_personalised", "call_recording_notice", "privacy_policy", "terms"]),
+  kind: z.enum(USER_CONSENT_KINDS),
   granted: z.boolean(),
   version: z.string().min(1).max(64),
   source: z.string().max(64).default("app"),

@@ -97,6 +97,30 @@ describe("outbound voice: PSTN rules", () => {
     );
   });
 
+  it("refuses Cuba until the second carrier is connected, then dials that SIP trunk", async () => {
+    const u = await makeUser(ctx, { number: "+15145550100", e911: true, ack: true });
+    await ctx.repo.upsertSubscription({
+      telecomAccountId: u.account.id, kind: "plan", code: "premium", quantity: 1, stripeSubscriptionId: "sub_cu", status: "active", source: "stripe", currentPeriodEnd: null,
+    });
+    await ctx.repo.replaceEntitlements(u.account.id, "intl_credit", [{ feature: "intl_calling", limit: null }]);
+    await ctx.repo.addIntlCredit(u.account.id, 500);
+    const blocked = await outbound(u.user.id, "+5355550100");
+    expect(blocked.body).toContain("second fournisseur");
+    expect(blocked.body).not.toContain("<Sip>");
+
+    await ctx.app.close();
+    ctx = await setup({ config: { CUBA_SIP_HOST: "sip.example.net", CUBA_CARRIER: "telnyx" } });
+    const paid = await makeUser(ctx, { number: "+15145550100", e911: true, ack: true });
+    await ctx.repo.upsertSubscription({
+      telecomAccountId: paid.account.id, kind: "plan", code: "premium", quantity: 1, stripeSubscriptionId: "sub_cu2", status: "active", source: "stripe", currentPeriodEnd: null,
+    });
+    await ctx.repo.replaceEntitlements(paid.account.id, "intl_credit", [{ feature: "intl_calling", limit: null }]);
+    await ctx.repo.addIntlCredit(paid.account.id, 500);
+    const res = await outbound(paid.user.id, "+5355550100");
+    expect(res.body).toContain("<Sip>sip:5355550100@sip.example.net</Sip>");
+    expect(res.body).not.toContain("<Number>+5355550100</Number>");
+  });
+
   it("allows international with the entitlement and prepaid credit, limited by credit", async () => {
     const u = await makeUser(ctx, { number: "+15145550100", e911: true, ack: true });
     await ctx.repo.upsertSubscription({

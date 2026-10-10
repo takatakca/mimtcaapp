@@ -4,9 +4,11 @@ import type { AppDeps } from "../deps.js";
 import { checkInboundCaps, checkVoiceCaps, effectiveCaps, exceedsDailySpend } from "../fraud/caps.js";
 import { checkVoiceDestination } from "../fraud/destinations.js";
 import { CALL_ATTEMPT_RULES } from "../fraud/policy.js";
+import { cubaSipUri } from "../lib/cuba.js";
 import { classifyDestination, isDomesticZone, normalizeDialed } from "../lib/phone.js";
 import { dayPeriod, monthPeriod } from "../lib/time.js";
 import type { Call, PhoneNumber, TelecomAccount } from "../repo/types.js";
+import { recordingAccountSid } from "../gateways/twilio.js";
 import { getFeatures, HELD_STATES, outboundBlocked, setAccountStatus, usagePeriods } from "../services/accounts.js";
 import { e911Ready } from "./e911.js";
 import { NOT_IN_SERVICE, sayBilingual, sendTwiml, twilioParams, VoiceResponse } from "./twiml.js";
@@ -34,6 +36,10 @@ const REFUSALS = {
   too_many_calls: ["Vous avez déjà un appel en cours.", "You already have a call in progress."],
   destination_blocked: ["Cette destination n'est pas permise avec votre forfait.", "This destination is not allowed on your plan."],
   intl_no_credit: ["Votre crédit international est insuffisant.", "Your international credit is too low."],
+  cuba_unavailable: [
+    "Les appels vers Cuba passent par un second fournisseur qui n'est pas encore branché.",
+    "Calls to Cuba use a second carrier that is not connected yet.",
+  ],
   rate_limited: ["Trop d'appels en peu de temps. Réessayez plus tard.", "Too many calls in a short time. Please try again later."],
 } as const;
 type Refusal = keyof typeof REFUSALS;
@@ -182,9 +188,15 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
       if (timeLimit < 60) return sendTwiml(reply, refuse("intl_no_credit"));
     }
 
+    if (dest.zone === "cuba" && !cubaSipUri(to, config.CUBA_SIP_HOST)) {
+      return sendTwiml(reply, refuse("cuba_unavailable"));
+    }
+
     await record("pstn", caller.e164);
     const vr = new VoiceResponse();
-    vr.dial({ callerId: caller.e164, timeLimit, answerOnBridge: true }).number(to);
+    const dial = vr.dial({ callerId: caller.e164, timeLimit, answerOnBridge: true });
+    if (dest.zone === "cuba") dial.sip(cubaSipUri(to, config.CUBA_SIP_HOST)!);
+    else dial.number(to);
     return sendTwiml(reply, vr);
   });
 
@@ -326,8 +338,7 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
     const number = numberId ? await repo.getNumber(numberId) : null;
     if (!number?.telecomAccountId || !p.RecordingSid || !p.CallSid) return reply.code(204).send();
     const call = await repo.getCallBySid(p.CallSid);
-    // TODO: copy the audio to the private Supabase Storage bucket, then delete it from Twilio.
-    await repo.createVoicemail({
+    const vm = await repo.createVoicemail({
       telecomAccountId: number.telecomAccountId,
       phoneNumberId: number.id,
       callSid: p.CallSid,
@@ -336,6 +347,18 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
       audioUrl: p.RecordingUrl ?? null,
       durationS: p.RecordingDuration ? Number(p.RecordingDuration) : null,
     });
+    if (deps.media && deps.twilio && p.RecordingSid) {
+      try {
+        const accountSid = recordingAccountSid(p.RecordingUrl);
+        const audio = await deps.twilio.fetchRecording({ recordingSid: p.RecordingSid, ...(accountSid ? { accountSid } : {}) });
+        const audioPath = `${number.telecomAccountId}/${p.RecordingSid}.mp3`;
+        await deps.media.put(audioPath, audio.body, audio.contentType);
+        await repo.updateVoicemailByRecordingSid(p.RecordingSid, { audioPath });
+        await deps.twilio.deleteRecording({ recordingSid: p.RecordingSid, ...(accountSid ? { accountSid } : {}) });
+      } catch (err) {
+        req.log.error({ err, voicemailId: vm.id }, "voicemail copy to private storage failed");
+      }
+    }
     return reply.code(204).send();
   });
 

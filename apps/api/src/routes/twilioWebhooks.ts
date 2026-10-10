@@ -22,4 +22,13 @@ export async function twilioWebhooks(app: FastifyInstance, deps: AppDeps) {
 
   await twilioVoiceWebhooks(app, deps);
   await twilioSmsWebhooks(app, deps);
+
+  app.post("/webhooks/twilio/usage", async (req, reply) => {
+    const p = twilioParams(req);
+    req.log.error(
+      { currentValue: p.CurrentValue, triggerValue: p.TriggerValue, category: p.UsageCategory },
+      "Twilio usage trigger fired",
+    );
+    return reply.code(204).send();
+  });
 }

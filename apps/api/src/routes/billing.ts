@@ -9,6 +9,8 @@ import { addDays } from "../lib/time.js";
 import { parse } from "../lib/validate.js";
 import type { Subscription, TelecomAccount } from "../repo/types.js";
 import { getPlan, recomputeEntitlements, usagePeriods } from "../services/accounts.js";
+import { purchaseFromApplePayload, verifyAppleTransactionJws, verifyGoogleSubscription } from "../billing/iap.js";
+import { quebecTaxLines } from "../billing/taxes.js";
 import type { CheckoutLine } from "../gateways/billing.js";
 
 const CheckoutBody = z
@@ -72,10 +74,18 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     }
 
     const customerId = account.stripeCustomerId ?? (await createCustomer(account, user.email, user.displayName, user.locale));
+    const taxLines = quebecTaxLines({
+      baseUnitCents: line.unitAmountCents,
+      quantity: line.quantity,
+      recurring: line.recurring ?? null,
+      chargeE911: Boolean(body.plan) || body.addon === "extra_number",
+      locale: user.locale,
+    });
     const session = await deps.billing.createCheckout({
       customerId,
       mode,
       line,
+      taxLines,
       metadata: { telecom_account_id: account.id, kind: body.plan ? "plan" : "addon", code },
       successUrl: `${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${appUrl}/billing/cancel`,
@@ -97,11 +107,49 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     return { portalUrl: await deps.billing.createPortal(account.stripeCustomerId, `${appUrl}/settings/billing`) };
   });
 
-  // TODO: verify App Store (App Store Server API, signed transactions) and Google Play (Play Developer API purchases.subscriptionsv2)
-  // receipts, then upsert a subscription with source "iap_apple"/"iap_google" and call recomputeEntitlements.
-  app.post("/v1/billing/iap/verify", auth, async (_req, reply) =>
-    reply.code(501).send({ error: "not_implemented", message: "In-app purchase verification is not implemented yet" }),
-  );
+  const IapBody = z.object({
+    platform: z.enum(["ios", "android"]),
+    productId: z.string().min(1).max(200),
+    transaction: z.string().min(20).max(20_000),
+  });
+
+  app.post("/v1/billing/iap/verify", auth, async (req) => {
+    const body = parse(IapBody, req.body);
+    const { account } = await loadContext(deps, req);
+    let purchase;
+    if (body.platform === "ios") {
+      if (!config.APPLE_ROOT_CA_PEM) throw notConfigured("App Store");
+      let payload: Record<string, unknown>;
+      try {
+        payload = await verifyAppleTransactionJws(body.transaction, config.APPLE_ROOT_CA_PEM);
+      } catch {
+        throw badRequest("invalid_receipt", "Le reçu Apple n'a pas pu être vérifié.");
+      }
+      purchase = purchaseFromApplePayload(payload, deps.now(), config.APPLE_BUNDLE_ID);
+      if (purchase && payload.productId !== body.productId) purchase = null;
+    } else {
+      if (!config.GOOGLE_PLAY_PACKAGE_NAME || !config.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON) throw notConfigured("Google Play");
+      purchase = await verifyGoogleSubscription({
+        packageName: config.GOOGLE_PLAY_PACKAGE_NAME,
+        productId: body.productId,
+        purchaseToken: body.transaction,
+        serviceAccountJson: config.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON,
+      });
+    }
+    if (!purchase) throw badRequest("unknown_product", "Ce produit n'est pas un forfait MIMT.");
+    await repo.upsertSubscription({
+      telecomAccountId: account.id,
+      kind: "plan",
+      code: purchase.plan,
+      quantity: 1,
+      stripeSubscriptionId: `${body.platform}:${purchase.transactionId}`,
+      status: purchase.status,
+      source: body.platform === "ios" ? "iap_apple" : "iap_google",
+      currentPeriodEnd: purchase.currentPeriodEnd,
+    });
+    await recomputeEntitlements(repo, account);
+    return { plan: purchase.plan, status: purchase.status, currentPeriodEnd: purchase.currentPeriodEnd?.toISOString() ?? null };
+  });
 
   // Stripe webhook: needs the raw body for signature verification, so JSON parsing is overridden in this scope only.
   await app.register(async (scope) => {
