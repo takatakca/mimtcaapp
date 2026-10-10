@@ -6,3 +6,4 @@ export * from "./catalog.js";
 export * from "./consumerCodes.js";
 export * from "./ai.js";
 export * from "./catalogApi.js";
+export * from "./portIn.js";

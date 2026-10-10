@@ -11,6 +11,7 @@ import { StripeGateway } from "./gateways/billing.js";
 import { createProvisioningProvider } from "./catalog/providers/index.js";
 import { SupabaseMediaStore } from "./gateways/media.js";
 import { TwilioRestGateway } from "./gateways/twilio.js";
+import { TwilioRestPortingGateway } from "./gateways/twilioPorting.js";
 import { MessageCipher } from "./lib/crypto.js";
 import { REDACT_PATHS } from "./logger.js";
 import { MemoryRepository } from "./repo/memory.js";
@@ -50,6 +51,8 @@ export function createDeps(config: Config, log: Logger): AppDeps {
     config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY ? new SupabaseMediaStore(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY) : null;
   if (!aiConfigured(config)) log.warn("ANTHROPIC_API_KEY not set: AI features answer 503 (spam labels still use local rules)");
   if (!media) log.warn("Supabase Storage not configured: voicemail audio stays at Twilio until it is copied");
+  const porting = twilio && config.TWILIO_PORTING_ENABLED ? new TwilioRestPortingGateway(config) : null;
+  if (!porting) log.warn("TWILIO_PORTING_ENABLED not set: port-in requests are signed and recorded, then wait for manual submission");
 
   return {
     config,
@@ -66,6 +69,7 @@ export function createDeps(config: Config, log: Logger): AppDeps {
     notifier: new LogNotifier(log),
     now: () => new Date(),
     provisioning,
+    porting,
     ai: createAiServices({ config, ...(repo instanceof PostgresRepository ? { sql: repo.sql } : {}), log }),
   };
 }

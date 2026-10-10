@@ -1,6 +1,7 @@
 import type { ConsentKind, Feature, Locale, NumberState, PlanCode } from "@mimt/shared";
 import type { PbxRepository } from "./pbxTypes.js";
 import type { CatalogRepository } from "./catalog.js";
+import type { PortInRepository } from "./portIn.js";
 
 export type UserStatus = "active" | "suspended" | "pending_deletion" | "deleted";
 export type AccountStatus = "ACTIVE_MANAGED" | "ACTIVE_INDEPENDENT" | "OUTBOUND_SUSPENDED" | "SUSPENDED" | "CLOSED";
@@ -266,6 +267,8 @@ export interface Repository {
   readonly pbx: PbxRepository;
   /** Catalog / internet + mobile resale storage: src/repo/catalog.ts. */
   readonly catalog: CatalogRepository;
+  /** Number port-in (landline/VoIP into MIMT) storage: src/repo/portIn.ts. */
+  readonly portIns: PortInRepository;
   ping(): Promise<void>;
   close(): Promise<void>;
 

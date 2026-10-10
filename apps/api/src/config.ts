@@ -30,6 +30,15 @@ const EnvSchema = z
     TWILIO_VERIFY_SERVICE_SID: optional,
     /** Emergency-enabled company number used as caller ID for 9-1-1 when the user has no number yet. */
     EMERGENCY_FALLBACK_CALLER_ID: optional,
+    /** Number port-in through the Twilio Porting API. Off until porting is enabled on the Twilio account. */
+    TWILIO_PORTING_ENABLED: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((v) => v === "true"),
+    /** Port-in fee in cents. 0 (free) until the owner approves a fee (docs/MIMT-PARITY.md, P0 item 7). */
+    PORT_IN_FEE_CENTS: z.coerce.number().int().min(0).max(100_000).default(0),
+    /** Ops address copied on Twilio porting notifications. */
+    PORT_IN_NOTIFICATION_EMAIL: z.email().optional(),
 
     TAKATAK_ISSUER: optional,
     TAKATAK_JWKS_URL: optional,
