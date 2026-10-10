@@ -80,6 +80,10 @@ export class MemoryCatalogRepository implements CatalogRepository {
     const o = this.orders.get(id);
     return o ? clone(o) : null;
   }
+  async getOrderByProviderRef(provider: string, providerOrderId: string) {
+    const o = [...this.orders.values()].find((x) => x.provider === provider && x.providerOrderId === providerOrderId);
+    return o ? clone(o) : null;
+  }
   async updateOrder(id: string, expectedState: OrderRow["state"], patch: Partial<OrderRow>) {
     const o = this.orders.get(id);
     if (!o || o.state !== expectedState) return null;
@@ -184,6 +188,10 @@ export class MemoryCatalogRepository implements CatalogRepository {
   }
   async getPortingRequestByOrder(orderId: string) {
     const p = [...this.portingRequests.values()].find((x) => x.orderId === orderId);
+    return p ? clone(p) : null;
+  }
+  async getPortingRequestByProviderRef(providerRef: string) {
+    const p = [...this.portingRequests.values()].find((x) => x.providerRef === providerRef);
     return p ? clone(p) : null;
   }
   async listPortingInStatuses(statuses: PortingRow["status"][], limit: number) {

@@ -65,6 +65,9 @@ export class PostgresCatalogRepository implements CatalogRepository {
   async getOrder(id: string) {
     return maybe<OrderRow>(await this.sql`select * from service_orders where id = ${id}`);
   }
+  async getOrderByProviderRef(provider: string, providerOrderId: string) {
+    return maybe<OrderRow>(await this.sql`select * from service_orders where provider = ${provider} and provider_order_id = ${providerOrderId}`);
+  }
   async updateOrder(id: string, expectedState: OrderRow["state"], patch: Partial<OrderRow>) {
     return maybe<OrderRow>(
       await this.sql`update service_orders set ${this.sql(this.cols({ ...patch, updatedAt: new Date() }))}
@@ -132,6 +135,9 @@ export class PostgresCatalogRepository implements CatalogRepository {
   }
   async getPortingRequestByOrder(orderId: string) {
     return maybe<PortingRow>(await this.sql`select * from porting_requests where order_id = ${orderId}`);
+  }
+  async getPortingRequestByProviderRef(providerRef: string) {
+    return maybe<PortingRow>(await this.sql`select * from porting_requests where provider_ref = ${providerRef}`);
   }
   async listPortingInStatuses(statuses: PortingRow["status"][], limit: number) {
     return many<PortingRow>(await this.sql`select * from porting_requests where status = any(${statuses}) order by updated_at limit ${limit}`);

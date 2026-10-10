@@ -44,6 +44,8 @@ export interface CatalogRepository {
 
   createOrder(o: Insert<OrderRow, "contractSummaryVersion" | "contractAcceptedAt" | "providerOrderId" | "failureReason" | "submittedAt" | "activatedAt" | "cancelledAt">): Promise<OrderRow>;
   getOrder(id: string): Promise<OrderRow | null>;
+  /** Order by the wholesaler's reference (webhooks). */
+  getOrderByProviderRef(provider: string, providerOrderId: string): Promise<OrderRow | null>;
   /**
    * Compare-and-set on the state: applies the patch only if the order is still in `expectedState`.
    * Returns null when another writer moved it first (route vs. sync job).
@@ -76,6 +78,7 @@ export interface CatalogRepository {
 
   createPortingRequest(p: Insert<PortingRow, "providerRef" | "rejectReason" | "dueAt" | "completedAt">): Promise<PortingRow>;
   getPortingRequestByOrder(orderId: string): Promise<PortingRow | null>;
+  getPortingRequestByProviderRef(providerRef: string): Promise<PortingRow | null>;
   listPortingInStatuses(statuses: PortingStatus[], limit: number): Promise<PortingRow[]>;
   updatePortingRequest(id: string, patch: Partial<Omit<PortingRow, "id" | "createdAt" | "orderId">>): Promise<PortingRow>;
 

@@ -9,6 +9,7 @@ import { loggerOptions } from "./logger.js";
 import { authRoutes } from "./routes/auth.js";
 import { billingRoutes } from "./routes/billing.js";
 import { callRoutes } from "./routes/calls.js";
+import { catalogRoutes } from "./routes/catalog.js";
 import { captureException } from "./monitoring/report.js";
 import { deviceRoutes } from "./routes/devices.js";
 import { e911Routes } from "./routes/e911.js";
@@ -72,6 +73,7 @@ export async function buildApp(deps: AppDeps) {
     meRoutes,
     pushRoutes,
     rewardRoutes,
+    catalogRoutes,
     twilioWebhooks,
   ];
   for (const r of routes) await app.register(async (scope) => r(scope, deps));
