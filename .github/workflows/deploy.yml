@@ -99,3 +99,23 @@ jobs:
         run: |
           curl -fsS -X POST "${COOLIFY_URL%/}/api/v1/deploy?uuid=${COOLIFY_API_UUID}&force=false" \
             -H "Authorization: Bearer ${COOLIFY_TOKEN}"
+
+      # A queued deployment is not proof the API actually started or is routed.
+      # Keep the job red until the real public API can serve both health endpoints.
+      - name: Verify public API health and database readiness
+        shell: bash
+        env:
+          API_HEALTH_BASE_URL: https://api.mimt.ca
+        run: |
+          set -euo pipefail
+          for attempt in {1..40}; do
+            if curl -fsS --connect-timeout 5 --max-time 10 "${API_HEALTH_BASE_URL}/healthz" 2>/dev/null | jq -e '.ok == true' >/dev/null &&
+               curl -fsS --connect-timeout 5 --max-time 10 "${API_HEALTH_BASE_URL}/readyz" 2>/dev/null | jq -e '.ok == true and .db == "up"' >/dev/null; then
+              echo "MIMT API is publicly accessible and database-ready."
+              exit 0
+            fi
+            echo "Attempt ${attempt}/40: API not ready at ${API_HEALTH_BASE_URL}; retrying in 15s."
+            sleep 15
+          done
+          echo "::error::Coolify accepted the deployment request, but https://api.mimt.ca/healthz and /readyz are not healthy. Check Coolify deployment status, domain/proxy route, container port 8080, environment variables and application logs."
+          exit 1
