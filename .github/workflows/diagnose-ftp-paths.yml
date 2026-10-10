@@ -1,6 +1,8 @@
-name: Diagnose MochaHost FTP TLS Certificate
+name: Diagnose MochaHost FTP Paths (verified WHG TLS)
 
-# Read-only TLS negotiation. Never sends USER/PASS or changes remote files.
+# Read-only inspection: directory listings and reading index.html only.
+# Control and data channels both use CA-verified TLS for whgi.net, the
+# identity on the FTP server's observed World Host Group certificate.
 on:
   push:
     branches: [diag/mimt-ftp-root-20261010]
@@ -9,43 +11,107 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
+  inspect:
     runs-on: ubuntu-latest
     steps:
-      - name: Read FTP TLS certificate without logging in
+      - name: Read FTP directory map with verified TLS
         shell: bash
         env:
           FTP_SERVER: ${{ secrets.MOCHAHOST_FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.MOCHAHOST_FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
+          CURRENT_SITE_DIR: ${{ vars.WEB_FTP_DIR }}
+          CURRENT_APP_DIR: ${{ vars.WEBPHONE_FTP_DIR }}
         run: |
           set -euo pipefail
           python - <<'PY'
-          import ftplib, ssl, os, subprocess, tempfile
+          import ftplib
+          import os
+          import ssl
+
+          class VerifiedHostingFTP(ftplib.FTP_TLS):
+              tls_identity = "whgi.net"
+
+              def auth(self):
+                  # Retain original TCP host but verify the certificate using the
+                  # CA-trusted name actually present on MochaHost's FTP certificate.
+                  original_host = self.host
+                  try:
+                      self.host = self.tls_identity
+                      return super().auth()
+                  finally:
+                      self.host = original_host
+
+              def ntransfercmd(self, cmd, rest=None):
+                  conn, size = super(ftplib.FTP_TLS, self).ntransfercmd(cmd, rest)
+                  if self._prot_p:
+                      conn = self.context.wrap_socket(conn, server_hostname=self.tls_identity)
+                  return conn, size
+
           host = os.environ["FTP_SERVER"]
-          if not host:
-              raise SystemExit("Missing FTP_SERVER")
-          ftp = ftplib.FTP_TLS(context=ssl._create_unverified_context(), timeout=20)
-          # Unverified TLS is used *only to inspect the public certificate*;
-          # do not call login() or send credentials in this workflow.
+          user = os.environ["FTP_USERNAME"]
+          password = os.environ["FTP_PASSWORD"]
+          if not host or not user or not password:
+              raise SystemExit("Missing FTP credentials in GitHub secrets.")
+
+          ftp = VerifiedHostingFTP(context=ssl.create_default_context(), timeout=30)
           try:
               ftp.connect(host, 21)
-              ftp.auth()
-              binary = ftp.sock.getpeercert(binary_form=True)
-              pem = ssl.DER_cert_to_PEM_cert(binary)
-              with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as f:
-                  f.write(pem)
-                  path = f.name
-              try:
-                  p = subprocess.run(
-                      ["openssl", "x509", "-in", path, "-noout", "-subject", "-issuer", "-dates", "-ext", "subjectAltName"],
-                      capture_output=True, text=True, check=False
-                  )
-                  print("FTP server certificate details (public information):")
-                  print(p.stdout.strip())
-                  if p.returncode:
-                      print("Certificate parse error:", p.stderr.strip()[:500])
-              finally:
-                  os.unlink(path)
-              print("No FTP credentials were sent and no server files were changed.")
+              ftp.login(user, password)
+              ftp.prot_p()
+              print("FTPS: authenticated and TLS certificate verified as whgi.net.")
+              base = ftp.pwd()
+              print("FTP login working directory:", base)
+              candidates = [
+                  ("login root", "./"),
+                  ("mimt.ca", "./mimt.ca/"),
+                  ("app.mimt.ca", "./app.mimt.ca/"),
+                  ("public_html", "./public_html/"),
+                  ("nested bolonca", "./bolonca/mimt.ca/"),
+                  ("nested website", "./mimt.ca/bolonca/mimt.ca/"),
+                  ("nested home", "./home/bolonca/mimt.ca/"),
+              ]
+              for variable, label in [
+                  ("CURRENT_SITE_DIR", "GitHub WEB_FTP_DIR variable"),
+                  ("CURRENT_APP_DIR", "GitHub WEBPHONE_FTP_DIR variable"),
+              ]:
+                  if os.getenv(variable):
+                      candidates.append((label, os.environ[variable]))
+              seen = set()
+              for label, rel in candidates:
+                  if rel in seen:
+                      continue
+                  seen.add(rel)
+                  try:
+                      ftp.cwd(base)
+                      ftp.cwd(rel)
+                      here = ftp.pwd()
+                      names = [x.rsplit("/", 1)[-1] for x in ftp.nlst()]
+                      flag = "NO INDEX.HTML"
+                      if "index.html" in names:
+                          buf = bytearray()
+                          def chunk(b):
+                              if len(buf) < 300000:
+                                  buf.extend(b[:300000-len(buf)])
+                          ftp.retrbinary("RETR index.html", chunk)
+                          body = buf.decode("utf8", "replace").lower()
+                          if "fongo" in body:
+                              flag = "OLD FONGO TEXT"
+                          elif "mimt web" in body:
+                              flag = "MIMT WEB APP"
+                          elif "votre numéro canadien" in body:
+                              flag = "NEW MIMT FRENCH WEBSITE"
+                          elif "mimt" in body:
+                              flag = "OTHER MIMT PAGE"
+                          else:
+                              flag = "OTHER HTML"
+                      print(f"{label}: {rel} -> {here}, {flag}")
+                  except ftplib.all_errors as exc:
+                      print(f"{label}: {rel} -> UNAVAILABLE ({type(exc).__name__})")
+              print("Finished READ ONLY: no upload, rename, or delete.")
           finally:
-              ftp.close()
+              try:
+                  ftp.quit()
+              except (ftplib.all_errors, OSError, AttributeError):
+                  ftp.close()
           PY
