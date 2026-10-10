@@ -449,7 +449,7 @@ jobs:
                   "leading quote:",z.startswith(("'",'"')),
                   "trailing quote:",z.endswith(("'",'"')),
                   "postgres_scheme:",z.lower().startswith(("postgres://","postgresql://")),
-                  "postgres_after_stripping_quotes:",z.strip('"\\'').lower().startswith(("postgres://","postgresql://")),
+                  "postgres_after_stripping_quotes:",z.strip(chr(34)+chr(39)).lower().startswith(("postgres://","postgresql://")),
                   "starts_env_reference:",z.startswith(("$","{{")),
                   "is_private_flag:",bool(ob.get("is_preview")))
           print("Only syntax flags shown. No connection strings, secrets or certificate data emitted.")
