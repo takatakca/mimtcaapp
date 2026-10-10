@@ -18,6 +18,8 @@ FROM node:22-alpine AS runtime
 ENV NODE_ENV=production PORT=8080 HOST=0.0.0.0
 WORKDIR /app
 COPY --from=build --chown=node:node /out ./
+COPY --from=build --chown=node:node /repo/deploy/coolify/mimt-postgres-bootstrap.sql /app/db/bootstrap.sql
+COPY --from=build --chown=node:node /repo/supabase/migrations /app/db/migrations
 USER node
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s CMD wget -qO- http://127.0.0.1:8080/healthz || exit 1
