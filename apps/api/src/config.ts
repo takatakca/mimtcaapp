@@ -80,6 +80,12 @@ const EnvSchema = z
     CUBA_SIP_HOST: optional,
     SUPABASE_URL: optional,
     SUPABASE_SERVICE_ROLE_KEY: optional,
+    /** Private bucket for MMS media and voicemail greetings (created by migration 0007). */
+    SUPABASE_MEDIA_BUCKET: z.string().regex(/^[a-z0-9][a-z0-9_-]{1,62}$/).default("media"),
+    /** Voicemail-to-email sender. "log" (default) only logs; "resend" sends through Resend's HTTP API with EMAIL_API_KEY. */
+    EMAIL_PROVIDER: z.enum(["log", "resend"]).default("log"),
+    EMAIL_API_KEY: optional,
+    EMAIL_FROM: z.string().min(3).default("MIMT <messagerie@mimt.ca>"),
     ADMOB_SSV_KEYS_URL: z.url().default("https://www.gstatic.com/admob/reward/verifier-keys.json"),
     APPLE_BUNDLE_ID: optional,
     APPLE_TEAM_ID: optional,
@@ -101,6 +107,9 @@ const EnvSchema = z
     }
     if (env.CUBA_SIP_HOST && !isSipHost(env.CUBA_SIP_HOST)) {
       ctx.addIssue({ code: "custom", path: ["CUBA_SIP_HOST"], message: "CUBA_SIP_HOST must be a hostname, with no user or password" });
+    }
+    if (env.EMAIL_PROVIDER === "resend" && !env.EMAIL_API_KEY) {
+      ctx.addIssue({ code: "custom", path: ["EMAIL_API_KEY"], message: "EMAIL_API_KEY is required when EMAIL_PROVIDER=resend" });
     }
     if (env.NODE_ENV !== "production") return;
     const required = [

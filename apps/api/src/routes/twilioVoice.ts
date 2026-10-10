@@ -14,6 +14,8 @@ import { processVoicemailTranscript } from "../ai/voicemail.js";
 import { pbxInbound, pbxOutbound } from "../pbx/engine.js";
 import { getFeatures, HELD_STATES, outboundBlocked, setAccountStatus, usagePeriods } from "../services/accounts.js";
 import { afterDialControls, inboundCallControls } from "../services/callControls.js";
+import { queueVoicemailEmail } from "../services/email.js";
+import { greetingPlayUrl } from "../services/greeting.js";
 import { e911Ready } from "./e911.js";
 import { NOT_IN_SERVICE, sayBilingual, sendTwiml, twilioParams, VoiceResponse } from "./twiml.js";
 
@@ -276,11 +278,15 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
   async function voicemail(number: PhoneNumber, account: TelecomAccount) {
     const { features } = await getFeatures(repo, account.id);
     const vr = new VoiceResponse();
-    sayBilingual(
-      vr,
-      "Bonjour, vous avez joint la messagerie vocale. Laissez votre message après le signal.",
-      "Hello, you have reached voicemail. Please leave a message after the tone.",
-    );
+    // Custom greeting (paid plans) or the default French-first greeting; greetingPlayUrl never throws.
+    const greeting = await greetingPlayUrl(deps, account.id, features, app.log);
+    if (greeting) vr.play(greeting);
+    else
+      sayBilingual(
+        vr,
+        "Bonjour, vous avez joint la messagerie vocale. Laissez votre message après le signal.",
+        "Hello, you have reached voicemail. Please leave a message after the tone.",
+      );
     vr.record({
       maxLength: VOICEMAIL_MAX_S,
       playBeep: true,
@@ -387,6 +393,7 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
         req.log.error({ err, voicemailId: vm.id }, "voicemail copy to private storage failed");
       }
     }
+    await queueVoicemailEmail(deps, number.telecomAccountId, vm.id, req.log);
     return reply.code(204).send();
   });
 

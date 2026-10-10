@@ -130,7 +130,7 @@ const SUMMARY_ERRORS: Record<VoicemailAiResult, [number, string] | null> = {
 };
 
 /** Sends a buffer with single-range support (iOS AVPlayer asks for byte ranges). */
-function sendAudio(req: FastifyRequest, reply: FastifyReply, audio: { contentType: string; body: Buffer }) {
+export function sendAudio(req: FastifyRequest, reply: FastifyReply, audio: { contentType: string; body: Buffer }) {
   const size = audio.body.length;
   reply
     .header("content-type", audio.contentType)

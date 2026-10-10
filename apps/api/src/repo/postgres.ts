@@ -3,6 +3,7 @@ import postgres from "postgres";
 import { PostgresPbxRepository } from "./pbxPostgres.js";
 import { PostgresCatalogRepository } from "./catalogPostgres.js";
 import { PostgresCallControlsRepository } from "./callControlsPostgres.js";
+import { PostgresMediaRepository } from "./mediaPostgres.js";
 import type {
   AuditEntry,
   Call,
@@ -53,6 +54,11 @@ export class PostgresRepository implements Repository {
   private callControlsRepo?: PostgresCallControlsRepository;
   get callControls(): PostgresCallControlsRepository {
     return (this.callControlsRepo ??= new PostgresCallControlsRepository(this.sql));
+  }
+
+  private mediaRepo?: PostgresMediaRepository;
+  get media(): PostgresMediaRepository {
+    return (this.mediaRepo ??= new PostgresMediaRepository(this.sql));
   }
 
   constructor(databaseUrl: string, opts: { max?: number } = {}) {

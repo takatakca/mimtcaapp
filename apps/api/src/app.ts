@@ -28,6 +28,8 @@ import { aiReceptionistSocket } from "./routes/twilioAi.js";
 import { twilioWebhooks } from "./routes/twilioWebhooks.js";
 import { voiceRoutes } from "./routes/voice.js";
 import { voicemailRoutes } from "./routes/voicemails.js";
+import { mediaRoutes } from "./routes/media.js";
+import { voicemailSettingsRoutes } from "./routes/voicemailSettings.js";
 
 type Routes = (app: import("fastify").FastifyInstance, deps: AppDeps) => Promise<void>;
 
@@ -75,6 +77,8 @@ export async function buildApp(deps: AppDeps) {
     voiceRoutes,
     callRoutes,
     voicemailRoutes,
+    voicemailSettingsRoutes,
+    mediaRoutes,
     messageRoutes,
     billingRoutes,
     meRoutes,

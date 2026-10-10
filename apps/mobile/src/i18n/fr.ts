@@ -106,6 +106,9 @@ export const fr = {
   "messages.invalidTo": "Entrez un numéro valide à 10 chiffres.",
   "messages.call": "Appeler ce contact",
   "messages.loadEarlier": "Afficher les messages précédents",
+  "messages.uploading": "Envoi de la photo…",
+  "messages.photo": "Photo",
+  "messages.photoUnavailable": "Photo non disponible",
 
   // Appels
   "calls.title": "Appels",
@@ -157,6 +160,26 @@ export const fr = {
   "voicemail.deleteConfirm": "Supprimer ce message vocal?",
   "voicemail.noAudio": "L'enregistrement n'est pas disponible.",
   "voicemail.unknownCaller": "Numéro inconnu",
+  "voicemail.settings": "Réglages de la messagerie",
+  "vmSettings.title": "Messagerie vocale",
+  "vmSettings.greeting": "Message d'accueil",
+  "vmSettings.greetingDefault": "Le message d'accueil par défaut joue (français, puis anglais).",
+  "vmSettings.greetingCustom": "Votre message d'accueil personnalisé est actif.",
+  "vmSettings.record": "Enregistrer dans l'application",
+  "vmSettings.stop": "Arrêter et enregistrer",
+  "vmSettings.recording": "Enregistrement… {seconds} s",
+  "vmSettings.recordByCall": "Enregistrer par appel",
+  "vmSettings.recordByCallHint": "MIMT vous appelle dans l'application : parlez après le signal, puis raccrochez.",
+  "vmSettings.calling": "Nous vous appelons. Répondez dans l'application MIMT.",
+  "vmSettings.listen": "Écouter mon message d'accueil",
+  "vmSettings.reset": "Revenir au message par défaut",
+  "vmSettings.resetConfirm": "Supprimer votre message d'accueil personnalisé?",
+  "vmSettings.saved": "Message d'accueil enregistré.",
+  "vmSettings.email": "Messages vocaux par courriel",
+  "vmSettings.emailHint": "Recevez la transcription et un lien d'écoute valide 7 jours à {address}.",
+  "vmSettings.emailNoAddress": "Aucune adresse courriel n'est associée à votre compte TAKATAK.",
+  "vmSettings.paidOnly": "Le message d'accueil personnalisé et les messages vocaux par courriel sont inclus dans les forfaits payants.",
+  "vmSettings.micDenied": "Autorisez le micro dans les réglages du téléphone pour enregistrer.",
 
   // Contacts
   "contacts.title": "Contacts",
@@ -364,6 +387,10 @@ export const fr = {
   "business.portal": "Portail d'administration",
   "business.portalHint": "Postes, groupes d'appel, menus vocaux et horaires se gèrent sur app.mimt.ca.",
   // ---- IA et MIMT Affaires (fin) ----
+  "error.mediaTooLarge": "Ce fichier est trop volumineux (5 Mo au maximum).",
+  "error.mediaInvalid": "Ce fichier n'est pas accepté. Essayez une photo JPEG, PNG ou GIF.",
+  "error.noEmail": "Ajoutez d'abord une adresse courriel à votre compte TAKATAK.",
+  "error.noNumber": "Choisissez d'abord un numéro MIMT.",
 } as const;
 
 export type TKey = keyof typeof fr;

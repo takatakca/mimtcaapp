@@ -3,7 +3,7 @@ import { planHas } from "@mimt/shared";
 import * as ImagePicker from "expo-image-picker";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "../../src/api/client";
 import { toErrorKey } from "../../src/api/errors";
@@ -16,11 +16,19 @@ import { canBlock, isBlockedPeer } from "../../src/lib/callControls";
 import { formatPhone, toDialable } from "../../src/lib/dial";
 import { formatWhen } from "../../src/lib/format";
 import { confirmBlockToggle } from "../../src/services/blocks";
+import { contentTypeFor, inlineImages, uploadProblem } from "../../src/lib/media";
+import { uploadMedia } from "../../src/services/upload";
 import { callService } from "../../src/services/call";
 import { colors, radius, spacing, TAP } from "../../src/theme";
 
+/** Photos attached to an outgoing message: uploaded media ids plus local previews. */
+interface Attachment {
+  ids: string[];
+  previews: string[];
+}
+
 /** A message as shown in the thread: the API DTO, plus local-only fields for optimistic sends. */
-type ThreadMessage = MessageDto & { mediaUrls?: string[] };
+type ThreadMessage = MessageDto & { attachment?: Attachment };
 
 /** Id of the newest message when it is inbound (smart replies answer it), else null. */
 const lastInboundId = (list: MessageDto[]) => {
@@ -46,6 +54,7 @@ export default function Thread() {
   const [draft, setDraft] = useState("");
   const [errorKey, setErrorKey] = useState<TKey | null>(null);
   const [mmsHint, setMmsHint] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const listRef = useRef<FlatList<ThreadMessage>>(null);
   const stickToEnd = useRef(true);
   const canMms = !!me && planHas(me.account.plan, "mms");
@@ -97,9 +106,9 @@ export default function Thread() {
     }
   }
 
-  async function send(body: string, mediaUrls?: string[], retryId?: string) {
+  async function send(body: string, attachment?: Attachment, retryId?: string) {
     if (!peer || peer === "911") return setErrorKey("messages.invalidTo");
-    if (!from || (!body.trim() && !mediaUrls?.length)) return;
+    if (!from || (!body.trim() && !attachment?.ids.length)) return;
     const tempId = retryId ?? `local-${Date.now()}`;
     const optimistic: ThreadMessage = {
       id: tempId,
@@ -109,17 +118,18 @@ export default function Thread() {
       body,
       status: "queued",
       segments: 1,
-      numMedia: mediaUrls?.length ?? 0,
+      numMedia: attachment?.ids.length ?? 0,
       createdAt: new Date().toISOString(),
-      ...(mediaUrls ? { mediaUrls } : {}),
+      ...(attachment ? { attachment } : {}),
     };
     stickToEnd.current = true;
     setMessages((m) => [...m.filter((x) => x.id !== tempId), optimistic]);
     setDraft("");
     setErrorKey(null);
     try {
-      const sent = await api.sendMessage({ from, to: peer, body, ...(mediaUrls ? { mediaUrls } : {}) });
-      setMessages((m) => m.map((x) => (x.id === tempId ? sent : x)));
+      const sent = await api.sendMessage({ from, to: peer, body, ...(attachment ? { mediaIds: attachment.ids } : {}) });
+      // Keep the local preview until the signed URL from the API is used.
+      setMessages((m) => m.map((x) => (x.id === tempId ? { ...sent, ...(attachment ? { attachment } : {}) } : x)));
       if (isNew) router.replace(`/thread/${encodeURIComponent(peer)}`);
     } catch (e) {
       setErrorKey(toErrorKey(e));
@@ -129,11 +139,23 @@ export default function Thread() {
 
   async function attach() {
     if (!canMms) return setMmsHint(true);
-    const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.7 });
-    if (picked.canceled || !picked.assets[0]) return;
-    // TODO(api): upload the image (POST /v1/messages/media → signed URL) and send its URL.
-    // Until the upload endpoint exists, MMS cannot be sent.
-    setErrorKey("error.featureRequired");
+    // quality < 1 makes the picker re-encode to JPEG (HEIC photos included), well under the 5 MB MMS limit.
+    const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.7, allowsMultipleSelection: false });
+    const asset = picked.canceled ? undefined : picked.assets[0];
+    if (!asset) return;
+    const contentType = contentTypeFor(asset.uri, asset.mimeType ?? "image/jpeg");
+    const problem = uploadProblem("mms", contentType, asset.fileSize);
+    if (problem) return setErrorKey(problem);
+    setErrorKey(null);
+    setUploading(true);
+    try {
+      const mediaId = await uploadMedia("mms", asset.uri, contentType!);
+      await send(draft.trim(), { ids: [mediaId], previews: [asset.uri] });
+    } catch (e) {
+      setErrorKey(toErrorKey(e));
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
@@ -201,11 +223,24 @@ export default function Thread() {
                 accessibilityRole={failed ? "button" : "text"}
                 accessibilityLabel={`${item.body}. ${formatWhen(item.createdAt, locale, t)}${failed ? `. ${t("messages.failed")}` : ""}`}
                 disabled={!failed}
-                onPress={() => send(item.body, item.mediaUrls, item.id)}
+                onPress={() => send(item.body, item.attachment, item.id)}
                 style={[styles.bubble, mine ? styles.mine : styles.theirs, failed && { borderColor: colors.danger, borderWidth: 1 }]}
               >
                 {!mine ? <SpamBadge label={item.spamLabel} /> : null}
-                <Text style={[styles.bubbleText, mine && { color: colors.white }]}>{item.body}</Text>
+                {(() => {
+                  const remote = inlineImages(item.media).map((m) => m.url!);
+                  const uris = remote.length ? remote : (item.attachment?.previews ?? []);
+                  const missing = item.numMedia > 0 && uris.length === 0;
+                  return (
+                    <>
+                      {uris.map((uri) => (
+                        <Image key={uri} source={{ uri }} style={styles.photo} resizeMode="cover" accessibilityLabel={t("messages.photo")} />
+                      ))}
+                      {missing ? <Text style={styles.meta}>{t("messages.photoUnavailable")}</Text> : null}
+                    </>
+                  );
+                })()}
+                {item.body ? <Text style={[styles.bubbleText, mine && { color: colors.white }]}>{item.body}</Text> : null}
                 <Text style={styles.meta}>
                   {sending
                     ? t("messages.sending")
@@ -230,10 +265,16 @@ export default function Thread() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={canMms ? t("messages.attach") : t("messages.attachPremium")}
+            accessibilityState={{ busy: uploading, disabled: uploading }}
+            disabled={uploading}
             onPress={attach}
             style={styles.iconButton}
           >
-            <Ionicons name="image" size={26} color={canMms ? colors.electric : colors.silver} />
+            {uploading ? (
+              <ActivityIndicator color={colors.electric} accessibilityLabel={t("messages.uploading")} />
+            ) : (
+              <Ionicons name="image" size={26} color={canMms ? colors.electric : colors.silver} />
+            )}
           </Pressable>
           <TextInput
             accessibilityLabel={t("messages.placeholder")}
@@ -268,6 +309,7 @@ const styles = StyleSheet.create({
   mine: { alignSelf: "flex-end", backgroundColor: colors.brandBlue, borderBottomRightRadius: 4 },
   theirs: { alignSelf: "flex-start", backgroundColor: colors.midnightRaised, borderBottomLeftRadius: 4 },
   bubbleText: { color: colors.white, fontSize: 17, lineHeight: 23 },
+  photo: { width: 220, height: 220, borderRadius: radius.sm, marginBottom: spacing.xs, backgroundColor: colors.navy },
   meta: { color: colors.silver, fontSize: 12, marginTop: 2, alignSelf: "flex-end" },
   composer: {
     flexDirection: "row",

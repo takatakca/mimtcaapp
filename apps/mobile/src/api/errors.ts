@@ -30,6 +30,15 @@ const CODE_TO_KEY: Record<string, TKey> = {
   block_limit: "error.blockLimit",
   forwarding_destination_not_allowed: "error.forwardingDestination",
   forwarding_target_required: "error.forwardingTarget",
+  vm_greeting_not_in_plan: "error.featureRequired",
+  vm_email_not_in_plan: "error.featureRequired",
+  media_too_large: "error.mediaTooLarge",
+  unsupported_media_type: "error.mediaInvalid",
+  invalid_media: "error.mediaInvalid",
+  media_not_uploaded: "error.mediaInvalid",
+  media_already_used: "error.mediaInvalid",
+  no_email: "error.noEmail",
+  no_number: "error.noNumber",
 };
 
 export function errorKeyFor(status: number | null, code?: string | null): TKey {

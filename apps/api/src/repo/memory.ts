@@ -3,6 +3,7 @@ import type { NumberState } from "@mimt/shared";
 import { MemoryPbxRepository } from "./pbxMemory.js";
 import { MemoryCatalogRepository } from "./catalogMemory.js";
 import { MemoryCallControlsRepository } from "./callControlsMemory.js";
+import { MemoryMediaRepository } from "./mediaMemory.js";
 import type {
   AuditEntry,
   Call,
@@ -54,6 +55,7 @@ export class MemoryRepository implements Repository {
   readonly pbx = new MemoryPbxRepository(() => this.calls.values());
   readonly catalog = new MemoryCatalogRepository();
   readonly callControls = new MemoryCallControlsRepository();
+  readonly media = new MemoryMediaRepository();
   devices: Array<{ platform: "ios" | "android"; deviceKey: string; userId: string; verifiedAt: Date }> = [];
   adRewards: Array<{ userId: string; transactionId: string; minutes: number; createdAt: Date; claimedAt: Date | null }> = [];
 

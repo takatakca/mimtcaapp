@@ -11,6 +11,7 @@ import type { MessageCipher } from "./lib/crypto.js";
 import type { RateLimiter } from "./fraud/rateLimiter.js";
 import type { Repository } from "./repo/types.js";
 import type { Notifier } from "./services/notifier.js";
+import type { EmailSender } from "./services/email.js";
 
 export interface AppDeps {
   config: Config;
@@ -32,6 +33,10 @@ export interface AppDeps {
   now: () => Date;
   /** AI (Claude). Absent or with a null gateway when ANTHROPIC_API_KEY is unset: AI features answer 503. */
   ai?: AiServices;
+  /** MMS media + voicemail greetings bucket. Absent or null: uploads answer 503, inbound MMS stays at Twilio. */
+  mediaFiles?: MediaStore | null;
+  /** Voicemail-to-email sender. Absent: log-only. */
+  email?: EmailSender;
   /** Internet/mobile resale wholesaler (sandbox in dev). Absent or null: ordering answers 503. */
   provisioning?: ProvisioningProvider | null;
 }

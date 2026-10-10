@@ -44,6 +44,13 @@ export type {
   VoicemailsResponse,
   VoicePlatform,
   VoiceTokenResponse,
+  CreateMediaUploadRequest,
+  CreateMediaUploadResponse,
+  MediaPurpose,
+  MessageMediaDto,
+  RecordGreetingByCallResponse,
+  UpdateVoicemailSettingsRequest,
+  VoicemailSettingsDto,
 } from "@mimt/shared";
 
 /** Tokens returned by exchange / refresh / OTP verify. */

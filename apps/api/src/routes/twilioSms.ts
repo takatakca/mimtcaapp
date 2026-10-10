@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import type { AppDeps } from "../deps.js";
 import { scoreInboundSms } from "../ai/spam.js";
 import { HELD_STATES } from "../services/accounts.js";
+import { ingestInboundMedia } from "../services/media.js";
 import { MessagingResponse, NOT_IN_SERVICE, sendTwiml, twilioParams } from "./twiml.js";
 
 const OPT_OUT = new Set(["STOP", "STOPALL", "ARRET", "ARRETER", "UNSUBSCRIBE", "DESABONNER", "DESINSCRIRE", "CANCEL", "END", "QUIT"]);
@@ -56,7 +57,11 @@ export async function twilioSmsWebhooks(app: FastifyInstance, deps: AppDeps) {
     // « Message suspect » label (heuristics; Claude only for ambiguous text with consent). Never blocks delivery.
     const accountId = number.telecomAccountId;
     deps.ai?.background("spam:sms", () => scoreInboundSms(deps, { messageId: message.id, telecomAccountId: accountId, from: p.From, body }));
-    // TODO: push notification to the owner's devices; copy MMS media to private storage.
+    // MMS: copy media into private storage (every plan can receive pictures). Never fails the webhook.
+    if (message.numMedia > 0) {
+      await ingestInboundMedia(deps, req.log, message, p).catch((err: unknown) => req.log.error({ err }, "inbound MMS ingest failed"));
+    }
+    // TODO: push notification to the owner's devices.
     return sendTwiml(reply, empty);
   });
 

@@ -65,6 +65,7 @@ export default function RootLayout() {
             <Stack.Screen name="settings/blocked" options={headerOptions} />
             <Stack.Screen name="settings/forwarding" options={headerOptions} />
             <Stack.Screen name="settings/dnd" options={headerOptions} />
+            <Stack.Screen name="settings/voicemail" options={headerOptions} />
           </Stack>
         </SessionProvider>
       </I18nProvider>

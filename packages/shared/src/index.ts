@@ -7,3 +7,4 @@ export * from "./consumerCodes.js";
 export * from "./ai.js";
 export * from "./catalogApi.js";
 export * from "./callControls.js";
+export * from "./media.js";

@@ -15,6 +15,11 @@ import type {
   ConsentRequest,
   ConsentResponse,
   ConversationsResponse,
+  CreateMediaUploadRequest,
+  CreateMediaUploadResponse,
+  RecordGreetingByCallResponse,
+  UpdateVoicemailSettingsRequest,
+  VoicemailSettingsDto,
   E911AckRequest,
   E911AckResponse,
   E911Address,
@@ -231,6 +236,17 @@ export const api = {
   // Voicemail. Each item carries a short-lived signed audioUrl served by the API (no header needed).
   voicemails: () => request<VoicemailsResponse>("GET", "/v1/voicemails"),
   deleteVoicemail: (id: string) => request<void>("DELETE", `/v1/voicemails/${encodeURIComponent(id)}`),
+
+  // Voicemail settings: custom greeting (paid plans) and voicemail to email (courriel).
+  voicemailSettings: () => request<VoicemailSettingsDto>("GET", "/v1/voicemail/settings"),
+  updateVoicemailSettings: (body: UpdateVoicemailSettingsRequest) =>
+    request<VoicemailSettingsDto>("PATCH", "/v1/voicemail/settings", { body }),
+  setGreeting: (mediaId: string) => request<VoicemailSettingsDto>("PUT", "/v1/voicemail/greeting", { body: { mediaId } }),
+  resetGreeting: () => request<VoicemailSettingsDto>("DELETE", "/v1/voicemail/greeting"),
+  recordGreetingByCall: () => request<RecordGreetingByCallResponse>("POST", "/v1/voicemail/greeting/call"),
+
+  // Media: signed upload URL, then the app PUTs the file straight to storage (see services/upload.ts).
+  createUpload: (body: CreateMediaUploadRequest) => request<CreateMediaUploadResponse>("POST", "/v1/media/uploads", { body }),
 
   // Billing (web checkout via Stripe). TODO(store-billing): consumer plans bought inside the iOS/Android
   // app must use Apple/Google in-app purchases (MIMT-MVP §6); this web checkout is for business plans
