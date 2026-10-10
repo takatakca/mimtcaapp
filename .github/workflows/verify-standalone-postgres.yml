@@ -1,7 +1,14 @@
 name: Verify MIMT standalone PostgreSQL migrations
 on:
-  push:
-    branches: [fix/mimt-selfhost-postgres-migrations-20261010]
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - supabase/migrations/**
+      - deploy/coolify/mimt-postgres-bootstrap.sql
+      - apps/api/src/jobs/migrateStandalone.ts
+      - apps/api/test/migrateStandalone.test.ts
+      - apps/api/Dockerfile
+      - .github/workflows/verify-standalone-postgres.yml
 permissions:
   contents: read
 jobs:
@@ -23,11 +30,31 @@ jobs:
           --health-retries 15
     steps:
       - uses: actions/checkout@v4
-      - name: Install ephemeral PostgreSQL client
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @mimt/shared build
+      - run: pnpm --filter @mimt/api build
+      - name: Copy SQL into exactly the Docker runtime layout
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -qq -y postgresql-client
-      - name: Bootstrap, apply all MIMT schema migrations in explicit dependency order, verify
+          mkdir -p apps/api/db/migrations
+          cp deploy/coolify/mimt-postgres-bootstrap.sql apps/api/db/bootstrap.sql
+          cp supabase/migrations/*.sql apps/api/db/migrations/
+      - name: Apply all MIMT migrations with production one-shot runner, repeat to test idempotency
+        shell: bash
+        env:
+          DATABASE_URL: postgresql://mimt_owner:temporary-gh-ci-password@127.0.0.1:5432/mimt_production
+          MIMT_STANDALONE_MIGRATE_CONFIRM: YES_MY_PRIVATE_MIMT_DATABASE
+          NODE_ENV: test
+        run: |
+          set -euo pipefail
+          cd apps/api
+          node dist/jobs/migrateStandalone.js
+          node dist/jobs/migrateStandalone.js
+      - name: Inspect private schema, migration hashes and no-login compatibility roles
         shell: bash
         env:
           PGHOST: 127.0.0.1
@@ -37,21 +64,11 @@ jobs:
           PGDATABASE: mimt_production
         run: |
           set -euo pipefail
-          psql -X -v ON_ERROR_STOP=1 -q -f deploy/coolify/mimt-postgres-bootstrap.sql
-          for name in \
-            0001_init.sql \
-            0002_push_tokens.sql \
-            0003_devices_rewards.sql \
-            0003_business_pbx.sql \
-            0004_ai.sql \
-            0005_catalog.sql \
-            0006_blocks_forwarding.sql \
-            0007_media_greetings.sql; do
-            echo "Validating schema migration: $name"
-            psql -X -v ON_ERROR_STOP=1 -q -1 -f "supabase/migrations/$name"
-          done
+          sudo apt-get update -qq
+          sudo apt-get install -qq -y postgresql-client
           psql -X -v ON_ERROR_STOP=1 -At -c "SELECT count(*) > 30 FROM pg_tables WHERE schemaname='public';" | grep -Fx t
           psql -X -v ON_ERROR_STOP=1 -At -c "SELECT count(*)=2 FROM pg_roles WHERE rolname IN ('anon','authenticated') AND NOT rolcanlogin;" | grep -Fx t
           psql -X -v ON_ERROR_STOP=1 -At -c "SELECT auth.uid() IS NULL;" | grep -Fx t
           psql -X -v ON_ERROR_STOP=1 -At -c "SELECT count(*) FROM users;" | grep -Fx 0
-          echo "PASS: isolated MIMT PostgreSQL schema is valid; no customer data, no paid Supabase service."
+          psql -X -v ON_ERROR_STOP=1 -At -c "SELECT count(*) FROM mimt_schema_migrations;" | grep -Fx 8
+          echo "PASS: MIMT standalone schema and idempotent one-shot migrator verified; no paid Supabase."
