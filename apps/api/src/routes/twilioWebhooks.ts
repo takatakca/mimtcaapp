@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import type { AppDeps } from "../deps.js";
 import { validateTwilioSignature } from "../gateways/twilio.js";
+import { twilioAiWebhooks } from "./twilioAi.js";
+import { twilioPbxWebhooks } from "./twilioPbx.js";
 import { twilioSmsWebhooks } from "./twilioSms.js";
 import { twilioParams } from "./twiml.js";
 import { twilioVoiceWebhooks } from "./twilioVoice.js";
@@ -22,6 +24,8 @@ export async function twilioWebhooks(app: FastifyInstance, deps: AppDeps) {
 
   await twilioVoiceWebhooks(app, deps);
   await twilioSmsWebhooks(app, deps);
+  await twilioPbxWebhooks(app, deps);
+  await twilioAiWebhooks(app, deps);
 
   app.post("/webhooks/twilio/usage", async (req, reply) => {
     const p = twilioParams(req);

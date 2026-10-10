@@ -177,7 +177,9 @@ export async function scoreInboundSms(
 ): Promise<Verdict & { source: "heuristic" | "ai" }> {
   const { repo } = deps;
   const ai = deps.ai;
-  const knownSender = m.from ? await repo.hasOutboundTo(m.telecomAccountId, m.from, deps.now()) : false;
+  // "Known" = the user has written to this sender. (hasOutboundTo counts any direction, so the SMS being
+  // scored would make every sender known.)
+  const knownSender = m.from ? (await repo.listMessages(m.telecomAccountId, m.from, { limit: 50 })).some((x) => x.direction === "outbound") : false;
   const velocityExceeded = m.from ? !(await deps.rateLimiter.take(`spam:sms:${m.from}`, SMS_SENDER_VELOCITY_RULE)) : false;
   const heuristic = scoreSms({ from: m.from, body: m.body, knownSender, velocityExceeded });
   let result: Verdict & { source: "heuristic" | "ai" } = { ...heuristic, source: "heuristic" };
