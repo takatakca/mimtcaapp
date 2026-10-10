@@ -1,0 +1,61 @@
+name: Deploy MIMT API TLS Fix And Verify
+
+on:
+  push:
+    branches: [diag/mimt-api-redeploy-20261010]
+permissions:
+  contents: read
+jobs:
+  deploy-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - name: Deploy main code to Coolify and read-only check API
+        shell: bash
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,urllib.request,urllib.error,json,time
+          base=os.environ["COOLIFY_URL"].rstrip("/")
+          uuid=os.environ["COOLIFY_API_UUID"]
+          token=os.environ["COOLIFY_TOKEN"]
+          if not base.startswith("https://") or not token or not uuid:
+              raise SystemExit("Coolify HTTPS endpoint or secrets missing.")
+          url=base+"/api/v1/deploy?uuid="+uuid+"&force=true"
+          req=urllib.request.Request(url,method="POST",headers={"Authorization":"Bearer "+token,"Accept":"application/json"})
+          try:
+              with urllib.request.urlopen(req,timeout=30) as r:
+                  data=json.loads(r.read(8000))
+                  print("Coolify forced code deployment accepted:",r.status)
+                  print("Coolify deployment message category:", "queued" if "queued" in str(data).lower() else "accepted")
+          except urllib.error.HTTPError as e:
+              print("Coolify deployment HTTP error:",e.code)
+              raise SystemExit(1)
+          for i in range(24):
+              time.sleep(8)
+              output=[]
+              for endpoint in ("healthz","readyz"):
+                  url="https://api.mimt.ca/"+endpoint
+                  req=urllib.request.Request(url,headers={"Cache-Control":"no-cache"})
+                  try:
+                      with urllib.request.urlopen(req,timeout=10) as r:
+                          body=json.loads(r.read(1000))
+                          output.append({"endpoint":endpoint,"status":r.status,"ok":body.get("ok"),"db":body.get("db")})
+                  except urllib.error.HTTPError as e:
+                      response=e.read(1000)
+                      try: body=json.loads(response)
+                      except: body={}
+                      output.append({"endpoint":endpoint,"status":e.code,"ok":body.get("ok"),"db":body.get("db")})
+                  except Exception:
+                      output.append({"endpoint":endpoint,"status":"network_error"})
+              print("API verification attempt",i+1,output,flush=True)
+              if len(output)==2 and output[0].get("ok")==True and output[1].get("ok")==True and output[1].get("db")=="up":
+                  print("SUCCESS: MIMT API and PostgreSQL ready with verified TLS.")
+                  break
+          else:
+              raise SystemExit("API is still not database-ready after redeploy; inspect live Coolify logs/certificate.")
+          PY
