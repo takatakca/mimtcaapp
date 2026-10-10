@@ -1,7 +1,7 @@
 import { HelpPage } from "@/components/pages/HelpPage";
-import { pageMeta } from "@/lib/site";
+import { metadataFor } from "@/lib/meta";
 
-export const metadata = pageMeta("fr", "help", "Aide et FAQ", "Réponses aux questions fréquentes sur MIMT : forfait gratuit, numéro, 9-1-1, international, taxes, annulation.");
+export const metadata = metadataFor("fr", "help");
 
 export default function Page() {
   return <HelpPage lang="fr" />;

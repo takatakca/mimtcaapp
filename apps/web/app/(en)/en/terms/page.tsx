@@ -1,7 +1,7 @@
 import { TermsPage } from "@/components/pages/TermsPage";
-import { pageMeta } from "@/lib/site";
+import { metadataFor } from "@/lib/meta";
 
-export const metadata = pageMeta("en", "terms", "Terms of service", "Terms of service for MIMT.");
+export const metadata = metadataFor("en", "terms");
 
 export default function Page() {
   return <TermsPage lang="en" />;

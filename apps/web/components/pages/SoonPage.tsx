@@ -1,23 +1,23 @@
 import { PageHero, Shell } from "@/components/Shell";
 import { LeadForm } from "@/components/LeadForm";
 import { Icon } from "@/components/Visuals";
-import type { Lang } from "@/lib/site";
+import { href, type Lang } from "@/lib/site";
 
 const ITEMS = [
+  {
+    icon: "wifi" as const,
+    fr: ["Internet résidentiel", "Internet à la maison revendu par MIMT, avec du soutien d'ici, en français d'abord."],
+    en: ["Home internet", "Home internet resold by MIMT, with local support, French first."],
+  },
+  {
+    icon: "number" as const,
+    fr: ["Cellulaire", "Un forfait cellulaire (carte SIM ou eSIM) qui fonctionne avec votre numéro MIMT."],
+    en: ["Mobile", "A mobile plan (SIM or eSIM) that works with your MIMT number."],
+  },
   {
     icon: "phone" as const,
     fr: ["Téléphone résidentiel", "Un numéro pour la maison, avec votre téléphone habituel."],
     en: ["Home phone", "A number for the house, with your usual phone."],
-  },
-  {
-    icon: "wifi" as const,
-    fr: ["Internet", "Internet à la maison, avec du soutien d'ici, en français."],
-    en: ["Internet", "Home internet with local support, in French and English."],
-  },
-  {
-    icon: "number" as const,
-    fr: ["Cellulaire", "Un forfait cellulaire avec votre numéro MIMT."],
-    en: ["Cellular", "A cellular plan with your MIMT number."],
   },
 ];
 
@@ -52,6 +52,17 @@ export function SoonPage({ lang }: { lang: Lang }) {
               </li>
             ))}
           </ul>
+          <div className="notice notice--info mt-l" role="note">
+            {fr
+              ? "Pourquoi « bientôt »? Pour revendre Internet et le cellulaire, MIMT doit d'abord signer une entente avec un fournisseur de réseau et respecter les codes du CRTC (Code sur les services sans fil, Code sur les services Internet). Tant que cette entente n'est pas signée, nous ne promettons ni date ni prix."
+              : "Why “coming soon”? To resell internet and mobile, MIMT must first sign an agreement with a network provider and meet the CRTC codes (Wireless Code, Internet Code). Until that agreement is signed, we promise no date and no price."}
+          </div>
+          <p className="fineprint">
+            {fr ? "Déjà en préparation pour le lancement : " : "Already in preparation for launch: "}
+            <a href={href(lang, "home")}>MIMT Mobile</a>
+            {fr ? " (numéro canadien dans une app) et " : " (a Canadian number in an app) and "}
+            <a href={href(lang, "business")}>{fr ? "MIMT Affaires" : "MIMT Business"}</a>.
+          </p>
         </div>
       </section>
       <section className="section section--tint" aria-labelledby="soon-wl">
@@ -65,7 +76,7 @@ export function SoonPage({ lang }: { lang: Lang }) {
             </p>
           </div>
           <div className="card form-card">
-            <LeadForm kind="waitlist" lang={lang} submitLabel={fr ? "M'aviser" : "Notify me"} defaults={{ interest: "home_phone" }} />
+            <LeadForm kind="waitlist" lang={lang} submitLabel={fr ? "M'aviser" : "Notify me"} defaults={{ interest: "internet" }} />
           </div>
         </div>
       </section>

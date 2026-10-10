@@ -1,7 +1,7 @@
 import { BusinessPage } from "@/components/pages/BusinessPage";
-import { pageMeta } from "@/lib/site";
+import { metadataFor } from "@/lib/meta";
 
-export const metadata = pageMeta("en", "business", "MIMT Business", "Per-line business phone: extensions, auto-attendant, ring groups, mobile and desktop apps. Request a demo.");
+export const metadata = metadataFor("en", "business");
 
 export default function Page() {
   return <BusinessPage lang="en" />;

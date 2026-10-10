@@ -38,7 +38,7 @@ export const FEATURE_LABELS: Record<Feature, { fr: string; en: string }> = {
   auto_attendant: { fr: "Réceptionniste automatique", en: "Auto-attendant" },
   ring_groups: { fr: "Groupes de sonnerie", en: "Ring groups" },
   admin_portal: { fr: "Portail administrateur", en: "Admin portal" },
-  ai_assist: { fr: "Assistance IA (réponses suggérées, réceptionniste virtuel)", en: "AI assist (suggested replies, virtual receptionist)" },
+  ai_assist: { fr: "Fonctions IA, avec consentement (résumés vocaux, réponses suggérées)", en: "AI features, with consent (voicemail summaries, suggested replies)" },
 };
 
 /** Honest, capped bullet points for a plan card. */

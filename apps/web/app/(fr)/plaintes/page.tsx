@@ -1,7 +1,7 @@
 import { ComplaintsPage } from "@/components/pages/ComplaintsPage";
-import { pageMeta } from "@/lib/site";
+import { metadataFor } from "@/lib/meta";
 
-export const metadata = pageMeta("fr", "complaints", "Plaintes", "Comment déposer une plainte auprès de MIMT et comment joindre le CPRST si elle n'est pas réglée.");
+export const metadata = metadataFor("fr", "complaints");
 
 export default function Page() {
   return <ComplaintsPage lang="fr" />;

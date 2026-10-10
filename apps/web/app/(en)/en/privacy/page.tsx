@@ -1,7 +1,7 @@
 import { PrivacyPage } from "@/components/pages/PrivacyPage";
-import { pageMeta } from "@/lib/site";
+import { metadataFor } from "@/lib/meta";
 
-export const metadata = pageMeta("en", "privacy", "Privacy", "MIMT privacy policy (Québec Law 25): information collected, providers, your rights and our privacy officer.");
+export const metadata = metadataFor("en", "privacy");
 
 export default function Page() {
   return <PrivacyPage lang="en" />;

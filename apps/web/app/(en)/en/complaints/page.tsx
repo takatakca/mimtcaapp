@@ -1,7 +1,7 @@
 import { ComplaintsPage } from "@/components/pages/ComplaintsPage";
-import { pageMeta } from "@/lib/site";
+import { metadataFor } from "@/lib/meta";
 
-export const metadata = pageMeta("en", "complaints", "Complaints", "How to make a complaint to MIMT and how to reach the CCTS if it isn't resolved.");
+export const metadata = metadataFor("en", "complaints");
 
 export default function Page() {
   return <ComplaintsPage lang="en" />;

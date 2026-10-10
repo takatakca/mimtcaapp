@@ -1,7 +1,7 @@
 import { PlansPage } from "@/components/pages/PlansPage";
-import { pageMeta } from "@/lib/site";
+import { metadataFor } from "@/lib/meta";
 
-export const metadata = pageMeta("en", "plans", "Plans", "MIMT plans: Free, Number Lock, Premium, Business and Business Pro. Clear prices and limits shown up front.");
+export const metadata = metadataFor("en", "plans");
 
 export default function Page() {
   return <PlansPage lang="en" />;

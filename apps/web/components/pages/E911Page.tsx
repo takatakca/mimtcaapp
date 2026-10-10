@@ -1,6 +1,6 @@
 import { PageHero, Shell } from "@/components/Shell";
 import { LegalReview } from "@/components/LegalReview";
-import { href, type Lang } from "@/lib/site";
+import { TBC, href, type Lang } from "@/lib/site";
 
 export function E911Page({ lang }: { lang: Lang }) {
   const fr = lang === "fr";
@@ -124,6 +124,24 @@ export function E911Page({ lang }: { lang: Lang }) {
               <p>If other people use your line (family, employees, guests), tell them about these limits.</p>
             </>
           )}
+
+          <h2>{fr ? "Renseignements sur l'avis" : "About this notice"}</h2>
+          <ul>
+            <li>
+              {fr ? "Centre d'appels d'urgence partenaire : " : "Partner emergency call centre: "}
+              <span className="placeholder">{TBC[lang]}</span>
+            </li>
+            <li>
+              {fr ? "Version de l'avis et date d'entrée en vigueur : " : "Notice version and effective date: "}
+              <span className="placeholder">{TBC[lang]}</span>
+            </li>
+            <li>
+              {fr ? "Ce que le CRTC exige des services de téléphonie par Internet : " : "What the CRTC requires of internet phone services: "}
+              <a href={fr ? "https://crtc.gc.ca/fra/phone/911/voip.htm" : "https://crtc.gc.ca/eng/phone/911/voip.htm"} rel="noopener">
+                crtc.gc.ca
+              </a>
+            </li>
+          </ul>
         </div>
       </section>
     </Shell>

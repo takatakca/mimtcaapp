@@ -1,7 +1,7 @@
 import { ContactPage } from "@/components/pages/ContactPage";
-import { pageMeta } from "@/lib/site";
+import { metadataFor } from "@/lib/meta";
 
-export const metadata = pageMeta("en", "contact", "Contact", "Write to MIMT: questions, MIMT Business, partnerships.");
+export const metadata = metadataFor("en", "contact");
 
 export default function Page() {
   return <ContactPage lang="en" />;

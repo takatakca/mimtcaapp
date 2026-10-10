@@ -3,6 +3,8 @@
 Newest first, one line per piece of work. Rule: `AGENTS.md` › Work log rule.
 Format: `YYYY-MM-DD | agent | branch → PR | status | what | next step`
 
+- 2026-10-10 | claude (web agent, session 01Bs3bum) | worktree-agent-ad00d12e56b0e50e8 → claude/mimt-platform-phase2 | done | mimt.ca phase 2: Affaires, IA, app Web, Comparer, FAQ pages; JSON-LD, llms.txt, sitemap/robots, verify-out + tests; privacy (IA, résidence des données), conditions, 9-1-1 | owner: fill every `[À confirmer par MIMT]` (privacy officer, legal name, retention, 9-1-1 partner), lawyer review
+
 - 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | Auto-deploy workflow (.github/workflows/deploy.yml): mimt.ca + app.mimt.ca by FTPS, API by Coolify | owner: add GitHub secrets MOCHAHOST_FTP_* and COOLIFY_*; create app./api.mimt.ca subdomains
 - 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | Business PBX (MIMT Affaires): extensions, ring groups, bilingual IVR, Quebec hours/holidays, recording with consent, per-line seats | finish tests, merge to main
 - 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | AI (Claude): voicemail summaries, smart SMS replies, spam scoring, AI receptionist (ConversationRelay), Law 25 consent, cost caps | finish tests; owner: ANTHROPIC_API_KEY in secrets

@@ -1,7 +1,7 @@
 import { SoonPage } from "@/components/pages/SoonPage";
-import { pageMeta } from "@/lib/site";
+import { metadataFor } from "@/lib/meta";
 
-export const metadata = pageMeta("fr", "soon", "Bientôt", "Téléphone résidentiel, Internet et cellulaire MIMT : en préparation. Inscrivez-vous à la liste d'attente.");
+export const metadata = metadataFor("fr", "soon");
 
 export default function Page() {
   return <SoonPage lang="fr" />;

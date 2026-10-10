@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { Viewport } from "next";
 import { inter, montserrat } from "./fonts";
 import "../styles/globals.css";
+import "../styles/phase2.css";
 
 export const viewport: Viewport = {
   themeColor: "#060D1F",

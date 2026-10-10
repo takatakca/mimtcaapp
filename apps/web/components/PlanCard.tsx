@@ -36,6 +36,8 @@ export function PlanCard({ plan, lang, highlight, compact }: { plan: Plan; lang:
         {features.map((f) => (
           <li key={f}>{FEATURE_LABELS[f][lang]}</li>
         ))}
+        {isBiz ? <li>{fr ? "Réceptionniste IA" : "AI receptionist"}</li> : null}
+        {isBiz ? <li>{fr ? "Heures d'ouverture et jours fériés du Québec" : "Business hours and Québec holidays"}</li> : null}
       </ul>
       <a
         className={`btn ${highlight ? "btn--primary" : "btn--outline"} plan__cta`}
