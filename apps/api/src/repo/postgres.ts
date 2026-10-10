@@ -1,5 +1,6 @@
 import type { NumberState } from "@mimt/shared";
 import postgres from "postgres";
+import { resolvePostgresTls } from "./postgresTls.js";
 import { PostgresPbxRepository } from "./pbxPostgres.js";
 import { PostgresCatalogRepository } from "./catalogPostgres.js";
 import { PostgresCallControlsRepository } from "./callControlsPostgres.js";
@@ -43,6 +44,8 @@ const maybe = <T>(rows: readonly unknown[]): T | null => (rows[0] as T | undefin
 
 export class PostgresRepository implements Repository {
   readonly sql: Sql;
+  readonly tlsCaSource: "environment" | "file" | "none";
+  readonly suppliedCaInvalid: boolean;
   private pbxRepo?: PostgresPbxRepository;
   get pbx(): PostgresPbxRepository {
     return (this.pbxRepo ??= new PostgresPbxRepository(this.sql));
@@ -62,10 +65,14 @@ export class PostgresRepository implements Repository {
   }
 
   constructor(databaseUrl: string, opts: { max?: number; sslCaPem?: string } = {}) {
-    this.sql = postgres(databaseUrl, {
+    const tls = resolvePostgresTls(databaseUrl, opts.sslCaPem);
+    this.tlsCaSource = tls.caSource;
+    this.suppliedCaInvalid = tls.suppliedCaInvalid;
+    this.sql = postgres(tls.url, {
       max: opts.max ?? 10,
-      // Trust only the configured database CA. Preserve CA and hostname verification.
-      ...(opts.sslCaPem ? { ssl: { ca: opts.sslCaPem, rejectUnauthorized: true } } : {}),
+      // The trusted PEM comes from Coolify or a mounted local CA file.
+      // Keep CA and hostname verification on; never fall back to rejectUnauthorized=false.
+      ...(tls.ssl ? { ssl: tls.ssl } : {}),
       transform: postgres.camel,
       types: {
         // numeric → JS number (amounts here are small and stored with 5 decimals).
