@@ -53,8 +53,19 @@ jobs:
           if str(env.get("project_id"))!=str(proj.get("id")):
               raise SystemExit("MIMT API project and selected MIMT project do not match; NO DB created.")
           server=servers[0]
-          if str(dest.get("server_id"))!=str(server.get("id")):
-              raise SystemExit("MIMT API destination belongs to a different server; NO DB created.")
+          if not dest.get("uuid"):
+              raise SystemExit("MIMT API destination UUID missing; NO DB created.")
+          status,dest_details=call("GET","/destinations/"+dest["uuid"])
+          if not isinstance(dest_details,dict):
+              raise SystemExit("Destination details inaccessible; NO DB created.")
+          server_matches=(
+              str(dest_details.get("server_uuid") or "")==str(server.get("uuid")) or
+              (dest_details.get("server_id") is not None and str(dest_details["server_id"])==str(server.get("id"))) or
+              (dest.get("server_id") is not None and str(dest["server_id"])==str(server.get("id")))
+          )
+          print("MIMT app destination maps to existing Coolify server:",server_matches)
+          if not server_matches:
+              raise SystemExit("Destination still does not map to server; NO DB created.")
           if not env.get("name") or not dest.get("uuid") or not proj.get("uuid") or not server.get("uuid"):
               raise SystemExit("Required project/environment/destination identifiers missing; NO DB created.")
           data={
