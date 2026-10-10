@@ -18,7 +18,8 @@
     "test": "vitest run",
     "job:numbers": "node dist/jobs/numberLifecycle.js",
     "job:costs": "node dist/jobs/dailyCost.js",
-    "job:twilio-guardrails": "node dist/jobs/twilioGuardrails.js"
+    "job:twilio-guardrails": "node dist/jobs/twilioGuardrails.js",
+    "job:migrate-selfhost": "node dist/jobs/migrateStandalone.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
