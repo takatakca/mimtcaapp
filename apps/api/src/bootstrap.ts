@@ -29,6 +29,15 @@ export function createDeps(config: Config, log: Logger): AppDeps {
       config.DATABASE_URL,
       config.DATABASE_SSL_CA_PEM ? { sslCaPem: config.DATABASE_SSL_CA_PEM } : {},
     );
+    if (repo.suppliedCaInvalid) {
+      log.error(
+        { category: "database_ca_invalid", fallbackCaFileUsed: repo.tlsCaSource === "file" },
+        "DATABASE_SSL_CA_PEM does not contain a valid X.509 PEM certificate. Fix the Coolify secret; TLS verification was not disabled.",
+      );
+    }
+    if (repo.tlsCaSource === "file") {
+      log.info("PostgreSQL is using a validated, mounted CA certificate; hostname verification remains enabled.");
+    }
   } else {
     log.warn("DATABASE_URL not set: using the in-memory repository (data is lost on restart)");
     repo = new MemoryRepository();
