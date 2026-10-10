@@ -1,0 +1,98 @@
+name: Diagnose MochaHost FTP Paths
+
+# Read-only FTP inspection. Never uploads, deletes, or modifies files.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect FTP-relative candidate directories
+        shell: bash
+        env:
+          FTP_SERVER: ${{ secrets.MOCHAHOST_FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.MOCHAHOST_FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
+          CURRENT_SITE_DIR: ${{ vars.WEB_FTP_DIR }}
+          CURRENT_APP_DIR: ${{ vars.WEBPHONE_FTP_DIR }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import ftplib
+          import os
+          import ssl
+
+          host = os.environ["FTP_SERVER"]
+          user = os.environ["FTP_USERNAME"]
+          password = os.environ["FTP_PASSWORD"]
+          if not all([host, user, password]):
+              raise SystemExit("MochaHost FTP secrets are missing")
+          ftp = ftplib.FTP_TLS(context=ssl.create_default_context(), timeout=30)
+          try:
+              ftp.connect(host, 21)
+              ftp.login(user, password)
+              ftp.prot_p()
+              base = ftp.pwd()
+              print("FTP login working directory:", base)
+              print("FTP may be jailed; this can differ from cPanel /home/bolonca/... paths.")
+              candidates = [
+                  ("FTP login folder", "./"),
+                  ("candidate website", "./mimt.ca/"),
+                  ("candidate app", "./app.mimt.ca/"),
+                  ("possible public_html", "./public_html/"),
+                  ("nested wrong site", "./bolonca/mimt.ca/"),
+                  ("nested wrong site 2", "./mimt.ca/bolonca/mimt.ca/"),
+                  ("nested wrong site 3", "./home/bolonca/mimt.ca/"),
+              ]
+              for variable, label in [
+                  ("CURRENT_SITE_DIR", "existing WEB_FTP_DIR variable"),
+                  ("CURRENT_APP_DIR", "existing WEBPHONE_FTP_DIR variable"),
+              ]:
+                  if os.getenv(variable):
+                      candidates.append((label, os.environ[variable]))
+              seen = set()
+              for label, path in candidates:
+                  if path in seen:
+                      continue
+                  seen.add(path)
+                  try:
+                      ftp.cwd(base)
+                      ftp.cwd(path)
+                      found_pwd = ftp.pwd()
+                      try:
+                          names = [name.split("/")[-1] for name in ftp.nlst()]
+                      except ftplib.all_errors:
+                          names = []
+                      fingerprint = "no index.html found"
+                      if "index.html" in names:
+                          data = bytearray()
+                          def save_chunk(chunk):
+                              if len(data) < 250000:
+                                  data.extend(chunk[:250000 - len(data)])
+                          try:
+                              ftp.retrbinary("RETR index.html", save_chunk)
+                              html = data.decode("utf-8", "replace").lower()
+                              if "fongo" in html:
+                                  fingerprint = "FONGO CONTENT"
+                              elif "mimt web" in html:
+                                  fingerprint = "MIMT WEB APP"
+                              elif "votre numéro canadien" in html or "mimt mobile" in html:
+                                  fingerprint = "NEW MIMT WEBSITE"
+                              else:
+                                  fingerprint = "OTHER HTML"
+                          except ftplib.all_errors:
+                              fingerprint = "index.html exists but was not readable"
+                      print(f"{label}: {path} -> FOUND ({found_pwd}), {fingerprint}")
+                  except ftplib.all_errors as exc:
+                      print(f"{label}: {path} -> NOT ACCESSIBLE ({type(exc).__name__})")
+              print("Read-only inspection finished. No files changed.")
+          finally:
+              try:
+                  ftp.quit()
+              except ftplib.all_errors:
+                  ftp.close()
+          PY

@@ -6,12 +6,33 @@ name: Deploy
 #   MOCHAHOST_FTP_SERVER, MOCHAHOST_FTP_USERNAME, MOCHAHOST_FTP_PASSWORD   → website + web app
 #   COOLIFY_URL, COOLIFY_TOKEN, COOLIFY_API_UUID                            → API
 # Variables (same page, "Variables" tab), optional:
-#   WEB_FTP_DIR (default ./public_html/), WEBPHONE_FTP_DIR (default ./app.mimt.ca/), FTP_PROTOCOL (ftps or ftp),
+#   FTP paths are explicitly provided via Run workflow inputs, so stale WEB_FTP_DIR/WEBPHONE_FTP_DIR variables cannot misroute uploads.
+#   FTP_PROTOCOL (ftps or ftp),
 #   API_URL, TAKATAK_ISSUER, TAKATAK_CLIENT_ID, FORMS_ENDPOINT
 
 on:
-  # Explicit release only. Merging agent PRs must not publish unfinished work.
+  # Explicit release only; wrong FTP paths must not auto-publish.
   workflow_dispatch:
+    inputs:
+      deploy_scope:
+        description: "Deploy websites, API, or everything"
+        type: choice
+        required: true
+        default: websites
+        options:
+          - websites
+          - api
+          - all
+      web_ftp_dir:
+        description: "FTP-relative folder for mimt.ca (NOT /home/bolonca/...)"
+        type: string
+        required: true
+        default: "./mimt.ca/"
+      webphone_ftp_dir:
+        description: "FTP-relative folder for app.mimt.ca (NOT /home/bolonca/...)"
+        type: string
+        required: true
+        default: "./app.mimt.ca/"
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -44,8 +65,28 @@ jobs:
           fi
           echo "All six deployment secret names have values."
 
+      - name: Reject wrong or nested FTP destination paths before uploading
+        shell: bash
+        env:
+          TARGET_SITE: ${{ inputs.web_ftp_dir }}
+          TARGET_APP: ${{ inputs.webphone_ftp_dir }}
+        run: |
+          set -euo pipefail
+          for dir in "$TARGET_SITE" "$TARGET_APP"; do
+            if [[ "$dir" != ./*/ ]] || [[ "$dir" == *".."* ]] || [[ "$dir" == *"/home/"* ]] || [[ "$dir" == *"bolonca"* ]]; then
+              echo "::error::Use an FTP-login-relative directory ending in / (for example ./mimt.ca/), not an absolute cPanel filesystem path or nested bolonca/home directory."
+              exit 1
+            fi
+          done
+          if [[ "$TARGET_SITE" == "$TARGET_APP" ]]; then
+            echo "::error::The two websites must have different FTP target directories."
+            exit 1
+          fi
+          echo "FTP-relative destinations selected: $TARGET_SITE and $TARGET_APP"
+
   web:
     needs: check
+    if: inputs.deploy_scope == 'websites' || inputs.deploy_scope == 'all'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,7 +108,7 @@ jobs:
           password: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
           protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
           local-dir: ./apps/web/out/
-          server-dir: ${{ vars.WEB_FTP_DIR || './public_html/' }}
+          server-dir: ${{ inputs.web_ftp_dir }}
 
       - name: Verify live mimt.ca actually serves the French MIMT website
         shell: bash
@@ -87,6 +128,7 @@ jobs:
 
   webphone:
     needs: check
+    if: inputs.deploy_scope == 'websites' || inputs.deploy_scope == 'all'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -110,7 +152,7 @@ jobs:
           password: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
           protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
           local-dir: ./apps/webphone/dist/
-          server-dir: ${{ vars.WEBPHONE_FTP_DIR || './app.mimt.ca/' }}
+          server-dir: ${{ inputs.webphone_ftp_dir }}
 
       - name: Verify live app.mimt.ca is serving the MIMT web app
         shell: bash
@@ -130,6 +172,7 @@ jobs:
 
   api:
     needs: check
+    if: inputs.deploy_scope == 'api' || inputs.deploy_scope == 'all'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Coolify deploy
