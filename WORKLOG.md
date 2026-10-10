@@ -3,6 +3,8 @@
 Newest first, one line per piece of work. Rule: `AGENTS.md` › Work log rule.
 Format: `YYYY-MM-DD | agent | branch → PR | status | what | next step`
 
+- 2026-10-10 | claude (MIMT phase-2 agent, session 01Bs3bum) | worktree-agent-aee090b4fdde0c872 → claude/mimt-platform-phase2 | done | Parity P1 items 1, 3, 9: "Sans pub" add-on (3,99 $/mo, 29,99 $/an; Stripe + IAP SKUs), referral program (0008 migration, /v1/referrals, Premium month for both, device/card anti-fraud), free-plan international credit with stricter limits + GET /v1/rates; mobile settings, referral screen, rate on keypad. Item 12 (extra number 2,99 $) skipped: owner decision on prices | owner: create Stripe/App Store/Play products, enable invoice.paid on the Stripe webhook, confirm the placeholder rates in packages/shared/src/rates.ts
+
 - 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | Auto-deploy workflow (.github/workflows/deploy.yml): mimt.ca + app.mimt.ca by FTPS, API by Coolify | owner: add GitHub secrets MOCHAHOST_FTP_* and COOLIFY_*; create app./api.mimt.ca subdomains
 - 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | Business PBX (MIMT Affaires): extensions, ring groups, bilingual IVR, Quebec hours/holidays, recording with consent, per-line seats | finish tests, merge to main
 - 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | AI (Claude): voicemail summaries, smart SMS replies, spam scoring, AI receptionist (ConversationRelay), Law 25 consent, cost caps | finish tests; owner: ANTHROPIC_API_KEY in secrets

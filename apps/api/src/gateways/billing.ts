@@ -25,6 +25,13 @@ export interface BillingGateway {
   /** Verifies the Stripe-Signature header against the raw body. Throws on mismatch. */
   constructEvent(rawBody: Buffer, signature: string): Stripe.Event;
   retrieveSubscription(id: string): Promise<Stripe.Subscription>;
+  /**
+   * Card fingerprint of a paid invoice or payment (same card = same fingerprint across customers), used by the
+   * referral anti-fraud check. Null when unknown (not a card, not paid yet). Optional: absent = no check.
+   */
+  paymentFingerprint?(ref: { invoiceId?: string; paymentIntentId?: string }): Promise<string | null>;
+  /** Adds a credit to the customer's Stripe balance (taken off the next invoice). Used for referral rewards. */
+  creditBalance?(input: { customerId: string; amountCents: number; description: string; idempotencyKey: string }): Promise<void>;
   /** Resale (catalog): adds the offer's monthly price to the customer's services subscription on activation. */
   createServiceItem?(input: ServiceItemInput): Promise<{ subscriptionId: string; itemId: string }>;
   /** Resale: removes the item when the service is cancelled (prorated). */
@@ -111,6 +118,27 @@ export class StripeGateway implements BillingGateway {
 
   retrieveSubscription(id: string) {
     return this.stripe.subscriptions.retrieve(id);
+  }
+
+  async paymentFingerprint(ref: { invoiceId?: string; paymentIntentId?: string }): Promise<string | null> {
+    let paymentIntentId = ref.paymentIntentId ?? null;
+    if (!paymentIntentId && ref.invoiceId) {
+      const payments = await this.stripe.invoicePayments.list({ invoice: ref.invoiceId, status: "paid", limit: 1 });
+      const pi = payments.data[0]?.payment.payment_intent;
+      paymentIntentId = typeof pi === "string" ? pi : (pi?.id ?? null);
+    }
+    if (!paymentIntentId) return null;
+    const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId, { expand: ["payment_method"] });
+    const method = intent.payment_method;
+    return typeof method === "object" && method ? (method.card?.fingerprint ?? null) : null;
+  }
+
+  async creditBalance(input: { customerId: string; amountCents: number; description: string; idempotencyKey: string }) {
+    await this.stripe.customers.createBalanceTransaction(
+      input.customerId,
+      { amount: -Math.abs(input.amountCents), currency: "cad", description: input.description },
+      { idempotencyKey: input.idempotencyKey },
+    );
   }
 
   /** One CAD monthly price per (offer, amount), found by lookup_key so it is created only once. */

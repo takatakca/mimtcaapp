@@ -3,6 +3,7 @@ import { isEmergencyNumber } from "@mimt/shared";
 import type { AppDeps } from "../deps.js";
 import { checkInboundCaps, checkVoiceCaps, effectiveCaps, exceedsDailySpend } from "../fraud/caps.js";
 import { checkVoiceDestination } from "../fraud/destinations.js";
+import { intlTimeLimitS, retailCentsPerMinute } from "../billing/rates.js";
 import { CALL_ATTEMPT_RULES } from "../fraud/policy.js";
 import { cubaSipUri } from "../lib/cuba.js";
 import { classifyDestination, isDomesticZone, normalizeDialed } from "../lib/phone.js";
@@ -168,7 +169,9 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
     }
 
     const { plan, features } = await getFeatures(repo, account.id);
-    const dest = checkVoiceDestination(to, { entitled: plan !== "free" && features.has("intl_calling"), creditCents: account.intlCreditCents });
+    // Free plan: international only with bought credit, and only to the short free-plan list (fraud/destinations.ts).
+    const freePlan = plan === "free";
+    const dest = checkVoiceDestination(to, { entitled: features.has("intl_calling"), creditCents: account.intlCreditCents }, { freePlan });
     if (!dest.ok) {
       if (dest.reason === "invalid_number") return sendTwiml(reply, refuse("invalid_number"));
       await logFraud(account, `destination_${dest.reason}`, { to, zone: dest.zone });
@@ -184,7 +187,8 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
       timeLimit = Math.min(check.remaining * 60, MAX_CALL_S);
     } else {
       if (activeCalls >= caps.concurrentCalls) return sendTwiml(reply, refuse("too_many_calls"));
-      timeLimit = Math.min(Math.floor(account.intlCreditCents / config.INTL_ASSUMED_RATE_CENTS_PER_MIN) * 60, MAX_CALL_S);
+      const centsPerMinute = retailCentsPerMinute(to, config.INTL_ASSUMED_RATE_CENTS_PER_MIN);
+      timeLimit = intlTimeLimitS({ creditCents: account.intlCreditCents, centsPerMinute, freePlan, maxCallS: MAX_CALL_S });
       if (timeLimit < 60) return sendTwiml(reply, refuse("intl_no_credit"));
     }
 
@@ -323,7 +327,10 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
     } else {
       const cost = ratedCad ?? (minutes * config.INTL_ASSUMED_RATE_CENTS_PER_MIN) / 100;
       await repo.addUsage(account.id, usagePeriods(now), { spendCad: cost, intlSpendCad: cost });
-      const debit = Math.min(Math.ceil(cost * 100), account.intlCreditCents);
+      // The customer pays the retail rate shown by GET /v1/rates, never less than the carrier cost Twilio reported.
+      const retailCents = minutes * retailCentsPerMinute(call.toNumber, config.INTL_ASSUMED_RATE_CENTS_PER_MIN);
+      const carrierCents = ratedCad === null ? 0 : Math.ceil(ratedCad * 100);
+      const debit = Math.min(Math.max(carrierCents, retailCents), account.intlCreditCents);
       if (debit > 0) await repo.addIntlCredit(account.id, -debit);
     }
     const today = await repo.getUsage(account.id, dayPeriod(now));

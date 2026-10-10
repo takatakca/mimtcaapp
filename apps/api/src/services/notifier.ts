@@ -7,7 +7,9 @@ export type NotificationTemplate =
   /** data.text: AI summary of the voicemail (push body). */
   | "voicemail_received"
   /** A caller left a message with the AI receptionist. */
-  | "ai_receptionist_message";
+  | "ai_receptionist_message"
+  /** data.months, data.plan: a referral earned a free month. */
+  | "referral_reward";
 
 /** Push/email delivery. Placeholder: logs only, until FCM/APNs and the email provider are wired. */
 export interface Notifier {

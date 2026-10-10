@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { NumberState } from "@mimt/shared";
 import { MemoryPbxRepository } from "./pbxMemory.js";
 import { MemoryCatalogRepository } from "./catalogMemory.js";
+import { MemoryReferralRepository } from "./referralsMemory.js";
 import type {
   AuditEntry,
   Call,
@@ -54,6 +55,7 @@ export class MemoryRepository implements Repository {
   readonly catalog = new MemoryCatalogRepository();
   devices: Array<{ platform: "ios" | "android"; deviceKey: string; userId: string; verifiedAt: Date }> = [];
   adRewards: Array<{ userId: string; transactionId: string; minutes: number; createdAt: Date; claimedAt: Date | null }> = [];
+  readonly referrals = new MemoryReferralRepository(() => this.devices);
 
   async ping() {}
   async close() {}

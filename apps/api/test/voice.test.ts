@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { intlRateFor } from "@mimt/shared";
 import { monthPeriod } from "../src/lib/time.js";
 import { makeUser, setup, twilioPost, type Ctx } from "./helpers.js";
 
@@ -129,7 +130,9 @@ describe("outbound voice: PSTN rules", () => {
     await ctx.repo.replaceEntitlements(u.account.id, "intl_credit", [{ feature: "intl_calling", limit: null }]);
     await ctx.repo.addIntlCredit(u.account.id, 500);
     const res = await outbound(u.user.id, "+442071234567");
-    expect(res.body).toContain('timeLimit="600"');
+    // 5,00 $ of credit at the UK retail rate (packages/shared/src/rates.ts) buys this many whole minutes.
+    const minutes = Math.floor(500 / intlRateFor("+442071234567")!.centsPerMinute);
+    expect(res.body).toContain(`timeLimit="${minutes * 60}"`);
     expect(res.body).toContain("<Number>+442071234567</Number>");
   });
 

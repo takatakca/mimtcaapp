@@ -1,5 +1,16 @@
 import type { FastifyInstance } from "fastify";
-import { ADD_ONS, PLANS, type BillingPortalResponse, type CheckoutRequest, type CheckoutResponse, type PlanCode } from "@mimt/shared";
+import {
+  ADD_ONS,
+  FREE_PLAN_INTL_LIMITS,
+  formatCad,
+  PLANS,
+  SUBSCRIPTION_ADD_ONS,
+  type BillingPortalResponse,
+  type CheckoutRequest,
+  type CheckoutResponse,
+  type IapVerifyResponse,
+  type PlanCode,
+} from "@mimt/shared";
 import type Stripe from "stripe";
 import { z } from "zod";
 import type { AppDeps } from "../deps.js";
@@ -7,8 +18,9 @@ import { loadContext, requireUser } from "../auth/guard.js";
 import { badRequest, conflict, forbidden, HttpError, notConfigured } from "../lib/errors.js";
 import { addDays } from "../lib/time.js";
 import { parse } from "../lib/validate.js";
-import type { Subscription, TelecomAccount } from "../repo/types.js";
-import { getPlan, recomputeEntitlements, usagePeriods } from "../services/accounts.js";
+import type { Subscription, TelecomAccount, User } from "../repo/types.js";
+import { getFeatures, getPlan, outboundBlocked, recomputeEntitlements, usagePeriods } from "../services/accounts.js";
+import { redeemReferral, settleReferralOnPaidPlan } from "../services/referrals.js";
 import { purchaseFromApplePayload, verifyAppleTransactionJws, verifyGoogleSubscription } from "../billing/iap.js";
 import { quebecTaxLines } from "../billing/taxes.js";
 import type { CheckoutLine } from "../gateways/billing.js";
@@ -16,11 +28,12 @@ import type { CheckoutLine } from "../gateways/billing.js";
 const CheckoutBody = z
   .object({
     plan: z.enum(["lock", "premium", "business", "business_pro"]).optional(),
-    addon: z.enum(["extra_number", "minutes_250", "intl_credit"]).optional(),
+    addon: z.enum(["extra_number", "minutes_250", "intl_credit", "no_ads"]).optional(),
     interval: z.enum(["month", "year"]).default("month"),
     quantity: z.number().int().min(1).max(50).default(1),
     /** International credit amount, CAD cents. */
     amountCents: z.number().int().min(ADD_ONS.intl_credit_min.priceCents).max(10_000).optional(),
+    referralCode: z.string().min(4).max(32).optional(),
   })
   .refine((b) => Boolean(b.plan) !== Boolean(b.addon), "Pass exactly one of plan or addon");
 
@@ -65,12 +78,33 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       line = { name: fr ? a.name.fr : a.name.en, description: taxNote, unitAmountCents: a.priceCents, quantity: body.quantity };
       mode = "payment";
       code = "minutes_250";
+    } else if (body.addon === "no_ads") {
+      const a = SUBSCRIPTION_ADD_ONS.no_ads;
+      const { features } = await getFeatures(repo, account.id);
+      if (features.has("no_ads")) throw conflict("already_ad_free", "Votre forfait ne contient déjà aucune publicité.");
+      if (body.quantity !== 1) throw badRequest("quantity_not_allowed");
+      const yearly = body.interval === "year";
+      line = {
+        name: fr ? `MIMT ${a.name.fr}` : `MIMT ${a.name.en}`,
+        description: taxNote,
+        unitAmountCents: yearly ? a.yearlyPriceCents : a.monthlyPriceCents,
+        quantity: 1,
+        recurring: body.interval,
+      };
+      mode = "subscription";
+      code = "no_ads";
     } else {
-      if ((await getPlan(repo, account.id)) === "free") throw forbidden("intl_requires_paid_plan");
+      const amountCents = body.amountCents ?? ADD_ONS.intl_credit_min.priceCents;
+      if ((await getPlan(repo, account.id)) === "free") await checkFreeIntlTopUp(account, user, amountCents);
       const a = ADD_ONS.intl_credit_min;
-      line = { name: fr ? a.name.fr : a.name.en, description: taxNote, unitAmountCents: body.amountCents ?? a.priceCents, quantity: 1 };
+      line = { name: fr ? a.name.fr : a.name.en, description: taxNote, unitAmountCents: amountCents, quantity: 1 };
       mode = "payment";
       code = "intl_credit";
+    }
+
+    if (body.referralCode) {
+      const existing = await repo.referrals.getReferralForReferee(user.id);
+      if (!existing) await redeemReferral(deps, { user, account, code: body.referralCode });
     }
 
     const customerId = account.stripeCustomerId ?? (await createCustomer(account, user.email, user.displayName, user.locale));
@@ -93,6 +127,23 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     });
     return { checkoutUrl: session.url, sessionId: session.id };
   });
+
+  /** International credit on the free plan (parity P1 item 9): small top-ups, small balance, clean accounts only. */
+  async function checkFreeIntlTopUp(account: TelecomAccount, user: User, amountCents: number) {
+    if (outboundBlocked(account) || account.riskTier === "high") throw forbidden("account_restricted", "Ce compte ne peut pas acheter de crédit international.");
+    if (!user.phoneVerifiedAt) throw forbidden("phone_verification_required", "Confirmez votre numéro de cellulaire avant d'acheter du crédit.");
+    if (amountCents > FREE_PLAN_INTL_LIMITS.maxTopUpCents) {
+      throw badRequest("intl_topup_too_large", `Forfait Gratuit : ${formatCad(FREE_PLAN_INTL_LIMITS.maxTopUpCents)} maximum par recharge.`);
+    }
+    if (account.intlCreditCents + amountCents > FREE_PLAN_INTL_LIMITS.maxBalanceCents) {
+      throw conflict("intl_balance_limit", `Forfait Gratuit : solde maximal de ${formatCad(FREE_PLAN_INTL_LIMITS.maxBalanceCents)}.`);
+    }
+    const ok = await deps.rateLimiter.take(`intl-topup:free:${account.id}`, { capacity: FREE_PLAN_INTL_LIMITS.checkoutsPerDay, windowSeconds: 86_400 });
+    if (!ok) {
+      await repo.addFraudEvent({ telecomAccountId: account.id, rule: "free_intl_topup_rate", score: 20, action: "hold", details: { amountCents } });
+      throw new HttpError(429, "intl_topup_rate_limited", "Trop de recharges aujourd'hui. Réessayez demain.");
+    }
+  }
 
   async function createCustomer(account: TelecomAccount, email: string | null, name: string | null, locale: string) {
     const id = await deps.billing!.createCustomer({ accountId: account.id, email, name, locale });
@@ -136,11 +187,12 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
         serviceAccountJson: config.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON,
       });
     }
-    if (!purchase) throw badRequest("unknown_product", "Ce produit n'est pas un forfait MIMT.");
+    const sku = purchase?.plan ? { kind: "plan" as const, code: purchase.plan } : purchase?.addon ? { kind: "addon" as const, code: purchase.addon } : null;
+    if (!purchase || !sku) throw badRequest("unknown_product", "Ce produit n'est pas un forfait MIMT.");
     await repo.upsertSubscription({
       telecomAccountId: account.id,
-      kind: "plan",
-      code: purchase.plan,
+      kind: sku.kind,
+      code: sku.code,
       quantity: 1,
       stripeSubscriptionId: `${body.platform}:${purchase.transactionId}`,
       status: purchase.status,
@@ -148,7 +200,13 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       currentPeriodEnd: purchase.currentPeriodEnd,
     });
     await recomputeEntitlements(repo, account);
-    return { plan: purchase.plan, status: purchase.status, currentPeriodEnd: purchase.currentPeriodEnd?.toISOString() ?? null };
+    const res: IapVerifyResponse = {
+      ...(purchase.plan ? { plan: purchase.plan } : {}),
+      ...(purchase.addon ? { addon: purchase.addon } : {}),
+      status: purchase.status,
+      currentPeriodEnd: purchase.currentPeriodEnd?.toISOString() ?? null,
+    };
+    return res;
   });
 
   // Stripe webhook: needs the raw body for signature verification, so JSON parsing is overridden in this scope only.
@@ -200,6 +258,19 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     await recomputeEntitlements(repo, account);
   }
 
+  /** Stores the card fingerprint of a paid invoice/payment (referral anti-fraud). Never fails the webhook. */
+  async function recordFingerprint(account: TelecomAccount, ref: { invoiceId?: string; paymentIntentId?: string }): Promise<string | null> {
+    if (!deps.billing?.paymentFingerprint) return null;
+    try {
+      const fingerprint = await deps.billing.paymentFingerprint(ref);
+      if (fingerprint) await repo.referrals.addPaymentFingerprint(account.id, fingerprint, deps.now());
+      return fingerprint;
+    } catch (err) {
+      app.log.warn({ err, account: account.id }, "could not read the payment fingerprint");
+      return null;
+    }
+  }
+
   async function handleStripeEvent(event: Stripe.Event) {
     switch (event.type) {
       case "checkout.session.completed": {
@@ -209,6 +280,8 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
         if (s.mode === "subscription" && typeof s.subscription === "string") {
           await syncSubscription(await deps.billing!.retrieveSubscription(s.subscription));
         } else if (s.mode === "payment" && s.payment_status === "paid") {
+          const pi = typeof s.payment_intent === "string" ? s.payment_intent : (s.payment_intent?.id ?? null);
+          if (pi) await recordFingerprint(account, { paymentIntentId: pi });
           if (s.metadata?.code === "minutes_250") {
             const packs = Math.max(1, Math.round((s.amount_subtotal ?? ADD_ONS.minutes_250.priceCents) / ADD_ONS.minutes_250.priceCents));
             await repo.addUsage(account.id, usagePeriods(deps.now()).slice(0, 1), { bonusMinutesOut: 250 * packs });
@@ -225,6 +298,19 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       case "customer.subscription.updated":
       case "customer.subscription.deleted":
         return syncSubscription(event.data.object);
+      case "invoice.paid": {
+        // Referral program: the referee's first paid plan invoice settles the referral (reward or fraud refusal).
+        const inv = event.data.object;
+        const meta = inv.parent?.subscription_details?.metadata ?? null;
+        const account = await accountFor(inv.customer, meta);
+        if (!account || !inv.amount_paid || inv.amount_paid <= 0) return;
+        const fingerprint = inv.id ? await recordFingerprint(account, { invoiceId: inv.id }) : null;
+        if (meta?.kind === "plan" && meta.code && meta.code !== "free" && meta.code in PLANS) {
+          const outcome = await settleReferralOnPaidPlan(deps, { account, fingerprint });
+          if (outcome) app.log.info({ account: account.id, outcome }, "referral settled");
+        }
+        return;
+      }
       default:
         return;
     }
