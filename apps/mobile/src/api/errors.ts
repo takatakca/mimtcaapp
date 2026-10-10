@@ -39,6 +39,19 @@ const CODE_TO_KEY: Record<string, TKey> = {
   media_already_used: "error.mediaInvalid",
   no_email: "error.noEmail",
   no_number: "error.noNumber",
+  // Referrals, Sans pub, international credit (parity P1).
+  referral_code_not_found: "error.referralInvalid",
+  invalid_referral_code: "error.referralInvalid",
+  self_referral: "error.referralSelf",
+  already_referred: "error.referralAlready",
+  referral_window_closed: "error.referralLate",
+  referral_after_purchase: "error.referralLate",
+  same_device: "error.referralDevice",
+  already_ad_free: "error.alreadyAdFree",
+  intl_topup_too_large: "error.intlTopUpLimit",
+  intl_balance_limit: "error.intlTopUpLimit",
+  intl_topup_rate_limited: "error.rateLimited",
+  phone_verification_required: "error.phoneRequired",
 };
 
 export function errorKeyFor(status: number | null, code?: string | null): TKey {

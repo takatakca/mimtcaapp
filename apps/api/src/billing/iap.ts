@@ -1,13 +1,23 @@
 import { X509Certificate } from "node:crypto";
-import { storeProduct, type PlanCode } from "@mimt/shared";
+import { storeAddOnProduct, storeProduct, type PlanCode, type SubscriptionAddOnCode } from "@mimt/shared";
 import { compactVerify, importX509 } from "jose";
 import { googleAccessToken, readServiceAccount } from "../devices/verify.js";
 
+/** Exactly one of plan (plan SKUs) or addon (add-on SKUs such as ca.mimt.app.noads.monthly) is set. */
 export interface StorePurchase {
-  plan: Extract<PlanCode, "lock" | "premium">;
+  plan?: Extract<PlanCode, "lock" | "premium">;
+  addon?: SubscriptionAddOnCode;
   transactionId: string;
   status: "active" | "canceled";
   currentPeriodEnd: Date | null;
+}
+
+/** Plan or add-on SKU, or undefined when the product is not a MIMT subscription. */
+function storeSku(id: string): { plan: Extract<PlanCode, "lock" | "premium"> } | { addon: SubscriptionAddOnCode } | undefined {
+  const plan = storeProduct(id);
+  if (plan) return { plan: plan.plan };
+  const addon = storeAddOnProduct(id);
+  return addon ? { addon: addon.addon } : undefined;
 }
 
 function derToPem(derB64: string): string {
@@ -38,12 +48,12 @@ export async function verifyAppleTransactionJws(jws: string, trustedRootPem: str
 
 export function purchaseFromApplePayload(payload: Record<string, unknown>, now: Date, bundleId?: string): StorePurchase | null {
   if (bundleId && payload.bundleId !== bundleId) return null;
-  const product = storeProduct(String(payload.productId ?? ""));
+  const product = storeSku(String(payload.productId ?? ""));
   const transactionId = String(payload.originalTransactionId ?? payload.transactionId ?? "");
   if (!product || !transactionId) return null;
   const expires = typeof payload.expiresDate === "number" ? new Date(payload.expiresDate) : null;
   const active = !expires || expires.getTime() > now.getTime();
-  return { plan: product.plan, transactionId, status: active ? "active" : "canceled", currentPeriodEnd: expires };
+  return { ...product, transactionId, status: active ? "active" : "canceled", currentPeriodEnd: expires };
 }
 
 interface GoogleSub {
@@ -61,7 +71,7 @@ export async function verifyGoogleSubscription(input: {
   now?: Date;
 }): Promise<StorePurchase | null> {
   const account = readServiceAccount(input.serviceAccountJson);
-  const product = storeProduct(input.productId);
+  const product = storeSku(input.productId);
   if (!account || !product) return null;
   const fetchImpl = input.fetchImpl ?? fetch;
   const access = await googleAccessToken(account, "https://www.googleapis.com/auth/androidpublisher", fetchImpl);
@@ -74,7 +84,7 @@ export async function verifyGoogleSubscription(input: {
   const now = input.now ?? new Date();
   const active = body.subscriptionState === "SUBSCRIPTION_STATE_ACTIVE" || body.subscriptionState === "SUBSCRIPTION_STATE_IN_GRACE_PERIOD";
   return {
-    plan: product.plan,
+    ...product,
     transactionId: input.purchaseToken.slice(0, 120),
     status: active && (!expires || expires.getTime() > now.getTime()) ? "active" : "canceled",
     currentPeriodEnd: expires,

@@ -7,6 +7,7 @@ import type { PlanCode } from "./plans.js";
 import type { SpamLabel, VoicemailInsight } from "./ai.js";
 import type { CallSettings, CallSettingsPatch } from "./callControls.js";
 import type { MessageMediaDto } from "./media.js";
+import type { SubscriptionAddOnCode } from "./addons.js";
 
 export type Locale = "fr-CA" | "en-CA";
 export type Direction = "inbound" | "outbound";
@@ -60,7 +61,16 @@ export interface OtpVerifyRequest {
 /** GET /v1/me */
 export interface MeResponse {
   user: { id: string; globalUserId: string | null; locale: Locale; displayName: string | null };
-  account: { id: string; kind: "consumer" | "business"; plan: PlanCode; status: string };
+  account: {
+    id: string;
+    kind: "consumer" | "business";
+    plan: PlanCode;
+    status: string;
+    /** Live subscription add-ons ("no_ads" = Sans pub). Absent on older API versions. */
+    addOns?: SubscriptionAddOnCode[];
+    /** Prepaid international credit, CAD cents. Absent on older API versions. */
+    intlCreditCents?: number;
+  };
   numbers: Array<{ id: string; e164: string; state: NumberState }>;
   e911: { addressRegistered: boolean; noticeAccepted: boolean; noticeVersion: string };
   usage: { outboundMinutes: number; inboundMinutes: number; outboundSms: number; periodStart: string };
@@ -313,7 +323,7 @@ export interface VoicemailsResponse {
 // ------------------------------------------------------------------------------------------ billing
 
 export type PaidPlanCode = Exclude<PlanCode, "free">;
-export type AddOnCode = "extra_number" | "minutes_250" | "intl_credit";
+export type AddOnCode = "extra_number" | "minutes_250" | "intl_credit" | SubscriptionAddOnCode;
 
 /** POST /v1/billing/checkout: exactly one of plan or addon. */
 export interface CheckoutRequest {
@@ -321,8 +331,13 @@ export interface CheckoutRequest {
   addon?: AddOnCode;
   interval?: "month" | "year";
   quantity?: number;
-  /** International credit amount, CAD cents. */
+  /**
+   * International credit amount, CAD cents. Free plan: at most FREE_PLAN_INTL_LIMITS.maxTopUpCents per
+   * top-up; paid plans: up to 100 $.
+   */
   amountCents?: number;
+  /** Friend's referral code, redeemed on the first checkout (same rules as POST /v1/referrals/redeem). */
+  referralCode?: string;
 }
 export interface CheckoutResponse {
   /** Stripe Checkout URL to open in the browser. */
@@ -333,6 +348,78 @@ export interface CheckoutResponse {
 /** GET /v1/billing/portal */
 export interface BillingPortalResponse {
   portalUrl: string;
+}
+
+/** POST /v1/billing/iap/verify (StoreKit 2 JWS or Play purchase token). Plans and add-ons share the route. */
+export interface IapVerifyRequest {
+  platform: "ios" | "android";
+  productId: string;
+  transaction: string;
+}
+export interface IapVerifyResponse {
+  /** Set for plan SKUs. */
+  plan?: PlanCode;
+  /** Set for add-on SKUs (ca.mimt.app.noads.*). */
+  addon?: SubscriptionAddOnCode;
+  status: "active" | "canceled";
+  currentPeriodEnd: string | null;
+}
+
+// ------------------------------------------------------------------------------------------ referrals
+
+export type ReferralStatus = "pending" | "rewarded" | "rejected";
+/** Why a referral earned nothing. */
+export type ReferralRejectReason = "same_device" | "same_payment";
+
+export interface ReferralDto {
+  id: string;
+  status: ReferralStatus;
+  rejectReason: ReferralRejectReason | null;
+  createdAt: string;
+  rewardedAt: string | null;
+}
+
+/** GET /v1/referrals: my code (created on first call), the friends I invited, and who invited me. */
+export interface ReferralsResponse {
+  code: string;
+  /** https://mimt.ca/invitation/CODE (the app builds the share text). */
+  shareUrl: string;
+  /** What both people get once the friend's first paid month is paid. */
+  reward: { months: number; plan: PlanCode };
+  referrals: ReferralDto[];
+  /** The referral that brought me in, if any. */
+  referredBy: ReferralDto | null;
+}
+
+/** POST /v1/referrals/redeem → 201. Only before the first paid plan, within 30 days of signup. */
+export interface RedeemReferralRequest {
+  code: string;
+  /** Attested device key (same format as POST /v1/devices/attest) for the same-device check. */
+  deviceKey?: string;
+}
+export type RedeemReferralResponse = ReferralDto;
+
+// ------------------------------------------------------------------------------------------ rates
+
+/** GET /v1/rates?to=+E164 — what one minute to this number costs, before dialling. */
+export interface RateResponse {
+  /** Normalised E.164 (or "911"). */
+  to: string;
+  /** "domestic": Canada/US, counts against plan minutes. "emergency": 9-1-1, always free and allowed. */
+  kind: "domestic" | "international" | "emergency";
+  country: { fr: string; en: string } | null;
+  /** CAD cents per started minute from the international credit; 0 for domestic and 9-1-1. */
+  centsPerMinute: number;
+  currency: "CAD";
+  /** Can this account call it now (plan, destination list, credit)? */
+  allowed: boolean;
+  /** Stable code when not allowed: intl_not_allowed, intl_no_credit, destination_blocked, premium_rate_blocked. */
+  reason: string | null;
+  intlCreditCents: number;
+  /** Whole minutes the current credit buys at this rate (international only, else null). */
+  minutesAvailable: number | null;
+  /** True while the rate table is not confirmed by the owner: the app shows « tarif indicatif ». */
+  placeholder: boolean;
 }
 
 // ------------------------------------------------------------------------------------------ rewards

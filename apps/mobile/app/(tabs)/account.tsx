@@ -1,4 +1,4 @@
-import { formatCad, PLANS, type PaidPlanCode, type PlanCode } from "@mimt/shared";
+import { FREE_PLAN_INTL_LIMITS, formatCad, PLANS, SUBSCRIPTION_ADD_ONS, type PaidPlanCode, type PlanCode } from "@mimt/shared";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useCallback, useState } from "react";
@@ -13,6 +13,7 @@ import { useI18n, type TKey } from "../../src/i18n";
 import { formatPhone } from "../../src/lib/dial";
 import { dndSummaryKey, forwardingSummaryKey } from "../../src/lib/callControls";
 import { usageRows } from "../../src/lib/usage";
+import { adsEnabledFor } from "../../src/services/ads";
 import { callService } from "../../src/services/call";
 import { colors, radius, spacing, TAP } from "../../src/theme";
 
@@ -25,6 +26,9 @@ const USAGE_LABEL: Record<string, TKey> = {
 };
 // Consumer upgrades shown in the app. Business plans are sold on the web from the TAKATAK dashboard.
 const UPGRADES: Partial<Record<PlanCode, PaidPlanCode[]>> = { free: ["lock", "premium"], lock: ["premium"] };
+const AD_FREE = SUBSCRIPTION_ADD_ONS.no_ads;
+/** One-tap international top-up; within the free-plan limit so it works on every plan. */
+const INTL_TOP_UP_CENTS = 500;
 
 export default function Account() {
   const { t, lang, setLang, locale } = useI18n();
@@ -57,6 +61,21 @@ export default function Account() {
   const upgrade = (code: PaidPlanCode) =>
     run(`upgrade-${code}`, async () => {
       const { checkoutUrl } = await api.checkout(code);
+      await WebBrowser.openBrowserAsync(checkoutUrl);
+      await refreshMe();
+    });
+
+  // TODO(store-billing): ca.mimt.app.noads.monthly / .yearly through Apple/Google IAP in store builds.
+  const buyAdFree = (interval: "month" | "year") =>
+    run(`adfree-${interval}`, async () => {
+      const { checkoutUrl } = await api.checkoutAddOn("no_ads", interval);
+      await WebBrowser.openBrowserAsync(checkoutUrl);
+      await refreshMe();
+    });
+
+  const topUp = () =>
+    run("intl", async () => {
+      const { checkoutUrl } = await api.checkoutIntlCredit(INTL_TOP_UP_CENTS);
       await WebBrowser.openBrowserAsync(checkoutUrl);
       await refreshMe();
     });
@@ -156,6 +175,46 @@ export default function Account() {
         </Card>
       ) : null}
 
+      {me && me.account.addOns?.includes("no_ads") ? <Notice tone="success">{t("account.adFreeActive")}</Notice> : null}
+      {me && adsEnabledFor(me.account.plan, me.account.addOns) ? (
+        <Card>
+          <Heading>{t("account.adFree")}</Heading>
+          <Button
+            icon="eye-off"
+            label={t("account.adFreeMonthly", { price: formatCad(AD_FREE.monthlyPriceCents, lang) })}
+            hint={t("account.upgradeHint")}
+            loading={busy === "adfree-month"}
+            onPress={() => buyAdFree("month")}
+          />
+          <Button
+            variant="secondary"
+            label={t("account.adFreeYearly", { price: formatCad(AD_FREE.yearlyPriceCents, lang) })}
+            hint={t("account.upgradeHint")}
+            loading={busy === "adfree-year"}
+            onPress={() => buyAdFree("year")}
+          />
+          <Body muted>{t("account.adFreeHint")}</Body>
+        </Card>
+      ) : null}
+
+      {me ? (
+        <Card>
+          <Heading>{t("account.intlCredit")}</Heading>
+          <Body>{t("account.intlCreditBalance", { credit: formatCad(me.account.intlCreditCents ?? 0, lang) })}</Body>
+          <Button
+            variant="secondary"
+            icon="globe"
+            label={t("account.intlTopUp", { price: formatCad(INTL_TOP_UP_CENTS, lang) })}
+            hint={t("account.upgradeHint")}
+            loading={busy === "intl"}
+            onPress={topUp}
+          />
+          {me.account.plan === "free" ? (
+            <Body muted>{t("account.intlHint", { max: formatCad(FREE_PLAN_INTL_LIMITS.maxTopUpCents, lang) })}</Body>
+          ) : null}
+        </Card>
+      ) : null}
+
       {errorKey ? <ErrorText>{t(errorKey)}</ErrorText> : null}
       {info ? <Notice tone="success">{t(info)}</Notice> : null}
 
@@ -191,6 +250,12 @@ export default function Account() {
         <Row icon="shield-checkmark" title={t("account.privacy")} onPress={() => router.push("/settings/privacy")} />
         <Row icon="sparkles" title={t("ai.entry")} subtitle={t("ai.entryHint")} onPress={() => router.push("/settings/ai")} />
         <Row icon="business" title={t("business.entry")} subtitle={t("business.entryHint")} onPress={() => router.push("/settings/business")} />
+        <Row
+          icon="gift"
+          title={t("account.referral")}
+          subtitle={t("account.referralHint")}
+          onPress={() => router.push("/settings/referral")}
+        />
         <Row icon="download" title={t("account.export")} onPress={exportData} />
         <Row icon="help-buoy" title={t("account.support")} onPress={() => WebBrowser.openBrowserAsync(SUPPORT_URL[lang])} />
         <Row

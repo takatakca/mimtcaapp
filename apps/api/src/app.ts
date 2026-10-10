@@ -23,6 +23,8 @@ import { meRoutes } from "./routes/me.js";
 import { messageRoutes } from "./routes/messages.js";
 import { numberRoutes } from "./routes/numbers.js";
 import { pushRoutes } from "./routes/push.js";
+import { rateRoutes } from "./routes/rates.js";
+import { referralRoutes } from "./routes/referrals.js";
 import { rewardRoutes } from "./routes/rewards.js";
 import { aiReceptionistSocket } from "./routes/twilioAi.js";
 import { twilioWebhooks } from "./routes/twilioWebhooks.js";
@@ -86,6 +88,8 @@ export async function buildApp(deps: AppDeps) {
     pushRoutes,
     rewardRoutes,
     catalogRoutes,
+    referralRoutes,
+    rateRoutes,
     twilioWebhooks,
     businessRoutes,
     aiRoutes,

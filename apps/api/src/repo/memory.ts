@@ -4,6 +4,7 @@ import { MemoryPbxRepository } from "./pbxMemory.js";
 import { MemoryCatalogRepository } from "./catalogMemory.js";
 import { MemoryCallControlsRepository } from "./callControlsMemory.js";
 import { MemoryMediaRepository } from "./mediaMemory.js";
+import { MemoryReferralRepository } from "./referralsMemory.js";
 import type {
   AuditEntry,
   Call,
@@ -58,6 +59,7 @@ export class MemoryRepository implements Repository {
   readonly media = new MemoryMediaRepository();
   devices: Array<{ platform: "ios" | "android"; deviceKey: string; userId: string; verifiedAt: Date }> = [];
   adRewards: Array<{ userId: string; transactionId: string; minutes: number; createdAt: Date; claimedAt: Date | null }> = [];
+  readonly referrals = new MemoryReferralRepository(() => this.devices);
 
   async ping() {}
   async close() {}

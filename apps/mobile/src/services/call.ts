@@ -16,7 +16,7 @@ import { useSyncExternalStore } from "react";
 import { Platform } from "react-native";
 import { api } from "../api/client";
 import { outboundParams } from "../lib/business";
-import { formatPhone, toDialable } from "../lib/dial";
+import { formatPhone, toDialableVoice } from "../lib/dial";
 
 /** Sent with GET /v1/voice/token so the token carries this OS's VoIP push credential. */
 const voicePlatform = () => (Platform.OS === "ios" ? "ios" : "android");
@@ -178,7 +178,7 @@ class CallService {
    * ignored for 9-1-1 (see outboundParams).
    */
   async connect(input: string, opts: { callerId?: string | null } = {}): Promise<boolean> {
-    const to = toDialable(input);
+    const to = toDialableVoice(input);
     if (!to) return false;
     const emergency = isEmergencyNumber(to);
     this.set({ ...IDLE, status: "connecting", direction: "outbound", peer: to, emergency });

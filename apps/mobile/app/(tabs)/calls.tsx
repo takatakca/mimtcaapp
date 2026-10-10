@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { isEmergencyNumber } from "@mimt/shared";
+import { isEmergencyNumber, type RateResponse } from "@mimt/shared";
 import * as Contacts from "expo-contacts/legacy";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { api } from "../../src/api/client";
 import type { CallRecord } from "../../src/api/types";
@@ -16,7 +16,8 @@ import { Body, ErrorText, Notice, Row, Screen, Title } from "../../src/component
 import { canBlock, isBlockedPeer } from "../../src/lib/callControls";
 import { confirmBlockToggle } from "../../src/services/blocks";
 import { useI18n, type TKey } from "../../src/i18n";
-import { canPlaceCall, formatAsYouType, formatPhone, normalizeDialInput } from "../../src/lib/dial";
+import { canPlaceCall, formatAsYouType, formatPhone, normalizeDialInput, rateQuoteTarget } from "../../src/lib/dial";
+import { rateNotice } from "../../src/lib/rates";
 import { formatDuration, formatWhen } from "../../src/lib/format";
 import { useAsync } from "../../src/lib/useAsync";
 import { callService } from "../../src/services/call";
@@ -52,14 +53,41 @@ export default function Calls() {
   );
 }
 
+/** Asks GET /v1/rates once typing pauses on a complete number; null while typing or for Canada/US. */
+function useRateQuote(input: string): { rate: RateResponse | null; loading: boolean } {
+  const target = rateQuoteTarget(input);
+  const [rate, setRate] = useState<RateResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    setRate(null);
+    if (!target) return setLoading(false);
+    let alive = true;
+    setLoading(true);
+    const timer = setTimeout(() => {
+      api
+        .rate(target)
+        .then((r) => alive && setRate(r))
+        .catch(() => undefined) // No rate line on error: the server still enforces credit and destinations.
+        .finally(() => alive && setLoading(false));
+    }, 400);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [target]);
+  return { rate, loading };
+}
+
 function Keypad() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { me } = useSession();
   const [input, setInput] = useState("");
   const [errorKey, setErrorKey] = useState<TKey | null>(null);
   const emergency = isEmergencyNumber(input);
   const allowed = canPlaceCall(input, me?.e911);
   const blockedByE911 = !emergency && !!input && !!me && !(me.e911.addressRegistered && me.e911.noticeAccepted);
+  const quote = useRateQuote(emergency ? "" : input);
+  const notice = quote.rate ? rateNotice(quote.rate, lang) : null;
 
   async function pickContact() {
     setErrorKey(null);
@@ -91,6 +119,13 @@ function Keypad() {
         {formatAsYouType(input) || " "}
       </Text>
       {blockedByE911 ? <Notice tone="warning">{t("calls.blockedNoE911")}</Notice> : null}
+      {notice ? (
+        <Notice tone={notice.tone === "warning" ? "warning" : "info"}>
+          {notice.lines.map((l) => t(l.key, l.vars)).join("\n")}
+        </Notice>
+      ) : quote.loading && input.startsWith("+") ? (
+        <Body muted style={{ textAlign: "center" }}>{t("calls.rateLoading")}</Body>
+      ) : null}
       {errorKey ? <ErrorText>{t(errorKey)}</ErrorText> : null}
       <DialPad onKey={(k) => setInput((v) => normalizeDialInput(v + k).slice(0, 16))} />
       <View style={styles.actions}>

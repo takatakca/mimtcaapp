@@ -1,4 +1,4 @@
-import { PLANS, type Feature, type PlanCode } from "@mimt/shared";
+import { isSubscriptionAddOn, PLANS, SUBSCRIPTION_ADD_ONS, type Feature, type PlanCode, type SubscriptionAddOnCode } from "@mimt/shared";
 import type { AccountStatus, Repository, Subscription, TelecomAccount, User } from "../repo/types.js";
 import { dayPeriod, monthPeriod } from "../lib/time.js";
 
@@ -16,14 +16,31 @@ export async function ensureAccount(repo: Repository, user: User): Promise<Telec
   });
 }
 
-export function planFromSubscriptions(subs: Subscription[]): PlanCode {
+/**
+ * Live = active/trialing/past_due. Manual grants (referral rewards) also end at currentPeriodEnd, because no
+ * webhook will ever cancel them. Stripe and store rows are left to their webhooks / receipt checks.
+ */
+export function isLiveSubscription(s: Subscription, now: Date = new Date()): boolean {
+  if (!LIVE_STATUSES.has(s.status)) return false;
+  if (s.source === "manual" && s.currentPeriodEnd && s.currentPeriodEnd.getTime() <= now.getTime()) return false;
+  return true;
+}
+
+export function planFromSubscriptions(subs: Subscription[], now: Date = new Date()): PlanCode {
   let best: PlanCode = "free";
   for (const s of subs) {
-    if (s.kind !== "plan" || !LIVE_STATUSES.has(s.status) || !(s.code in PLANS)) continue;
+    if (s.kind !== "plan" || !isLiveSubscription(s, now) || !(s.code in PLANS)) continue;
     const code = s.code as PlanCode;
     if (PLAN_RANK.indexOf(code) > PLAN_RANK.indexOf(best)) best = code;
   }
   return best;
+}
+
+/** Live subscription add-ons ("no_ads"…), sorted, without duplicates. */
+export function addOnsFromSubscriptions(subs: Subscription[], now: Date = new Date()): SubscriptionAddOnCode[] {
+  const codes = new Set<SubscriptionAddOnCode>();
+  for (const s of subs) if (s.kind === "addon" && isSubscriptionAddOn(s.code) && isLiveSubscription(s, now)) codes.add(s.code);
+  return [...codes].sort();
 }
 
 export async function getPlan(repo: Repository, accountId: string): Promise<PlanCode> {
@@ -34,17 +51,24 @@ export interface AccountFeatures {
   plan: PlanCode;
   features: Set<Feature>;
   extraNumbers: number;
+  /** Live subscription add-ons ("no_ads"). */
+  addOns: SubscriptionAddOnCode[];
 }
 
 export async function getFeatures(repo: Repository, accountId: string): Promise<AccountFeatures> {
-  const [plan, ents] = await Promise.all([getPlan(repo, accountId), repo.listEntitlements(accountId)]);
+  const [subs, ents] = await Promise.all([repo.listSubscriptions(accountId), repo.listEntitlements(accountId)]);
+  const plan = planFromSubscriptions(subs);
   const features = new Set<Feature>(PLANS[plan].features);
+  const addOns = addOnsFromSubscriptions(subs);
+  for (const code of addOns) for (const f of SUBSCRIPTION_ADD_ONS[code].features) features.add(f);
   let extraNumbers = 0;
   for (const e of ents) {
+    // Plan features come from the live plan above: a stored "plan" row can be stale (e.g. an expired referral month).
+    if (e.source === "plan") continue;
     features.add(e.feature);
     if (e.feature === "extra_number") extraNumbers += e.limit ?? 1;
   }
-  return { plan, features, extraNumbers };
+  return { plan, features, extraNumbers, addOns };
 }
 
 /** Rebuilds plan/add-on entitlements from subscriptions and tells TAKATAK. */
@@ -59,7 +83,11 @@ export async function recomputeEntitlements(repo: Repository, account: TelecomAc
   const extra = subs
     .filter((s) => s.kind === "addon" && s.code === "extra_number" && LIVE_STATUSES.has(s.status))
     .reduce((n, s) => n + s.quantity, 0);
-  await repo.replaceEntitlements(account.id, "addon", extra ? [{ feature: "extra_number", limit: extra }] : []);
+  const addonItems: Array<{ feature: Feature; limit: number | null }> = extra ? [{ feature: "extra_number", limit: extra }] : [];
+  for (const code of addOnsFromSubscriptions(subs)) {
+    for (const feature of SUBSCRIPTION_ADD_ONS[code].features) if (!addonItems.some((i) => i.feature === feature)) addonItems.push({ feature, limit: null });
+  }
+  await repo.replaceEntitlements(account.id, "addon", addonItems);
   const { features } = await getFeatures(repo, account.id);
   const owner = await repo.getUser(account.ownerUserId);
   await repo.enqueueOutbox("entitlement.updated", {

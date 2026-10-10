@@ -3,6 +3,7 @@ import type { PbxRepository } from "./pbxTypes.js";
 import type { CatalogRepository } from "./catalog.js";
 import type { CallControlsRepository } from "./callControls.js";
 import type { MediaRepository } from "./mediaTypes.js";
+import type { ReferralRepository } from "./referrals.js";
 
 export type UserStatus = "active" | "suspended" | "pending_deletion" | "deleted";
 export type AccountStatus = "ACTIVE_MANAGED" | "ACTIVE_INDEPENDENT" | "OUTBOUND_SUSPENDED" | "SUSPENDED" | "CLOSED";
@@ -272,6 +273,8 @@ export interface Repository {
   readonly callControls: CallControlsRepository;
   /** MMS media, voicemail greeting/settings, email outbox: src/repo/mediaTypes.ts. */
   readonly media: MediaRepository;
+  /** Referral codes, referrals and payment fingerprints: src/repo/referrals.ts. */
+  readonly referrals: ReferralRepository;
   ping(): Promise<void>;
   close(): Promise<void>;
 

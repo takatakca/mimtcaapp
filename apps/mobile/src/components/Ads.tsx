@@ -10,7 +10,7 @@ import { Body, Button, Notice } from "./ui";
 
 function useAdsReady(): boolean {
   const { me } = useSession();
-  const enabled = adsEnabledFor(me?.account.plan);
+  const enabled = adsEnabledFor(me?.account.plan, me?.account.addOns);
   const [ready, setReady] = useState(false);
   useEffect(() => {
     if (!enabled) return setReady(false);

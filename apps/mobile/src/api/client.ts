@@ -33,9 +33,14 @@ import type {
   OtpStartResponse,
   PaidPlanCode,
   PushRegisterRequest,
+  RateResponse,
+  RedeemReferralRequest,
+  RedeemReferralResponse,
+  ReferralsResponse,
   RewardClaimRequest,
   RewardClaimResponse,
   SendMessageRequest,
+  SubscriptionAddOnCode,
   TakatakExchangeRequest,
   UpdateMeRequest,
   UpdateMeResponse,
@@ -251,7 +256,20 @@ export const api = {
   // Billing (web checkout via Stripe). TODO(store-billing): consumer plans bought inside the iOS/Android
   // app must use Apple/Google in-app purchases (MIMT-MVP §6); this web checkout is for business plans
   // and for testing until IAP is wired. The API decides the success/cancel URLs.
-  checkout: (plan: PaidPlanCode) => request<CheckoutResponse>("POST", "/v1/billing/checkout", { body: { plan } }),
+  checkout: (plan: PaidPlanCode, referralCode?: string) =>
+    request<CheckoutResponse>("POST", "/v1/billing/checkout", { body: { plan, ...(referralCode ? { referralCode } : {}) } }),
+  /** "Sans pub" (3,99 $/mo or 29,99 $/yr). TODO(store-billing): ca.mimt.app.noads.* through IAP in store builds. */
+  checkoutAddOn: (addon: SubscriptionAddOnCode, interval: "month" | "year") =>
+    request<CheckoutResponse>("POST", "/v1/billing/checkout", { body: { addon, interval } }),
+  /** Prepaid international credit (free plan: small top-ups only, see FREE_PLAN_INTL_LIMITS). */
+  checkoutIntlCredit: (amountCents: number) =>
+    request<CheckoutResponse>("POST", "/v1/billing/checkout", { body: { addon: "intl_credit", amountCents } }),
+  /** Per-minute price and whether the call is allowed, shown on the keypad before dialling. */
+  rate: (to: string) => request<RateResponse>("GET", "/v1/rates", { query: { to } }),
+
+  // Referrals: my code (created on first call) and status; redeem a friend's code before the first paid plan.
+  referrals: () => request<ReferralsResponse>("GET", "/v1/referrals"),
+  redeemReferral: (body: RedeemReferralRequest) => request<RedeemReferralResponse>("POST", "/v1/referrals/redeem", { body }),
 
   // Rewarded ads. The API answers 501 not_implemented until AdMob server-side verification (SSV) exists;
   // this call alone must never be trusted to credit minutes.

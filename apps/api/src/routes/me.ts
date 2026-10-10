@@ -68,7 +68,7 @@ export async function meRoutes(app: FastifyInstance, deps: AppDeps) {
   app.get("/v1/me", auth, async (req): Promise<MeResponse> => {
     const { user, account } = await loadContext(deps, req);
     const now = deps.now();
-    const [{ plan }, numbers, address, ack, usage] = await Promise.all([
+    const [{ plan, addOns }, numbers, address, ack, usage] = await Promise.all([
       getFeatures(repo, account.id),
       repo.listNumbersByAccount(account.id),
       repo.getE911Address(account.id),
@@ -77,7 +77,7 @@ export async function meRoutes(app: FastifyInstance, deps: AppDeps) {
     ]);
     return {
       user: { id: user.id, globalUserId: user.globalUserId, locale: user.locale, displayName: user.displayName },
-      account: { id: account.id, kind: account.kind, plan, status: account.status },
+      account: { id: account.id, kind: account.kind, plan, status: account.status, addOns, intlCreditCents: account.intlCreditCents },
       numbers: numbers.filter((n) => HELD_STATES.has(n.state)).map((n) => ({ id: n.id, e164: n.e164, state: n.state })),
       e911: {
         addressRegistered: Boolean(address),

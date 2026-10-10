@@ -55,10 +55,11 @@ describe("billing", () => {
     ]);
   });
 
-  it("refuses international credit on the free plan", async () => {
+  it("limits international credit on the free plan (parity P1: small top-ups only)", async () => {
     const u = await makeUser(ctx);
-    const res = await ctx.app.inject({ method: "POST", url: "/v1/billing/checkout", headers: u.auth, payload: { addon: "intl_credit", amountCents: 1000 } });
-    expect(res.json().error).toBe("intl_requires_paid_plan");
+    const big = await ctx.app.inject({ method: "POST", url: "/v1/billing/checkout", headers: u.auth, payload: { addon: "intl_credit", amountCents: 5000 } });
+    expect(big.json().error).toBe("intl_topup_too_large");
+    expect(billing.createCheckout).not.toHaveBeenCalled();
   });
 
   it("verifies the Stripe signature on the raw body", async () => {
