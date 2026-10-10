@@ -11,6 +11,7 @@ import { E164, normalizeDialed, smsSegments } from "../lib/phone.js";
 import { dayPeriod, daysBetween, monthPeriod } from "../lib/time.js";
 import { decodeCursor, encodeCursor } from "../lib/cursor.js";
 import { parse } from "../lib/validate.js";
+import { spamLabelOf } from "../ai/spam.js";
 import type { Message, TelecomAccount } from "../repo/types.js";
 import { getFeatures, HELD_STATES, outboundBlocked, setAccountStatus, usagePeriods } from "../services/accounts.js";
 
@@ -140,7 +141,12 @@ export async function messageRoutes(app: FastifyInstance, deps: AppDeps) {
     const rows = await repo.listMessages(account.id, peer, { limit: q.limit + 1, ...(q.cursor ? { before: toBefore(decodeCursor(q.cursor)) } : {}) });
     const page = rows.slice(0, q.limit);
     const last = page[page.length - 1];
-    return { messages: page.map((m) => messageDto(deps, m)), nextCursor: rows.length > q.limit && last ? encodeCursor(last.createdAt, last.id) : null };
+    const spam = deps.ai ? await deps.ai.store.getSpamScores("message", page.filter((m) => m.direction === "inbound").map((m) => m.id)) : new Map();
+    const withLabel = (m: Message) => {
+      const label = spamLabelOf(spam.get(m.id));
+      return { ...messageDto(deps, m), ...(label ? { spamLabel: label } : {}) };
+    };
+    return { messages: page.map(withLabel), nextCursor: rows.length > q.limit && last ? encodeCursor(last.createdAt, last.id) : null };
   });
 }
 

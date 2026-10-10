@@ -1,10 +1,11 @@
 import { pino, type Logger } from "pino";
-import { stripeConfigured, twilioRestConfigured, type Config } from "./config.js";
+import { aiConfigured, stripeConfigured, twilioRestConfigured, type Config } from "./config.js";
 import type { AppDeps } from "./deps.js";
 import { loadSigningKey, SessionService } from "./auth/sessions.js";
 import { TakatakOidc } from "./auth/takatak.js";
 import { InMemoryRateLimiter } from "./fraud/rateLimiter.js";
 import { admobKeyLoader } from "./ads/ssv.js";
+import { createAiServices } from "./ai/service.js";
 import { createDeviceVerifier } from "./devices/verify.js";
 import { StripeGateway } from "./gateways/billing.js";
 import { createProvisioningProvider } from "./catalog/providers/index.js";
@@ -47,6 +48,7 @@ export function createDeps(config: Config, log: Logger): AppDeps {
   else if (provisioning.code === "sandbox") log.warn("Provisioning uses the SANDBOX provider: orders create fake services");
   const media =
     config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY ? new SupabaseMediaStore(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY) : null;
+  if (!aiConfigured(config)) log.warn("ANTHROPIC_API_KEY not set: AI features answer 503 (spam labels still use local rules)");
   if (!media) log.warn("Supabase Storage not configured: voicemail audio stays at Twilio until it is copied");
 
   return {
@@ -64,5 +66,6 @@ export function createDeps(config: Config, log: Logger): AppDeps {
     notifier: new LogNotifier(log),
     now: () => new Date(),
     provisioning,
+    ai: createAiServices({ config, ...(repo instanceof PostgresRepository ? { sql: repo.sql } : {}), log }),
   };
 }

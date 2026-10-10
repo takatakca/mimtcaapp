@@ -3,11 +3,14 @@ import cors from "@fastify/cors";
 import formbody from "@fastify/formbody";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
+import websocket from "@fastify/websocket";
 import type { AppDeps } from "./deps.js";
 import { HttpError } from "./lib/errors.js";
 import { loggerOptions } from "./logger.js";
+import { aiRoutes } from "./routes/ai.js";
 import { authRoutes } from "./routes/auth.js";
 import { billingRoutes } from "./routes/billing.js";
+import { businessRoutes } from "./routes/business.js";
 import { callRoutes } from "./routes/calls.js";
 import { captureException } from "./monitoring/report.js";
 import { deviceRoutes } from "./routes/devices.js";
@@ -19,6 +22,7 @@ import { messageRoutes } from "./routes/messages.js";
 import { numberRoutes } from "./routes/numbers.js";
 import { pushRoutes } from "./routes/push.js";
 import { rewardRoutes } from "./routes/rewards.js";
+import { aiReceptionistSocket } from "./routes/twilioAi.js";
 import { twilioWebhooks } from "./routes/twilioWebhooks.js";
 import { voiceRoutes } from "./routes/voice.js";
 import { voicemailRoutes } from "./routes/voicemails.js";
@@ -35,6 +39,8 @@ export async function buildApp(deps: AppDeps) {
   await app.register(helmet);
   await app.register(cors, { origin: deps.config.CORS_ORIGINS, credentials: false, methods: ["GET", "POST", "PUT", "PATCH", "DELETE"] });
   await app.register(formbody);
+  // AI receptionist (Twilio ConversationRelay). Small frames only.
+  await app.register(websocket, { options: { maxPayload: 64 * 1024 } });
   await app.register(rateLimit, {
     max: 300,
     timeWindow: "1 minute",
@@ -73,6 +79,9 @@ export async function buildApp(deps: AppDeps) {
     pushRoutes,
     rewardRoutes,
     twilioWebhooks,
+    businessRoutes,
+    aiRoutes,
+    aiReceptionistSocket,
   ];
   for (const r of routes) await app.register(async (scope) => r(scope, deps));
   return app;

@@ -9,6 +9,9 @@ import { classifyDestination, isDomesticZone, normalizeDialed } from "../lib/pho
 import { dayPeriod, monthPeriod } from "../lib/time.js";
 import type { Call, PhoneNumber, TelecomAccount } from "../repo/types.js";
 import { recordingAccountSid } from "../gateways/twilio.js";
+import { scoreInboundCall } from "../ai/spam.js";
+import { processVoicemailTranscript } from "../ai/voicemail.js";
+import { pbxInbound, pbxOutbound } from "../pbx/engine.js";
 import { getFeatures, HELD_STATES, outboundBlocked, setAccountStatus, usagePeriods } from "../services/accounts.js";
 import { e911Ready } from "./e911.js";
 import { NOT_IN_SERVICE, sayBilingual, sendTwiml, twilioParams, VoiceResponse } from "./twiml.js";
@@ -117,6 +120,10 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
     const account = user && user.status === "active" ? await repo.getAccountByOwner(user.id) : null;
     if (!user || !account) return sendTwiml(reply, refuse("unknown_user"));
 
+    // MIMT Affaires: extensions, business DIDs and calls on behalf of a business. Runs after the 9-1-1 path.
+    const business = await pbxOutbound(deps, app.log, { user, consumerAccount: account, dialed, callSid: p.CallSid, callerId: p.CallerId });
+    if (business) return sendTwiml(reply, business);
+
     const to = normalizeDialed(dialed);
     if (!to) return sendTwiml(reply, refuse("invalid_number"));
     if (outboundBlocked(account)) return sendTwiml(reply, refuse("account_restricted"));
@@ -210,6 +217,13 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
   // Number voice URL: PSTN calls to a MIMT number ring the owner's apps, then go to voicemail.
   app.post("/webhooks/twilio/voice/inbound", async (req, reply) => {
     const p = twilioParams(req);
+    // Business DID: the PBX routes it (hours, IVR, ring groups…). Labels only; nothing here blocks a call.
+    const business = await pbxInbound(deps, { to: p.To, from: p.From, callSid: p.CallSid });
+    if (business) {
+      const call = p.CallSid ? await repo.getCallBySid(p.CallSid) : null;
+      if (call?.telecomAccountId && call.direction === "inbound") scheduleSpamScore(call.telecomAccountId, p.CallSid!, p.From, p.StirVerstat);
+      return sendTwiml(reply, business);
+    }
     const number = p.To ? await repo.getNumberByE164(p.To) : null;
     const account = number?.telecomAccountId && HELD_STATES.has(number.state) ? await repo.getAccount(number.telecomAccountId) : null;
     if (!number || !account || account.status === "SUSPENDED" || account.status === "CLOSED") {
@@ -231,6 +245,7 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
         status: "ringing",
         startedAt: now,
       });
+      scheduleSpamScore(account.id, p.CallSid, p.From, p.StirVerstat);
     }
     const { plan } = await getFeatures(repo, account.id);
     const caps = effectiveCaps(plan, account.riskTier, account.createdAt, now);
@@ -246,6 +261,11 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
     }).client(account.ownerUserId);
     return sendTwiml(reply, vr);
   });
+
+  /** « Appel suspect » label, computed off the request path. */
+  function scheduleSpamScore(telecomAccountId: string, callSid: string, from: string | undefined, stirVerstat: string | undefined) {
+    deps.ai?.background("spam:call", () => scoreInboundCall(deps, { callSid, telecomAccountId, from, stirVerstat }));
+  }
 
   async function voicemail(number: PhoneNumber, account: TelecomAccount) {
     const { features } = await getFeatures(repo, account.id);
@@ -366,7 +386,9 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
   app.post("/webhooks/twilio/voice/transcription", async (req, reply) => {
     const p = twilioParams(req);
     if (p.RecordingSid && p.TranscriptionStatus === "completed") {
-      await repo.updateVoicemailByRecordingSid(p.RecordingSid, { transcript: p.TranscriptionText ?? null, transcriptLang: "en" });
+      const vm = await repo.updateVoicemailByRecordingSid(p.RecordingSid, { transcript: p.TranscriptionText ?? null, transcriptLang: "en" });
+      // AI summary (needs vm_transcription, the "ai_processing" consent and budget; checked inside).
+      if (vm?.transcript && deps.ai?.gateway) deps.ai.background("voicemail:summary", () => processVoicemailTranscript(deps, vm));
     }
     return reply.code(204).send();
   });
