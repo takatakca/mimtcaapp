@@ -20,3 +20,4 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm --filter @mimt/web build
+      - run: pnpm --filter @mimt/webphone build

@@ -1,4 +1,4 @@
-import { AI_CONSENT_KIND, PLANS, formatCad, type ConsentKind, type E911NoticeResponse, type PaidPlanCode } from "@mimt/shared";
+import { AI_CONSENT_KIND, PLANS, formatCad, type E911NoticeResponse, type PaidPlanCode, type UserConsentKind } from "@mimt/shared";
 import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../api/client";
 import { ApiClientError, toErrorKey } from "../api/errors";
@@ -55,8 +55,8 @@ export function Account() {
           <h2 id="usage-h" className="card__title">
             {t("account.usage")}
           </h2>
-          {rows.map((r) => (
-            <UsageBar key={r.key} label={t(USAGE_LABEL[r.key])} {...r} />
+          {rows.map(({ key, ...r }) => (
+            <UsageBar key={key} label={t(USAGE_LABEL[key])} {...r} />
           ))}
           {rows.some((r) => r.level === "full") ? (
             <p className="note note--error">{t("account.usageFull")}</p>
@@ -244,7 +244,7 @@ function E911Section() {
   );
 }
 
-const CONSENTS: Array<{ kind: ConsentKind; label: TKey; hint: TKey }> = [
+const CONSENTS: Array<{ kind: UserConsentKind; label: TKey; hint: TKey }> = [
   { kind: "casl_marketing", label: "privacy.marketing", hint: "privacy.marketingHint" },
   { kind: AI_CONSENT_KIND, label: "privacy.ai", hint: "privacy.aiHint" },
 ];
@@ -256,7 +256,7 @@ function ConsentsSection() {
   const { t } = useI18n();
   // There is no GET /v1/consents: the AI consent comes from GET /v1/ai/status; the others start off
   // (opt-in) and reflect what was set in this session.
-  const [state, setState] = useState<Partial<Record<ConsentKind, boolean>>>({});
+  const [state, setState] = useState<Partial<Record<UserConsentKind, boolean>>>({});
   const [msg, setMsg] = useState<TKey | null>(null);
   useEffect(() => {
     api
@@ -264,7 +264,7 @@ function ConsentsSection() {
       .then((s) => setState((st) => ({ ...st, [AI_CONSENT_KIND]: s.consent })))
       .catch(() => undefined);
   }, []);
-  const toggle = async (kind: ConsentKind, granted: boolean) => {
+  const toggle = async (kind: UserConsentKind, granted: boolean) => {
     setState((s) => ({ ...s, [kind]: granted }));
     try {
       await api.setConsent({ kind, granted, version: CONSENT_VERSION, source: "web" });
