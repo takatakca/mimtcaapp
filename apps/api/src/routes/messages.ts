@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type { ConversationsResponse, MessageDto, MessagesResponse } from "@mimt/shared";
+import { MMS_MAX_ATTACHMENTS, MMS_MAX_TOTAL_BYTES, type ConversationsResponse, type MessageDto, type MessageMediaDto, type MessagesResponse } from "@mimt/shared";
 import { z } from "zod";
 import type { AppDeps } from "../deps.js";
 import { loadContext, requireUser } from "../auth/guard.js";
@@ -13,16 +13,25 @@ import { decodeCursor, encodeCursor } from "../lib/cursor.js";
 import { parse } from "../lib/validate.js";
 import type { Message, TelecomAccount } from "../repo/types.js";
 import { getFeatures, HELD_STATES, outboundBlocked, setAccountStatus, usagePeriods } from "../services/accounts.js";
+import { claimUpload, mediaByMessage, mediaDto, signedMediaUrl } from "../services/media.js";
+import type { MediaObject } from "../repo/mediaTypes.js";
 
-const SendBody = z.object({
-  from: z.string().regex(E164),
-  to: z.string().min(3).max(32),
-  body: z.string().min(1).max(1600),
-  mediaUrls: z.array(z.url().startsWith("https://")).max(5).optional(),
-});
+/** Twilio fetches outbound MMS media through GET /v1/media/:id; it may retry for a while. */
+const OUTBOUND_MEDIA_URL_TTL_S = 2 * 3600;
 
-export function messageDto(deps: AppDeps, m: Message): MessageDto {
+const SendBody = z
+  .object({
+    from: z.string().regex(E164),
+    to: z.string().min(3).max(32),
+    body: z.string().max(1600),
+    mediaUrls: z.array(z.url().startsWith("https://")).max(5).optional(),
+    mediaIds: z.array(z.uuid()).max(MMS_MAX_ATTACHMENTS).optional(),
+  })
+  .refine((b) => b.body.length > 0 || Boolean(b.mediaIds?.length), { message: "body is required without media", path: ["body"] });
+
+export function messageDto(deps: AppDeps, m: Message, media?: MessageMediaDto[]): MessageDto {
   return {
+    ...(media?.length ? { media } : {}),
     id: m.id,
     direction: m.direction,
     ourNumber: m.ourNumber,
@@ -60,8 +69,9 @@ export async function messageRoutes(app: FastifyInstance, deps: AppDeps) {
     if (await repo.isOptedOut(from.e164, to)) throw forbidden("recipient_opted_out");
 
     const { plan, features } = await getFeatures(repo, account.id);
-    if (body.mediaUrls?.length && !features.has("mms")) throw forbidden("mms_not_in_plan");
+    if ((body.mediaUrls?.length || body.mediaIds?.length) && !features.has("mms")) throw forbidden("mms_not_in_plan");
     if (!deps.twilio) throw notConfigured("Messaging");
+    if (body.mediaIds?.length && !deps.mediaFiles) throw notConfigured("Media storage");
 
     const isNewAccount = daysBetween(account.createdAt, now) < NEW_ACCOUNT_DAYS || account.riskTier === "new" || account.riskTier === "high";
     const scale = (n: number) => (isNewAccount ? Math.max(1, Math.floor(n / 2)) : n);
@@ -75,8 +85,10 @@ export async function messageRoutes(app: FastifyInstance, deps: AppDeps) {
       if (fresh >= scale(NEW_RECIPIENTS_PER_HOUR)) await block(account, "sms_new_recipient_velocity", 429, "new_recipient_limit", "hold");
     }
     const fingerprint = deps.cipher.fingerprint(body.body);
-    const sameBody = await repo.countFingerprintRecipientsSince(account.id, fingerprint, new Date(now.getTime() - BULK_IDENTICAL_WINDOW_MS));
-    if (sameBody >= BULK_IDENTICAL_RECIPIENTS) await block(account, "sms_bulk_identical", 429, "bulk_identical_blocked");
+    if (body.body) {
+      const sameBody = await repo.countFingerprintRecipientsSince(account.id, fingerprint, new Date(now.getTime() - BULK_IDENTICAL_WINDOW_MS));
+      if (sameBody >= BULK_IDENTICAL_RECIPIENTS) await block(account, "sms_bulk_identical", 429, "bulk_identical_blocked");
+    }
     if (plan === "free" && looksLikeOtp(body.body)) await block(account, "sms_otp_content", 403, "otp_content_blocked");
 
     const segments = smsSegments(body.body);
@@ -89,13 +101,20 @@ export async function messageRoutes(app: FastifyInstance, deps: AppDeps) {
       await block(account, "daily_spend_guard", 403, "account_restricted");
     }
 
+    // Uploaded media: checked (owner, size, magic bytes) only now, after every fraud and cap check.
+    const uploads: MediaObject[] = [];
+    for (const id of new Set(body.mediaIds ?? [])) uploads.push(await claimUpload(deps, account.id, id, "mms"));
+    if (uploads.reduce((n, m) => n + (m.sizeBytes ?? 0), 0) > MMS_MAX_TOTAL_BYTES) throw new HttpError(413, "media_too_large", "MMS is limited to 5 MB");
+    const mediaUrls = [...(body.mediaUrls ?? [])];
+    for (const m of uploads) mediaUrls.push((await signedMediaUrl(deps, m.id, OUTBOUND_MEDIA_URL_TTL_S)).url);
+
     let sent: { sid: string; status: string; segments: number };
     try {
       sent = await deps.twilio.sendMessage({
         from: from.e164,
         to,
         body: body.body,
-        ...(body.mediaUrls ? { mediaUrls: body.mediaUrls } : {}),
+        ...(mediaUrls.length ? { mediaUrls } : {}),
         statusCallback: `${base}/webhooks/twilio/sms/status`,
       });
     } catch (err) {
@@ -113,11 +132,16 @@ export async function messageRoutes(app: FastifyInstance, deps: AppDeps) {
       bodyFingerprint: fingerprint,
       status: sent.status,
       segments: sent.segments,
-      numMedia: body.mediaUrls?.length ?? 0,
+      numMedia: mediaUrls.length,
     });
+    const attached: MessageMediaDto[] = [];
+    for (const m of uploads) {
+      const linked = await repo.media.updateMedia(m.id, { messageId: message.id });
+      if (linked) attached.push(await mediaDto(deps, linked));
+    }
     await repo.addUsage(account.id, usagePeriods(now), { smsOut: sent.segments });
     await repo.updateNumber(from.id, { lastActivityAt: now });
-    return reply.code(201).send(messageDto(deps, message));
+    return reply.code(201).send(messageDto(deps, message, attached));
   });
 
   app.get("/v1/conversations", auth, async (req): Promise<ConversationsResponse> => {
@@ -140,7 +164,8 @@ export async function messageRoutes(app: FastifyInstance, deps: AppDeps) {
     const rows = await repo.listMessages(account.id, peer, { limit: q.limit + 1, ...(q.cursor ? { before: toBefore(decodeCursor(q.cursor)) } : {}) });
     const page = rows.slice(0, q.limit);
     const last = page[page.length - 1];
-    return { messages: page.map((m) => messageDto(deps, m)), nextCursor: rows.length > q.limit && last ? encodeCursor(last.createdAt, last.id) : null };
+    const media = await mediaByMessage(deps, page);
+    return { messages: page.map((m) => messageDto(deps, m, media.get(m.id))), nextCursor: rows.length > q.limit && last ? encodeCursor(last.createdAt, last.id) : null };
   });
 }
 

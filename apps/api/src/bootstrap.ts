@@ -15,6 +15,7 @@ import { REDACT_PATHS } from "./logger.js";
 import { MemoryRepository } from "./repo/memory.js";
 import { PostgresRepository } from "./repo/postgres.js";
 import { LogNotifier } from "./services/notifier.js";
+import { createEmailSender } from "./services/email.js";
 
 export const createLogger = (config: Config): Logger =>
   pino({ level: config.LOG_LEVEL, redact: { paths: REDACT_PATHS, censor: "[redacted]" } });
@@ -48,6 +49,12 @@ export function createDeps(config: Config, log: Logger): AppDeps {
   const media =
     config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY ? new SupabaseMediaStore(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY) : null;
   if (!media) log.warn("Supabase Storage not configured: voicemail audio stays at Twilio until it is copied");
+  const mediaFiles =
+    config.SUPABASE_URL && config.SUPABASE_SERVICE_ROLE_KEY
+      ? new SupabaseMediaStore(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY, config.SUPABASE_MEDIA_BUCKET)
+      : null;
+  if (!mediaFiles) log.warn("Supabase Storage not configured: MMS uploads and custom greetings answer 503");
+  if (config.EMAIL_PROVIDER === "log") log.warn("EMAIL_PROVIDER=log: voicemail emails are logged, not sent");
 
   return {
     config,
@@ -57,6 +64,8 @@ export function createDeps(config: Config, log: Logger): AppDeps {
     twilio,
     billing,
     media,
+    mediaFiles,
+    email: createEmailSender(config, log),
     deviceVerifier: createDeviceVerifier(config),
     admobKeys: admobKeyLoader(config.ADMOB_SSV_KEYS_URL),
     cipher: new MessageCipher(cipherKey),

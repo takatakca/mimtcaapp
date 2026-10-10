@@ -32,6 +32,19 @@ export interface TwilioGateway {
   /** Downloads a recording (mp3) server-side, so Twilio credentials never reach the client. */
   fetchRecording(input: { recordingSid: string; accountSid?: string }): Promise<{ contentType: string; body: Buffer }>;
   deleteRecording(input: { recordingSid: string; accountSid?: string }): Promise<void>;
+  /** Downloads inbound MMS media (Twilio media URLs need auth). `url` must pass isTwilioMediaUrl. */
+  fetchMedia?(url: string): Promise<{ contentType: string; body: Buffer }>;
+  /** Deletes inbound MMS media at Twilio once copied (Law 25 minimisation). */
+  deleteMedia?(url: string): Promise<void>;
+  /** Places a call whose TwiML comes from `url` (used to record a voicemail greeting by phone). */
+  createCall?(input: { to: string; from: string; url: string; statusCallback?: string }): Promise<{ sid: string }>;
+}
+
+const TWILIO_MEDIA_URL = /^https:\/\/api\.twilio\.com\/2010-04-01\/Accounts\/AC[0-9a-f]{32}\/Messages\/(MM|SM)[0-9a-f]{32}\/Media\/ME[0-9a-f]{32}$/i;
+
+/** Only Twilio's own media URLs are fetched with credentials (no SSRF through webhook parameters). */
+export function isTwilioMediaUrl(url: string | null | undefined): url is string {
+  return typeof url === "string" && TWILIO_MEDIA_URL.test(url);
 }
 
 const RECORDING_SID = /^RE[0-9a-f]{32}$/i;
@@ -164,6 +177,32 @@ export class TwilioRestGateway implements TwilioGateway {
   async deleteRecording(input: { recordingSid: string; accountSid?: string }) {
     const res = await fetch(this.recordingUrl(input, ".json"), { method: "DELETE", headers: { authorization: this.basicAuth() } });
     if (!res.ok && res.status !== 404) throw new Error(`Twilio recording delete failed with HTTP ${res.status}`);
+  }
+
+  async fetchMedia(url: string) {
+    if (!isTwilioMediaUrl(url)) throw new Error("not a Twilio media URL");
+    // Twilio answers with a redirect to its CDN; fetch drops the authorization header on the cross-origin hop.
+    const res = await fetch(url, { headers: { authorization: this.basicAuth() }, redirect: "follow", signal: AbortSignal.timeout(20_000) });
+    if (!res.ok) throw new Error(`Twilio media fetch failed with HTTP ${res.status}`);
+    return { contentType: res.headers.get("content-type") ?? "application/octet-stream", body: Buffer.from(await res.arrayBuffer()) };
+  }
+
+  async deleteMedia(url: string) {
+    if (!isTwilioMediaUrl(url)) throw new Error("not a Twilio media URL");
+    const res = await fetch(`${url}.json`, { method: "DELETE", headers: { authorization: this.basicAuth() } });
+    if (!res.ok && res.status !== 404) throw new Error(`Twilio media delete failed with HTTP ${res.status}`);
+  }
+
+  async createCall(input: { to: string; from: string; url: string; statusCallback?: string }) {
+    const call = await this.client.calls.create({
+      to: input.to,
+      from: input.from,
+      url: input.url,
+      method: "POST",
+      timeout: 25,
+      ...(input.statusCallback ? { statusCallback: input.statusCallback } : {}),
+    });
+    return { sid: call.sid };
   }
 
   /** Twilio totalprice for a window, in USD. Used by the daily cost report. */

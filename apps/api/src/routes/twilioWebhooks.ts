@@ -4,6 +4,7 @@ import { validateTwilioSignature } from "../gateways/twilio.js";
 import { twilioSmsWebhooks } from "./twilioSms.js";
 import { twilioParams } from "./twiml.js";
 import { twilioVoiceWebhooks } from "./twilioVoice.js";
+import { twilioGreetingWebhooks } from "./twilioGreeting.js";
 
 /** All Twilio webhooks: X-Twilio-Signature is checked against PUBLIC_BASE_URL + path before any handler runs. */
 export async function twilioWebhooks(app: FastifyInstance, deps: AppDeps) {
@@ -22,6 +23,7 @@ export async function twilioWebhooks(app: FastifyInstance, deps: AppDeps) {
 
   await twilioVoiceWebhooks(app, deps);
   await twilioSmsWebhooks(app, deps);
+  await twilioGreetingWebhooks(app, deps);
 
   app.post("/webhooks/twilio/usage", async (req, reply) => {
     const p = twilioParams(req);

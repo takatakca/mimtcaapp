@@ -104,7 +104,7 @@ export async function voicemailRoutes(app: FastifyInstance, deps: AppDeps) {
 }
 
 /** Sends a buffer with single-range support (iOS AVPlayer asks for byte ranges). */
-function sendAudio(req: FastifyRequest, reply: FastifyReply, audio: { contentType: string; body: Buffer }) {
+export function sendAudio(req: FastifyRequest, reply: FastifyReply, audio: { contentType: string; body: Buffer }) {
   const size = audio.body.length;
   reply
     .header("content-type", audio.contentType)

@@ -3,6 +3,8 @@
 Newest first, one line per piece of work. Rule: `AGENTS.md` › Work log rule.
 Format: `YYYY-MM-DD | agent | branch → PR | status | what | next step`
 
+- 2026-10-10 | claude (MIMT parity agent: MMS + voicemail) | worktree-agent-aeaf7d8ec4f76fe2c → claude/mimt-platform-phase2 | done | Parity P0-4 MMS end to end (signed uploads, inbound copy, free users receive) + P1-4 custom greeting and voicemail to email (migration 0007, mobile screens) | owner: apply 0007, set SUPABASE_URL/SERVICE_ROLE_KEY (bucket "media"), EMAIL_PROVIDER=resend + EMAIL_API_KEY + verified mimt.ca sender
+
 - 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | Auto-deploy workflow (.github/workflows/deploy.yml): mimt.ca + app.mimt.ca by FTPS, API by Coolify | owner: add GitHub secrets MOCHAHOST_FTP_* and COOLIFY_*; create app./api.mimt.ca subdomains
 - 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | Business PBX (MIMT Affaires): extensions, ring groups, bilingual IVR, Quebec hours/holidays, recording with consent, per-line seats | finish tests, merge to main
 - 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | AI (Claude): voicemail summaries, smart SMS replies, spam scoring, AI receptionist (ConversationRelay), Law 25 consent, cost caps | finish tests; owner: ANTHROPIC_API_KEY in secrets

@@ -5,6 +5,7 @@
 import type { NumberState } from "./numbers.js";
 import type { PlanCode } from "./plans.js";
 import type { SpamLabel, VoicemailInsight } from "./ai.js";
+import type { MessageMediaDto } from "./media.js";
 
 export type Locale = "fr-CA" | "en-CA";
 export type Direction = "inbound" | "outbound";
@@ -242,6 +243,8 @@ export interface SendMessageRequest {
   body: string;
   /** https URLs, MMS plans only. */
   mediaUrls?: string[];
+  /** Uploaded media (POST /v1/media/uploads, purpose "mms"), MMS plans only. body may be empty when set. */
+  mediaIds?: string[];
 }
 
 export interface MessageDto {
@@ -255,6 +258,8 @@ export interface MessageDto {
   segments: number;
   numMedia: number;
   createdAt: string;
+  /** Attachments with short-lived signed URLs. Received MMS is shown on every plan, including free. */
+  media?: MessageMediaDto[];
   /** Inbound messages only, when flagged: the app shows « Message suspect ». */
   spamLabel?: SpamLabel;
 }

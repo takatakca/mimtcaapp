@@ -4,6 +4,8 @@ import { loadConfig } from "./config.js";
 import { runDailyCostReport } from "./jobs/dailyCost.js";
 import { pingHeartbeat } from "./monitoring/report.js";
 import { deliverOutbox } from "./services/outbox.js";
+import { deliverEmails } from "./services/email.js";
+import { purgeExpiredMedia } from "./services/media.js";
 
 const config = loadConfig();
 const log = createLogger(config);
@@ -26,11 +28,23 @@ const costTimer = setInterval(() => {
 }, 24 * 60 * 60 * 1000);
 costTimer.unref();
 
+// Voicemail-to-email outbox and MMS media retention (same single-instance poller model as the outbox).
+const emailTimer = setInterval(() => {
+  deliverEmails(deps, app.log).catch((err) => app.log.error({ err }, "email delivery failed"));
+}, 30_000);
+emailTimer.unref();
+const mediaRetentionTimer = setInterval(() => {
+  purgeExpiredMedia(deps, app.log).catch((err) => app.log.error({ err }, "media retention failed"));
+}, 60 * 60 * 1000);
+mediaRetentionTimer.unref();
+
 async function shutdown(signal: string) {
   app.log.info({ signal }, "shutting down");
   clearInterval(outboxTimer);
   clearInterval(heartbeatTimer);
   clearInterval(costTimer);
+  clearInterval(emailTimer);
+  clearInterval(mediaRetentionTimer);
   await app.close();
   await deps.repo.close();
   process.exit(0);

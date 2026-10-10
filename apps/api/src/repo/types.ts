@@ -1,6 +1,7 @@
 import type { ConsentKind, Feature, Locale, NumberState, PlanCode } from "@mimt/shared";
 import type { PbxRepository } from "./pbxTypes.js";
 import type { CatalogRepository } from "./catalog.js";
+import type { MediaRepository } from "./mediaTypes.js";
 
 export type UserStatus = "active" | "suspended" | "pending_deletion" | "deleted";
 export type AccountStatus = "ACTIVE_MANAGED" | "ACTIVE_INDEPENDENT" | "OUTBOUND_SUSPENDED" | "SUSPENDED" | "CLOSED";
@@ -266,6 +267,8 @@ export interface Repository {
   readonly pbx: PbxRepository;
   /** Catalog / internet + mobile resale storage: src/repo/catalog.ts. */
   readonly catalog: CatalogRepository;
+  /** MMS media, voicemail greeting/settings, email outbox: src/repo/mediaTypes.ts. */
+  readonly media: MediaRepository;
   ping(): Promise<void>;
   close(): Promise<void>;
 

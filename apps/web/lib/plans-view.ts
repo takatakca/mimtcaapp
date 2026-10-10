@@ -39,6 +39,8 @@ export const FEATURE_LABELS: Record<Feature, { fr: string; en: string }> = {
   ring_groups: { fr: "Groupes de sonnerie", en: "Ring groups" },
   admin_portal: { fr: "Portail administrateur", en: "Admin portal" },
   ai_assist: { fr: "Assistance IA (réponses suggérées, réceptionniste virtuel)", en: "AI assist (suggested replies, virtual receptionist)" },
+  vm_greeting: { fr: "Message d'accueil personnalisé", en: "Custom voicemail greeting" },
+  vm_email: { fr: "Messages vocaux par courriel", en: "Voicemail to email" },
 };
 
 /** Honest, capped bullet points for a plan card. */

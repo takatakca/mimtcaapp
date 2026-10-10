@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { AppDeps } from "../deps.js";
 import { HELD_STATES } from "../services/accounts.js";
+import { ingestInboundMedia } from "../services/media.js";
 import { MessagingResponse, NOT_IN_SERVICE, sendTwiml, twilioParams } from "./twiml.js";
 
 const OPT_OUT = new Set(["STOP", "STOPALL", "ARRET", "ARRETER", "UNSUBSCRIBE", "DESABONNER", "DESINSCRIRE", "CANCEL", "END", "QUIT"]);
@@ -38,7 +39,7 @@ export async function twilioSmsWebhooks(app: FastifyInstance, deps: AppDeps) {
       await repo.setOptOut(number.e164, p.From, false);
     }
 
-    await repo.createMessage({
+    const message = await repo.createMessage({
       twilioSid: p.MessageSid ?? null,
       telecomAccountId: number.telecomAccountId,
       direction: "inbound",
@@ -50,7 +51,11 @@ export async function twilioSmsWebhooks(app: FastifyInstance, deps: AppDeps) {
       segments: Number(p.NumSegments ?? 1) || 1,
       numMedia: Number(p.NumMedia ?? 0) || 0,
     });
-    // TODO: push notification to the owner's devices; copy MMS media to private storage.
+    // MMS: copy media into private storage (every plan can receive pictures). Never fails the webhook.
+    if (message.numMedia > 0) {
+      await ingestInboundMedia(deps, req.log, message, p).catch((err: unknown) => req.log.error({ err }, "inbound MMS ingest failed"));
+    }
+    // TODO: push notification to the owner's devices.
     return sendTwiml(reply, empty);
   });
 

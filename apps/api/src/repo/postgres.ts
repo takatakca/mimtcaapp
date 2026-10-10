@@ -2,6 +2,7 @@ import type { NumberState } from "@mimt/shared";
 import postgres from "postgres";
 import { PostgresPbxRepository } from "./pbxPostgres.js";
 import { PostgresCatalogRepository } from "./catalogPostgres.js";
+import { PostgresMediaRepository } from "./mediaPostgres.js";
 import type {
   AuditEntry,
   Call,
@@ -48,6 +49,11 @@ export class PostgresRepository implements Repository {
   private catalogRepo?: PostgresCatalogRepository;
   get catalog(): PostgresCatalogRepository {
     return (this.catalogRepo ??= new PostgresCatalogRepository(this.sql));
+  }
+
+  private mediaRepo?: PostgresMediaRepository;
+  get media(): PostgresMediaRepository {
+    return (this.mediaRepo ??= new PostgresMediaRepository(this.sql));
   }
 
   constructor(databaseUrl: string, opts: { max?: number } = {}) {
