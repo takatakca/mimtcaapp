@@ -1,0 +1,70 @@
+name: MIMT Private Coolify PostgreSQL Preflight
+on:
+  push:
+    branches: [ops/mimt-private-coolify-postgres-20261010]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check eligible host, destination, project and isolation without changes
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json,os,urllib.request,urllib.error
+          url=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          h={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"],"Accept":"application/json"}
+          def get(path):
+            try:
+              with urllib.request.urlopen(urllib.request.Request(url+path,headers=h),timeout=22) as r:
+                return json.load(r)
+            except urllib.error.HTTPError as e:
+              print("API permission/status:",path.split("/")[1],e.code)
+            except Exception as e:
+              print("API failed:",path.split("/")[1],type(e).__name__)
+            return None
+          app=get("/applications/"+os.environ["COOLIFY_API_UUID"])
+          if not isinstance(app,dict):
+            raise SystemExit("Cannot access MIMT application.")
+          print("Application status healthy:",str(app.get("status","")).startswith("running:"))
+          print("App current code branch main:",app.get("git_branch")=="main")
+          print("App keys available:",
+             ",".join(k for k in ("destination","environment","server","project_uuid","destination_id","environment_id","server_uuid","build_pack") if app.get(k) is not None))
+          print("App destination relationship types:",
+              "object" if isinstance(app.get("destination"),dict) else type(app.get("destination")).__name__,
+              "environment object" if isinstance(app.get("environment"),dict) else type(app.get("environment")).__name__)
+          servers=get("/servers")
+          if isinstance(servers,dict):servers=servers.get("data",[])
+          if not isinstance(servers,list):servers=[]
+          print("Available servers:",len(servers))
+          for server in servers:
+            print("Server:", "enabled:",server.get("settings",{}).get("is_reachable") if isinstance(server.get("settings"),dict) else "unknown",
+            "has UUID:",bool(server.get("uuid")),
+            "is build server:",server.get("is_build_server","unknown"))
+            if server.get("uuid"):
+              details=get("/servers/"+server["uuid"])
+              if isinstance(details,dict):
+                print("Server detail fields related to RAM/storage:",
+                    sorted(k for k in details if any(p in k.lower() for p in ("memory","ram","cpu","disk","storage","quota"))))
+              resource=get("/servers/"+server["uuid"]+"/resources")
+              if isinstance(resource,dict):resource=resource.get("data",[])
+              if isinstance(resource,list):
+                print("Existing container resource count:",len(resource))
+                print("Existing PG resource count:",
+                   sum(1 for o in resource if "postgres" in str(o.get("type","")).lower()))
+          projects=get("/projects")
+          if isinstance(projects,dict):projects=projects.get("data",[])
+          if not isinstance(projects,list):projects=[]
+          print("Accessible Coolify project count:",len(projects))
+          print("Project names relevant to MIMT:",[p.get("name") for p in projects if "mimt" in str(p.get("name","")).lower()])
+          dest=get("/applications/"+os.environ["COOLIFY_API_UUID"]+"/destinations")
+          if isinstance(dest,dict):dest=dest.get("data",dest.get("destinations",[]))
+          if isinstance(dest,list):
+            print("MIMT app connected destination count:",len(dest))
+          print("Read-only preflight complete: no secrets or account identifiers disclosed.")
+          PY
