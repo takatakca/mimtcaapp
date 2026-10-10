@@ -18,6 +18,8 @@ const EnvSchema = z
     APP_BASE_URL: z.url().default("https://app.mimt.ca"),
     CORS_ORIGINS: csv(["https://mimt.ca", "https://app.mimt.ca", "https://takatak.ca"]),
     DATABASE_URL: optional,
+    /** Explicit Supabase project identity required in production to prevent cross-product database writes. */
+    MIMT_DATABASE_PROJECT_REF: z.string().regex(/^[a-z0-9]{20}$/).optional(),
     /** PEM root CA used to verify PostgreSQL's TLS certificate chain. Never disable certificate verification. */
     DATABASE_SSL_CA_PEM: optional,
 
@@ -114,6 +116,33 @@ const EnvSchema = z
       ctx.addIssue({ code: "custom", path: ["EMAIL_API_KEY"], message: "EMAIL_API_KEY is required when EMAIL_PROVIDER=resend" });
     }
     if (env.NODE_ENV !== "production") return;
+    if (env.DATABASE_URL) {
+      try {
+        const database = new URL(env.DATABASE_URL);
+        const hostname = database.hostname.toLowerCase();
+        const isPooler = hostname.endsWith(".pooler.supabase.com");
+        const directMatch = hostname.match(/^db\.([a-z0-9]{20})\.supabase\.co$/);
+        if (isPooler || directMatch) {
+          const username = decodeURIComponent(database.username);
+          const actualRef = isPooler ? username.match(/\.([a-z0-9]{20})$/)?.[1] : directMatch?.[1];
+          if (!env.MIMT_DATABASE_PROJECT_REF) {
+            ctx.addIssue({
+              code: "custom",
+              path: ["MIMT_DATABASE_PROJECT_REF"],
+              message: "Dedicated MIMT Supabase project reference must be explicitly configured in production",
+            });
+          } else if (actualRef !== env.MIMT_DATABASE_PROJECT_REF) {
+            ctx.addIssue({
+              code: "custom",
+              path: ["DATABASE_URL"],
+              message: "Database project does not match the configured dedicated MIMT Supabase project",
+            });
+          }
+        }
+      } catch {
+        ctx.addIssue({ code: "custom", path: ["DATABASE_URL"], message: "Database connection URL is malformed" });
+      }
+    }
     const required = [
       "DATABASE_URL",
       "TWILIO_ACCOUNT_SID",
