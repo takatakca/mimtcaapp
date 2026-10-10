@@ -120,3 +120,86 @@ jobs:
               print("Coolify database listing unavailable (possibly insufficient token permissions).")
           print("Audit complete. No secrets, database URLs, or private endpoints printed. NO resources modified.")
           PY
+
+
+      - name: Check database CA certificate metadata and sanitize runtime errors
+        shell: bash
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json,ssl,re,datetime,urllib.request,urllib.error,tempfile,subprocess
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          uid=os.environ["COOLIFY_API_UUID"]
+          token=os.environ["COOLIFY_TOKEN"]
+          def get(suffix):
+              req=urllib.request.Request(base+"/applications/"+uid+suffix,
+                  headers={"Authorization":"Bearer "+token,"Accept":"application/json"})
+              try:
+                  with urllib.request.urlopen(req,timeout=18) as r:
+                      return json.loads(r.read(500000).decode())
+              except urllib.error.HTTPError as e:
+                  print("Coolify request",suffix or "/application","HTTP",e.code)
+              except Exception as e:
+                  print("Coolify request",suffix or "/application","failed:",type(e).__name__)
+              return None
+          app=get("")
+          if isinstance(app,dict):
+              for name in ("git_commit_sha","git_repository","git_branch","status"):
+                  v=app.get(name)
+                  if name=="git_commit_sha":print("Coolify current git commit:",str(v)[:12] if v else "not supplied")
+                  elif name=="git_repository":print("Coolify repository matches MIMT:", "mimt" in str(v).lower())
+                  elif name=="git_branch":print("Coolify branch main:",v=="main")
+                  elif name=="status":print("Coolify status:",str(v)[:64])
+          env=get("/envs")
+          if isinstance(env,dict):env=env.get("data",env.get("envs",[]))
+          def getkey(name):
+              if not isinstance(env,list):return None
+              return next((v for v in env if isinstance(v,dict) and v.get("key")==name),None)
+          cert=getkey("DATABASE_SSL_CA_PEM")
+          if cert:
+              for name in ("is_runtime","is_buildtime","is_multiline","is_literal"):
+                  print("DATABASE_SSL_CA_PEM",name,cert.get(name,"unspecified"))
+              pem=cert.get("real_value") or cert.get("value") or ""
+              if isinstance(pem,str):
+                  pem=pem.replace("\\n","\n")
+                  certs=re.findall("-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----",pem,re.DOTALL)
+                  print("PEM certificate count:",len(certs))
+                  if certs:
+                      with tempfile.NamedTemporaryFile(mode="w",suffix=".pem") as tmp:
+                          tmp.write(certs[0]);tmp.flush()
+                          p=subprocess.run(["openssl","x509","-in",tmp.name,"-noout","-text"],capture_output=True,text=True)
+                          if p.returncode!=0:
+                              print("CA certificate parse: INVALID")
+                          else:
+                              print("CA certificate parse: VALID")
+                              detail=p.stdout
+                              print("CA basic constraints CA:TRUE:",bool(re.search(r"CA:TRUE",detail)))
+                              print("CA currently within validity period:",subprocess.run(
+                                  ["openssl","x509","-in",tmp.name,"-checkend","0","-noout"],
+                                  capture_output=True).returncode==0)
+          else:
+              print("DATABASE_SSL_CA_PEM: unavailable")
+          resp=get("/logs?lines=120")
+          if isinstance(resp,dict):
+              logs=str(resp.get("logs") or "")
+              patterns=[
+                  ("self-signed certificate chain",r"self-signed certificate in certificate chain"),
+                  ("TLS unable to verify",r"unable to verify|certificate verify failed"),
+                  ("hostname mismatch",r"hostname.*mismatch|ERR_TLS_CERT_ALTNAME_INVALID"),
+                  ("startup invalid sslrootcert",r"unrecognized configuration parameter.*sslrootcert|invalid configuration parameter.*sslrootcert"),
+                  ("auth failed",r"password authentication failed"),
+                  ("DB connection refused",r"ECONNREFUSED"),
+                  ("DB timeout",r"ETIMEDOUT|CONNECT_TIMEOUT"),
+                  ("DB DNS error",r"ENOTFOUND"),
+                  ("outbox failure",r"outbox delivery failed")
+              ]
+              print("Sanitized runtime log categories (may include repeat stacks):")
+              for label,pattern in patterns:
+                  print(label+":",len(re.findall(pattern,logs,re.I)))
+              print("Log returned characters:",len(logs))
+          print("Certificate/log diagnostic complete. No secrets or full logs printed; no resources changed.")
+          PY
