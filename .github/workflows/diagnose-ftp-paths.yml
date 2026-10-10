@@ -1,9 +1,7 @@
-name: Diagnose MochaHost FTP Paths
+name: Diagnose MochaHost FTP TLS Certificate
 
-# Read-only FTP inspection. Never uploads, deletes, or modifies files.
+# Read-only TLS negotiation. Never sends USER/PASS or changes remote files.
 on:
-  workflow_dispatch:
-  # Temporary read-only diagnostic execution on this branch only.
   push:
     branches: [diag/mimt-ftp-root-20261010]
 
@@ -11,107 +9,43 @@ permissions:
   contents: read
 
 jobs:
-  inspect:
+  diagnose:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect FTP-relative candidate directories
+      - name: Read FTP TLS certificate without logging in
         shell: bash
         env:
           FTP_SERVER: ${{ secrets.MOCHAHOST_FTP_SERVER }}
-          FTP_USERNAME: ${{ secrets.MOCHAHOST_FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
-          CURRENT_SITE_DIR: ${{ vars.WEB_FTP_DIR }}
-          CURRENT_APP_DIR: ${{ vars.WEBPHONE_FTP_DIR }}
         run: |
           set -euo pipefail
           python - <<'PY'
-          import ftplib
-          import os
-          import ssl
-          import socket
-
+          import ftplib, ssl, os, subprocess, tempfile
           host = os.environ["FTP_SERVER"]
-          user = os.environ["FTP_USERNAME"]
-          password = os.environ["FTP_PASSWORD"]
-          if not all([host, user, password]):
-              raise SystemExit("MochaHost FTP secrets are missing")
-          ftp = ftplib.FTP_TLS(context=ssl.create_default_context(), timeout=30)
+          if not host:
+              raise SystemExit("Missing FTP_SERVER")
+          ftp = ftplib.FTP_TLS(context=ssl._create_unverified_context(), timeout=20)
+          # Unverified TLS is used *only to inspect the public certificate*;
+          # do not call login() or send credentials in this workflow.
           try:
+              ftp.connect(host, 21)
+              ftp.auth()
+              binary = ftp.sock.getpeercert(binary_form=True)
+              pem = ssl.DER_cert_to_PEM_cert(binary)
+              with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as f:
+                  f.write(pem)
+                  path = f.name
               try:
-                  ftp.connect(host, 21)
-                  ftp.login(user, password)
-              except ssl.SSLCertVerificationError:
-                  # Never disable TLS certificate checks or send credentials to an
-                  # unverified server. Try only the account's previously known
-                  # MochaHost hostname if it resolves to the same FTP server IP.
-                  ftp.close()
-                  alias = "s3650.can1.stableserver.net"
-                  actual_ips = {x[4][0] for x in socket.getaddrinfo(host, 21, type=socket.SOCK_STREAM)}
-                  alias_ips = {x[4][0] for x in socket.getaddrinfo(alias, 21, type=socket.SOCK_STREAM)}
-                  if not actual_ips.intersection(alias_ips):
-                      raise SystemExit("FTP server certificate mismatch. Known MochaHost hostname resolves elsewhere; no credentials sent. Confirm FTP hostname in cPanel.")
-                  print("FTP host certificate mismatch; retrying the independently known MochaHost server hostname with full TLS verification.")
-                  ftp = ftplib.FTP_TLS(context=ssl.create_default_context(), timeout=30)
-                  ftp.connect(alias, 21)
-                  ftp.login(user, password)
-              ftp.prot_p()
-              base = ftp.pwd()
-              print("FTP login working directory:", base)
-              print("FTP may be jailed; this can differ from cPanel /home/bolonca/... paths.")
-              candidates = [
-                  ("FTP login folder", "./"),
-                  ("candidate website", "./mimt.ca/"),
-                  ("candidate app", "./app.mimt.ca/"),
-                  ("possible public_html", "./public_html/"),
-                  ("nested wrong site", "./bolonca/mimt.ca/"),
-                  ("nested wrong site 2", "./mimt.ca/bolonca/mimt.ca/"),
-                  ("nested wrong site 3", "./home/bolonca/mimt.ca/"),
-              ]
-              for variable, label in [
-                  ("CURRENT_SITE_DIR", "existing WEB_FTP_DIR variable"),
-                  ("CURRENT_APP_DIR", "existing WEBPHONE_FTP_DIR variable"),
-              ]:
-                  if os.getenv(variable):
-                      candidates.append((label, os.environ[variable]))
-              seen = set()
-              for label, path in candidates:
-                  if path in seen:
-                      continue
-                  seen.add(path)
-                  try:
-                      ftp.cwd(base)
-                      ftp.cwd(path)
-                      found_pwd = ftp.pwd()
-                      try:
-                          names = [name.split("/")[-1] for name in ftp.nlst()]
-                      except ftplib.all_errors:
-                          names = []
-                      fingerprint = "no index.html found"
-                      if "index.html" in names:
-                          data = bytearray()
-                          def save_chunk(chunk):
-                              if len(data) < 250000:
-                                  data.extend(chunk[:250000 - len(data)])
-                          try:
-                              ftp.retrbinary("RETR index.html", save_chunk)
-                              html = data.decode("utf-8", "replace").lower()
-                              if "fongo" in html:
-                                  fingerprint = "FONGO CONTENT"
-                              elif "mimt web" in html:
-                                  fingerprint = "MIMT WEB APP"
-                              elif "votre numéro canadien" in html or "mimt mobile" in html:
-                                  fingerprint = "NEW MIMT WEBSITE"
-                              else:
-                                  fingerprint = "OTHER HTML"
-                          except ftplib.all_errors:
-                              fingerprint = "index.html exists but was not readable"
-                      print(f"{label}: {path} -> FOUND ({found_pwd}), {fingerprint}")
-                  except ftplib.all_errors as exc:
-                      print(f"{label}: {path} -> NOT ACCESSIBLE ({type(exc).__name__})")
-              print("Read-only inspection finished. No files changed.")
+                  p = subprocess.run(
+                      ["openssl", "x509", "-in", path, "-noout", "-subject", "-issuer", "-dates", "-ext", "subjectAltName"],
+                      capture_output=True, text=True, check=False
+                  )
+                  print("FTP server certificate details (public information):")
+                  print(p.stdout.strip())
+                  if p.returncode:
+                      print("Certificate parse error:", p.stderr.strip()[:500])
+              finally:
+                  os.unlink(path)
+              print("No FTP credentials were sent and no server files were changed.")
           finally:
-              try:
-                  ftp.quit()
-              except ftplib.all_errors:
-                  ftp.close()
+              ftp.close()
           PY
