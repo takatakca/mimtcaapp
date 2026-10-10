@@ -25,6 +25,8 @@ import type {
   VoicemailsResponse,
   VoiceTokenResponse,
   BillingPortalResponse,
+  ReplySuggestionsResponse,
+  AiStatusResponse,
 } from "@mimt/shared";
 import { env } from "../env";
 import { createHttpClient, type FetchLike } from "./http";
@@ -98,6 +100,10 @@ export const api = {
   messages: (peer: string, cursor?: string) =>
     request<MessagesResponse>("GET", `/v1/conversations/${encodeURIComponent(peer)}/messages`, { query: { cursor, limit: 30 } }),
   sendMessage: (body: SendMessageRequest) => request<MessageDto>("POST", "/v1/messages", { body }),
+  /** AI reply suggestions (needs the "ai_processing" consent). Never sent automatically. */
+  suggestions: (peer: string) =>
+    request<ReplySuggestionsResponse>("GET", `/v1/conversations/${encodeURIComponent(peer)}/suggestions`),
+  aiStatus: () => request<AiStatusResponse>("GET", "/v1/ai/status"),
 
   // Voicemail. Each item carries a short-lived signed audioUrl served by the API (no header needed).
   voicemails: () => request<VoicemailsResponse>("GET", "/v1/voicemails"),

@@ -5,6 +5,7 @@ import { loadSigningKey, SessionService } from "./auth/sessions.js";
 import { TakatakOidc } from "./auth/takatak.js";
 import { InMemoryRateLimiter } from "./fraud/rateLimiter.js";
 import { StripeGateway } from "./gateways/billing.js";
+import { createProvisioningProvider } from "./catalog/providers/index.js";
 import { TwilioRestGateway } from "./gateways/twilio.js";
 import { MessageCipher } from "./lib/crypto.js";
 import { REDACT_PATHS } from "./logger.js";
@@ -38,6 +39,9 @@ export function createDeps(config: Config, log: Logger): AppDeps {
   if (!twilio) log.warn("Twilio not configured: voice, numbers and messaging answer 503");
   const billing = stripeConfigured(config) ? new StripeGateway(config.STRIPE_SECRET_KEY!, config.STRIPE_WEBHOOK_SECRET!) : null;
   if (!billing) log.warn("Stripe not configured: billing answers 503");
+  const provisioning = createProvisioningProvider(config);
+  if (!provisioning) log.warn("PROVISIONING_PROVIDER not set: internet/mobile ordering answers 503");
+  else if (provisioning.code === "sandbox") log.warn("Provisioning uses the SANDBOX provider: orders create fake services");
 
   return {
     config,
@@ -50,5 +54,6 @@ export function createDeps(config: Config, log: Logger): AppDeps {
     rateLimiter: new InMemoryRateLimiter(),
     notifier: new LogNotifier(log),
     now: () => new Date(),
+    provisioning,
   };
 }

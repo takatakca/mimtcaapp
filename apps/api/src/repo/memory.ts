@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { NumberState } from "@mimt/shared";
+import { MemoryPbxRepository } from "./pbxMemory.js";
+import { MemoryCatalogRepository } from "./catalogMemory.js";
 import type {
   AuditEntry,
   Call,
@@ -48,6 +50,8 @@ export class MemoryRepository implements Repository {
   optOuts = new Map<string, boolean>();
   outbox: OutboxEvent[] = [];
   auditLog: Array<AuditEntry & { at: Date }> = [];
+  readonly pbx = new MemoryPbxRepository(() => this.calls.values());
+  readonly catalog = new MemoryCatalogRepository();
 
   async ping() {}
   async close() {}

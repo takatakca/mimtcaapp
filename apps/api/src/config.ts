@@ -55,6 +55,17 @@ const EnvSchema = z
     /** Conservative per-minute estimate used to size <Dial timeLimit> for prepaid international calls. */
     INTL_ASSUMED_RATE_CENTS_PER_MIN: z.coerce.number().int().positive().default(50),
 
+    /** Catalog / resale (docs/MIMT-RESALE.md). Unset: sandbox outside production, disabled in production. */
+    PROVISIONING_PROVIDER: z.enum(["sandbox", "videotron"]).optional(),
+    VIDEOTRON_API_BASE_URL: z.url().optional(),
+    VIDEOTRON_CLIENT_ID: optional,
+    VIDEOTRON_CLIENT_SECRET: optional,
+    VIDEOTRON_RESELLER_ID: optional,
+    VIDEOTRON_TOKEN_URL: z.url().optional(),
+    VIDEOTRON_WEBHOOK_SECRET: optional,
+    /** MIMT user ids allowed on /v1/admin/* catalog routes (comma separated). */
+    CATALOG_ADMIN_USER_IDS: csv([]),
+
     /** Claude (AI features). Optional: when unset every AI feature answers 503 not_configured. */
     ANTHROPIC_API_KEY: optional,
     ANTHROPIC_MODEL: z.string().min(1).default("claude-opus-5-5"),

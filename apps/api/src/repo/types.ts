@@ -1,10 +1,22 @@
 import type { Feature, Locale, NumberState, PlanCode } from "@mimt/shared";
+import type { PbxRepository } from "./pbxTypes.js";
+import type { CatalogRepository } from "./catalog.js";
 
 export type UserStatus = "active" | "suspended" | "pending_deletion" | "deleted";
 export type AccountStatus = "ACTIVE_MANAGED" | "ACTIVE_INDEPENDENT" | "OUTBOUND_SUSPENDED" | "SUSPENDED" | "CLOSED";
 export type RiskTier = "new" | "standard" | "trusted" | "high";
 export type SubscriptionStatus = "active" | "trialing" | "past_due" | "canceled" | "incomplete" | "unpaid";
-export type ConsentKind = "casl_marketing" | "ads_personalised" | "call_recording_notice" | "privacy_policy" | "terms";
+export type ConsentKind =
+  | "casl_marketing"
+  | "ads_personalised"
+  | "call_recording_notice"
+  | "privacy_policy"
+  | "terms"
+  // Resale orders (0005_catalog.sql): contract summary acceptance, consumer codes, credit check (Law 25).
+  | "contract_summary"
+  | "wireless_code"
+  | "internet_code"
+  | "credit_check";
 export type FraudAction = "block" | "hold" | "suspend" | "alert";
 export type CallKind = "pstn" | "app" | "emergency";
 export type Direction = "inbound" | "outbound";
@@ -260,6 +272,10 @@ export interface AuditEntry {
 type New<T, Optional extends keyof T = never> = Omit<T, "id" | "createdAt" | Optional> & Partial<Pick<T, Optional>>;
 
 export interface Repository {
+  /** MIMT Affaires (business PBX) storage: src/repo/pbxTypes.ts. */
+  readonly pbx: PbxRepository;
+  /** Catalog / internet + mobile resale storage: src/repo/catalog.ts. */
+  readonly catalog: CatalogRepository;
   ping(): Promise<void>;
   close(): Promise<void>;
 

@@ -1,6 +1,8 @@
-// MIMT Affaires admin endpoints (/v1/business/*). Shapes come from packages/shared/src/business.ts;
-// the AI receptionist config is local until packages/shared/src/ai.ts lands (see pending.ts).
+// MIMT Affaires admin endpoints (/v1/business/*). Shapes come from packages/shared/src/business.ts
+// and ai.ts (AI receptionist).
 import type {
+  AiReceptionistConfigDto,
+  AiReceptionistConfigRequest,
   BusinessCallsResponse,
   BusinessesResponse,
   BusinessHoursRequest,
@@ -28,7 +30,6 @@ import type {
   UpdateMemberRequest,
 } from "@mimt/shared";
 import type { HttpClient } from "./http";
-import type { AiReceptionistConfig, AiReceptionistRequest } from "./pending";
 
 const b = (id: string) => `/v1/business/${encodeURIComponent(id)}`;
 const seg = (id: string) => encodeURIComponent(id);
@@ -75,8 +76,8 @@ export function businessEndpoints(request: HttpClient["request"]) {
 
     recordings: (id: string) => request<BusinessRecordingsResponse>("GET", `${b(id)}/recordings`),
 
-    aiReceptionist: (id: string) => request<AiReceptionistConfig>("GET", `${b(id)}/ai-receptionist`),
-    putAiReceptionist: (id: string, body: AiReceptionistRequest) =>
-      request<AiReceptionistConfig>("PUT", `${b(id)}/ai-receptionist`, { body }),
+    aiReceptionist: (id: string) => request<AiReceptionistConfigDto>("GET", `${b(id)}/ai-receptionist`),
+    putAiReceptionist: (id: string, body: AiReceptionistConfigRequest) =>
+      request<AiReceptionistConfigDto>("PUT", `${b(id)}/ai-receptionist`, { body }),
   };
 }

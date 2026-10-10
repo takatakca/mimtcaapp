@@ -1,5 +1,7 @@
 import type { NumberState } from "@mimt/shared";
 import postgres from "postgres";
+import { PostgresPbxRepository } from "./pbxPostgres.js";
+import { PostgresCatalogRepository } from "./catalogPostgres.js";
 import type {
   AuditEntry,
   Call,
@@ -39,6 +41,14 @@ const maybe = <T>(rows: readonly unknown[]): T | null => (rows[0] as T | undefin
 
 export class PostgresRepository implements Repository {
   readonly sql: Sql;
+  private pbxRepo?: PostgresPbxRepository;
+  get pbx(): PostgresPbxRepository {
+    return (this.pbxRepo ??= new PostgresPbxRepository(this.sql));
+  }
+  private catalogRepo?: PostgresCatalogRepository;
+  get catalog(): PostgresCatalogRepository {
+    return (this.catalogRepo ??= new PostgresCatalogRepository(this.sql));
+  }
 
   constructor(databaseUrl: string, opts: { max?: number } = {}) {
     this.sql = postgres(databaseUrl, {

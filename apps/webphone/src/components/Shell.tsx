@@ -1,0 +1,102 @@
+// App shell: sidebar on desktop, top bar + bottom navigation on phones, floating softphone.
+import { NavLink, Outlet } from "react-router";
+import { useSession } from "../auth/SessionProvider";
+import { env } from "../env";
+import { useI18n } from "../i18n/I18nProvider";
+import type { TKey } from "../i18n/core";
+import { Softphone } from "../phone/Softphone";
+import { Icon, type IconName } from "./Icon";
+import { DemoBanner, Wordmark } from "./ui";
+
+interface NavItem {
+  to: string;
+  label: TKey;
+  icon: IconName;
+  short?: TKey;
+}
+
+const MAIN: NavItem[] = [
+  { to: "/messages", label: "tabs.messages", icon: "messages" },
+  { to: "/appels", label: "tabs.calls", icon: "phone" },
+  { to: "/messagerie", label: "tabs.voicemail", icon: "voicemail", short: "tabs.voicemailShort" },
+  { to: "/compte", label: "tabs.account", icon: "account" },
+];
+
+const SERVICES: NavItem[] = [
+  { to: "/services/offres", label: "nav.offers", icon: "offers" },
+  { to: "/services/commandes", label: "nav.orders", icon: "orders" },
+];
+
+function SideLink({ item }: { item: NavItem }) {
+  const { t } = useI18n();
+  return (
+    <NavLink to={item.to} className={({ isActive }) => `side__link${isActive ? " is-active" : ""}`}>
+      <Icon name={item.icon} />
+      <span>{t(item.label)}</span>
+    </NavLink>
+  );
+}
+
+export function Shell() {
+  const { t } = useI18n();
+  const { businesses, me } = useSession();
+  return (
+    <div className="app">
+      <a href="#main" className="skip-link">
+        {t("nav.skip")}
+      </a>
+      {env.mock ? <DemoBanner /> : null}
+      <aside className="side" aria-label={t("nav.main")}>
+        <Wordmark />
+        <nav className="side__nav">
+          {MAIN.map((i) => (
+            <SideLink key={i.to} item={i} />
+          ))}
+          <p className="side__section">{t("nav.services")}</p>
+          {SERVICES.map((i) => (
+            <SideLink key={i.to} item={i} />
+          ))}
+          {businesses.length > 0 ? <p className="side__section">{t("nav.business")}</p> : null}
+          {businesses.map((b) => (
+            <NavLink
+              key={b.business.id}
+              to={`/affaires/${b.business.id}`}
+              className={({ isActive }) => `side__link${isActive ? " is-active" : ""}`}
+            >
+              <Icon name="business" />
+              <span className="side__ellipsis">{b.business.name}</span>
+            </NavLink>
+          ))}
+        </nav>
+        <div className="side__foot">
+          <span className="side__user">{me?.user.displayName ?? me?.numbers[0]?.e164 ?? ""}</span>
+        </div>
+      </aside>
+      <header className="topbar">
+        <Wordmark compact />
+        <div className="topbar__links">
+          {businesses[0] ? (
+            <NavLink to={`/affaires/${businesses[0].business.id}`} className="icon-btn" aria-label={t("nav.business")}>
+              <Icon name="business" />
+            </NavLink>
+          ) : null}
+          <NavLink to="/services/offres" className="icon-btn" aria-label={t("nav.services")}>
+            <Icon name="offers" />
+          </NavLink>
+        </div>
+      </header>
+      <main id="main" className="main" tabIndex={-1}>
+        <Outlet />
+      </main>
+      <nav className="bottomnav" aria-label={t("nav.main")}>
+        {MAIN.map((i) => (
+          <NavLink key={i.to} to={i.to} className={({ isActive }) => `bottomnav__link${isActive ? " is-active" : ""}`}>
+            <Icon name={i.icon} />
+            <span>{t(i.short ?? i.label)}</span>
+          </NavLink>
+        ))}
+      </nav>
+      <Softphone />
+    </div>
+  );
+}
