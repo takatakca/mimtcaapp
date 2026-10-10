@@ -203,3 +203,48 @@ jobs:
               print("Log returned characters:",len(logs))
           print("Certificate/log diagnostic complete. No secrets or full logs printed; no resources changed.")
           PY
+
+
+      - name: Determine if Coolify exposes a genuine server CA without exposing keys
+        shell: bash
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os, json, urllib.request, urllib.error
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          token=os.environ["COOLIFY_TOKEN"]
+          uuid=os.environ["COOLIFY_API_UUID"]
+          def get(path):
+              try:
+                  req=urllib.request.Request(base+path,headers={"Authorization":"Bearer "+token,"Accept":"application/json"})
+                  with urllib.request.urlopen(req,timeout=18) as response:
+                      return json.loads(response.read(1000000))
+              except urllib.error.HTTPError as e:
+                  print("read-only endpoint:",path.split("/")[1],"HTTP",e.code)
+              except Exception as e:
+                  print("read-only endpoint failed:",type(e).__name__)
+              return None
+          app=get("/applications/"+uuid)
+          print("Application server reference available:",bool(isinstance(app,dict) and app.get("destination")))
+          servers=get("/servers")
+          if isinstance(servers,dict):servers=servers.get("data",servers.get("servers"))
+          if not isinstance(servers,list):servers=[]
+          print("Accessible Coolify servers:",len(servers))
+          for server in servers[:10]:
+              if not isinstance(server,dict):continue
+              cert_fields=[k for k in server if "ca_cert" in k.lower() or "ssl_cert" in k.lower()]
+              print("Server resource: accessible; certificate-specific fields:",",".join(cert_fields) if cert_fields else "none")
+              if server.get("uuid"):
+                  detail=get("/servers/"+server["uuid"])
+                  if isinstance(detail,dict):
+                      keys=[k for k in detail if "certificate" in k.lower() or "ssl" in k.lower() or "ca_cert" in k.lower()]
+                      print("Server detail CA/SSL field names:",",".join(keys) if keys else "none")
+                      print("CA PEM directly retrievable:",any(
+                          isinstance(detail.get(k),str) and "BEGIN CERTIFICATE" in detail[k] 
+                          for k in keys))
+          print("Server inventory inspected without printing names, IPs, UUIDs, tokens or certificates.")
+          PY
