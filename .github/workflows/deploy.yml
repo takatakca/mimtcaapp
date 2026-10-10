@@ -1,6 +1,7 @@
 name: Deploy
 
-# Deploys main automatically. Each job is skipped (not failed) until its secrets exist.
+# Manual-only production release. Verify each public endpoint after uploads.
+# GitHub Secrets values are never printed.
 # Secrets (GitHub → Settings → Secrets and variables → Actions):
 #   MOCHAHOST_FTP_SERVER, MOCHAHOST_FTP_USERNAME, MOCHAHOST_FTP_PASSWORD   → website + web app
 #   COOLIFY_URL, COOLIFY_TOKEN, COOLIFY_API_UUID                            → API
@@ -9,8 +10,7 @@ name: Deploy
 #   API_URL, TAKATAK_ISSUER, TAKATAK_CLIENT_ID, FORMS_ENDPOINT
 
 on:
-  push:
-    branches: [main]
+  # Explicit release only. Merging agent PRs must not publish unfinished work.
   workflow_dispatch:
 
 concurrency:
@@ -20,21 +20,32 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    outputs:
-      ftp: ${{ steps.s.outputs.ftp }}
-      coolify: ${{ steps.s.outputs.coolify }}
     steps:
-      - id: s
+      - name: Verify all six production secrets are configured
+        shell: bash
         env:
-          FTP: ${{ secrets.MOCHAHOST_FTP_SERVER }}
-          COOLIFY: ${{ secrets.COOLIFY_TOKEN }}
+          MOCHAHOST_FTP_SERVER: ${{ secrets.MOCHAHOST_FTP_SERVER }}
+          MOCHAHOST_FTP_USERNAME: ${{ secrets.MOCHAHOST_FTP_USERNAME }}
+          MOCHAHOST_FTP_PASSWORD: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
         run: |
-          echo "ftp=$([ -n "$FTP" ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
-          echo "coolify=$([ -n "$COOLIFY" ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          missing=0
+          for name in MOCHAHOST_FTP_SERVER MOCHAHOST_FTP_USERNAME MOCHAHOST_FTP_PASSWORD COOLIFY_URL COOLIFY_TOKEN COOLIFY_API_UUID; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Missing required repository secret: $name"
+              missing=1
+            fi
+          done
+          if [[ "$missing" -ne 0 ]]; then
+            exit 1
+          fi
+          echo "All six deployment secret names have values."
 
   web:
     needs: check
-    if: needs.check.outputs.ftp == 'yes'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,9 +69,24 @@ jobs:
           local-dir: ./apps/web/out/
           server-dir: ${{ vars.WEB_FTP_DIR || './public_html/' }}
 
+      - name: Verify live mimt.ca actually serves the French MIMT website
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..10}; do
+            html="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://mimt.ca/?release=${GITHUB_SHA}" 2>/dev/null || true)"
+            if [[ "$html" == *"Votre numéro canadien"* ]] && ! grep -Eiq 'Fongo (Mobile|Works|Internet|World|Home Phone)|Waterloo, Ontario|About Fongo' <<<"$html"; then
+              echo "Verified: mimt.ca serves the new French MIMT homepage without Fongo content."
+              exit 0
+            fi
+            echo "Attempt ${attempt}/10: mimt.ca still does not show the expected MIMT homepage."
+            sleep 10
+          done
+          echo "::error::FTP upload finished but mimt.ca did not publish the new MIMT homepage. Verify the cPanel document root, WEB_FTP_DIR (currently an FTP-relative directory), domain DNS, and any server/CDN cache. Never mark the release successful while Fongo content remains online."
+          exit 1
+
   webphone:
     needs: check
-    if: needs.check.outputs.ftp == 'yes'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -86,9 +112,24 @@ jobs:
           local-dir: ./apps/webphone/dist/
           server-dir: ${{ vars.WEBPHONE_FTP_DIR || './app.mimt.ca/' }}
 
+      - name: Verify live app.mimt.ca is serving the MIMT web app
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..10}; do
+            html="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://app.mimt.ca/?release=${GITHUB_SHA}" 2>/dev/null || true)"
+            if grep -Fqi 'MIMT Web' <<<"$html" && grep -Fq 'id="root"' <<<"$html"; then
+              echo "Verified: app.mimt.ca serves the MIMT web app shell."
+              exit 0
+            fi
+            echo "Attempt ${attempt}/10: app.mimt.ca is not serving the expected web app."
+            sleep 10
+          done
+          echo "::error::FTP sync finished but app.mimt.ca does not serve the MIMT Web app. Check cPanel document root, WEBPHONE_FTP_DIR, DNS and SSL."
+          exit 1
+
   api:
     needs: check
-    if: needs.check.outputs.coolify == 'yes'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Coolify deploy
