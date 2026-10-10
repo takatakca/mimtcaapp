@@ -62,6 +62,10 @@ jobs:
               print("FTPS: authenticated and TLS certificate verified as whgi.net.")
               base = ftp.pwd()
               print("FTP login working directory:", base)
+              ftp.cwd(base)
+              root_names = [x.rsplit("/", 1)[-1] for x in ftp.nlst()]
+              interesting = ["index.html", "index.php", ".htaccess", "_next", "assets", "mimt.ca", "app.mimt.ca", "public_html"]
+              print("Root entries (presence):", ", ".join(name + "=" + str(name in root_names) for name in interesting))
               candidates = [
                   ("login root", "./"),
                   ("mimt.ca", "./mimt.ca/"),
