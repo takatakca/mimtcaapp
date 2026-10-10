@@ -1,0 +1,57 @@
+name: Verify MIMT standalone PostgreSQL migrations
+on:
+  push:
+    branches: [fix/mimt-selfhost-postgres-migrations-20261010]
+permissions:
+  contents: read
+jobs:
+  postgres-schema:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: mimt_owner
+          POSTGRES_PASSWORD: temporary-gh-ci-password
+          POSTGRES_DB: mimt_production
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mimt_owner -d mimt_production"
+          --health-interval 3s
+          --health-timeout 5s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ephemeral PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -qq -y postgresql-client
+      - name: Bootstrap, apply all MIMT schema migrations in explicit dependency order, verify
+        shell: bash
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 5432
+          PGUSER: mimt_owner
+          PGPASSWORD: temporary-gh-ci-password
+          PGDATABASE: mimt_production
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -q -f deploy/coolify/mimt-postgres-bootstrap.sql
+          for name in \
+            0001_init.sql \
+            0002_push_tokens.sql \
+            0003_devices_rewards.sql \
+            0003_business_pbx.sql \
+            0004_ai.sql \
+            0005_catalog.sql \
+            0006_blocks_forwarding.sql \
+            0007_media_greetings.sql; do
+            echo "Validating schema migration: $name"
+            psql -X -v ON_ERROR_STOP=1 -q -1 -f "supabase/migrations/$name"
+          done
+          psql -X -v ON_ERROR_STOP=1 -At -c "SELECT count(*) > 30 FROM pg_tables WHERE schemaname='public';" | grep -Fx true
+          psql -X -v ON_ERROR_STOP=1 -At -c "SELECT count(*)=2 FROM pg_roles WHERE rolname IN ('anon','authenticated') AND NOT rolcanlogin;" | grep -Fx true
+          psql -X -v ON_ERROR_STOP=1 -At -c "SELECT auth.uid() IS NULL;" | grep -Fx true
+          psql -X -v ON_ERROR_STOP=1 -At -c "SELECT count(*) FROM users;" | grep -Fx 0
+          echo "PASS: isolated MIMT PostgreSQL schema is valid; no customer data, no paid Supabase service."
