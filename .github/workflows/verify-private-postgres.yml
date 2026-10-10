@@ -1,0 +1,55 @@
+name: Verify Private MIMT PostgreSQL Storage
+on:
+  push:
+    branches: [ops/mimt-private-coolify-postgres-20261010]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit PostgreSQL persistence, limits, SSL and private connection only
+        shell: bash
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os,json,urllib.request,urllib.error
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          hdr={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"],"Accept":"application/json"}
+          def get(path):
+            try:
+              with urllib.request.urlopen(urllib.request.Request(base+path,headers=hdr),timeout=25) as res:return res.status,json.load(res)
+            except urllib.error.HTTPError as e:return e.code,None
+            except Exception:return 0,None
+          status,lst=get("/databases")
+          if isinstance(lst,dict):lst=lst.get("data",lst.get("databases",[]))
+          matches=[d for d in lst if isinstance(d,dict) and d.get("name")=="mimt-prod-postgres"]
+          if len(matches)!=1:raise SystemExit("Expected exactly one MIMT DB resource; abort.")
+          uuid=matches[0].get("uuid")
+          s,db=get("/databases/"+uuid)
+          if not isinstance(db,dict):raise SystemExit("MIMT DB detail unreadable")
+          print("Status:",str(db.get("status","unknown"))[:65])
+          print("Is public:",db.get("is_public"))
+          print("PostgreSQL image correct:",str(db.get("image","")).startswith("postgres:17"))
+          print("Database identity MIMT:",db.get("postgres_db")=="mimt_production")
+          print("DB default user dedicated:",db.get("postgres_user")=="mimt_owner")
+          print("Password configured:",bool(db.get("postgres_password")))
+          print("Internal URL configured:",bool(db.get("internal_db_url") or db.get("internal_url") or db.get("database_internal_url")))
+          print("SSL enabled:",db.get("is_ssl_enabled","unknown"))
+          for k in ("limits_memory","limits_cpus","destination_id","environment_id","storage","persistent_storages","mounts","volume_name"):
+            v=db.get(k)
+            if k in ("limits_memory","limits_cpus"):print(k,"value:",str(v)[:40])
+            elif k in ("persistent_storages","mounts"):print(k,"count:",len(v) if isinstance(v,list) else "not returned")
+            else:print(k,"present:",bool(v))
+          s,storage=get("/databases/"+uuid+"/storages")
+          if isinstance(storage,dict):storage=storage.get("data",storage.get("storages",[]))
+          print("Database storages API status:",s,"count:",len(storage) if isinstance(storage,list) else "not available")
+          s,server_list=get("/servers")
+          if isinstance(server_list,dict):server_list=server_list.get("data",[])
+          for server in server_list if isinstance(server_list,list) else []:
+            print("Server disk full alert:",bool(server.get("high_disk_usage_notification_sent")))
+            print("Server public API has usable RAM metrics:",any(k in server for k in ("available_memory","memory_available","memory_total")))
+          print("No secrets, database URLs or server addresses printed.")
+          PY
