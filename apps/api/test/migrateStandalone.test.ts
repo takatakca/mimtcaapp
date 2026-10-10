@@ -18,7 +18,7 @@ describe("isolated self-hosted MIMT migration guard", () => {
     expect(() => assertPrivateMimtDatabase(
       "postgresql://mimt_owner:test@mimt-pg:5432/mimt_production",
       undefined, "production",
-    )).toThrow(/confirmation/);
+    )).toThrow(/MIMT_STANDALONE_MIGRATE_CONFIRM/);
   });
   it("refuses external hosts in production and permits the private Docker hostname", () => {
     expect(() => assertPrivateMimtDatabase(
