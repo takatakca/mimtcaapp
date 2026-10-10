@@ -8,6 +8,7 @@ import { api } from "../../src/api/client";
 import type { CallRecord } from "../../src/api/types";
 import { useSession } from "../../src/auth/session";
 import { AdBanner } from "../../src/components/Ads";
+import { useSpamText } from "../../src/components/Ai";
 import { DialPad } from "../../src/components/DialPad";
 import { RoundButton } from "../../src/components/RoundButton";
 import { EmergencyBanner } from "../../src/components/EmergencyBanner";
@@ -115,6 +116,7 @@ function Recents() {
   const blocks = useAsync(() => api.blocks());
   const [loadingMore, setLoadingMore] = useState(false);
   const [info, setInfo] = useState<TKey | null>(null);
+  const spamText = useSpamText();
   useFocusEffect(useCallback(() => void list.reload(), [list.reload]));
 
   /** Call-log menu: "Bloquer" / "Débloquer" (never offered for 9-1-1). */
@@ -141,8 +143,11 @@ function Recents() {
   }
 
   const renderItem = ({ item }: { item: CallRecord }) => {
-    const kind = item.missed ? t("calls.missed") : t(item.direction === "inbound" ? "calls.incoming" : "calls.outgoing");
+    const kindText = item.missed ? t("calls.missed") : t(item.direction === "inbound" ? "calls.incoming" : "calls.outgoing");
     const blocked = isBlockedPeer(blocks.data?.blocks, item.peer);
+    // « Spam probable » never blocks calling back; the server never labels 9-1-1.
+    const spam = spamText(item.spamLabel);
+    const kind = spam ? `${spam} · ${kindText}` : kindText;
     return (
       <Row
         icon={blocked ? "ban" : item.missed ? "call-outline" : item.direction === "inbound" ? "arrow-down" : "arrow-up"}

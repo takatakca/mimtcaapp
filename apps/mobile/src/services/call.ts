@@ -15,6 +15,7 @@ import { isEmergencyNumber } from "@mimt/shared";
 import { useSyncExternalStore } from "react";
 import { Platform } from "react-native";
 import { api } from "../api/client";
+import { outboundParams } from "../lib/business";
 import { formatPhone, toDialable } from "../lib/dial";
 
 /** Sent with GET /v1/voice/token so the token carries this OS's VoIP push credential. */
@@ -171,8 +172,12 @@ class CallService {
 
   // ------------------------------------------------------------------ outgoing
 
-  /** Places a call. Returns false when the number is not dialable. 9-1-1 always goes through. */
-  async connect(input: string): Promise<boolean> {
+  /**
+   * Places a call. Returns false when the number is not dialable. 9-1-1 always goes through.
+   * `callerId` (optional) asks the API to call from that number, e.g. a MIMT Affaires line; it is
+   * ignored for 9-1-1 (see outboundParams).
+   */
+  async connect(input: string, opts: { callerId?: string | null } = {}): Promise<boolean> {
     const to = toDialable(input);
     if (!to) return false;
     const emergency = isEmergencyNumber(to);
@@ -185,7 +190,7 @@ class CallService {
     try {
       const { token } = await api.voiceToken(voicePlatform());
       const call = await this.voice.connect(token, {
-        params: { To: to, ...(emergency ? { Emergency: "true" } : {}) },
+        params: outboundParams(to, opts.callerId),
         contactHandle: to,
         notificationDisplayName: emergency ? "9-1-1" : formatPhone(to),
       });

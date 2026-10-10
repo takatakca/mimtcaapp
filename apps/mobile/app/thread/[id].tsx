@@ -9,6 +9,7 @@ import { api } from "../../src/api/client";
 import { toErrorKey } from "../../src/api/errors";
 import type { MessageDto } from "../../src/api/types";
 import { useSession } from "../../src/auth/session";
+import { SmartReplies, SpamBadge } from "../../src/components/Ai";
 import { Button, ErrorText, Field, Notice } from "../../src/components/ui";
 import { useI18n, type TKey } from "../../src/i18n";
 import { canBlock, isBlockedPeer } from "../../src/lib/callControls";
@@ -20,6 +21,12 @@ import { colors, radius, spacing, TAP } from "../../src/theme";
 
 /** A message as shown in the thread: the API DTO, plus local-only fields for optimistic sends. */
 type ThreadMessage = MessageDto & { mediaUrls?: string[] };
+
+/** Id of the newest message when it is inbound (smart replies answer it), else null. */
+const lastInboundId = (list: MessageDto[]) => {
+  const last = list[list.length - 1];
+  return last && last.direction === "inbound" ? last.id : null;
+};
 
 /** The API pages newest first; the thread shows oldest first. */
 const chronological = (list: MessageDto[]) => [...list].reverse();
@@ -197,6 +204,7 @@ export default function Thread() {
                 onPress={() => send(item.body, item.mediaUrls, item.id)}
                 style={[styles.bubble, mine ? styles.mine : styles.theirs, failed && { borderColor: colors.danger, borderWidth: 1 }]}
               >
+                {!mine ? <SpamBadge label={item.spamLabel} /> : null}
                 <Text style={[styles.bubbleText, mine && { color: colors.white }]}>{item.body}</Text>
                 <Text style={styles.meta}>
                   {sending
@@ -211,6 +219,7 @@ export default function Thread() {
         />
         {blocked ? <Notice tone="warning">{t("blocks.isBlocked")}</Notice> : null}
         {info ? <Notice tone={info.startsWith("error.") ? "warning" : "success"}>{t(info)}</Notice> : null}
+        {!isNew && peer ? <SmartReplies peer={peer} lastInboundId={lastInboundId(messages)} onPick={setDraft} /> : null}
         {mmsHint ? <Notice>{t("messages.attachPremium")}</Notice> : null}
         {errorKey ? (
           <View style={{ paddingHorizontal: spacing.md }}>
