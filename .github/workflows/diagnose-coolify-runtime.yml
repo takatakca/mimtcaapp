@@ -248,3 +248,51 @@ jobs:
                           for k in keys))
           print("Server inventory inspected without printing names, IPs, UUIDs, tokens or certificates.")
           PY
+
+
+      - name: Identify certificate formatting failure without showing certificate
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          python - <<'PY'
+          import os,ssl,re,base64,subprocess,tempfile,urllib.request,json
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1/applications/"+os.environ["COOLIFY_API_UUID"]+"/envs"
+          req=urllib.request.Request(base,headers={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"]})
+          with urllib.request.urlopen(req,timeout=20) as res:
+              env=json.load(res)
+          if isinstance(env,dict):env=env.get("data",env.get("envs",[]))
+          obj=next((x for x in env if isinstance(x,dict) and x.get("key")=="DATABASE_SSL_CA_PEM"),{})
+          pem=obj.get("real_value") or obj.get("value") or ""
+          if not isinstance(pem,str):pem=""
+          print("CA configured value length class:", "tiny" if len(pem)<100 else ("short" if len(pem)<500 else "typical"))
+          print("CA contains literal slash-n sequences:", "\\n" in pem)
+          print("CA contains double escaped slash-n:", "\\\\n" in pem)
+          print("CA literal starts with quotation mark:", pem.lstrip().startswith(('"',"'")))
+          p=pem.replace("\\n","\n").strip()
+          m=re.search(r"-----BEGIN CERTIFICATE-----\s*(.*?)\s*-----END CERTIFICATE-----",p,re.DOTALL)
+          if not m: 
+              print("CA contents not in recognizable PEM form.")
+          else:
+              b=m.group(1)
+              base64_chars=re.sub(r"\s+","",b)
+              print("CA body Base64 length class:", "tiny" if len(base64_chars)<100 else ("short" if len(base64_chars)<500 else "typical"))
+              try:
+                  der=base64.b64decode(base64_chars,validate=True)
+                  print("CA DER first-byte SEQUENCE present:",len(der)>0 and der[0]==0x30)
+                  print("CA DER byte length class:", "tiny" if len(der)<100 else ("short" if len(der)<500 else "typical"))
+              except (ValueError,base64.binascii.Error):
+                  print("CA body failed strict Base64 decoding")
+              with tempfile.NamedTemporaryFile(mode="w",suffix=".pem") as tmp:
+                  tmp.write(p);tmp.flush()
+                  run=subprocess.run(["openssl","x509","-in",tmp.name,"-noout"],capture_output=True,text=True)
+                  if run.returncode:
+                      e=run.stderr.lower()
+                      reason=("base64 decoding" if "base64" in e else
+                              "malformed PEM or certificate" if "unable to load" in e or "expecting" in e else
+                              "ASN.1 DER decoding" if "asn1" in e else "invalid X.509 certificate")
+                      print("CA invalid category:",reason)
+                  else: print("CA is syntactically valid X.509")
+          print("No raw certificate text emitted; no resources changed.")
+          PY
