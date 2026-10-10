@@ -380,3 +380,43 @@ jobs:
             print("Accessible standalone PostgreSQL resources:",sum(1 for d in db if "postgres" in str(d.get("type","")).lower()))
           print("MIMT resource audit finished; no mutations made")
           PY
+
+
+      - name: Cross-check MIMT DB host against Coolify Compose PostgreSQL service
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          python - <<'PY'
+          import os,json,urllib.request,re,urllib.parse
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          hdr={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"],"Accept":"application/json"}
+          def get(path):
+            with urllib.request.urlopen(urllib.request.Request(base+path,headers=hdr),timeout=25) as response: return json.load(response)
+          env=get("/applications/"+os.environ["COOLIFY_API_UUID"]+"/envs")
+          if isinstance(env,dict):env=env.get("data",env.get("envs",[]))
+          d=next((item.get("real_value") or item.get("value") for item in env if item.get("key")=="DATABASE_URL"),None)
+          if not d:raise SystemExit("Cannot check DB URL safely")
+          info=urllib.parse.urlsplit(d)
+          host=info.hostname or ""
+          print("DB host name length:",len(host))
+          print("DB hostname contains Docker separator:",("-" in host or "_" in host))
+          print("DB target port:",info.port or 5432)
+          svc=get("/services")
+          if isinstance(svc,dict):svc=svc.get("data",svc.get("services",[]))
+          for ob in svc or []:
+            raw=str(ob.get("docker_compose_raw") or "")
+            if not ("postgres" in raw.lower()):continue
+            print("Compose source includes PostgreSQL:",True)
+            print("DB hostname occurs in compose raw:",bool(host and host in raw))
+            print("DB hostname is a Compose top-level service:",bool(re.search(r"^  "+re.escape(host)+r":\s*$",raw,re.M)))
+            print("Compose specifies explicit PostgreSQL SSL cert:",bool(re.search(r"ssl_cert_file|server\.crt|sslrootcert",raw,re.I)))
+            print("Compose specifies private/internal PostgreSQL CA:",bool(re.search(r"ca\.crt|ca\.pem|root\.crt|coolify-ca",raw,re.I)))
+            print("Compose exposes PostgreSQL port:",bool(re.search(r"(?m)^\s*-\s*['\\\"]?5432:",raw)))
+            print("Compose has network declarations:",bool(re.search(r"(?m)^\s*networks:",raw)))
+            print("Compose SSL postgres command/config:",bool(re.search(r"ssl\s*=\s*on|ssl=on",raw,re.I)))
+            print("Compose contains Supabase DB component:",bool(re.search(r"supabase-db|supabase/postgres",raw,re.I)))
+            print("Compose has db service:",bool(re.search(r"(?m)^\s+(?:db|postgres|postgresql):\s*$",raw)))
+          print("Only structural classifications shown; no hostnames, credentials or YAML output.")
+          PY
