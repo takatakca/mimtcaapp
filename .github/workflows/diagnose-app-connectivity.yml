@@ -31,4 +31,15 @@ jobs:
           for url in https://api.mimt.ca/healthz https://api.mimt.ca/readyz; do
             curl --max-time 12 --connect-timeout 5 -sS -o /dev/null -w "url=$url status=%{http_code} remote_ip=%{remote_ip} err=%{errormsg}\n" "$url" || true
           done
+
+          echo "PUBLIC APP RESPONSE DIAGNOSTIC:"
+          for path in / /index.html /assets/; do
+            url="https://app.mimt.ca${path}"
+            echo "PATH: $path"
+            curl --max-time 15 --connect-timeout 6 -sSL -D /tmp/mimt-head -o /tmp/mimt-body -w 'code=%{http_code} ip=%{remote_ip} final_url=%{url_effective} type=%{content_type} bytes=%{size_download} err=%{errormsg}\\n' "$url" || true
+            echo "HTTP HEADERS (filtered):"
+            grep -Ei '^(HTTP/|server:|location:|content-type:|x-powered-by:|x-cache:|cf-|cache-control:)' /tmp/mimt-head | head -n 15 || true
+            echo "HTML TITLE and visible server errors:"
+            grep -Eio '<title>[^<]{0,200}</title>|no available server|forbidden|index of /|access denied|error 403|error 503|service unavailable' /tmp/mimt-body | head -n 8 || true
+          done
           echo "Read-only checks complete"
