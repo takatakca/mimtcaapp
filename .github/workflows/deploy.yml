@@ -3,7 +3,8 @@ name: Deploy
 # Manual-only production release. Verify each public endpoint after uploads.
 # GitHub Secrets values are never printed.
 # Secrets (GitHub → Settings → Secrets and variables → Actions):
-#   MOCHAHOST_FTP_SERVER, MOCHAHOST_FTP_USERNAME, MOCHAHOST_FTP_PASSWORD   → website + web app
+#   MOCHAHOST_FTP_SERVER, MOCHAHOST_FTP_USERNAME, MOCHAHOST_FTP_PASSWORD   → mimt.ca (FTP login root is website root)
+#   MOCHAHOST_APP_FTP_SERVER, MOCHAHOST_APP_FTP_USERNAME, MOCHAHOST_APP_FTP_PASSWORD → separate app FTP account
 #   COOLIFY_URL, COOLIFY_TOKEN, COOLIFY_API_UUID                            → API
 # Variables (same page, "Variables" tab), optional:
 #   FTP paths are explicitly provided via Run workflow inputs, so stale WEB_FTP_DIR/WEBPHONE_FTP_DIR variables cannot misroute uploads.
@@ -18,21 +19,22 @@ on:
         description: "Deploy websites, API, or everything"
         type: choice
         required: true
-        default: websites
+        default: website
         options:
-          - websites
+          - website
+          - webphone
           - api
           - all
       web_ftp_dir:
-        description: "FTP-relative folder for mimt.ca (NOT /home/bolonca/...)"
+        description: "MIMT public website must use ./ for this FTP account"
         type: string
         required: true
-        default: "./mimt.ca/"
+        default: "./"
       webphone_ftp_dir:
-        description: "FTP-relative folder for app.mimt.ca (NOT /home/bolonca/...)"
+        description: "Relative to separate app FTP account (default root ./)"
         type: string
         required: true
-        default: "./app.mimt.ca/"
+        default: "./"
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -73,20 +75,17 @@ jobs:
         run: |
           set -euo pipefail
           for dir in "$TARGET_SITE" "$TARGET_APP"; do
-            if [[ "$dir" != ./*/ ]] || [[ "$dir" == *".."* ]] || [[ "$dir" == *"/home/"* ]] || [[ "$dir" == *"bolonca"* ]]; then
+            if [[ "$dir" != "./" && "$dir" != ./*/ ]] || [[ "$dir" == *".."* ]] || [[ "$dir" == *"/home/"* ]] || [[ "$dir" == *"bolonca"* ]]; then
               echo "::error::Use an FTP-login-relative directory ending in / (for example ./mimt.ca/), not an absolute cPanel filesystem path or nested bolonca/home directory."
               exit 1
             fi
           done
-          if [[ "$TARGET_SITE" == "$TARGET_APP" ]]; then
-            echo "::error::The two websites must have different FTP target directories."
-            exit 1
-          fi
+          # Website and app are on different FTP accounts, so ./ is valid for both.
           echo "FTP-relative destinations selected: $TARGET_SITE and $TARGET_APP"
 
   web:
     needs: check
-    if: inputs.deploy_scope == 'websites' || inputs.deploy_scope == 'all'
+    if: inputs.deploy_scope == 'website' || inputs.deploy_scope == 'all'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -128,7 +127,7 @@ jobs:
 
   webphone:
     needs: check
-    if: inputs.deploy_scope == 'websites' || inputs.deploy_scope == 'all'
+    if: inputs.deploy_scope == 'website' || inputs.deploy_scope == 'all'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -147,9 +146,9 @@ jobs:
       - name: Upload app.mimt.ca
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.MOCHAHOST_FTP_SERVER }}
-          username: ${{ secrets.MOCHAHOST_FTP_USERNAME }}
-          password: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
+          server: ${{ secrets.MOCHAHOST_APP_FTP_SERVER }}
+          username: ${{ secrets.MOCHAHOST_APP_FTP_USERNAME }}
+          password: ${{ secrets.MOCHAHOST_APP_FTP_PASSWORD }}
           protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
           local-dir: ./apps/webphone/dist/
           server-dir: ${{ inputs.webphone_ftp_dir }}
