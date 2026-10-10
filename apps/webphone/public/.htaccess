@@ -1,0 +1,10 @@
+# MIMT Web — Apache fallback for React Router (BrowserRouter).
+# Build copies this file from apps/webphone/public/ into dist/.
+# Keep static assets and real files served directly.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.html [L]
+</IfModule>
