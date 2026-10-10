@@ -50,8 +50,8 @@ jobs:
             echo "Validating schema migration: $name"
             psql -X -v ON_ERROR_STOP=1 -q -1 -f "supabase/migrations/$name"
           done
-          psql -X -v ON_ERROR_STOP=1 -At -c "SELECT count(*) > 30 FROM pg_tables WHERE schemaname='public';" | grep -Fx true
-          psql -X -v ON_ERROR_STOP=1 -At -c "SELECT count(*)=2 FROM pg_roles WHERE rolname IN ('anon','authenticated') AND NOT rolcanlogin;" | grep -Fx true
-          psql -X -v ON_ERROR_STOP=1 -At -c "SELECT auth.uid() IS NULL;" | grep -Fx true
+          psql -X -v ON_ERROR_STOP=1 -At -c "SELECT count(*) > 30 FROM pg_tables WHERE schemaname='public';" | grep -Fx t
+          psql -X -v ON_ERROR_STOP=1 -At -c "SELECT count(*)=2 FROM pg_roles WHERE rolname IN ('anon','authenticated') AND NOT rolcanlogin;" | grep -Fx t
+          psql -X -v ON_ERROR_STOP=1 -At -c "SELECT auth.uid() IS NULL;" | grep -Fx t
           psql -X -v ON_ERROR_STOP=1 -At -c "SELECT count(*) FROM users;" | grep -Fx 0
           echo "PASS: isolated MIMT PostgreSQL schema is valid; no customer data, no paid Supabase service."
