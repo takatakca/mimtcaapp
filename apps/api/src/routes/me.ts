@@ -1,20 +1,56 @@
 import type { FastifyInstance } from "fastify";
 import type { ConsentResponse, DeleteMeResponse, MeExportResponse, MeResponse, UpdateMeResponse } from "@mimt/shared";
-import { QUARANTINE_DAYS, USER_CONSENT_KINDS } from "@mimt/shared";
+import {
+  FORWARDING_TIMEOUT_MAX_S,
+  FORWARDING_TIMEOUT_MIN_S,
+  QUARANTINE_DAYS,
+  USER_CONSENT_KINDS,
+  WEEKDAYS,
+  isValidHhmm,
+  type CallSettings,
+  type Weekday,
+} from "@mimt/shared";
 import { z } from "zod";
 import type { AppDeps } from "../deps.js";
 import { loadContext, requireUser } from "../auth/guard.js";
 import { addDays, monthPeriod } from "../lib/time.js";
 import { parse } from "../lib/validate.js";
+import { badRequest, forbidden } from "../lib/errors.js";
+import type { TelecomAccount } from "../repo/types.js";
 import { getFeatures, HELD_STATES, setAccountStatus } from "../services/accounts.js";
+import { checkForwardTarget } from "../services/callControls.js";
+import { blockDto } from "./blocks.js";
 import { messageDto } from "./messages.js";
 
 const DELETION_DELAY_DAYS = 30;
+
+const Hhmm = z.string().refine(isValidHhmm, "expected HH:MM");
+const TimeRange = z.object({ open: Hhmm, close: Hhmm }).strict().refine((r) => r.open !== r.close, "empty range");
 
 const PatchBody = z
   .object({
     locale: z.enum(["fr-CA", "en-CA"]).optional(),
     displayName: z.string().trim().min(1).max(80).nullable().optional(),
+    forwarding: z
+      .object({
+        mode: z.enum(["off", "always", "no_answer"]),
+        target: z.string().trim().min(3).max(32).nullable().optional(),
+        timeoutS: z.number().int().min(FORWARDING_TIMEOUT_MIN_S).max(FORWARDING_TIMEOUT_MAX_S).optional(),
+      })
+      .strict()
+      .optional(),
+    dnd: z
+      .object({
+        enabled: z.boolean(),
+        schedule: z
+          .object(Object.fromEntries(WEEKDAYS.map((d) => [d, z.array(TimeRange).max(4)])) as Record<Weekday, z.ZodArray<typeof TimeRange>>)
+          .strict()
+          .nullable()
+          .optional(),
+      })
+      .strict()
+      .optional(),
+    blockedCallAction: z.enum(["reject", "voicemail"]).optional(),
   })
   .strict();
 
@@ -54,18 +90,58 @@ export async function meRoutes(app: FastifyInstance, deps: AppDeps) {
         outboundSms: usage.smsOut,
         periodStart: `${monthPeriod(now)}-01T00:00:00.000Z`,
       },
+      callSettings: await repo.callControls.getCallSettings(account.id),
     };
   });
 
   app.patch("/v1/me", auth, async (req): Promise<UpdateMeResponse> => {
     const body = parse(PatchBody, req.body);
-    const { user } = await loadContext(deps, req);
+    const { user, account } = await loadContext(deps, req);
+    // Call settings first: a refused forwarding target leaves the whole request unapplied.
+    const callSettings = await updateCallSettings(account, body, user.id, req.ip);
     const updated = await repo.updateUser(user.id, {
       ...(body.locale ? { locale: body.locale } : {}),
       ...(body.displayName !== undefined ? { displayName: body.displayName } : {}),
     });
-    return { id: updated.id, locale: updated.locale, displayName: updated.displayName };
+    return { id: updated.id, locale: updated.locale, displayName: updated.displayName, callSettings };
   });
+
+  /** Applies forwarding / do not disturb / blocked-call changes. Forwarding needs the call_forwarding plan feature. */
+  async function updateCallSettings(account: TelecomAccount, body: z.infer<typeof PatchBody>, userId: string, ip: string): Promise<CallSettings> {
+    const current = await repo.callControls.getCallSettings(account.id);
+    if (!body.forwarding && !body.dnd && !body.blockedCallAction) return current;
+    const next: CallSettings = structuredClone(current);
+    if (body.forwarding) {
+      const f = body.forwarding;
+      const rawTarget = f.target === undefined ? current.forwarding.target : f.target;
+      next.forwarding = { mode: f.mode, target: rawTarget, timeoutS: f.timeoutS ?? current.forwarding.timeoutS };
+      if (f.mode !== "off") {
+        const { features } = await getFeatures(repo, account.id);
+        if (!features.has("call_forwarding")) throw forbidden("plan_required", "Call forwarding needs a Premium or Business plan");
+        if (!rawTarget) throw badRequest("forwarding_target_required", "A forwarding number is required");
+      }
+      if (rawTarget && rawTarget !== current.forwarding.target) {
+        const check = await checkForwardTarget(deps, account, rawTarget);
+        if (!check.ok) {
+          await repo.addFraudEvent({ telecomAccountId: account.id, rule: `forwarding_${check.reason}`, score: 50, action: "block", details: { target: rawTarget } });
+          throw badRequest("forwarding_destination_not_allowed", check.reason);
+        }
+        next.forwarding.target = check.target;
+      }
+    }
+    if (body.dnd) next.dnd = { enabled: body.dnd.enabled, schedule: body.dnd.schedule === undefined ? current.dnd.schedule : body.dnd.schedule };
+    if (body.blockedCallAction) next.blockedCallAction = body.blockedCallAction;
+    const saved = await repo.callControls.saveCallSettings(account.id, next);
+    await repo.audit({
+      actorUserId: userId,
+      action: "call_settings.updated",
+      targetType: "telecom_account",
+      targetId: account.id,
+      ip,
+      meta: { forwardingMode: saved.forwarding.mode, dnd: saved.dnd.enabled, blockedCallAction: saved.blockedCallAction },
+    });
+    return saved;
+  }
 
   app.post("/v1/consents", auth, async (req, reply) => {
     const body = parse(ConsentBody, req.body);
@@ -78,7 +154,7 @@ export async function meRoutes(app: FastifyInstance, deps: AppDeps) {
   // Law 25 portability: everything we hold about the user, in a structured, commonly used format.
   app.get("/v1/me/export", auth, async (req, reply): Promise<MeExportResponse> => {
     const { user, account } = await loadContext(deps, req);
-    const [subscriptions, numbers, address, acks, consents, calls, voicemails, conversations] = await Promise.all([
+    const [subscriptions, numbers, address, acks, consents, calls, voicemails, conversations, blocks, callSettings] = await Promise.all([
       repo.listSubscriptions(account.id),
       repo.listNumbersByAccount(account.id),
       repo.getE911Address(account.id),
@@ -87,6 +163,8 @@ export async function meRoutes(app: FastifyInstance, deps: AppDeps) {
       repo.listCalls(account.id, 10_000),
       repo.listVoicemails(account.id),
       repo.listConversations(account.id),
+      repo.callControls.listBlocks(account.id),
+      repo.callControls.getCallSettings(account.id),
     ]);
     const messages = [];
     for (const c of conversations) {
@@ -107,6 +185,8 @@ export async function meRoutes(app: FastifyInstance, deps: AppDeps) {
       calls: calls.map(({ twilioCallSid: _sid, ...c }) => c),
       voicemails: voicemails.map(({ audioUrl: _url, audioPath: _path, ...v }) => v),
       messages,
+      blockedNumbers: blocks.map(blockDto),
+      callSettings,
     };
   });
 

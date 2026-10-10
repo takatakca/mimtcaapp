@@ -26,6 +26,10 @@ const CODE_TO_KEY: Record<string, TKey> = {
   not_implemented: "error.notImplemented",
   device_attestation_required: "error.deviceRequired",
   reward_pending: "error.rewardPending",
+  cannot_block_emergency: "error.cannotBlockEmergency",
+  block_limit: "error.blockLimit",
+  forwarding_destination_not_allowed: "error.forwardingDestination",
+  forwarding_target_required: "error.forwardingTarget",
 };
 
 export function errorKeyFor(status: number | null, code?: string | null): TKey {

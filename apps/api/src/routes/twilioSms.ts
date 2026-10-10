@@ -37,6 +37,8 @@ export async function twilioSmsWebhooks(app: FastifyInstance, deps: AppDeps) {
     } else if (OPT_IN.has(keyword)) {
       await repo.setOptOut(number.e164, p.From, false);
     }
+    // Blocked sender: dropped without storing or notifying (opt-out keywords above still apply).
+    if (await repo.callControls.isBlocked(number.telecomAccountId, p.From)) return sendTwiml(reply, empty);
 
     await repo.createMessage({
       twilioSid: p.MessageSid ?? null,

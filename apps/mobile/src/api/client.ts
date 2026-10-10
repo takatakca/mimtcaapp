@@ -6,6 +6,9 @@ import { clearSession, loadSession, saveSession, toSession, type StoredSession }
 import type {
   AuthTokens,
   AvailableNumbersResponse,
+  BlockedNumberDto,
+  BlockNumberRequest,
+  BlocksResponse,
   CallsResponse,
   CheckoutResponse,
   ClaimNumberResponse,
@@ -195,6 +198,12 @@ export const api = {
   exportData: () => request<MeExportResponse>("GET", "/v1/me/export"),
   deleteAccount: () => request<void>("DELETE", "/v1/me"),
   setConsent: (body: ConsentRequest) => request<ConsentResponse>("POST", "/v1/consents", { body }),
+
+  // Call blocking (inbound only; 9-1-1 can never be blocked). Forwarding and do not disturb go through updateMe.
+  blocks: () => request<BlocksResponse>("GET", "/v1/blocks"),
+  block: (body: BlockNumberRequest) => request<BlockedNumberDto>("POST", "/v1/blocks", { body }),
+  unblock: (id: string) => request<void>("DELETE", `/v1/blocks/${encodeURIComponent(id)}`),
+  unblockNumber: (number: string) => request<void>("DELETE", "/v1/blocks", { query: { number } }),
 
   // 9-1-1
   /** 404 (error.notFound) when no address is registered yet. */

@@ -3,6 +3,7 @@
 Newest first, one line per piece of work. Rule: `AGENTS.md` › Work log rule.
 Format: `YYYY-MM-DD | agent | branch → PR | status | what | next step`
 
+- 2026-10-10 | claude (call-controls agent, session 01Bs3bum) | worktree-agent-aeb4094440bf9b450 → claude/mimt-platform-phase2 | done | Parity P0 #2-3 + P1 #7: call blocking (/v1/blocks), consumer call forwarding and do not disturb (PATCH /v1/me), migration 0006, mobile screens | merge into phase 2; apply 0006; webphone settings screens (webphone agent)
 - 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | Auto-deploy workflow (.github/workflows/deploy.yml): mimt.ca + app.mimt.ca by FTPS, API by Coolify | owner: add GitHub secrets MOCHAHOST_FTP_* and COOLIFY_*; create app./api.mimt.ca subdomains
 - 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | Business PBX (MIMT Affaires): extensions, ring groups, bilingual IVR, Quebec hours/holidays, recording with consent, per-line seats | finish tests, merge to main
 - 2026-10-10 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-platform-phase2 | active | AI (Claude): voicemail summaries, smart SMS replies, spam scoring, AI receptionist (ConversationRelay), Law 25 consent, cost caps | finish tests; owner: ANTHROPIC_API_KEY in secrets

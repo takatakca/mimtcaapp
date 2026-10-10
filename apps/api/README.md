@@ -104,7 +104,8 @@ Run: `pnpm install && pnpm --filter @mimt/shared build && pnpm --filter @mimt/ap
 | POST | `/v1/push/register` (APNs/FCM token per user/platform) | bearer |
 | POST | `/v1/rewards/claim` (501 `not_implemented` until AdMob SSV) | bearer |
 | POST | `/v1/billing/checkout` · GET `/v1/billing/portal` · POST `/v1/billing/iap/verify` (501) | bearer |
-| GET/PATCH/DELETE | `/v1/me` · GET `/v1/me/export` · POST `/v1/consents` | bearer |
+| GET/PATCH/DELETE | `/v1/me` (PATCH also takes `forwarding`, `dnd`, `blockedCallAction`) · GET `/v1/me/export` · POST `/v1/consents` | bearer |
+| GET/POST | `/v1/blocks` · DELETE `/v1/blocks/:id` · DELETE `/v1/blocks?number=` (inbound calls rejected or sent to voicemail, texts dropped; 9-1-1 cannot be blocked) | bearer |
 | POST | `/webhooks/twilio/voice/{outbound,inbound,dial-result,hangup,status,recording,transcription}` | `X-Twilio-Signature` |
 | POST | `/webhooks/twilio/sms/{inbound,status}` | `X-Twilio-Signature` |
 | POST | `/webhooks/stripe` | `Stripe-Signature` (raw body) |
@@ -115,6 +116,7 @@ Run: `pnpm install && pnpm --filter @mimt/shared build && pnpm --filter @mimt/ap
 - **Fraud** (`src/fraud`): pure caps/destination checks, token-bucket rate limiter behind an interface (swap for Redis when running more than one instance), 14-day new-account halving, daily spend guard that sets the account to `OUTBOUND_SUSPENDED` and logs `fraud_events`.
 - **Twilio** sits behind `TwilioGateway` (`src/gateways/twilio.ts`); tests use a mock. Stripe sits behind `BillingGateway`.
 - **Repository**: `Repository` interface with `PostgresRepository` and `MemoryRepository`; `test/repo.contract.test.ts` runs the same assertions against both.
+- **Call controls** (`src/services/callControls.ts`, migration `0006`): blocks, do not disturb (quiet hours in America/Montreal) and forwarding run on the inbound path only. Forwarding needs the `call_forwarding` plan feature, Canada/US targets that pass `fraud/destinations.ts` (no MIMT numbers, no 9-1-1), and remaining outbound minutes; the forwarded leg is counted as outbound minutes, the inbound leg as inbound minutes.
 - **Logs**: pino with redaction of auth headers, signatures, tokens and message bodies; request logs keep only the path.
 
 ### Tests against Postgres
@@ -126,6 +128,7 @@ psql mimt_test -c "create role anon; create role authenticated; create role serv
 psql mimt_test -f supabase/migrations/0001_init.sql
 psql mimt_test -f supabase/migrations/0002_push_tokens.sql
 psql mimt_test -f supabase/migrations/0003_devices_rewards.sql
+psql mimt_test -f supabase/migrations/0006_blocks_forwarding.sql
 TEST_DATABASE_URL=postgres://localhost/mimt_test pnpm --filter @mimt/api test
 ```
 

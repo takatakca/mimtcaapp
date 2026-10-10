@@ -8,6 +8,7 @@ import { HttpError } from "./lib/errors.js";
 import { loggerOptions } from "./logger.js";
 import { authRoutes } from "./routes/auth.js";
 import { billingRoutes } from "./routes/billing.js";
+import { blockRoutes } from "./routes/blocks.js";
 import { callRoutes } from "./routes/calls.js";
 import { captureException } from "./monitoring/report.js";
 import { deviceRoutes } from "./routes/devices.js";
@@ -70,6 +71,7 @@ export async function buildApp(deps: AppDeps) {
     messageRoutes,
     billingRoutes,
     meRoutes,
+    blockRoutes,
     pushRoutes,
     rewardRoutes,
     twilioWebhooks,
