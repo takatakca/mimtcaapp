@@ -1,0 +1,41 @@
+name: MIMT Database Project Identity Check
+on:
+  push:
+    branches: [diag/mimt-supabase-project-identity-20261010]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check whether MIMT Supabase pooler belongs to a connected project
+        shell: bash
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          python - <<'PY'
+          import os,json,urllib.request,urllib.parse,hashlib
+          url=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1/applications/"+os.environ["COOLIFY_API_UUID"]+"/envs"
+          req=urllib.request.Request(url,headers={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"]})
+          with urllib.request.urlopen(req,timeout=25) as res:r=json.load(res)
+          if isinstance(r,dict):r=r.get("data",r.get("envs",[]))
+          value=next((o.get("value") for o in r if o.get("key")=="DATABASE_URL"),"")
+          p=urllib.parse.urlsplit(value)
+          name=urllib.parse.unquote(p.username or "")
+          ref=name.split(".")[-1] if name.startswith("postgres.") else ""
+          hashes={
+            "15831e3ca19736d6":"TAKATAK STAGING",
+            "ef0a64b75943dc1b":"FESTI ICE",
+            "6a2e03c4dca7fa3d":"TAKATAK User Official Dashboard V1",
+            "f0cf1d9206459c90":"TAKATAK FOODHUB",
+            "b2bef373908c2fcb":"ALKAO"
+          }
+          digest=hashlib.sha256(ref.encode()).hexdigest()[:16] if ref else ""
+          print("MIMT Supabase pooler identity format:",bool(ref and len(ref)==20))
+          print("Project belongs to Supabase projects accessible via current ChatGPT connector:",digest in hashes)
+          print("Matching connected project name:",hashes.get(digest,"none"))
+          print("MIMT isolated project approved by architecture:",digest not in hashes or hashes.get(digest) not in ("TAKATAK STAGING","TAKATAK User Official Dashboard V1"))
+          print("Supabase identity audit complete. Project ref, username, password and host not printed.")
+          PY
