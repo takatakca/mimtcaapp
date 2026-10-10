@@ -527,3 +527,35 @@ jobs:
             print("Compose has PostgreSQL TLS cert file parameter:",bool(re.search(r"ssl_cert_file|server.crt",raw)))
           print("Database hostname and credentials never printed.")
           PY
+
+
+      - name: Identify external database provider and URL TLS flags without exposing host
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          python - <<'PY'
+          import os,json,urllib.request,urllib.parse
+          url=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1/applications/"+os.environ["COOLIFY_API_UUID"]+"/envs"
+          req=urllib.request.Request(url,headers={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"]})
+          with urllib.request.urlopen(req,timeout=25) as res:r=json.load(res)
+          if isinstance(r,dict):r=r.get("data",r.get("envs",[]))
+          value=next((e.get("value") for e in r if e.get("key")=="DATABASE_URL"),"")
+          p=urllib.parse.urlsplit(value)
+          host=(p.hostname or "").lower()
+          q=urllib.parse.parse_qs(p.query)
+          sslmode=q.get("sslmode",["absent"])[0]
+          root=q.get("sslrootcert",["absent"])[0]
+          print("Database is Supabase-hosted:",host.endswith(".supabase.co") or host.endswith(".pooler.supabase.com"))
+          print("Database host is direct Supabase:",host.startswith("db.") and host.endswith(".supabase.co"))
+          print("Database host is Supabase pooler:",host.endswith(".pooler.supabase.com"))
+          print("Database hostname is internal Docker:", "." not in host)
+          print("SSL mode exact supported value:",sslmode if sslmode in ("require","prefer","verify-ca","verify-full","disable","allow","no-verify","absent") else "other")
+          print("SSL rootcert keyword system:",root=="system")
+          print("SSL rootcert is absolute path:",root.startswith("/"))
+          print("SSL rootcert resembles a certificate filename:",root.endswith((".crt",".pem",".cer")))
+          print("SSL rootcert contains inline PEM:",root.startswith("-----BEGIN"))
+          print("CA PEM has private key markers:",any("PRIVATE KEY" in str(e.get("value","")) for e in r if e.get("key")=="DATABASE_SSL_CA_PEM"))
+          print("Hostname, project identifier, certificate and secrets not printed.")
+          PY
