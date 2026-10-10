@@ -296,3 +296,32 @@ jobs:
                   else: print("CA is syntactically valid X.509")
           print("No raw certificate text emitted; no resources changed.")
           PY
+
+
+      - name: Verify extracting clean PEM fixes Coolify's quoted certificate
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          python - <<'PY'
+          import os,json,re,tempfile,subprocess,urllib.request
+          path=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1/applications/"+os.environ["COOLIFY_API_UUID"]+"/envs"
+          req=urllib.request.Request(path,headers={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"]})
+          with urllib.request.urlopen(req,timeout=25) as res: env=json.load(res)
+          if isinstance(env,dict):env=env.get("data",env.get("envs",[]))
+          cert=next((e.get("real_value") or e.get("value") for e in env if isinstance(e,dict) and e.get("key")=="DATABASE_SSL_CA_PEM"),"")
+          cleaned=cert.replace("\\n","\n").strip()
+          blocks=re.findall(r"-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----",cleaned)
+          print("Extracted X.509 PEM blocks:",len(blocks))
+          for i,block in enumerate(blocks[:5]):
+              with tempfile.NamedTemporaryFile(mode="w",suffix=".pem") as f:
+                  f.write(block+"\n")
+                  f.flush()
+                  p=subprocess.run(["openssl","x509","-in",f.name,"-noout","-text"],capture_output=True,text=True)
+                  print("Block",i+1,"valid X.509:",p.returncode==0)
+                  if p.returncode==0:
+                      print("Block",i+1,"CA TRUE:","CA:TRUE" in p.stdout)
+                      print("Block",i+1,"valid today:",subprocess.run(["openssl","x509","-in",f.name,"-checkend","0","-noout"],capture_output=True).returncode==0)
+          print("No certificate or secrets printed; audit read-only.")
+          PY
