@@ -325,3 +325,58 @@ jobs:
                       print("Block",i+1,"valid today:",subprocess.run(["openssl","x509","-in",f.name,"-checkend","0","-noout"],capture_output=True).returncode==0)
           print("No certificate or secrets printed; audit read-only.")
           PY
+
+
+      - name: Audit deployed MIMT resource provenance and trusted CA mounts
+        shell: bash
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json,urllib.request,urllib.error
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          h={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"],"Accept":"application/json"}
+          def fetch(path):
+            try:
+              with urllib.request.urlopen(urllib.request.Request(base+path,headers=h),timeout=20) as r: return json.loads(r.read(1000000))
+            except urllib.error.HTTPError as e:
+              print("Read endpoint",path.split("/")[1],"HTTP",e.code)
+            except Exception as e: print("Read endpoint exception class",type(e).__name__)
+          app=fetch("/applications/"+os.environ["COOLIFY_API_UUID"])
+          if isinstance(app,dict):
+            print("MIMT application healthy:",str(app.get("status","")).startswith("running"))
+            print("MIMT connected to Docker network:",bool(app.get("connect_to_docker_network")))
+            print("MIMT app build type Dockerfile:",str(app.get("build_pack","")).lower()=="dockerfile")
+            print("MIMT app dockerfile path configured:",bool(app.get("dockerfile")))
+          st=fetch("/applications/"+os.environ["COOLIFY_API_UUID"]+"/storages")
+          if isinstance(st,dict):
+            for typ in ("persistent_storages","file_storages"):
+              arr=st.get(typ) or []
+              print("MIMT",typ,"count",len(arr))
+              for ob in arr:
+                if not isinstance(ob,dict):continue
+                target=str(ob.get("mount_path",ob.get("mount_path_backup","")))
+                origin=str(ob.get("fs_path",ob.get("host_path","")))
+                print("CA mount",typ,"target /etc/ssl/certs/coolify-ca.crt:",target=="/etc/ssl/certs/coolify-ca.crt",
+                  "origin matches Coolify CA location:",origin=="/data/coolify/ssl/coolify-ca.crt")
+          else: print("Application storage listing unavailable")
+          services=fetch("/services")
+          if isinstance(services,dict):services=services.get("data",services.get("services",[]))
+          if isinstance(services,list):
+            print("Accessible Coolify compose services:",len(services))
+            for ob in services[:30]:
+              if not isinstance(ob,dict):continue
+              name=str(ob.get("name",""))
+              raw=str(ob.get("docker_compose_raw",""))
+              print("Service postgres component:",any(k in raw.lower() for k in ("postgres:","postgresql","supabase-db")),
+                    "MIMT-named:",("mimt" in name.lower()))
+          else: print("Service inventory unavailable")
+          db=fetch("/databases")
+          if isinstance(db,dict):db=db.get("data",db.get("databases",[]))
+          if isinstance(db,list):
+            print("Accessible standalone PostgreSQL resources:",sum(1 for d in db if "postgres" in str(d.get("type","")).lower()))
+          print("MIMT resource audit finished; no mutations made")
+          PY
