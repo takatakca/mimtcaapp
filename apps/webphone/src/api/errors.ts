@@ -28,10 +28,38 @@ const CODE_TO_KEY: Record<string, TKey> = {
   insufficient_role: "error.forbidden",
   duplicate_extension: "error.duplicate",
   conflict: "error.duplicate",
+  // Codes sent by apps/api (business, AI and catalog routes).
+  business_role_required: "error.forbidden",
+  owner_immutable: "error.forbidden",
+  admin_only: "error.forbidden",
+  member_exists: "error.duplicate",
+  extension_number_taken: "error.duplicate",
+  seats_exceed_subscription: "error.seatsExceed",
+  seats_below_members: "error.seatsBelow",
+  invalid_media_token: "error.mediaExpired",
+  ai_consent_required: "error.aiConsentRequired",
+  ai_budget_exhausted: "error.aiBudgetExhausted",
+  ai_unavailable: "error.aiUnavailable",
+  no_transcript: "error.noTranscript",
+  terms_not_accepted: "error.termsNotAccepted",
+  contract_summary_required: "error.contractSummaryRequired",
+  contract_summary_outdated: "error.contractSummaryOutdated",
+  consumer_code_required: "error.consumerCodeRequired",
+  credit_check_consent_required: "error.creditCheckRequired",
+  invalid_postal_code: "address.invalidPostal",
+  offer_not_available: "error.offerNotAvailable",
+  order_not_ready: "error.orderNotReady",
+  order_not_cancellable: "error.orderNotCancellable",
+  invalid_transition: "error.orderChanged",
+  order_changed: "error.orderChanged",
+  porting_exists: "error.portingExists",
+  invalid_phone_number: "messages.invalidTo",
 };
 
 export function errorKeyFor(status: number | null, code?: string | null): TKey {
   if (code && CODE_TO_KEY[code]) return CODE_TO_KEY[code];
+  // Wholesaler refusals come back as provider_<code> (apps/api/src/catalog/orders.ts viaProvider).
+  if (code?.startsWith("provider_")) return "error.providerRejected";
   if (status === null || status === 0) return "error.network";
   if (status === 401) return "error.session";
   if (status === 402) return "error.capReached";

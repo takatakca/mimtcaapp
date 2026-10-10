@@ -16,6 +16,8 @@ const SECTIONS: Array<{ to: string; label: TKey; end?: boolean }> = [
   { to: "heures", label: "biz.nav.hours" },
   { to: "numeros", label: "biz.nav.numbers" },
   { to: "membres", label: "biz.nav.members" },
+  { to: "enregistrements", label: "biz.nav.recordings" },
+  { to: "receptionniste-ia", label: "biz.nav.ai" },
 ];
 
 const ROLE_KEY: Record<BusinessCtx["biz"]["role"], TKey> = {

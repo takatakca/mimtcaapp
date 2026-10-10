@@ -22,6 +22,7 @@ import type {
   TakatakExchangeRequest,
   UpdateMeRequest,
   UpdateMeResponse,
+  VoicemailDto,
   VoicemailsResponse,
   VoiceTokenResponse,
   BillingPortalResponse,
@@ -108,6 +109,8 @@ export const api = {
   // Voicemail. Each item carries a short-lived signed audioUrl served by the API (no header needed).
   voicemails: () => request<VoicemailsResponse>("GET", "/v1/voicemails"),
   deleteVoicemail: (id: string) => request<void>("DELETE", `/v1/voicemails/${encodeURIComponent(id)}`),
+  /** AI summary on demand (needs the "ai_processing" consent and vm_transcription): the updated voicemail. */
+  summarizeVoicemail: (id: string) => request<VoicemailDto>("POST", `/v1/voicemails/${encodeURIComponent(id)}/summary`),
 
   // Billing (Stripe Checkout on the web; the API decides the success/cancel URLs).
   checkout: (body: CheckoutRequest) => request<CheckoutResponse>("POST", "/v1/billing/checkout", { body }),
