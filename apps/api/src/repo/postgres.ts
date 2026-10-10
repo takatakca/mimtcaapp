@@ -61,9 +61,11 @@ export class PostgresRepository implements Repository {
     return (this.mediaRepo ??= new PostgresMediaRepository(this.sql));
   }
 
-  constructor(databaseUrl: string, opts: { max?: number } = {}) {
+  constructor(databaseUrl: string, opts: { max?: number; sslCaPem?: string } = {}) {
     this.sql = postgres(databaseUrl, {
       max: opts.max ?? 10,
+      // Trust only the configured database CA. Preserve CA and hostname verification.
+      ...(opts.sslCaPem ? { ssl: { ca: opts.sslCaPem, rejectUnauthorized: true } } : {}),
       transform: postgres.camel,
       types: {
         // numeric → JS number (amounts here are small and stored with 5 decimals).
