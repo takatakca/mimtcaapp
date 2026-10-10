@@ -1,0 +1,103 @@
+name: MIMT Read-only Container CA Check
+
+# Disabled, one-off diagnostic scheduled task, executed manually through
+# Coolify management API then removed; changes NO application/data files.
+on:
+  push:
+    branches: [diag/mimt-container-ca-20261010]
+permissions:
+  contents: read
+jobs:
+  ca-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check CA mounts inside MIMT container and cleanup diagnostic
+        shell: bash
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json,base64,urllib.request,urllib.error,time,urllib.parse
+
+          runtime_js = r"""
+          const fs=require('node:fs'), crypto=require('node:crypto');
+          const caEnv=process.env.DATABASE_SSL_CA_PEM||'';
+          const norm=x=>(x||'').replace(/\\n/g,'\n');
+          const validate=x=>{
+            try {
+              const blocks=norm(x).match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g)||[];
+              return !!blocks.length && blocks.every(b=>!!new crypto.X509Certificate(b));
+            } catch {return false}
+          };
+          let ref='';
+          try{ref=new URL(process.env.DATABASE_URL).searchParams.get('sslrootcert')||''}catch{}
+          console.log('MIMT_CA_AUDIT process_env_present='+Boolean(caEnv));
+          console.log('MIMT_CA_AUDIT process_env_valid='+validate(caEnv));
+          const paths = [...new Set([ref,'/etc/ssl/certs/coolify-ca.crt','/data/coolify/ssl/coolify-ca.crt'])].filter(p=>p.startsWith('/'));
+          for(let i=0;i<paths.length;i++){
+            let present=false,valid=false;
+            try { const data=fs.readFileSync(paths[i],'utf8'); present=true; valid=validate(data) }catch{}
+            const label=paths[i].endsWith('/coolify-ca.crt')?'coolify_ca_mount':'url_sslrootcert_path';
+            console.log('MIMT_CA_AUDIT '+label+'_'+i+'_present='+present);
+            console.log('MIMT_CA_AUDIT '+label+'_'+i+'_valid='+valid);
+          }
+          console.log('MIMT_CA_AUDIT complete=true');
+          """
+          token=os.environ["COOLIFY_TOKEN"]
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1/applications/"+os.environ["COOLIFY_API_UUID"]
+          cmd="node -e "+json.dumps("eval(Buffer.from('"+base64.b64encode(runtime_js.encode()).decode()+"','base64').toString())")
+          name="mimt-diagnostic-ca-"+os.environ.get("RUN_ID","temporary")
+          headers={"Authorization":"Bearer "+token,"Accept":"application/json","Content-Type":"application/json"}
+          def request(path,method="GET",payload=None):
+            req=urllib.request.Request(base+path,
+               data=json.dumps(payload).encode() if payload is not None else None,
+               headers=headers,method=method)
+            try:
+              with urllib.request.urlopen(req,timeout=25) as res:
+                b=res.read(100000)
+                try:return res.status,json.loads(b) if b else None
+                except:return res.status,None
+            except urllib.error.HTTPError as e:
+              print("Coolify scheduled task HTTP",e.code,"on",method)
+              return e.code,None
+            except Exception as e:
+              print("Coolify scheduled task request error class",type(e).__name__)
+              return 0,None
+          task_uuid=None
+          try:
+            status,obj=request("/scheduled-tasks","POST",{"name":name,"command":cmd,"frequency":"0 0 1 1 *","enabled":False,"timeout":60})
+            print("Disabled one-off task creation HTTP",status)
+            if not isinstance(obj,dict) or not obj.get("uuid"):
+              print("Diagnostic task creation not supported by token; no runtime changes made.")
+            else:
+              task_uuid=obj["uuid"]
+              status,_=request("/scheduled-tasks/"+urllib.parse.quote(task_uuid,safe="")+"/execute","POST")
+              print("One-off task manual execution HTTP",status)
+              if status==200:
+                for attempt in range(16):
+                  time.sleep(2)
+                  st, executions=request("/scheduled-tasks/"+urllib.parse.quote(task_uuid,safe="")+"/executions")
+                  if isinstance(executions,dict):
+                    executions=executions.get("data",[])
+                  if not isinstance(executions,list) or not executions:
+                    continue
+                  recent=executions[0]
+                  print("Execution status:",str(recent.get("status","unknown"))[:35])
+                  msg=str(recent.get("message",""))
+                  for line in msg.splitlines():
+                    if "MIMT_CA_AUDIT " in line:
+                      print(line[line.find("MIMT_CA_AUDIT "):][:180])
+                  if recent.get("status") in ("success","failed","completed"):
+                    break
+              else:
+                print("Manual execution unavailable; no cert values inspected.")
+          finally:
+            if task_uuid:
+              status,_=request("/scheduled-tasks/"+urllib.parse.quote(task_uuid,safe=""),"DELETE")
+              print("Temporary diagnostic task deleted HTTP",status)
+          print("No server files modified; no secret/connection strings printed.")
+          PY
