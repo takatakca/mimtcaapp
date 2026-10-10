@@ -18,6 +18,8 @@ const EnvSchema = z
     APP_BASE_URL: z.url().default("https://app.mimt.ca"),
     CORS_ORIGINS: csv(["https://mimt.ca", "https://app.mimt.ca", "https://takatak.ca"]),
     DATABASE_URL: optional,
+    /** PEM root CA used to verify PostgreSQL's TLS certificate chain. Never disable certificate verification. */
+    DATABASE_SSL_CA_PEM: optional,
 
     TWILIO_ACCOUNT_SID: optional,
     TWILIO_API_KEY_SID: optional,
