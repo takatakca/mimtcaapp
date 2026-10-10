@@ -5,6 +5,7 @@ import type { AppDeps } from "../deps.js";
 import { loadContext, requireUser } from "../auth/guard.js";
 import { decodeCursor, encodeCursor } from "../lib/cursor.js";
 import { parse } from "../lib/validate.js";
+import { spamLabelOf } from "../ai/spam.js";
 import type { Call } from "../repo/types.js";
 
 /** Terminal statuses of a call leg that was never connected. */
@@ -48,8 +49,12 @@ export async function callRoutes(app: FastifyInstance, deps: AppDeps) {
     const page = rows.slice(0, q.limit);
     const last = page[page.length - 1];
     const vmCalls = new Set(voicemails.map((v) => v.callSid));
+    const spam = deps.ai ? await deps.ai.store.getSpamScores("call", page.map((c) => c.twilioCallSid)) : new Map();
     return {
-      calls: page.map((c) => callRecord(c, vmCalls)),
+      calls: page.map((c) => {
+        const label = c.direction === "inbound" ? spamLabelOf(spam.get(c.twilioCallSid)) : undefined;
+        return { ...callRecord(c, vmCalls), ...(label ? { spamLabel: label } : {}) };
+      }),
       nextCursor: rows.length > q.limit && last ? encodeCursor(last.startedAt, last.id) : null,
     };
   });

@@ -32,6 +32,8 @@ export interface TwilioGateway {
   /** Downloads a recording (mp3) server-side, so Twilio credentials never reach the client. */
   fetchRecording(input: { recordingSid: string; accountSid?: string }): Promise<{ contentType: string; body: Buffer }>;
   deleteRecording(input: { recordingSid: string; accountSid?: string }): Promise<void>;
+  /** Starts or stops recording a live call (MIMT Affaires on-demand recording). Optional: absent → 503. */
+  updateCallRecording?(input: { callSid: string; action: "start" | "stop"; statusCallback: string }): Promise<void>;
 }
 
 const RECORDING_SID = /^RE[0-9a-f]{32}$/i;
@@ -164,6 +166,27 @@ export class TwilioRestGateway implements TwilioGateway {
   async deleteRecording(input: { recordingSid: string; accountSid?: string }) {
     const res = await fetch(this.recordingUrl(input, ".json"), { method: "DELETE", headers: { authorization: this.basicAuth() } });
     if (!res.ok && res.status !== 404) throw new Error(`Twilio recording delete failed with HTTP ${res.status}`);
+  }
+
+  async updateCallRecording(input: { callSid: string; action: "start" | "stop"; statusCallback: string }) {
+    const call = this.client.calls(input.callSid);
+    if (input.action === "start") {
+      await call.recordings.create({
+        recordingChannels: "dual",
+        recordingStatusCallback: input.statusCallback,
+        recordingStatusCallbackMethod: "POST",
+        recordingStatusCallbackEvent: ["completed"],
+      });
+    } else {
+      await call.recordings("Twilio.CURRENT").update({ status: "stopped" });
+    }
+  }
+
+  /** Twilio totalprice for a window, in USD. Used by the daily cost report. */
+  async usagePriceUsd(start: Date, end: Date): Promise<number | null> {
+    const records = await this.client.usage.records.list({ category: "totalprice", startDate: start, endDate: end, limit: 1 });
+    const price = records[0]?.price;
+    return price == null || Number.isNaN(Number(price)) ? null : Number(price);
   }
 }
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isSipHost } from "./lib/cuba.js";
 
 const optional = z.string().min(1).optional();
 const csv = (fallback: string[]) =>
@@ -54,8 +55,53 @@ const EnvSchema = z
     USD_TO_CAD: z.coerce.number().positive().default(1.4),
     /** Conservative per-minute estimate used to size <Dial timeLimit> for prepaid international calls. */
     INTL_ASSUMED_RATE_CENTS_PER_MIN: z.coerce.number().int().positive().default(50),
+
+    /** Catalog / resale (docs/MIMT-RESALE.md). Unset: sandbox outside production, disabled in production. */
+    PROVISIONING_PROVIDER: z.enum(["sandbox", "videotron"]).optional(),
+    VIDEOTRON_API_BASE_URL: z.url().optional(),
+    VIDEOTRON_CLIENT_ID: optional,
+    VIDEOTRON_CLIENT_SECRET: optional,
+    VIDEOTRON_RESELLER_ID: optional,
+    VIDEOTRON_TOKEN_URL: z.url().optional(),
+    VIDEOTRON_WEBHOOK_SECRET: optional,
+    /** MIMT user ids allowed on /v1/admin/* catalog routes (comma separated). */
+    CATALOG_ADMIN_USER_IDS: csv([]),
+
+    /** Claude (AI features). Optional: when unset every AI feature answers 503 not_configured. */
+    ANTHROPIC_API_KEY: optional,
+    ANTHROPIC_MODEL: z.string().min(1).default("claude-opus-5-5"),
+    /** Public wss:// URL of the AI receptionist WebSocket. Default: PUBLIC_BASE_URL with wss + /ws/ai/receptionist. */
+    AI_RECEPTIONIST_WS_URL: z.url().optional(),
+    SENTRY_DSN: optional,
+    /** Secret URL. Never log it. */
+    BETTER_STACK_HEARTBEAT_URL: optional,
+    /** Second carrier for Cuba (+53), which Twilio does not offer. Telnyx or VoIP.ms, via a SIP trunk. */
+    CUBA_CARRIER: z.enum(["telnyx", "voipms"]).optional(),
+    CUBA_SIP_HOST: optional,
+    SUPABASE_URL: optional,
+    SUPABASE_SERVICE_ROLE_KEY: optional,
+    ADMOB_SSV_KEYS_URL: z.url().default("https://www.gstatic.com/admob/reward/verifier-keys.json"),
+    APPLE_BUNDLE_ID: optional,
+    APPLE_TEAM_ID: optional,
+    /** Apple root CA PEM. Public certificate, still kept in the environment so it can be rotated. */
+    APPLE_ROOT_CA_PEM: optional,
+    GOOGLE_PLAY_PACKAGE_NAME: optional,
+    GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: optional,
+    DEVICE_ATTESTATION_REQUIRED: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((v) => v === "true"),
   })
   .superRefine((env, ctx) => {
+    if (env.SENTRY_DSN && !env.SENTRY_DSN.startsWith("https://")) {
+      ctx.addIssue({ code: "custom", path: ["SENTRY_DSN"], message: "SENTRY_DSN must be https" });
+    }
+    if (env.BETTER_STACK_HEARTBEAT_URL && !env.BETTER_STACK_HEARTBEAT_URL.startsWith("https://")) {
+      ctx.addIssue({ code: "custom", path: ["BETTER_STACK_HEARTBEAT_URL"], message: "BETTER_STACK_HEARTBEAT_URL must be https" });
+    }
+    if (env.CUBA_SIP_HOST && !isSipHost(env.CUBA_SIP_HOST)) {
+      ctx.addIssue({ code: "custom", path: ["CUBA_SIP_HOST"], message: "CUBA_SIP_HOST must be a hostname, with no user or password" });
+    }
     if (env.NODE_ENV !== "production") return;
     const required = [
       "DATABASE_URL",
@@ -88,7 +134,11 @@ export type Config = z.infer<typeof EnvSchema>;
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
   // .env files often carry empty values: treat them as unset.
-  const cleaned = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v !== ""));
+  const cleaned = Object.fromEntries(
+    Object.entries(env)
+      .filter(([, v]) => v !== undefined && v !== "")
+      .map(([k, v]) => [k, k.endsWith("_PEM") || k.endsWith("_JSON") ? v!.replace(/\\n/g, "\n") : v]),
+  );
   const parsed = EnvSchema.safeParse(cleaned);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
@@ -99,3 +149,4 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
 
 export const twilioRestConfigured = (c: Config) => Boolean(c.TWILIO_ACCOUNT_SID && c.TWILIO_API_KEY_SID && c.TWILIO_API_KEY_SECRET);
 export const stripeConfigured = (c: Config) => Boolean(c.STRIPE_SECRET_KEY && c.STRIPE_WEBHOOK_SECRET);
+export const aiConfigured = (c: Config) => Boolean(c.ANTHROPIC_API_KEY);

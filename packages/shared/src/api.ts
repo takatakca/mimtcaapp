@@ -4,6 +4,7 @@
 
 import type { NumberState } from "./numbers.js";
 import type { PlanCode } from "./plans.js";
+import type { SpamLabel, VoicemailInsight } from "./ai.js";
 
 export type Locale = "fr-CA" | "en-CA";
 export type Direction = "inbound" | "outbound";
@@ -87,11 +88,24 @@ export interface MeExportResponse {
   [section: string]: unknown;
 }
 
-export type ConsentKind = "casl_marketing" | "ads_personalised" | "call_recording_notice" | "privacy_policy" | "terms";
+/** Consents a user can give or withdraw through POST /v1/consents. */
+export const USER_CONSENT_KINDS = [
+  "casl_marketing",
+  "ads_personalised",
+  "call_recording_notice",
+  "privacy_policy",
+  "terms",
+  /** Law 25: processing of voicemails/SMS by the AI provider (Anthropic, outside Quebec). See ai.ts. */
+  "ai_processing",
+] as const;
+/** Consents recorded by the resale order flow (contract summary, consumer codes, credit check). */
+export const ORDER_CONSENT_KINDS = ["contract_summary", "wireless_code", "internet_code", "credit_check"] as const;
+export type UserConsentKind = (typeof USER_CONSENT_KINDS)[number];
+export type ConsentKind = UserConsentKind | (typeof ORDER_CONSENT_KINDS)[number];
 
 /** POST /v1/consents → 201 ConsentResponse */
 export interface ConsentRequest {
-  kind: ConsentKind;
+  kind: UserConsentKind;
   granted: boolean;
   version: string;
   /** Where the consent was given ("mobile", "web"…). Defaults to "app". */
@@ -209,6 +223,8 @@ export interface CallRecord {
   durationS: number | null;
   /** Inbound call that was never answered. */
   missed: boolean;
+  /** Set when the call looks like spam/fraud: the app shows « Appel suspect ». Absent when the call looks fine. */
+  spamLabel?: SpamLabel;
 }
 
 /** GET /v1/calls?cursor&limit (newest first). */
@@ -239,6 +255,8 @@ export interface MessageDto {
   segments: number;
   numMedia: number;
   createdAt: string;
+  /** Inbound messages only, when flagged: the app shows « Message suspect ». */
+  spamLabel?: SpamLabel;
 }
 
 export interface ConversationDto {
@@ -274,6 +292,8 @@ export interface VoicemailDto {
    */
   audioUrl: string | null;
   audioUrlExpiresAt: string | null;
+  /** AI summary (Claude), present only when the user consented to "ai_processing" and it was produced. */
+  ai?: VoicemailInsight;
 }
 
 /** GET /v1/voicemails (newest first). DELETE /v1/voicemails/:id → 204. */
@@ -308,7 +328,7 @@ export interface BillingPortalResponse {
 
 // ------------------------------------------------------------------------------------------ rewards
 
-/** POST /v1/rewards/claim — answers 501 not_implemented until AdMob SSV verification exists. */
+/** POST /v1/rewards/claim — credits minutes only after AdMob's signed callback has arrived. */
 export interface RewardClaimRequest {
   kind: "rewarded_ad_10min";
   adUnitId: string;

@@ -19,6 +19,10 @@ export const REDACT_PATHS = [
   "*.codeVerifier",
   "*.password",
   "*.secret",
+  "*.assertion",
+  "*.private_key",
+  "*.privateKey",
+  "*.serviceAccountJson",
 ];
 
 export function loggerOptions(config: Config): FastifyServerOptions["logger"] {

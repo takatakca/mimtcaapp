@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { AppDeps } from "../deps.js";
+import { scoreInboundSms } from "../ai/spam.js";
 import { HELD_STATES } from "../services/accounts.js";
 import { MessagingResponse, NOT_IN_SERVICE, sendTwiml, twilioParams } from "./twiml.js";
 
@@ -38,7 +39,7 @@ export async function twilioSmsWebhooks(app: FastifyInstance, deps: AppDeps) {
       await repo.setOptOut(number.e164, p.From, false);
     }
 
-    await repo.createMessage({
+    const message = await repo.createMessage({
       twilioSid: p.MessageSid ?? null,
       telecomAccountId: number.telecomAccountId,
       direction: "inbound",
@@ -50,6 +51,9 @@ export async function twilioSmsWebhooks(app: FastifyInstance, deps: AppDeps) {
       segments: Number(p.NumSegments ?? 1) || 1,
       numMedia: Number(p.NumMedia ?? 0) || 0,
     });
+    // « Message suspect » label (heuristics; Claude only for ambiguous text with consent). Never blocks delivery.
+    const accountId = number.telecomAccountId;
+    deps.ai?.background("spam:sms", () => scoreInboundSms(deps, { messageId: message.id, telecomAccountId: accountId, from: p.From, body }));
     // TODO: push notification to the owner's devices; copy MMS media to private storage.
     return sendTwiml(reply, empty);
   });

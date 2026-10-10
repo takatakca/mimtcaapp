@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { NumberState } from "@mimt/shared";
+import { MemoryPbxRepository } from "./pbxMemory.js";
+import { MemoryCatalogRepository } from "./catalogMemory.js";
 import type {
   AuditEntry,
   Call,
@@ -48,6 +50,10 @@ export class MemoryRepository implements Repository {
   optOuts = new Map<string, boolean>();
   outbox: OutboxEvent[] = [];
   auditLog: Array<AuditEntry & { at: Date }> = [];
+  readonly pbx = new MemoryPbxRepository(() => this.calls.values());
+  readonly catalog = new MemoryCatalogRepository();
+  devices: Array<{ platform: "ios" | "android"; deviceKey: string; userId: string; verifiedAt: Date }> = [];
+  adRewards: Array<{ userId: string; transactionId: string; minutes: number; createdAt: Date; claimedAt: Date | null }> = [];
 
   async ping() {}
   async close() {}
@@ -518,5 +524,33 @@ export class MemoryRepository implements Repository {
 
   async audit(entry: AuditEntry) {
     this.auditLog.push({ ...entry, at: new Date() });
+  }
+
+  async bindDevice(input: { platform: "ios" | "android"; deviceKey: string; userId: string; verifiedAt: Date }) {
+    const existing = this.devices.find((d) => d.platform === input.platform && d.deviceKey === input.deviceKey);
+    if (existing && existing.userId !== input.userId) return "taken" as const;
+    if (existing) {
+      existing.verifiedAt = input.verifiedAt;
+      return "ok" as const;
+    }
+    this.devices.push({ ...input });
+    return "ok" as const;
+  }
+
+  async grantAdReward(input: { userId: string; transactionId: string; minutes: number; createdAt: Date }) {
+    if (this.adRewards.some((r) => r.transactionId === input.transactionId)) return false;
+    this.adRewards.push({ ...input, claimedAt: null });
+    return true;
+  }
+
+  async countAdRewardsSince(userId: string, since: Date) {
+    return this.adRewards.filter((r) => r.userId === userId && r.createdAt >= since).length;
+  }
+
+  async claimAdReward(userId: string, at: Date) {
+    const reward = this.adRewards.find((r) => r.userId === userId && !r.claimedAt);
+    if (!reward) return null;
+    reward.claimedAt = at;
+    return { transactionId: reward.transactionId, minutes: reward.minutes };
   }
 }

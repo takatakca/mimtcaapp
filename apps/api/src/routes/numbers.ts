@@ -43,7 +43,10 @@ export async function numberRoutes(app: FastifyInstance, deps: AppDeps) {
     if (!user.phoneVerifiedAt && !user.deviceVerifiedAt) throw forbidden("verification_required", "Verify your phone or device first");
     if (classifyDestination(e164) !== "ca") throw forbidden("canadian_numbers_only");
 
-    const { extraNumbers } = await getFeatures(repo, account.id);
+    const { extraNumbers, plan } = await getFeatures(repo, account.id);
+    if (plan === "free" && config.DEVICE_ATTESTATION_REQUIRED && !user.deviceVerifiedAt) {
+      throw forbidden("device_attestation_required", "Confirmez cet appareil avant d'obtenir un numéro gratuit.");
+    }
     const held = (await repo.listNumbersByAccount(account.id)).filter((n) => HELD_STATES.has(n.state));
     if (held.length >= 1 + extraNumbers) throw forbidden("number_limit_reached", "Your plan allows no more numbers");
 

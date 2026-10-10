@@ -79,8 +79,14 @@ export function initAds(): Promise<boolean> {
 }
 
 /** Request options for every ad request: non-personalised unless all consents say otherwise. */
-export function adRequestOptions(): { requestNonPersonalizedAdsOnly: boolean } {
-  return { requestNonPersonalizedAdsOnly: !personalised };
+export function adRequestOptions(userId?: string): {
+  requestNonPersonalizedAdsOnly: boolean;
+  serverSideVerificationOptions?: { userId: string; customData: string };
+} {
+  return {
+    requestNonPersonalizedAdsOnly: !personalised,
+    ...(userId ? { serverSideVerificationOptions: { userId, customData: userId } } : {}),
+  };
 }
 
 export function testUnitIds(ads: AdsSdk): { banner: string; rewarded: string } {

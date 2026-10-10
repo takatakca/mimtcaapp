@@ -48,6 +48,11 @@ describe("billing", () => {
     const arg = billing.createCheckout.mock.calls[0]![0];
     expect(arg).toMatchObject({ mode: "subscription", customerId: "cus_1", line: { unitAmountCents: 1999, recurring: "month" }, metadata: { code: "premium" } });
     expect(arg.line.description).toMatch(/avant taxes/);
+    expect(arg.taxLines?.map((line: { name: string; unitAmountCents: number }) => [line.name, line.unitAmountCents])).toEqual([
+      ["TPS (5 %)", 100],
+      ["TVQ (9,975 %)", 199],
+      ["Taxe municipale 9-1-1 du Québec", 55],
+    ]);
   });
 
   it("refuses international credit on the free plan", async () => {

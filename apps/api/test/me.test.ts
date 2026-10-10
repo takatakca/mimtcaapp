@@ -64,9 +64,17 @@ describe("health and plumbing", () => {
     expect(denied.headers["access-control-allow-origin"]).toBeUndefined();
   });
 
-  it("answers 501 for in-app purchase verification (not implemented)", async () => {
+  it("rejects an empty in-app receipt and stays unconfigured without store credentials", async () => {
     const u = await makeUser(ctx);
-    expect((await ctx.app.inject({ method: "POST", url: "/v1/billing/iap/verify", headers: u.auth, payload: {} })).statusCode).toBe(501);
+    expect((await ctx.app.inject({ method: "POST", url: "/v1/billing/iap/verify", headers: u.auth, payload: {} })).statusCode).toBe(400);
+    const missing = await ctx.app.inject({
+      method: "POST",
+      url: "/v1/billing/iap/verify",
+      headers: u.auth,
+      payload: { platform: "ios", productId: "ca.mimt.app.premium.monthly", transaction: "x".repeat(40) },
+    });
+    expect(missing.statusCode).toBe(503);
+    expect(missing.json().error).toBe("not_configured");
   });
 
   it("answers 503 for billing without Stripe", async () => {

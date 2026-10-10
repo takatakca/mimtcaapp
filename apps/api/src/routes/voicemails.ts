@@ -7,6 +7,8 @@ import { recordingAccountSid } from "../gateways/twilio.js";
 import { HttpError, notConfigured, notFound } from "../lib/errors.js";
 import { parse } from "../lib/validate.js";
 import type { Voicemail } from "../repo/types.js";
+import type { VoicemailInsight } from "@mimt/shared";
+import { processVoicemailTranscript, type VoicemailAiResult } from "../ai/voicemail.js";
 
 /** Lifetime of the signed audio URLs returned by GET /v1/voicemails. */
 export const AUDIO_URL_TTL_S = 15 * 60;
@@ -20,7 +22,7 @@ export async function voicemailRoutes(app: FastifyInstance, deps: AppDeps) {
   const base = deps.config.PUBLIC_BASE_URL.replace(/\/$/, "");
   const auth = { preHandler: requireUser(deps) };
 
-  async function dto(v: Voicemail): Promise<VoicemailDto> {
+  async function dto(v: Voicemail, insight?: VoicemailInsight): Promise<VoicemailDto> {
     // The URL points at this API (never at Twilio) and carries a capability token scoped to this one
     // voicemail, so audio players that cannot send headers can stream it. No Twilio credentials leave the server.
     const signed = hasAudio(v) ? await sessions.signMedia(resource(v.id), AUDIO_URL_TTL_S) : null;
@@ -33,6 +35,7 @@ export async function voicemailRoutes(app: FastifyInstance, deps: AppDeps) {
       listened: Boolean(v.listenedAt),
       audioUrl: signed ? `${base}/v1/voicemails/${v.id}/audio?token=${encodeURIComponent(signed.token)}` : null,
       audioUrlExpiresAt: signed ? signed.expiresAt.toISOString() : null,
+      ...(insight ? { ai: insight } : {}),
     };
   }
 
@@ -48,14 +51,28 @@ export async function voicemailRoutes(app: FastifyInstance, deps: AppDeps) {
   app.get("/v1/voicemails", auth, async (req): Promise<VoicemailsResponse> => {
     const { account } = await loadContext(deps, req);
     const list = await repo.listVoicemails(account.id);
-    return { voicemails: await Promise.all(list.map(dto)) };
+    const insights = deps.ai ? await deps.ai.store.getVoicemailInsights(list.map((v) => v.id)) : new Map<string, VoicemailInsight>();
+    return { voicemails: await Promise.all(list.map((v) => dto(v, insights.get(v.id)))) };
+  });
+
+  // AI summary on demand (normally made when the transcript arrives). Same checks: key, plan, consent, budget.
+  app.post("/v1/voicemails/:id/summary", auth, async (req): Promise<VoicemailDto> => {
+    const vm = await ownVoicemail(req);
+    const result = await processVoicemailTranscript(deps, vm);
+    const failure = SUMMARY_ERRORS[result];
+    if (failure) throw new HttpError(failure[0], failure[1]);
+    const insights = await deps.ai!.store.getVoicemailInsights([vm.id]);
+    return dto(vm, insights.get(vm.id));
   });
 
   app.delete("/v1/voicemails/:id", auth, async (req, reply) => {
     const vm = await ownVoicemail(req);
     await repo.deleteVoicemail(vm.id);
     // Best effort: also remove the audio from Twilio (Law 25 minimisation). The row is already gone.
-    if (deps.twilio && vm.recordingSid) {
+    if (deps.media && vm.audioPath) {
+      await deps.media.delete(vm.audioPath).catch((err: unknown) => req.log.warn({ err, voicemailId: vm.id }, "private voicemail delete failed"));
+    }
+    if (deps.twilio && vm.recordingSid && !vm.audioPath) {
       const accountSid = recordingAccountSid(vm.audioUrl);
       await deps.twilio
         .deleteRecording({ recordingSid: vm.recordingSid, ...(accountSid ? { accountSid } : {}) })
@@ -79,7 +96,12 @@ export async function voicemailRoutes(app: FastifyInstance, deps: AppDeps) {
       vm = await ownVoicemail(req);
     }
     if (!hasAudio(vm)) throw notFound("no_audio");
-    // TODO(storage): once recordings are copied to private Supabase Storage (audioPath), serve or sign from there.
+    if (vm.audioPath && deps.media) {
+      const stored = await deps.media.get(vm.audioPath);
+      if (!stored) throw new HttpError(502, "audio_unavailable", "The recording could not be retrieved");
+      await repo.markVoicemailListened(vm.id, deps.now());
+      return sendAudio(req, reply, stored);
+    }
     if (!deps.twilio) throw notConfigured("Voicemail audio");
 
     let audio: { contentType: string; body: Buffer };
@@ -94,6 +116,18 @@ export async function voicemailRoutes(app: FastifyInstance, deps: AppDeps) {
     return sendAudio(req, reply, audio);
   });
 }
+
+const SUMMARY_ERRORS: Record<VoicemailAiResult, [number, string] | null> = {
+  done: null,
+  not_configured: [503, "not_configured"],
+  no_transcript: [409, "no_transcript"],
+  not_entitled: [403, "plan_required"],
+  no_consent: [403, "ai_consent_required"],
+  budget_exhausted: [429, "ai_budget_exhausted"],
+  refusal: [422, "ai_unavailable"],
+  max_tokens: [422, "ai_unavailable"],
+  invalid_output: [422, "ai_unavailable"],
+};
 
 /** Sends a buffer with single-range support (iOS AVPlayer asks for byte ranges). */
 function sendAudio(req: FastifyRequest, reply: FastifyReply, audio: { contentType: string; body: Buffer }) {

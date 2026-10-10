@@ -12,7 +12,9 @@ export type Feature =
   | "call_recording"
   | "auto_attendant"
   | "ring_groups"
-  | "admin_portal";
+  | "admin_portal"
+  /** Claude-powered assistance: smart SMS replies, AI receptionist (business). See ai.ts. */
+  | "ai_assist";
 
 export type PlanCode = "free" | "lock" | "premium" | "business" | "business_pro";
 
@@ -62,7 +64,7 @@ export const PLANS: Record<PlanCode, Plan> = {
     name: { fr: "Premium", en: "Premium" },
     monthlyPriceCents: 1999,
     perLine: false,
-    features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding"],
+    features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "ai_assist"],
     caps: { outboundMinutes: 500, inboundMinutes: 1000, outboundSms: 500, concurrentCalls: 2, inactivityDays: null },
   },
   business: {
@@ -70,7 +72,7 @@ export const PLANS: Record<PlanCode, Plan> = {
     name: { fr: "Affaires", en: "Business" },
     monthlyPriceCents: 3499,
     perLine: true,
-    features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "auto_attendant", "ring_groups", "admin_portal"],
+    features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "auto_attendant", "ring_groups", "admin_portal", "ai_assist"],
     caps: { outboundMinutes: 1000, inboundMinutes: 2000, outboundSms: 500, concurrentCalls: 2, inactivityDays: null },
   },
   business_pro: {
@@ -78,7 +80,7 @@ export const PLANS: Record<PlanCode, Plan> = {
     name: { fr: "Affaires Pro", en: "Business Pro" },
     monthlyPriceCents: 4499,
     perLine: true,
-    features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "auto_attendant", "ring_groups", "admin_portal", "call_recording"],
+    features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "auto_attendant", "ring_groups", "admin_portal", "call_recording", "ai_assist"],
     caps: { outboundMinutes: 1000, inboundMinutes: 2000, outboundSms: 1000, concurrentCalls: 4, inactivityDays: null },
   },
 };
@@ -91,6 +93,19 @@ export const ADD_ONS = {
 
 export function planHas(plan: PlanCode, feature: Feature): boolean {
   return PLANS[plan].features.includes(feature);
+}
+
+/** App Store and Play product ids. Business plans stay on the web (Stripe). */
+export const STORE_PRODUCTS = {
+  "ca.mimt.app.lock.monthly": { plan: "lock", interval: "month" },
+  "ca.mimt.app.lock.yearly": { plan: "lock", interval: "year" },
+  "ca.mimt.app.premium.monthly": { plan: "premium", interval: "month" },
+  "ca.mimt.app.premium.yearly": { plan: "premium", interval: "year" },
+} as const satisfies Record<string, { plan: "lock" | "premium"; interval: "month" | "year" }>;
+
+export function storeProduct(id: string): (typeof STORE_PRODUCTS)[keyof typeof STORE_PRODUCTS] | undefined {
+  if (id in STORE_PRODUCTS) return STORE_PRODUCTS[id as keyof typeof STORE_PRODUCTS];
+  return undefined;
 }
 
 /** Format CAD cents the Quebec way: "19,99 $" (fr) or "$19.99" (en). */

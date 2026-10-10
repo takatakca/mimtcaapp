@@ -47,14 +47,14 @@ describe("POST /v1/push/register", () => {
 });
 
 describe("POST /v1/rewards/claim", () => {
-  it("is not implemented yet: 501 with a French message and credits nothing", async () => {
+  it("does not credit minutes until AdMob's signed callback has arrived", async () => {
     const u = await makeUser(ctx);
     const res = await ctx.app.inject({
       method: "POST", url: "/v1/rewards/claim", headers: u.auth, payload: { kind: "rewarded_ad_10min", adUnitId: "ca-app-pub-x/y" },
     });
-    expect(res.statusCode).toBe(501);
-    expect(res.json().error).toBe("not_implemented");
-    expect(res.json().message).toMatch(/pas encore/);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("reward_pending");
+    expect(res.json().message).toMatch(/pas encore arrivée/);
     const usage = [...ctx.repo.usage.values()];
     expect(usage.every((x) => x.bonusMinutesOut === 0)).toBe(true);
   });

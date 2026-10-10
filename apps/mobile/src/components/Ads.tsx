@@ -43,7 +43,8 @@ export function AdBanner() {
 /** "Gagnez 10 minutes": rewarded ad, then POST /v1/rewards/claim. */
 export function RewardButton() {
   const { t } = useI18n();
-  const { refreshMe } = useSession();
+  const { me, refreshMe } = useSession();
+  const userId = me?.user.id;
   const ready = useAdsReady();
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -56,14 +57,14 @@ export function RewardButton() {
     if (!ready || !ads) return;
     const { RewardedAd, RewardedAdEventType, AdEventType } = ads;
     unitRef.current = testUnitIds(ads).rewarded;
-    const ad = RewardedAd.createForAdRequest(unitRef.current, adRequestOptions());
+    const ad = RewardedAd.createForAdRequest(unitRef.current, adRequestOptions(userId));
     adRef.current = ad;
     const offs = [
       ad.addAdEventListener(RewardedAdEventType.LOADED, () => setLoaded(true)),
       ad.addAdEventListener(RewardedAdEventType.EARNED_REWARD, async () => {
         try {
-          // The API credits minutes only after AdMob server-side verification (SSV); until that exists
-          // it answers 501 not_implemented and we show a friendly "coming soon" message.
+          // Minutes are credited only after AdMob's signed callback. A 409 means that callback
+          // has not arrived yet.
           await api.claimReward({ kind: "rewarded_ad_10min", adUnitId: unitRef.current });
           setResult("done");
           await refreshMe();
@@ -83,7 +84,7 @@ export function RewardButton() {
     ];
     ad.load();
     return () => offs.forEach((off) => off());
-  }, [ready, refreshMe]);
+  }, [ready, refreshMe, userId]);
 
   if (!ready) return null;
   return (

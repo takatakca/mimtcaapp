@@ -24,6 +24,16 @@ describe("number claim", () => {
     expect((await claim(u.auth)).json().error).toBe("e911_ack_required");
   });
 
+  it("requires a confirmed device for a free number when that rule is on", async () => {
+    await ctx.app.close();
+    ctx = await setup({ config: { DEVICE_ATTESTATION_REQUIRED: "true" } });
+    const u = await makeUser(ctx, { e911: true, ack: true });
+    const res = await claim(u.auth);
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error).toBe("device_attestation_required");
+    expect(ctx.twilio!.purchaseNumber).not.toHaveBeenCalled();
+  });
+
   it("is refused without phone or device verification", async () => {
     const u = await makeUser(ctx, { e911: true, ack: true, verified: false });
     expect((await claim(u.auth)).json().error).toBe("verification_required");

@@ -125,19 +125,19 @@ psql mimt_test -c "create role anon; create role authenticated; create role serv
   create function auth.uid() returns uuid language sql stable as 'select null::uuid';"
 psql mimt_test -f supabase/migrations/0001_init.sql
 psql mimt_test -f supabase/migrations/0002_push_tokens.sql
+psql mimt_test -f supabase/migrations/0003_devices_rewards.sql
 TEST_DATABASE_URL=postgres://localhost/mimt_test pnpm --filter @mimt/api test
 ```
 
 ### TODO
 
-- Apple / Google in-app purchase verification (`/v1/billing/iap/verify` returns 501).
-- AdMob rewarded-ad server-side verification (`/v1/rewards/claim` returns 501).
-- Copy voicemail audio to private storage (`audioPath`); `/v1/voicemails/:id/audio` proxies Twilio until then.
-- Push notifications (APNs/FCM) and email for inbound SMS, voicemail and inactivity warnings (`LogNotifier` placeholder).
-- Copy voicemail audio and MMS media to private Supabase Storage and delete them from Twilio; French voicemail transcription.
-- Device attestation (App Attest / Play Integrity) to set `device_verified_at`; Twilio Lookup line-type check at signup.
+- iOS App Attest CBOR verification (the route exists; production iOS fails closed until `APPLE_TEAM_ID` and the attestation check are finished). Android Play Integrity runs when the Play service-account secret is set.
+- French voicemail transcription. Paid plans already request Twilio's English transcription.
+- Copy MMS media to private storage. Voicemail audio is copied when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set.
+- Push notifications (APNs/FCM) and email (`LogNotifier` still logs only).
+- Twilio Lookup line-type check at signup.
 - Hard-delete job after the 30-day deletion delay; cancel Stripe subscriptions on account deletion.
 - Twilio subaccount per environment / business customer; per-business ring groups (phase 2).
 - Usage periods are UTC calendar months; align with the billing period when paid plans start.
-- Stripe Tax / GST-QST and the Quebec 9-1-1 municipal tax once registered (checkout shows a "before taxes" note).
 - Redis rate limiter and a separate outbox worker when scaling past one instance.
+- Run `pnpm --filter @mimt/api job:twilio-guardrails` once the Twilio API key is in the environment (Canada/US voice permissions, daily spend trigger). It does not buy numbers.

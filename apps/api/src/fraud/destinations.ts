@@ -17,6 +17,7 @@ export function checkVoiceDestination(e164: string, intl: { entitled: boolean; c
     case "nanp_premium":
       return { ok: false, zone, reason: "premium_rate_blocked" };
     case "nanp_high_cost":
+    case "cuba":
     case "intl":
       if (!intl.entitled) return { ok: false, zone, reason: "intl_not_allowed" };
       if (intl.creditCents <= 0) return { ok: false, zone, reason: "intl_no_credit" };

@@ -1,10 +1,12 @@
-import type { Feature, Locale, NumberState, PlanCode } from "@mimt/shared";
+import type { ConsentKind, Feature, Locale, NumberState, PlanCode } from "@mimt/shared";
+import type { PbxRepository } from "./pbxTypes.js";
+import type { CatalogRepository } from "./catalog.js";
 
 export type UserStatus = "active" | "suspended" | "pending_deletion" | "deleted";
 export type AccountStatus = "ACTIVE_MANAGED" | "ACTIVE_INDEPENDENT" | "OUTBOUND_SUSPENDED" | "SUSPENDED" | "CLOSED";
 export type RiskTier = "new" | "standard" | "trusted" | "high";
 export type SubscriptionStatus = "active" | "trialing" | "past_due" | "canceled" | "incomplete" | "unpaid";
-export type ConsentKind = "casl_marketing" | "ads_personalised" | "call_recording_notice" | "privacy_policy" | "terms";
+export type { ConsentKind };
 export type FraudAction = "block" | "hold" | "suspend" | "alert";
 export type CallKind = "pstn" | "app" | "emergency";
 export type Direction = "inbound" | "outbound";
@@ -260,6 +262,10 @@ export interface AuditEntry {
 type New<T, Optional extends keyof T = never> = Omit<T, "id" | "createdAt" | Optional> & Partial<Pick<T, Optional>>;
 
 export interface Repository {
+  /** MIMT Affaires (business PBX) storage: src/repo/pbxTypes.ts. */
+  readonly pbx: PbxRepository;
+  /** Catalog / internet + mobile resale storage: src/repo/catalog.ts. */
+  readonly catalog: CatalogRepository;
   ping(): Promise<void>;
   close(): Promise<void>;
 
@@ -348,6 +354,14 @@ export interface Repository {
 
   /** Records a single-use identifier (JWT jti, Stripe event id). False if already seen. */
   useOnce(key: string, expiresAt: Date): Promise<boolean>;
+
+  /** Binds an attested device to this user. "taken" when another user already has it. */
+  bindDevice(input: { platform: "ios" | "android"; deviceKey: string; userId: string; verifiedAt: Date }): Promise<"ok" | "taken">;
+  /** Inserts a verified ad reward. False when the transaction was already stored. */
+  grantAdReward(input: { userId: string; transactionId: string; minutes: number; createdAt: Date }): Promise<boolean>;
+  countAdRewardsSince(userId: string, since: Date): Promise<number>;
+  /** Marks the oldest unclaimed reward as claimed. */
+  claimAdReward(userId: string, at: Date): Promise<{ transactionId: string; minutes: number } | null>;
 
   setOptOut(ourNumber: string, peer: string, optedOut: boolean): Promise<void>;
   isOptedOut(ourNumber: string, peer: string): Promise<boolean>;

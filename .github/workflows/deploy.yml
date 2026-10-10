@@ -1,0 +1,101 @@
+name: Deploy
+
+# Deploys main automatically. Each job is skipped (not failed) until its secrets exist.
+# Secrets (GitHub → Settings → Secrets and variables → Actions):
+#   MOCHAHOST_FTP_SERVER, MOCHAHOST_FTP_USERNAME, MOCHAHOST_FTP_PASSWORD   → website + web app
+#   COOLIFY_URL, COOLIFY_TOKEN, COOLIFY_API_UUID                            → API
+# Variables (same page, "Variables" tab), optional:
+#   WEB_FTP_DIR (default ./public_html/), WEBPHONE_FTP_DIR (default ./app.mimt.ca/), FTP_PROTOCOL (ftps or ftp),
+#   API_URL, TAKATAK_ISSUER, TAKATAK_CLIENT_ID, FORMS_ENDPOINT
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      ftp: ${{ steps.s.outputs.ftp }}
+      coolify: ${{ steps.s.outputs.coolify }}
+    steps:
+      - id: s
+        env:
+          FTP: ${{ secrets.MOCHAHOST_FTP_SERVER }}
+          COOLIFY: ${{ secrets.COOLIFY_TOKEN }}
+        run: |
+          echo "ftp=$([ -n "$FTP" ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+          echo "coolify=$([ -n "$COOLIFY" ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+
+  web:
+    needs: check
+    if: needs.check.outputs.ftp == 'yes'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @mimt/shared build
+      - run: pnpm --filter @mimt/web build
+        env:
+          NEXT_PUBLIC_FORMS_ENDPOINT: ${{ vars.FORMS_ENDPOINT }}
+      - name: Upload mimt.ca
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.MOCHAHOST_FTP_SERVER }}
+          username: ${{ secrets.MOCHAHOST_FTP_USERNAME }}
+          password: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          local-dir: ./apps/web/out/
+          server-dir: ${{ vars.WEB_FTP_DIR || './public_html/' }}
+
+  webphone:
+    needs: check
+    if: needs.check.outputs.ftp == 'yes'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @mimt/shared build
+      - run: pnpm --filter @mimt/webphone build
+        env:
+          VITE_API_URL: ${{ vars.API_URL || 'https://api.mimt.ca' }}
+          VITE_TAKATAK_ISSUER: ${{ vars.TAKATAK_ISSUER }}
+          VITE_TAKATAK_CLIENT_ID: ${{ vars.TAKATAK_CLIENT_ID }}
+      - name: Upload app.mimt.ca
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.MOCHAHOST_FTP_SERVER }}
+          username: ${{ secrets.MOCHAHOST_FTP_USERNAME }}
+          password: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          local-dir: ./apps/webphone/dist/
+          server-dir: ${{ vars.WEBPHONE_FTP_DIR || './app.mimt.ca/' }}
+
+  api:
+    needs: check
+    if: needs.check.outputs.coolify == 'yes'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Coolify deploy
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          curl -fsS -X GET "${COOLIFY_URL%/}/api/v1/deploy?uuid=${COOLIFY_API_UUID}&force=false" \
+            -H "Authorization: Bearer ${COOLIFY_TOKEN}"
