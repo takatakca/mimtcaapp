@@ -61,7 +61,7 @@ MIMT_STANDALONE_MIGRATE_CONFIRM=YES_MY_PRIVATE_MIMT_DATABASE node dist/jobs/migr
 
 The command refuses Supabase URLs, wrong database users/names, public database hosts in production and absent explicit one-time confirmation. It tracks each migration's SHA-256 checksum in `mimt_schema_migrations`; rerunning skips exact matches and rejects modified SQL. The SQL migrations execute in explicit order in separate transactions.
 
-5. Confirm output `PASS: all 8 private MIMT PostgreSQL migrations verified`. If a step fails, do not retry blindly against a partially modified database; inspect the error and transaction/migration table state.
+5. Confirm output `PASS: all 9 private MIMT PostgreSQL migrations verified`. If a step fails, do not retry blindly against a partially modified database; inspect the error and transaction/migration table state.
 6. Confirm `https://api.mimt.ca/readyz` gives HTTP 200 and `{"ok":true,"db":"up", ...}`. A healthy `/healthz` alone does **not** establish DB readiness.
 7. Test MIMT web app routes, sign-in, Twilio webhooks, and subscription/telecom permissions separately. This database migration does not certify emergency calling or regulatory compliance.
 

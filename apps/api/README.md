@@ -132,16 +132,17 @@ Run: `pnpm install && pnpm --filter @mimt/shared build && pnpm --filter @mimt/ap
 
 ### Tests against Postgres
 
+The Postgres repository contract tests are skipped unless `TEST_DATABASE_URL` is set. CI runs them in
+`.github/workflows/verify-standalone-postgres.yml` (job `repo-contract-tests`). Locally, against a
+**throwaway** PostgreSQL (tables are truncated) whose database is `mimt_production` owned by `mimt_owner`
+(the names the one-shot migrator accepts):
+
 ```bash
-createdb mimt_test
-psql mimt_test -c "create role anon; create role authenticated; create role service_role bypassrls; create schema auth;
-  create function auth.uid() returns uuid language sql stable as 'select null::uuid';"
-psql mimt_test -f supabase/migrations/0001_init.sql
-psql mimt_test -f supabase/migrations/0002_push_tokens.sql
-psql mimt_test -f supabase/migrations/0003_devices_rewards.sql
-psql mimt_test -f supabase/migrations/0006_blocks_forwarding.sql
-TEST_DATABASE_URL=postgres://localhost/mimt_test pnpm --filter @mimt/api test
+TEST_DATABASE_URL=postgresql://mimt_owner:pw@127.0.0.1:5432/mimt_production scripts/db/test-postgres.sh
 ```
+
+The script applies `bootstrap.sql` and every migration with `dist/jobs/migrateStandalone.js`, runs the whole
+API suite one file at a time, and fails if any test was skipped.
 
 ### TODO
 

@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Runs the API test suite against a real, throwaway Postgres: applies every migration (with the Supabase
-# stubs), then runs vitest with TEST_DATABASE_URL so the Postgres repository contract tests run instead of
-# being skipped. Fails if any test is skipped.
+# Runs the API test suite against a real, throwaway PostgreSQL so the Postgres repository contract tests
+# (repo.contract, catalog.repo.contract, referrals.repo, ...) run instead of being skipped.
 #
-#   TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/mimt_test scripts/db/test-postgres.sh
+# Schema: applied with the SAME one-shot migrator used in production (apps/api/src/jobs/migrateStandalone.ts,
+# bootstrap.sql + supabase/migrations in MIGRATION_ORDER). That migrator only accepts a database named
+# mimt_production owned by mimt_owner, so the throwaway server must use those names:
 #
-# The database must be disposable: the contract tests truncate its tables.
-# Needs: psql, and `pnpm install` + `pnpm --filter @mimt/shared build` already done.
+#   TEST_DATABASE_URL=postgresql://mimt_owner:pw@127.0.0.1:5432/mimt_production scripts/db/test-postgres.sh
+#
+# The database must be DISPOSABLE: the contract tests truncate its tables. Never point this at production.
+# Needs `pnpm install` and `pnpm --filter @mimt/shared build` already done. Fails if any test is skipped.
 set -euo pipefail
 
 if [[ -z "${TEST_DATABASE_URL:-}" ]]; then
@@ -15,11 +18,19 @@ if [[ -z "${TEST_DATABASE_URL:-}" ]]; then
 fi
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-"$root/scripts/db/apply-migrations.sh" --supabase-stubs "$TEST_DATABASE_URL"
+work="$(mktemp -d -t mimt-pgtest-XXXXXX)"
+trap 'rm -rf "$work"' EXIT
 
-report="$(mktemp -t mimt-vitest-XXXXXX.json)"
-trap 'rm -f "$report"' EXIT
+pnpm --dir "$root" --filter @mimt/api build >/dev/null
 
+# Same layout as the Docker image (/app/db/bootstrap.sql, /app/db/migrations/*.sql).
+mkdir -p "$work/db/migrations"
+cp "$root/deploy/coolify/mimt-postgres-bootstrap.sql" "$work/db/bootstrap.sql"
+cp "$root"/supabase/migrations/*.sql "$work/db/migrations/"
+(cd "$work" && DATABASE_URL="$TEST_DATABASE_URL" MIMT_STANDALONE_MIGRATE_CONFIRM=YES_MY_PRIVATE_MIMT_DATABASE NODE_ENV=test \
+  node "$root/apps/api/dist/jobs/migrateStandalone.js")
+
+report="$work/vitest.json"
 # One file at a time: the contract test files truncate shared tables.
 (cd "$root/apps/api" && pnpm exec vitest run --no-file-parallelism --reporter=default --reporter=json --outputFile.json="$report")
 
