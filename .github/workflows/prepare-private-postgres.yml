@@ -1,0 +1,88 @@
+name: Prepare Private MIMT PostgreSQL Resource
+# One-time metadata-only operation; no new subscription, no auto deployment.
+# Branch restricted; the resource remains stopped until capacity is verified.
+on:
+  push:
+    branches: [ops/mimt-private-coolify-postgres-20261010]
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create stopped private MIMT-only PostgreSQL resource
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json,urllib.request,urllib.error
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          headers={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"],"Accept":"application/json","Content-Type":"application/json"}
+          def call(method,path,body=None):
+              request=urllib.request.Request(base+path,headers=headers,method=method,data=json.dumps(body).encode() if body is not None else None)
+              try:
+                  with urllib.request.urlopen(request,timeout=30) as response:
+                      payload=response.read(100000)
+                      return response.status,(json.loads(payload) if payload else None)
+              except urllib.error.HTTPError as e:
+                  print("Coolify",method,path.split("/")[1] if "/" in path else "unknown","HTTP",e.code)
+                  return e.code,None
+          _, app=call("GET","/applications/"+os.environ["COOLIFY_API_UUID"])
+          _, servers=call("GET","/servers")
+          _, projects=call("GET","/projects")
+          _, existing=call("GET","/databases")
+          for collection_name in ("servers","projects","existing"):
+              value=locals()[collection_name]
+              if isinstance(value,dict):
+                  locals()[collection_name]=value.get("data",value.get("results",[]))
+          if not isinstance(app,dict) or not isinstance(servers,list) or not isinstance(projects,list) or not isinstance(existing,list):
+              raise SystemExit("Preflight cannot verify ownership; NO DB created.")
+          if any(str(d.get("name","")).lower()=="mimt-prod-postgres" for d in existing):
+              print("Private MIMT PostgreSQL resource already exists; not creating a duplicate.")
+              raise SystemExit(0)
+          projs=[p for p in projects if p.get("name")=="MIMT"]
+          if len(projs)!=1 or len(servers)!=1:
+              raise SystemExit("Ambiguous MIMT project or hosting server; NO DB created.")
+          env=app.get("environment") or {}
+          dest=app.get("destination") or {}
+          proj=projs[0]
+          if str(env.get("project_id"))!=str(proj.get("id")):
+              raise SystemExit("MIMT API project and selected MIMT project do not match; NO DB created.")
+          server=servers[0]
+          if str(dest.get("server_id"))!=str(server.get("id")):
+              raise SystemExit("MIMT API destination belongs to a different server; NO DB created.")
+          if not env.get("name") or not dest.get("uuid") or not proj.get("uuid") or not server.get("uuid"):
+              raise SystemExit("Required project/environment/destination identifiers missing; NO DB created.")
+          data={
+              "name":"mimt-prod-postgres",
+              "description":"Private dedicated MIMT telecom database; stop until server capacity and migrations verified.",
+              "server_uuid":server["uuid"],
+              "project_uuid":proj["uuid"],
+              "environment_name":env["name"],
+              "destination_uuid":dest["uuid"],
+              "postgres_db":"mimt_production",
+              "postgres_user":"mimt_owner",
+              "is_public":False,
+              "instant_deploy":False,
+              "image":"postgres:17-alpine",
+          }
+          code,result=call("POST","/databases/postgresql",data)
+          if code not in (200,201):
+              raise SystemExit("Coolify rejected private PostgreSQL metadata creation. No existing resource modified.")
+          uuid=result.get("uuid") if isinstance(result,dict) else None
+          print("Dedicated MIMT PostgreSQL resource created:",bool(uuid))
+          print("Project MIMT matches API:",True)
+          print("Private network only:",True)
+          print("Instant deployment disabled:",True)
+          if uuid:
+              s,obj=call("GET","/databases/"+uuid)
+              print("Read-back HTTP:",s)
+              if isinstance(obj,dict):
+                  print("New resource status:",str(obj.get("status","unknown"))[:70])
+                  print("Persistent volume configured:",bool(obj.get("persistent_storage") or obj.get("mounts") or obj.get("storage")))
+          print("No credentials or database URL logged; no paid Supabase project created.")
+          PY
