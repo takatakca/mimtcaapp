@@ -1,0 +1,73 @@
+name: Audit Running Private MIMT Postgres and API Cutover Readiness
+on:
+  push:
+    branches: [ops/mimt-db-connect-preflight-20261011]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify private DB, migration logs, app configuration, SSL identity
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os,json,urllib.request,urllib.error,re,urllib.parse
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          headers={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"],"Accept":"application/json"}
+          def get(path):
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(base+path,headers=headers),timeout=30) as r:
+                      return r.status,json.load(r)
+              except urllib.error.HTTPError as e:
+                  return e.code,{}
+              except Exception as e:
+                  print("Coolify GET failed class:",type(e).__name__)
+                  return 0,{}
+          _,list_db=get("/databases")
+          if isinstance(list_db,dict):list_db=list_db.get("data",list_db.get("databases",[]))
+          matches=[d for d in list_db if d.get("name")=="mimt-prod-postgres"]
+          if len(matches)!=1:raise SystemExit("Dedicated DB not uniquely identified")
+          db_uuid=matches[0]["uuid"]
+          _,db=get("/databases/"+db_uuid)
+          _,app=get("/applications/"+os.environ["COOLIFY_API_UUID"])
+          _,storages=get("/databases/"+db_uuid+"/storages")
+          _,logs=get("/databases/"+db_uuid+"/logs?lines=220")
+          if not isinstance(storages,dict):raise SystemExit("DB storage audit unavailable")
+          print("Private MIMT database status:",db.get("status"))
+          print("MIMT DB public exposure disabled:",db.get("is_public") is False)
+          print("MIMT db and app same environment:",db.get("environment_id")==app.get("environment_id"))
+          print("Dedicated database user/name:",db.get("postgres_user")=="mimt_owner" and db.get("postgres_db")=="mimt_production")
+          print("DB storage mounts:",[(s.get("mount_path"),bool(s.get("uuid"))) for s in storages.get("persistent_storages",[])])
+          print("DB initialization file registered:",any(s.get("mount_path")=="/docker-entrypoint-initdb.d/10-mimt-initialize.sql" for s in storages.get("file_storages",[])))
+          print("DB SSL option fields present:",sorted(k for k in db if "ssl" in k.lower()))
+          for k in sorted(k for k in db if "ssl" in k.lower()):
+              if k in ("ssl_cert","ssl_key","ssl_root_cert","ssl_certificate","ssl_certificate_key"):continue
+              v=db.get(k)
+              if isinstance(v,(bool,int)) or (isinstance(v,str) and v in ("require","verify-full","verify-ca","disable","prefer","allow")):
+                  print("DB SSL setting",k,":",v)
+          conn=db.get("internal_db_url") or db.get("internal_url") or db.get("database_internal_url") or ""
+          try:
+              url=urllib.parse.urlsplit(conn)
+              print("Internal connection URI valid:",url.scheme in ("postgres","postgresql") and bool(url.hostname))
+              print("Internal connection host is private Docker alias:","." not in str(url.hostname))
+              print("Internal connection DB name correct:",url.path=="/mimt_production")
+              print("Internal connection username correct:",urllib.parse.unquote(url.username or "")=="mimt_owner")
+              print("Internal connection sslmode:",(urllib.parse.parse_qs(url.query).get("sslmode") or ["absent"])[0])
+          except Exception as e:
+              print("DB internal URL parse failed:",type(e).__name__)
+          s=logs.get("logs","") if isinstance(logs,dict) else ""
+          for description,pattern in [
+              ("Migration SQL errors",r"(?m)^\s*(?:ERROR:|psql:.*ERROR)"),
+              ("Bootstrap script path",r"docker-entrypoint-initdb.d/10-mimt-initialize.sql"),
+              ("PostgreSQL ready to accept",r"database system is ready to accept connections"),
+              ("Postgres initialization complete",r"PostgreSQL init process complete"),
+              ("Missing volume write errors",r"permission denied|no space left on device"),
+          ]:
+              print(description,"count:",len(re.findall(pattern,s,re.I)))
+          print("No URL, token, certificate or customer data printed. READ ONLY.")
+          PY
