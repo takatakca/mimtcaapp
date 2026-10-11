@@ -69,5 +69,12 @@ jobs:
               ("Missing volume write errors",r"permission denied|no space left on device"),
           ]:
               print(description,"count:",len(re.findall(pattern,s,re.I)))
+          print("Sanitized database startup anomalies:")
+          for line in str(s).splitlines():
+              if any(t in line.lower() for t in ("error:", "permission denied", "no space left", "docker-entrypoint-initdb.d", "init process complete")):
+                  cleaned=re.sub(r"'[^']{1,200}'", "'[redacted]'", line)
+                  cleaned=re.sub(r'postgres(?:ql)?://[^ ]+', '[redacted-url]', cleaned)
+                  cleaned=re.sub(r'(?i)password=[^ ]+', 'password=[redacted]', cleaned)
+                  print("ANOMALY:", cleaned[-330:])
           print("No URL, token, certificate or customer data printed. READ ONLY.")
           PY
