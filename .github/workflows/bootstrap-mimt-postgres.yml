@@ -1,0 +1,141 @@
+name: Start Isolated MIMT PostgreSQL with Verified Persistent Bootstrap
+# One-off run from this operation branch only. Never merges into main.
+on:
+  push:
+    branches: [ops/mimt-private-postgres-bootstrap-20261011]
+permissions:
+  contents: read
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Provision private persistent MIMT database and initialize schema
+        shell: bash
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os, json, hashlib, urllib.request, urllib.error, time, re
+          from pathlib import Path
+
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          hdr={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"],"Accept":"application/json","Content-Type":"application/json"}
+          def request(method,path,data=None):
+              req=urllib.request.Request(base+path,headers=hdr,method=method,data=json.dumps(data).encode() if data is not None else None)
+              try:
+                  with urllib.request.urlopen(req,timeout=35) as r:
+                      b=r.read(300000)
+                      return r.status, json.loads(b) if b else {}
+              except urllib.error.HTTPError as e:
+                  print("Coolify operation",method,path.split("/")[1] if len(path.split("/"))>1 else "unknown","failed HTTP",e.code,flush=True)
+                  return e.code, None
+              except Exception as e:
+                  print("Coolify request exception",type(e).__name__,flush=True)
+                  return 0,None
+
+          status,dbs=request("GET","/databases")
+          if isinstance(dbs,dict):dbs=dbs.get("data",dbs.get("databases",[]))
+          if not isinstance(dbs,list):raise SystemExit("Cannot list databases; no changes")
+          matches=[x for x in dbs if x.get("name")=="mimt-prod-postgres"]
+          if len(matches)!=1:raise SystemExit("Expected exactly one MIMT database. Refusing changes.")
+          uid=matches[0].get("uuid")
+          status,db=request("GET","/databases/"+uid)
+          status,app=request("GET","/applications/"+os.environ["COOLIFY_API_UUID"])
+          if not isinstance(db,dict) or not isinstance(app,dict):raise SystemExit("Resource metadata not accessible")
+          if db.get("is_public") is not False or db.get("postgres_db")!="mimt_production" or db.get("postgres_user")!="mimt_owner":
+              raise SystemExit("MIMT identity/private access check failed")
+          if "postgres:17" not in str(db.get("image","")):raise SystemExit("Unexpected Postgres image")
+          if str(db.get("limits_memory"))!="536870912" or str(db.get("limits_cpus")) not in ("0.5","0.50"):
+              raise SystemExit("MIMT resource limits were changed; stopping")
+          if db.get("environment_id")!=app.get("environment_id"):raise SystemExit("MIMT environment mismatch")
+          if str(db.get("status","")).startswith("running"):
+              raise SystemExit("Database already running. Will not modify initialized DB.")
+          print("Private resource identity, environment and resource limits verified.",flush=True)
+
+          order=["0001_init.sql","0002_push_tokens.sql","0003_devices_rewards.sql","0003_business_pbx.sql","0004_ai.sql","0005_catalog.sql","0006_blocks_forwarding.sql","0007_media_greetings.sql"]
+          bootstrap=Path("deploy/coolify/mimt-postgres-bootstrap.sql").read_text()
+          contents=[Path("supabase/migrations")/x for x in order]
+          if any(not f.exists() for f in contents):raise SystemExit("Migration file missing")
+          # A single transactional init script makes schema installation atomic.
+          body=["\\set ON_ERROR_STOP on","BEGIN;","-- Fail-closed, no-login auth shim",bootstrap]
+          checksums=[]
+          for path in contents:
+              sql=path.read_text()
+              sha=hashlib.sha256(sql.encode()).hexdigest()
+              checksums.append((path.name,sha))
+              body.append("-- MIMT migration "+path.name+"\n"+sql)
+          body.append("CREATE TABLE IF NOT EXISTS mimt_schema_migrations (name text PRIMARY KEY, sha256 text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now());")
+          for filename,sha in checksums:
+              body.append("INSERT INTO mimt_schema_migrations(name,sha256) VALUES ('"+filename+"','"+sha+"');")
+          body.append("COMMIT;")
+          sql="\n".join(body)+"\n"
+          if len(sql)<30000 or len(sql)>150000:
+              raise SystemExit("Unexpected schema payload size; refusing resource creation")
+          if re.search(r"\bDROP\s+DATABASE\b|\bTRUNCATE\b",sql,re.I):
+              raise SystemExit("Unexpected destructive SQL; no changes")
+          print("Verified eight existing MIMT schema migrations (no credentials, no customer records).",flush=True)
+
+          status,store=request("GET","/databases/"+uid+"/storages")
+          if isinstance(store,dict):
+              existing=(store.get("persistent_storages") or [])
+              files=(store.get("file_storages") or [])
+          else:raise SystemExit("Cannot inspect persistent storage")
+          volume_target="/var/lib/postgresql/data"
+          init_target="/docker-entrypoint-initdb.d/10-mimt-initialize.sql"
+          print("Existing persistent mounts:",len(existing),"existing file mounts:",len(files),flush=True)
+          if any(str(s.get("mount_path")) != volume_target for s in existing):
+              raise SystemExit("Unexpected existing data mounts; require manual review")
+          if any(str(s.get("mount_path")) != init_target for s in files):
+              raise SystemExit("Unexpected existing file mounts; require manual review")
+          if not existing:
+              status,res=request("POST","/databases/"+uid+"/storages",{
+                 "type":"persistent",
+                 "name":"mimt-prod-postgres-v17-data",
+                 "mount_path":volume_target
+              })
+              if status not in (200,201):
+                  raise SystemExit("Could not create persistent DB volume")
+              print("Private durable PostgreSQL 17 volume registered.",flush=True)
+          if not files:
+              status,res=request("POST","/databases/"+uid+"/storages",{
+                 "type":"file",
+                 "mount_path":init_target,
+                 "content":sql,
+                 "is_directory":False
+              })
+              if status not in (200,201):
+                  raise SystemExit("Could not register private first-start schema; DB not started")
+              print("First-start init SQL registered, with eight migration checksums.",flush=True)
+          status,store=request("GET","/databases/"+uid+"/storages")
+          if not isinstance(store,dict):raise SystemExit("Could not verify persisted storage settings")
+          persistent=store.get("persistent_storages") or []
+          files=store.get("file_storages") or []
+          if len([s for s in persistent if s.get("mount_path")==volume_target])!=1:
+              raise SystemExit("No verified persistent volume; database NOT started")
+          if len([s for s in files if s.get("mount_path")==init_target])!=1:
+              raise SystemExit("No verified first-start schema file; database NOT started")
+          print("Persistence and bootstrap file read-back PASSED.",flush=True)
+
+          status,response=request("POST","/databases/"+uid+"/start")
+          if status!=200:
+              raise SystemExit("Coolify refused database start; original API unchanged")
+          print("Isolated, resource-capped database start accepted.",flush=True)
+          for i in range(30):
+              time.sleep(8)
+              _,db=request("GET","/databases/"+uid)
+              state=str((db or {}).get("status","unknown"))
+              print("Database check",i+1,":",state[:70],flush=True)
+              if state=="running:healthy":
+                  print("SUCCESS: MIMT private PostgreSQL running and Docker health check passed.",flush=True)
+                  break
+              if state.startswith("exited") and i>=3:
+                  raise SystemExit("MIMT DB exited; inspect database-specific logs; production API unchanged")
+          else:
+              raise SystemExit("Database startup not yet healthy; inspect Coolify DB logs")
+          print("No public port exposed and no existing API envs changed.",flush=True)
+          PY
