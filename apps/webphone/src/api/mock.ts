@@ -4,12 +4,15 @@
 // (555-01xx numbers). Loaded lazily by client.ts, so it is not in the main bundle.
 import {
   AI_CONSENT_KIND,
+  AI_RECEPTIONIST_TERMS_VERSION,
   BUSINESS_TIMEZONE,
   DEFAULT_RECORDING_POLICY,
   DEFAULT_WEEKLY_SCHEDULE,
   NANP_E164,
   PLANS,
   USER_CONSENT_KINDS,
+  computeCancellation,
+  consumerCodeFor,
   filterOffersForPostalCode,
   generateContractSummary,
   isEmergencyNumber,
@@ -22,6 +25,17 @@ import {
   type NumberPortIn,
   quebecHolidaysCurrentAndNext,
   type AiReceptionistConfigDto,
+  type AiReceptionistConfigRequest,
+  type Appointment,
+  type BusinessRecordingDto,
+  type CancellationQuote,
+  type CreateOrderRequest,
+  type Device,
+  type OrderDetailResponse,
+  type PortingRequest,
+  type PortInRequest,
+  type ServiceInstance,
+  type SubmitOrderRequest,
   type ApiError,
   type AuthTokensResponse,
   type Business,
@@ -45,7 +59,6 @@ import {
   type VoicemailDto,
   type Weekday,
 } from "@mimt/shared";
-import type { CreateOrderRequest } from "./pending";
 
 const OUR = "+15145550100";
 const USER_ID = "user-demo";
@@ -74,6 +87,15 @@ interface State {
   orders: ServiceOrder[];
   orderEvents: OrderEventRecord[];
   portIns: NumberPortIn[];
+  // Added with the real /v1/catalog contract and the AI pages.
+  aiConfigured: boolean;
+  recordings: BusinessRecordingDto[];
+  services: ServiceInstance[];
+  devices: Device[];
+  appointments: Appointment[];
+  porting: PortingRequest[];
+  /** eSIM activation codes by device id (the real API keeps them encrypted). */
+  esimCodes: Record<string, string>;
 }
 
 const ago = (minutes: number, now = Date.now()) => new Date(now - minutes * 60_000).toISOString();
@@ -156,6 +178,16 @@ function initialState(): State {
         ai: { summary: "Julie (Fleurs Gatineau) veut confirmer la livraison de jeudi.", locale: "fr-CA", callerIntent: "confirmation de livraison", urgency: "normal", callbackSuggested: true, spamLikelihood: 0.02 },
       },
       { id: "vm2", from: null, durationS: 9, transcript: null, createdAt: ago(60 * 72), listened: true, audioUrl: null, audioUrlExpiresAt: null },
+      {
+        id: "vm3",
+        from: "+15145550199",
+        durationS: 21,
+        transcript: "Salut, c'est Marc. Je voulais savoir si vous livrez dans le Plateau le samedi. Merci de me revenir.",
+        createdAt: ago(60 * 30),
+        listened: true,
+        audioUrl: null,
+        audioUrlExpiresAt: null,
+      },
     ],
     business: {
       id: BIZ_ID,
@@ -318,8 +350,54 @@ function initialState(): State {
         canceledAt: null,
       },
     ],
+    aiConfigured: true,
+    recordings: [
+      {
+        id: "rec-1",
+        businessId: BIZ_ID,
+        callSid: "CAdemo0000000000000000000000000001",
+        extensionId: "ext-101",
+        source: "on_demand",
+        fromNumber: "+14385550142",
+        toNumber: OUR,
+        durationS: 245,
+        createdAt: ago(35),
+        deleteAfter: new Date(Date.now() + 90 * 86_400_000).toISOString(),
+        audioUrl: SILENT_WAV,
+        audioUrlExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+      },
+    ],
+    services: [],
+    devices: [],
+    appointments: [],
+    porting: [],
+    esimCodes: {},
   };
 }
+
+/** One second of silence (8 kHz, 8-bit mono WAV) so the demo player has something to play. */
+const SILENT_WAV = (() => {
+  const n = 8000;
+  const bytes = new Uint8Array(44 + n);
+  const v = new DataView(bytes.buffer);
+  const str = (o: number, x: string) => [...x].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  str(0, "RIFF");
+  v.setUint32(4, 36 + n, true);
+  str(8, "WAVEfmt ");
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true);
+  v.setUint32(28, 8000, true);
+  v.setUint16(32, 1, true);
+  v.setUint16(34, 8, true);
+  str(36, "data");
+  v.setUint32(40, n, true);
+  bytes.fill(128, 44);
+  let bin = "";
+  bytes.forEach((b) => (bin += String.fromCharCode(b)));
+  return `data:audio/wav;base64,${btoa(bin)}`;
+})();
 
 let state = initialState();
 
@@ -384,7 +462,7 @@ function conversations() {
 function extensionError(body: Partial<ExtensionRequest>, selfId?: string): Response | null {
   if (body.number !== undefined) {
     if (!isValidExtension(body.number)) return fail(400, "validation_error", "invalid extension number");
-    if (state.extensions.some((e) => e.number === body.number && e.id !== selfId)) return fail(409, "duplicate_extension");
+    if (state.extensions.some((e) => e.number === body.number && e.id !== selfId)) return fail(409, "extension_number_taken");
   }
   if (body.displayName !== undefined && !body.displayName.trim()) return fail(400, "validation_error", "displayName required");
   for (const n of [body.forwardToMobile, body.did]) if (n && !NANP_E164.test(n)) return fail(400, "validation_error", "NANP E.164 only");
@@ -399,6 +477,163 @@ function routeHasEmergency(menu: Pick<IvrMenuRequest, "options" | "timeoutTarget
 function addOrderEvent(order: ServiceOrder, event: OrderEventRecord["event"], fromState: ServiceOrder["state"] | null, toState: ServiceOrder["state"] | null, actor: OrderEventRecord["actor"], at: string) {
   state.orderEvents.push({ id: nextId("oev"), orderId: order.id, event, fromState, toState, actor, actorUserId: actor === "customer" ? USER_ID : null, details: {}, at });
 }
+
+// ------------------------------------------------------------------------------------- AI, catalog helpers
+
+/** apps/api order of checks for AI features: 503 not_configured → 403 ai_consent_required. */
+function aiGate(): Response | null {
+  if (!state.aiConfigured) return fail(503, "not_configured", "AI is not configured on this server");
+  if (!state.consents[AI_CONSENT_KIND]) return fail(403, "ai_consent_required");
+  return null;
+}
+
+const CANCELLABLE: readonly ServiceOrder["state"][] = ["draft", "submitted", "credit_check", "pending_provider", "scheduled", "active", "suspended"];
+const needsAddress = (line: ServiceOrder["productLine"]) => line.startsWith("internet") || line === "home_phone";
+const findOrder = (id: string | undefined) => state.orders.find((o) => o.id === id);
+
+function orderDetail(order: ServiceOrder): OrderDetailResponse {
+  const offer = state.offers.find((o) => o.id === order.offerId);
+  return {
+    order,
+    events: state.orderEvents.filter((e) => e.orderId === order.id),
+    ...(offer ? { offer } : {}),
+    service: state.services.find((x) => x.orderId === order.id) ?? null,
+    appointments: state.appointments.filter((a) => a.orderId === order.id),
+    devices: state.devices.filter((d) => d.orderId === order.id),
+    porting: state.porting.find((p) => p.orderId === order.id) ?? null,
+  };
+}
+
+/** Summary for the price and term frozen on the order (apps/api orderContractSummary). */
+function orderSummary(order: ServiceOrder) {
+  const offer = state.offers.find((o) => o.id === order.offerId)!;
+  return generateContractSummary({
+    ...offer,
+    productLine: order.productLine,
+    monthlyPriceCents: order.monthlyPriceCents,
+    setupFeeCents: order.setupFeeCents,
+    termMonths: order.termMonths,
+    discountCents: order.discountCents,
+  });
+}
+
+function move(order: ServiceOrder, event: OrderEventRecord["event"], to: ServiceOrder["state"], actor: OrderEventRecord["actor"]) {
+  const now = new Date().toISOString();
+  addOrderEvent(order, event, order.state, to, actor, now);
+  order.state = to;
+  order.updatedAt = now;
+}
+
+function toProvider(order: ServiceOrder, event: OrderEventRecord["event"] = "provider_accepted") {
+  order.providerOrderId = nextId("sbx-ord");
+  move(order, event, "pending_provider", event === "credit_approved" ? "admin" : "provider");
+  const port = state.porting.find((p) => p.orderId === order.id && p.status === "pending");
+  if (port) Object.assign(port, { status: "submitted", providerRef: nextId("sbx-port") });
+}
+
+function activate(order: ServiceOrder) {
+  const now = new Date().toISOString();
+  move(order, "activated", "active", "provider");
+  order.activatedAt = now;
+  const port = state.porting.find((p) => p.orderId === order.id && p.status !== "rejected" && p.status !== "cancelled");
+  if (port) Object.assign(port, { status: "completed", completedAt: now });
+  for (const d of state.devices) if (d.orderId === order.id && d.status !== "inactive") d.status = "active";
+  for (const a of state.appointments) if (a.orderId === order.id && a.status === "booked") a.status = "completed";
+  state.services.push({
+    id: nextId("svc"),
+    telecomAccountId: order.telecomAccountId,
+    orderId: order.id,
+    offerId: order.offerId,
+    offerCode: order.offerCode,
+    productLine: order.productLine,
+    provider: order.provider,
+    providerServiceId: nextId("sbx-svc"),
+    status: "active",
+    phoneE164: order.productLine === "mobile" ? (port?.phoneE164 ?? "+15145550161") : null,
+    serviceAddress: order.serviceAddress,
+    monthlyPriceCents: order.monthlyPriceCents,
+    termMonths: order.termMonths,
+    discountCents: order.discountCents,
+    activatedAt: now,
+    termEndsAt: order.termMonths ? new Date(Date.now() + order.termMonths * 30 * 86_400_000).toISOString() : null,
+    cancelledAt: null,
+    overageCapConsentCents: null,
+    roamingCapConsentCents: null,
+    usageNotified: { period: now.slice(0, 7), thresholds: [] },
+    stripeSubscriptionId: null,
+    stripeSubscriptionItemId: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+function quote(order: ServiceOrder): CancellationQuote {
+  const r = computeCancellation({
+    productLine: order.productLine,
+    termMonths: order.termMonths,
+    discountCents: order.discountCents,
+    monthlyPriceCents: order.monthlyPriceCents,
+    activatedAt: order.activatedAt ? new Date(order.activatedAt) : null,
+    cancelAt: new Date(),
+    deviceBalanceCents: state.devices.filter((d) => d.orderId === order.id).reduce((sum, d) => sum + d.financedBalanceCents, 0),
+  });
+  return {
+    orderId: order.id,
+    feeCents: r.feeCents,
+    deviceBalanceCents: r.deviceBalanceCents,
+    totalCents: r.totalCents,
+    basis: r.basis,
+    inTrial: r.inTrial,
+    monthsRemaining: r.monthsRemaining,
+    effectiveAt: r.effectiveAt.toISOString(),
+    explanation: r.explanation,
+  };
+}
+
+/** Three install slots from the day after tomorrow (fixed hours so tests can book them). */
+function demoSlots(): Array<{ startsAt: string; endsAt: string }> {
+  return [2, 3, 4].map((days) => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() + days);
+    d.setUTCHours(12, 0, 0, 0);
+    return { startsAt: d.toISOString(), endsAt: new Date(d.getTime() + 4 * 3_600_000).toISOString() };
+  });
+}
+
+function mobileAtProvider(order: ServiceOrder): Response | null {
+  if (order.productLine !== "mobile") return fail(409, "not_mobile");
+  if (order.state !== "pending_provider" || !order.providerOrderId) return fail(409, "order_not_ready");
+  return null;
+}
+
+function newDevice(order: ServiceOrder, kind: "sim" | "esim", iccid: string, eid: string | null): Device {
+  const now = new Date().toISOString();
+  const device: Device = {
+    id: nextId("dev"),
+    telecomAccountId: order.telecomAccountId,
+    orderId: order.id,
+    serviceId: null,
+    kind,
+    serial: null,
+    iccid,
+    imei: null,
+    eid,
+    mac: null,
+    status: "pending",
+    financedBalanceCents: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+  state.devices.push(device);
+  return device;
+}
+
+function esimResponse(order: ServiceOrder, device: Device) {
+  const activationCode = state.esimCodes[device.id]!;
+  const [, smdpAddress = "", matchingId = ""] = activationCode.split("$");
+  return { order, device, activationCode, smdpAddress, matchingId };
+}
+
 
 // ------------------------------------------------------------------------------------- router
 
@@ -467,10 +702,9 @@ const routes: Route[] = [
   ["GET", /^\/v1\/conversations$/, () => ok({ conversations: conversations() })],
   ["GET", /^\/v1\/conversations\/([^/]+)\/messages$/, ({ params }) =>
     ok({ messages: state.messages.filter((m) => m.peer === params[0]).sort((a, b) => b.createdAt.localeCompare(a.createdAt)), nextCursor: null })],
+  // Same order of checks as apps/api/src/routes/ai.ts: 503 → 403 consent → 429 budget.
   ["GET", /^\/v1\/conversations\/([^/]+)\/suggestions$/, () =>
-    ok(state.consents[AI_CONSENT_KIND]
-      ? { suggestions: ["Oui, avec plaisir!", "Je vous reviens d'ici la fin de la journée.", "Merci, bonne journée!"], language: "fr-CA" }
-      : { suggestions: [], language: "fr-CA", reason: "unavailable" })],
+    aiGate() ?? ok({ suggestions: ["Oui, avec plaisir!", "Je vous reviens d'ici la fin de la journée.", "Merci, bonne journée!"], language: "fr-CA" })],
   ["POST", /^\/v1\/messages$/, ({ body }) => {
     const b = body as { from: string; to: string; body: string };
     if (!NANP_E164.test(b.to) || isEmergencyNumber(b.to)) return fail(400, "validation_error", "to must be NANP E.164");
@@ -481,10 +715,26 @@ const routes: Route[] = [
     return created(m);
   }],
   ["GET", /^\/v1\/ai\/status$/, () =>
-    ok({ configured: true, consent: Boolean(state.consents[AI_CONSENT_KIND]), plan: state.me.account.plan, monthlyBudgetCadCents: 1000, usedCadCents: 37, period: new Date().toISOString().slice(0, 7) })],
+    ok({ configured: state.aiConfigured, consent: Boolean(state.consents[AI_CONSENT_KIND]), plan: state.me.account.plan, monthlyBudgetCadCents: 1000, usedCadCents: 37, period: new Date().toISOString().slice(0, 7) })],
 
   // Voicemail
   ["GET", /^\/v1\/voicemails$/, () => ok({ voicemails: state.voicemails })],
+  ["POST", /^\/v1\/voicemails\/([^/]+)\/summary$/, ({ params }) => {
+    const vm = state.voicemails.find((v) => v.id === params[0]);
+    if (!vm) return fail(404, "not_found");
+    const gate = aiGate();
+    if (gate) return gate;
+    if (!vm.transcript) return fail(409, "no_transcript");
+    vm.ai = {
+      summary: `Résumé de démonstration : ${vm.transcript.slice(0, 90)}`,
+      locale: "fr-CA",
+      callerIntent: "demande de renseignements",
+      urgency: "normal",
+      callbackSuggested: true,
+      spamLikelihood: 0.05,
+    };
+    return ok(vm);
+  }],
   ["DELETE", /^\/v1\/voicemails\/([^/]+)$/, ({ params }) => {
     state.voicemails = state.voicemails.filter((v) => v.id !== params[0]);
     return json(204, undefined);
@@ -537,7 +787,7 @@ const routes: Route[] = [
   }],
   ["PUT", new RegExp(`^${B}/recording-policy$`), ({ body }) => {
     const b = body as { mode: Business["recordingPolicy"]["mode"]; consentPrompt?: Business["recordingPolicy"]["consentPrompt"]; retentionDays?: number };
-    if (b.mode !== "off" && state.me.account.plan !== "business_pro") return fail(402, "feature_required", "recording needs Affaires Pro");
+    if (b.mode !== "off" && state.me.account.plan !== "business_pro") return fail(403, "plan_required", "recording needs Affaires Pro");
     state.business = { ...state.business, recordingPolicy: { ...state.business.recordingPolicy, ...b } };
     return ok(businessResponse());
   }],
@@ -545,7 +795,7 @@ const routes: Route[] = [
   ["GET", new RegExp(`^${B}/members$`), () => ok({ members: state.members })],
   ["POST", new RegExp(`^${B}/members$`), ({ body }) => {
     const b = body as { email: string; role: "admin" | "member" };
-    if (state.members.some((m) => m.email === b.email)) return fail(409, "conflict");
+    if (state.members.some((m) => m.email === b.email)) return fail(409, "member_exists");
     const m: BusinessMember = { id: nextId("mem"), businessId: BIZ_ID, userId: null, email: b.email, role: b.role, status: "invited", createdAt: new Date().toISOString() };
     state.members.push(m);
     return created(m);
@@ -553,12 +803,12 @@ const routes: Route[] = [
   ["PATCH", new RegExp(`^${B}/members/([^/]+)$`), ({ params, body }) => {
     const m = state.members.find((x) => x.id === params[1]);
     if (!m) return fail(404, "not_found");
-    if (m.role === "owner") return fail(403, "insufficient_role");
+    if (m.role === "owner") return fail(403, "owner_immutable");
     Object.assign(m, { role: (body as { role: "admin" | "member" }).role });
     return ok(m);
   }],
   ["DELETE", new RegExp(`^${B}/members/([^/]+)$`), ({ params }) => {
-    if (state.members.find((x) => x.id === params[1])?.role === "owner") return fail(403, "insufficient_role");
+    if (state.members.find((x) => x.id === params[1])?.role === "owner") return fail(403, "owner_immutable");
     state.members = state.members.filter((x) => x.id !== params[1]);
     return json(204, undefined);
   }],
@@ -666,11 +916,25 @@ const routes: Route[] = [
     r.target = b.target;
     return ok(r);
   }],
-  ["GET", new RegExp(`^${B}/recordings$`), () => ok({ recordings: [] })],
-  ["GET", new RegExp(`^${B}/ai-receptionist$`), () => ok(state.receptionist)],
+  // Signed links last 15 minutes (apps/api RECORDING_URL_TTL_S): each listing hands out fresh ones.
+  ["GET", new RegExp(`^${B}/recordings$`), () =>
+    ok({ recordings: state.recordings.map((r) => ({ ...r, audioUrlExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString() })) })],
+  ["GET", new RegExp(`^${B}/ai-receptionist$`), () =>
+    state.aiConfigured ? ok(state.receptionist) : fail(503, "not_configured", "AI is not configured on this server")],
   ["PUT", new RegExp(`^${B}/ai-receptionist$`), ({ body }) => {
-    const { accept, ...rest } = body as Partial<AiReceptionistConfigDto> & { accept?: boolean };
-    state.receptionist = { ...state.receptionist, ...rest, updatedAt: new Date().toISOString(), ...(accept ? { acceptedAt: new Date().toISOString(), acceptedVersion: "demo" } : {}) };
+    if (!state.aiConfigured) return fail(503, "not_configured", "AI is not configured on this server");
+    const { accept, ...rest } = body as AiReceptionistConfigRequest;
+    if (rest.languages && !rest.languages.includes("fr-CA")) return fail(400, "invalid_request", "fr-CA is required");
+    for (const t of rest.transferTargets ?? []) {
+      if (!t.number && !t.extension) return fail(400, "invalid_target");
+      if (t.number && (!NANP_E164.test(t.number) || isEmergencyNumber(t.number))) return fail(400, "external_number_not_allowed");
+    }
+    const now = new Date().toISOString();
+    const accepted = accept ? { acceptedAt: now, acceptedVersion: AI_RECEPTIONIST_TERMS_VERSION } : {};
+    const next: AiReceptionistConfigDto = { ...state.receptionist, ...rest, ...accepted, updatedAt: now };
+    // The demo user is the owner; the API also refuses accept: true from an admin (403 business_role_required).
+    if (next.enabled && next.acceptedVersion !== AI_RECEPTIONIST_TERMS_VERSION) return fail(409, "terms_not_accepted");
+    state.receptionist = next;
     return ok(state.receptionist);
   }],
 
@@ -682,16 +946,18 @@ const routes: Route[] = [
   }],
   ["GET", /^\/v1\/catalog\/orders$/, () => ok({ orders: [...state.orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)) })],
   ["GET", /^\/v1\/catalog\/orders\/([^/]+)$/, ({ params }) => {
-    const order = state.orders.find((o) => o.id === params[0]);
-    if (!order) return fail(404, "not_found");
-    return ok({ order, events: state.orderEvents.filter((e) => e.orderId === order.id), offer: state.offers.find((o) => o.id === order.offerId) });
+    const order = findOrder(params[0]);
+    return order ? ok(orderDetail(order)) : fail(404, "order_not_found");
   }],
+  // Draft only: nothing reaches the (sandbox) wholesaler before /submit.
   ["POST", /^\/v1\/catalog\/orders$/, ({ body }) => {
     const b = body as CreateOrderRequest;
     const o = state.offers.find((x) => x.id === b.offerId && x.status === "active");
-    if (!o) return fail(404, "not_found");
-    const needsAddress = o.productLine.startsWith("internet") || o.productLine === "home_phone";
-    if (needsAddress && !b.serviceAddress) return fail(400, "validation_error", "serviceAddress required");
+    if (!o) return fail(404, "offer_not_found");
+    if (needsAddress(o.productLine) && !b.serviceAddress) return fail(400, "service_address_required");
+    if (b.serviceAddress && !filterOffersForPostalCode([o], b.serviceAddress.postalCode).length) return fail(422, "offer_not_available");
+    if (o.productLine === "mobile" && !b.simKind) return fail(400, "sim_kind_required");
+    if (b.simKind === "esim" && o.attributes.esim === false) return fail(400, "esim_not_supported");
     const now = new Date().toISOString();
     const order: ServiceOrder = {
       id: nextId("ord"),
@@ -701,25 +967,25 @@ const routes: Route[] = [
       offerCode: o.code,
       productLine: o.productLine,
       provider: o.provider,
-      state: "submitted",
-      serviceAddress: b.serviceAddress ?? null,
+      state: "draft",
+      serviceAddress: needsAddress(o.productLine) ? (b.serviceAddress ?? null) : null,
       monthlyPriceCents: o.monthlyPriceCents,
       setupFeeCents: o.setupFeeCents,
       termMonths: o.termMonths,
       discountCents: o.discountCents,
-      simKind: o.productLine === "mobile" ? (b.simKind ?? "sim") : null,
-      contractSummaryVersion: generateContractSummary(o).version,
-      contractAcceptedAt: now,
+      simKind: o.productLine === "mobile" ? (b.simKind ?? null) : null,
+      contractSummaryVersion: null,
+      contractAcceptedAt: null,
       providerOrderId: null,
       failureReason: null,
-      submittedAt: now,
+      submittedAt: null,
       activatedAt: null,
       cancelledAt: null,
       createdAt: now,
       updatedAt: now,
     };
     state.orders.push(order);
-    addOrderEvent(order, "submit", "draft", "submitted", "customer", now);
+    addOrderEvent(order, "note", null, "draft", "customer", now);
     return created(order);
   }],
 
@@ -799,6 +1065,141 @@ const routes: Route[] = [
     Object.assign(p, { status: "canceled", canceledAt: now, updatedAt: now, numbers: p.numbers.map((n) => ({ ...n, status: "canceled" })) });
     return ok(p);
   }],
+  ["GET", /^\/v1\/catalog\/orders\/([^/]+)\/contract-summary$/, ({ params }) => {
+    const order = findOrder(params[0]);
+    return order ? ok(orderSummary(order)) : fail(404, "order_not_found");
+  }],
+  ["POST", /^\/v1\/catalog\/orders\/([^/]+)\/submit$/, ({ params, body }) => {
+    const order = findOrder(params[0]);
+    if (!order) return fail(404, "order_not_found");
+    if (order.state !== "draft") return fail(409, "invalid_transition");
+    const b = (body ?? {}) as Partial<SubmitOrderRequest>;
+    const summary = orderSummary(order);
+    if (b.acceptContractSummary !== true || !b.contractSummaryVersion) return fail(400, "contract_summary_required");
+    if (b.contractSummaryVersion !== summary.version) return fail(409, "contract_summary_outdated");
+    if (consumerCodeFor(order.productLine) !== "none" && b.acceptConsumerCode !== true) return fail(400, "consumer_code_required");
+    if (order.termMonths > 0 && b.creditCheckConsent !== true) return fail(400, "credit_check_consent_required");
+    const now = new Date().toISOString();
+    Object.assign(order, { contractSummaryVersion: summary.version, contractAcceptedAt: now, submittedAt: now, updatedAt: now });
+    move(order, "submit", "submitted", "customer");
+    // Month to month goes to the wholesaler at once; a term contract waits for a credit check.
+    if (order.termMonths > 0) move(order, "credit_check_started", "credit_check", "system");
+    else toProvider(order);
+    return ok(order);
+  }],
+  // Demo: the sandbox wholesaler approves credit, and activates a line once its SIM/eSIM or install is done.
+  ["POST", /^\/v1\/catalog\/orders\/([^/]+)\/sync$/, ({ params }) => {
+    const order = findOrder(params[0]);
+    if (!order) return fail(404, "order_not_found");
+    if (order.state === "credit_check") toProvider(order, "credit_approved");
+    else if (order.state === "pending_provider" && order.productLine === "mobile" && state.devices.some((d) => d.orderId === order.id && d.status !== "inactive")) activate(order);
+    else if (order.state === "scheduled") activate(order);
+    return ok(order);
+  }],
+  ["GET", /^\/v1\/catalog\/orders\/([^/]+)\/cancellation-quote$/, ({ params }) => {
+    const order = findOrder(params[0]);
+    return order ? ok(quote(order)) : fail(404, "order_not_found");
+  }],
+  ["POST", /^\/v1\/catalog\/orders\/([^/]+)\/cancel$/, ({ params }) => {
+    const order = findOrder(params[0]);
+    if (!order) return fail(404, "order_not_found");
+    if (!CANCELLABLE.includes(order.state)) return fail(409, "order_not_cancellable");
+    const cancellation = quote(order);
+    move(order, "cancel_requested", "cancel_requested", "customer");
+    // The sandbox wholesaler confirms at once.
+    move(order, "cancel_confirmed", "cancelled", "provider");
+    order.cancelledAt = new Date().toISOString();
+    return ok({ order, cancellation });
+  }],
+  ["GET", /^\/v1\/catalog\/orders\/([^/]+)\/appointment-slots$/, ({ params }) => {
+    const order = findOrder(params[0]);
+    if (!order) return fail(404, "order_not_found");
+    if (!needsAddress(order.productLine)) return fail(409, "appointment_not_needed");
+    if (!order.providerOrderId || (order.state !== "pending_provider" && order.state !== "scheduled")) return fail(409, "order_not_ready");
+    return ok({ slots: demoSlots() });
+  }],
+  ["POST", /^\/v1\/catalog\/orders\/([^/]+)\/appointment$/, ({ params, body }) => {
+    const order = findOrder(params[0]);
+    if (!order) return fail(404, "order_not_found");
+    if (!needsAddress(order.productLine)) return fail(409, "appointment_not_needed");
+    if (!order.providerOrderId || (order.state !== "pending_provider" && order.state !== "scheduled")) return fail(409, "order_not_ready");
+    const b = body as { startsAt: string; endsAt: string };
+    if (!demoSlots().some((x) => x.startsAt === b.startsAt && x.endsAt === b.endsAt)) return fail(422, "provider_slot_unavailable");
+    const now = new Date().toISOString();
+    for (const a of state.appointments) if (a.orderId === order.id && a.status === "booked") a.status = "cancelled";
+    const appt: Appointment = { id: nextId("appt"), orderId: order.id, providerRef: nextId("sbx-appt"), startsAt: b.startsAt, endsAt: b.endsAt, status: "booked", notes: null, createdAt: now, updatedAt: now };
+    state.appointments.push(appt);
+    if (order.state === "pending_provider") move(order, "appointment_scheduled", "scheduled", "customer");
+    return created(appt);
+  }],
+  ["POST", /^\/v1\/catalog\/orders\/([^/]+)\/sim$/, ({ params, body }) => {
+    const order = findOrder(params[0]);
+    if (!order) return fail(404, "order_not_found");
+    const err = mobileAtProvider(order);
+    if (err) return err;
+    if (order.simKind !== "sim") return fail(409, "sim_kind_mismatch");
+    const iccid = (body as { iccid?: string }).iccid ?? "";
+    if (!/^\d{19,20}$/.test(iccid)) return fail(400, "invalid_request", "ICCID: 19 à 20 chiffres");
+    for (const d of state.devices) if (d.orderId === order.id && d.kind === "sim") d.status = "inactive";
+    const device = newDevice(order, "sim", iccid, null);
+    return ok({ order, device });
+  }],
+  ["POST", /^\/v1\/catalog\/orders\/([^/]+)\/esim$/, ({ params, body }) => {
+    const order = findOrder(params[0]);
+    if (!order) return fail(404, "order_not_found");
+    const existing = state.devices.find((d) => d.orderId === order.id && d.kind === "esim" && state.esimCodes[d.id]);
+    if (existing) return ok(esimResponse(order, existing)); // idempotent, like the API
+    const err = mobileAtProvider(order);
+    if (err) return err;
+    if (order.simKind !== "esim") return fail(409, "sim_kind_mismatch");
+    const eid = (body as { eid?: string | null } | undefined)?.eid ?? null;
+    if (eid && !/^\d{32}$/.test(eid)) return fail(400, "invalid_request", "EID: 32 chiffres");
+    const device = newDevice(order, "esim", `8912230000${String(state.seq).padStart(10, "0")}`, eid);
+    state.esimCodes[device.id] = `LPA:1$smdp.sandbox.mimt.local$DEMO-${device.id.toUpperCase()}`;
+    return ok(esimResponse(order, device));
+  }],
+  ["GET", /^\/v1\/catalog\/orders\/([^/]+)\/esim$/, ({ params }) => {
+    const order = findOrder(params[0]);
+    if (!order) return fail(404, "order_not_found");
+    const device = state.devices.find((d) => d.orderId === order.id && d.kind === "esim" && state.esimCodes[d.id]);
+    return device ? ok(esimResponse(order, device)) : fail(404, "esim_not_found");
+  }],
+  ["POST", /^\/v1\/catalog\/orders\/([^/]+)\/porting$/, ({ params, body }) => {
+    const order = findOrder(params[0]);
+    if (!order) return fail(404, "order_not_found");
+    if (order.productLine !== "mobile") return fail(409, "not_mobile");
+    if (!["submitted", "credit_check", "pending_provider"].includes(order.state)) return fail(409, "order_not_ready");
+    const b = body as PortInRequest;
+    const d = (b.phoneNumber ?? "").replace(/\D/g, "");
+    const phone = d.length === 10 ? `+1${d}` : d.length === 11 && d.startsWith("1") ? `+${d}` : "";
+    if (!NANP_E164.test(phone) || isEmergencyNumber(phone)) return fail(400, "invalid_phone_number");
+    if (!b.pin && !b.imei) return fail(400, "invalid_request", "NIP de transfert ou IMEI requis");
+    const existing = state.porting.find((x) => x.orderId === order.id);
+    if (existing && existing.status !== "rejected" && existing.status !== "cancelled") return fail(409, "porting_exists");
+    const now = new Date().toISOString();
+    // The account number, PIN and IMEI are not kept, even in demo mode.
+    const p: PortingRequest = {
+      id: existing?.id ?? nextId("port"),
+      orderId: order.id,
+      telecomAccountId: order.telecomAccountId,
+      phoneE164: phone,
+      losingCarrier: b.losingCarrier,
+      authorizedName: b.authorizedName,
+      status: order.providerOrderId ? "submitted" : "pending",
+      providerRef: order.providerOrderId ? nextId("sbx-port") : null,
+      rejectReason: null,
+      dueAt: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+      completedAt: null,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+    state.porting = [...state.porting.filter((x) => x.orderId !== order.id), p];
+    return created(p);
+  }],
+  ["GET", /^\/v1\/catalog\/orders\/([^/]+)\/porting$/, ({ params }) => {
+    const p = state.porting.find((x) => x.orderId === params[0]);
+    return p ? ok(p) : fail(404, "porting_not_found");
+  }],
 ];
 
 const latencyMs = () => (import.meta.env.MODE === "test" ? 0 : 150);
@@ -827,6 +1228,7 @@ export async function mockFetch(input: string, init: RequestInit = {}): Promise<
     if (!header.startsWith(`Bearer ${ACCESS_PREFIX}`)) return fail(401, "unauthorized");
   }
   const params = (re.exec(url.pathname) ?? []).slice(1).map((p) => decodeURIComponent(p ?? ""));
-  if (params[0] && url.pathname.startsWith("/v1/business/") && params[0] !== BIZ_ID) return fail(403, "not_a_member");
+  // apps/api answers 404 to non-members (no existence leak).
+  if (params[0] && url.pathname.startsWith("/v1/business/") && params[0] !== BIZ_ID) return fail(404, "not_found");
   return handler({ params, query: url.searchParams, body, method });
 }

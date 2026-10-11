@@ -1,7 +1,9 @@
 // English (Canada) — second language. Must have exactly the same keys as fr.ts (typed against it).
 import type { TKey } from "./fr";
+import { enExtra } from "./en.extra";
 
 export const en: Record<TKey, string> = {
+  ...enExtra,
   "account.billingPortal": "Manage billing",
   "account.complaints": "Complaints: CCTS (Commission for Complaints for Telecom-television Services)",
   "account.complaintsHint": "If we do not resolve your complaint, the CCTS can help you for free.",
@@ -464,8 +466,6 @@ export const en: Record<TKey, string> = {
   "port.temporaryNone": "None",
   "port.title": "Transfer my number",
 
-  "privacy.ai": "AI assistance (Claude)",
-  "privacy.aiHint": "Voicemail summaries and reply suggestions. The text is processed by Anthropic, outside Quebec. Off by default.",
   "privacy.intro": "Each consent is separate and optional. You can withdraw it at any time (Quebec Law 25).",
   "privacy.marketing": "Promotional emails and texts from MIMT",
   "privacy.marketingHint": "Offers and news. Unsubscribe at any time (CASL).",
