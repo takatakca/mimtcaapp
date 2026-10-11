@@ -1,0 +1,43 @@
+name: Diagnose MIMT PostgreSQL Server Authentication
+on:
+  push:
+    branches: [diag/mimt-pg-server-auth-20261011]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compare PostgreSQL-side authentication signals
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os,json,re,urllib.request
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          h={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"]}
+          def get(url):
+              with urllib.request.urlopen(urllib.request.Request(base+url,headers=h),timeout=28) as r:
+                  return json.loads(r.read(800000))
+          ds=get("/databases")
+          if isinstance(ds,dict):ds=ds.get("data",ds.get("databases",[]))
+          dbs=[x for x in ds if x.get("name")=="mimt-prod-postgres"]
+          if len(dbs)!=1:raise SystemExit("Target database not unique")
+          d=get("/databases/"+dbs[0]["uuid"])
+          out=get("/databases/"+dbs[0]["uuid"]+"/logs?lines=300")
+          logs=str(out.get("logs",""))
+          print("MIMT DB current status:",d.get("status"))
+          for n,pattern in [
+              ("PG password auth failure",r"password authentication failed"),
+              ("PG invalid role",r"role .* does not exist"),
+              ("PG database missing",r"database .* does not exist"),
+              ("PG no pg_hba access",r"no pg_hba.conf entry"),
+              ("PG successful connections",r"connection authenticated|connection authorized"),
+              ("PG init script permission failure",r"10-mimt-initialize.sql: Permission denied"),
+              ("PG read-only volume",r"read-only file system"),
+              ("PG missing password",r"no password supplied"),
+          ]:
+              print(n,len(re.findall(pattern,logs,re.I)))
+          print("No users, addresses or secrets printed.")
+          PY
