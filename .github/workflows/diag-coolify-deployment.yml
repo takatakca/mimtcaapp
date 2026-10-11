@@ -79,7 +79,6 @@ jobs:
                           line=re.sub(r"(?:postgres(?:ql)?|https?)://\\S+","[redacted-url]",line)
                           line=re.sub(r"(?i)(password|token|secret|key)=\\S+",r"\\1=[redacted]",line)
                           line=re.sub(r"[A-Za-z0-9+/=]{45,}","[redacted-id]",line)
-                          line=re.sub(r"\\"[^\\"]{30,}\\"","[redacted-quote]",line)
                           suspicious.append(line[-210:])
                   print("Sanitized failure-context lines (last 8):")
                   for line in suspicious[-8:]:print("CONTEXT:",line)
