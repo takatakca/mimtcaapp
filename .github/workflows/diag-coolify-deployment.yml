@@ -1,0 +1,44 @@
+name: Inspect MIMT Coolify Deployment State
+on:
+  push:
+    branches: [diag/mimt-coolify-deploy-status-20261011]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect latest MIMT deployments safely
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          python - <<'PY'
+          import json,os,urllib.request,urllib.error,re
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          h={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"]}
+          uid=os.environ["COOLIFY_API_UUID"]
+          try:
+              with urllib.request.urlopen(urllib.request.Request(base+"/deployments/applications/"+uid+"?take=5",headers=h),timeout=25) as r:
+                  data=json.load(r)
+          except urllib.error.HTTPError as e:
+              print("Deployment list HTTP",e.code)
+              raise SystemExit(0)
+          if isinstance(data,dict):data=data.get("data",data.get("deployments",[]))
+          for i,ob in enumerate((data if isinstance(data,list) else [])[:5]):
+              print("Deployment",i+1,
+                    "status:",ob.get("status"),
+                    "commit_matches_recent_main:",str(ob.get("commit","")).startswith("a4d5fdbd"),
+                    "created:",str(ob.get("created_at",""))[:19],
+                    "updated:",str(ob.get("updated_at",""))[:19])
+              log=str(ob.get("logs",""))
+              for name,pattern in [
+                  ("Docker build failed",r"build failed|failed to build|ERROR: process"),
+                  ("Migration error",r"migration checksum changed|refusing to migrate|permission denied"),
+                  ("Auth failures",r"password authentication failed"),
+                  ("DB network lookup",r"ENOTFOUND|EAI_AGAIN"),
+              ]:
+                  print("  sanitized indicator",name,":",len(re.findall(pattern,log,re.I)))
+          print("No deployment log or secrets printed.")
+          PY
