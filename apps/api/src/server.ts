@@ -1,4 +1,5 @@
 import { buildApp } from "./app.js";
+import { migrateStandaloneDatabase } from "./jobs/migrateStandalone.js";
 import { createDeps, createLogger } from "./bootstrap.js";
 import { loadConfig } from "./config.js";
 import { runDailyCostReport } from "./jobs/dailyCost.js";
@@ -9,6 +10,19 @@ import { purgeExpiredMedia } from "./services/media.js";
 
 const config = loadConfig();
 const log = createLogger(config);
+// Emergency one-shot database bootstrap; never enabled by default.
+// Explicit MIMT-only safeguards are enforced again by migrateStandaloneDatabase.
+// Remove BOTH one-shot Coolify flags after a verified successful migration.
+if (process.env.MIMT_STANDALONE_BOOTSTRAP_ONCE === "YES_STARTUP_MIGRATE") {
+  if (!config.DATABASE_URL) throw new Error("Dedicated MIMT database URL is missing");
+  await migrateStandaloneDatabase(
+    config.DATABASE_URL,
+    process.env.MIMT_STANDALONE_MIGRATE_CONFIRM,
+    config.NODE_ENV,
+    config.DATABASE_SSL_CA_PEM,
+  );
+  log.info("Dedicated MIMT database schema verified; one-time startup bootstrap complete");
+}
 const deps = createDeps(config, log);
 const app = await buildApp(deps);
 
