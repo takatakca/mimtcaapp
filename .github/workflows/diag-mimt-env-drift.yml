@@ -1,0 +1,42 @@
+name: Inspect MIMT Production Environment Drift
+on:
+  push:
+    branches: [diag/mimt-env-drift-20261011]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Detect duplicate and inherited MIMT DB settings
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          python - <<'PY'
+          import os,json,urllib.request,urllib.parse
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          h={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"]}
+          def get(p):
+              with urllib.request.urlopen(urllib.request.Request(base+p,headers=h),timeout=25) as r:return json.load(r)
+          env=get("/applications/"+os.environ["COOLIFY_API_UUID"]+"/envs")
+          if isinstance(env,dict):env=env.get("data",env.get("envs",[]))
+          for key in ("DATABASE_URL","DATABASE_SSL_CA_PEM","MIMT_STANDALONE_BOOTSTRAP_ONCE","MIMT_STANDALONE_MIGRATE_CONFIRM"):
+              items=[e for e in env if e.get("key")==key]
+              print("KEY",key,"count",len(items))
+              for i,ob in enumerate(items):
+                  v=str(ob.get("value") or "")
+                  if key=="DATABASE_URL":
+                      u=urllib.parse.urlsplit(v)
+                      print(" entry",i,"supabase",bool(u.hostname and "supabase" in u.hostname),
+                          "Docker-internal",bool(u.hostname and "." not in u.hostname),
+                          "database is MIMT",u.path=="/mimt_production",
+                          "quote-wrapped",v.startswith(('"',"'")))
+                  else:
+                      print(" entry",i,"empty",len(v)==0,
+                          "is_runtime",ob.get("is_runtime"),
+                          "preview",ob.get("is_preview"),
+                          "literal",ob.get("is_literal"))
+          print("No URLs or credential values printed.")
+          PY
