@@ -38,7 +38,7 @@ describe("i18n dictionaries", () => {
   });
 
   it("every literal key used in src/ exists in fr", () => {
-    const keyLike = /["'`]((?:account|address|app|biz|call|calls|common|contacts|day|error|line|messages|nav|notFound|offer|offers|order|orders|otp|phone|privacy|signin|spam|tabs|target|validation|voicemail)\.[A-Za-z0-9_.]+)["'`]/g;
+    const keyLike = /["'`]((?:account|address|app|biz|call|calls|common|contacts|day|error|line|messages|nav|notFound|offer|offers|order|orders|otp|phone|port|privacy|signin|spam|tabs|target|validation|voicemail)\.[A-Za-z0-9_.]+)["'`]/g;
     const missing = new Set<string>();
     for (const file of sourceFiles(join(__dirname, ".."))) {
       for (const m of readFileSync(file, "utf8").matchAll(keyLike)) if (!(m[1]! in fr)) missing.add(`${m[1]} (${file})`);

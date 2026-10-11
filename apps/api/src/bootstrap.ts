@@ -11,6 +11,7 @@ import { StripeGateway } from "./gateways/billing.js";
 import { createProvisioningProvider } from "./catalog/providers/index.js";
 import { SupabaseMediaStore } from "./gateways/media.js";
 import { TwilioRestGateway } from "./gateways/twilio.js";
+import { TwilioRestPortingGateway } from "./gateways/twilioPorting.js";
 import { MessageCipher } from "./lib/crypto.js";
 import { REDACT_PATHS } from "./logger.js";
 import { MemoryRepository } from "./repo/memory.js";
@@ -69,6 +70,8 @@ export function createDeps(config: Config, log: Logger): AppDeps {
       : null;
   if (!mediaFiles) log.warn("Supabase Storage not configured: MMS uploads and custom greetings answer 503");
   if (config.EMAIL_PROVIDER === "log") log.warn("EMAIL_PROVIDER=log: voicemail emails are logged, not sent");
+  const porting = twilio && config.TWILIO_PORTING_ENABLED ? new TwilioRestPortingGateway(config) : null;
+  if (!porting) log.warn("TWILIO_PORTING_ENABLED not set: port-in requests are signed and recorded, then wait for manual submission");
 
   return {
     config,
@@ -87,6 +90,7 @@ export function createDeps(config: Config, log: Logger): AppDeps {
     notifier: new LogNotifier(log),
     now: () => new Date(),
     provisioning,
+    porting,
     ai: createAiServices({ config, ...(repo instanceof PostgresRepository ? { sql: repo.sql } : {}), log }),
   };
 }

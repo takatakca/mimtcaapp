@@ -10,3 +10,4 @@ export * from "./callControls.js";
 export * from "./media.js";
 export * from "./addons.js";
 export * from "./rates.js";
+export * from "./portIn.js";

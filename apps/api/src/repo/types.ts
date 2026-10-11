@@ -4,6 +4,7 @@ import type { CatalogRepository } from "./catalog.js";
 import type { CallControlsRepository } from "./callControls.js";
 import type { MediaRepository } from "./mediaTypes.js";
 import type { ReferralRepository } from "./referrals.js";
+import type { PortInRepository } from "./portIn.js";
 
 export type UserStatus = "active" | "suspended" | "pending_deletion" | "deleted";
 export type AccountStatus = "ACTIVE_MANAGED" | "ACTIVE_INDEPENDENT" | "OUTBOUND_SUSPENDED" | "SUSPENDED" | "CLOSED";
@@ -275,6 +276,8 @@ export interface Repository {
   readonly media: MediaRepository;
   /** Referral codes, referrals and payment fingerprints: src/repo/referrals.ts. */
   readonly referrals: ReferralRepository;
+  /** Number port-in (landline/VoIP into MIMT) storage: src/repo/portIn.ts. */
+  readonly portIns: PortInRepository;
   ping(): Promise<void>;
   close(): Promise<void>;
 

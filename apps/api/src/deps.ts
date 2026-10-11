@@ -7,6 +7,7 @@ import type { BillingGateway } from "./gateways/billing.js";
 import type { ProvisioningProvider } from "./catalog/providers/types.js";
 import type { MediaStore } from "./gateways/media.js";
 import type { TwilioGateway } from "./gateways/twilio.js";
+import type { TwilioPortingGateway } from "./gateways/twilioPorting.js";
 import type { MessageCipher } from "./lib/crypto.js";
 import type { RateLimiter } from "./fraud/rateLimiter.js";
 import type { Repository } from "./repo/types.js";
@@ -39,4 +40,6 @@ export interface AppDeps {
   email?: EmailSender;
   /** Internet/mobile resale wholesaler (sandbox in dev). Absent or null: ordering answers 503. */
   provisioning?: ProvisioningProvider | null;
+  /** Twilio Porting API (number port-in). Absent or null: requests are recorded and signed, then wait for ops. */
+  porting?: TwilioPortingGateway | null;
 }

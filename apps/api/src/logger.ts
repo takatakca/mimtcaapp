@@ -23,6 +23,9 @@ export const REDACT_PATHS = [
   "*.private_key",
   "*.privateKey",
   "*.serviceAccountJson",
+  // Number port-in: losing-carrier account number and PIN.
+  "*.accountNumber",
+  "*.pin",
 ];
 
 export function loggerOptions(config: Config): FastifyServerOptions["logger"] {

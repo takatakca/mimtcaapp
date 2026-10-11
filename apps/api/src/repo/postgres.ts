@@ -6,6 +6,7 @@ import { PostgresCatalogRepository } from "./catalogPostgres.js";
 import { PostgresCallControlsRepository } from "./callControlsPostgres.js";
 import { PostgresMediaRepository } from "./mediaPostgres.js";
 import { PostgresReferralRepository } from "./referralsPostgres.js";
+import { PostgresPortInRepository } from "./portInPostgres.js";
 import type {
   AuditEntry,
   Call,
@@ -58,6 +59,10 @@ export class PostgresRepository implements Repository {
   private callControlsRepo?: PostgresCallControlsRepository;
   get callControls(): PostgresCallControlsRepository {
     return (this.callControlsRepo ??= new PostgresCallControlsRepository(this.sql));
+  }
+  private portInRepo?: PostgresPortInRepository;
+  get portIns(): PostgresPortInRepository {
+    return (this.portInRepo ??= new PostgresPortInRepository(this.sql));
   }
 
   private mediaRepo?: PostgresMediaRepository;

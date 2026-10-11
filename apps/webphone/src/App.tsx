@@ -14,6 +14,7 @@ import { Calls } from "./pages/Calls";
 import { Messages } from "./pages/Messages";
 import { NotFound } from "./pages/NotFound";
 import { OtpSignIn } from "./pages/OtpSignIn";
+import { PortIn } from "./pages/PortIn";
 import { SignIn } from "./pages/SignIn";
 import { Voicemail } from "./pages/Voicemail";
 import { BusinessLayout } from "./pages/business/BusinessLayout";
@@ -83,6 +84,7 @@ export function AppRoutes() {
         <Route path="services/offres" element={<Offers />} />
         <Route path="services/commandes" element={<Orders />} />
         <Route path="services/commandes/:orderId" element={<OrderDetail />} />
+        <Route path="services/transfert" element={<PortIn />} />
         <Route path="affaires/:businessId" element={<BusinessLayout />}>
           <Route index element={<BusinessOverview />} />
           <Route path="postes" element={<Extensions />} />

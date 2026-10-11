@@ -33,6 +33,7 @@ import { createHttpClient, type FetchLike } from "./http";
 import { createTokenStore } from "./tokens";
 import { businessEndpoints } from "./business";
 import { catalogEndpoints } from "./catalog";
+import { portInEndpoints } from "./portIn";
 
 let locale: Locale = "fr-CA";
 const signedOutListeners = new Set<() => void>();
@@ -115,6 +116,7 @@ export const api = {
 
   ...businessEndpoints(request),
   ...catalogEndpoints(request),
+  ...portInEndpoints(request),
 };
 
 export type Api = typeof api;
