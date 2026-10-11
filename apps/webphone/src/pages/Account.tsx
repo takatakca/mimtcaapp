@@ -1,5 +1,6 @@
 import { AI_CONSENT_KIND, PLANS, formatCad, type AiStatusResponse, type E911NoticeResponse, type PaidPlanCode, type UserConsentKind } from "@mimt/shared";
 import { useEffect, useState, type FormEvent } from "react";
+import { Link } from "react-router";
 import { api } from "../api/client";
 import { ApiClientError, toErrorKey } from "../api/errors";
 import { useSession } from "../auth/SessionProvider";
@@ -82,6 +83,9 @@ export function Account() {
               <option value="en">{t("account.languageEn")}</option>
             </select>
           </div>
+          <Link to="/compte/appels" className="btn btn--ghost">
+            <Icon name="settings" size={16} /> {t("settings.title")}
+          </Link>
           <DataSection />
           <button type="button" className="btn btn--ghost" onClick={() => void signOut()}>
             <Icon name="logout" size={16} /> {t("account.logout")}

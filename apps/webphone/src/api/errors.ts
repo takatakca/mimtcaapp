@@ -65,6 +65,17 @@ const CODE_TO_KEY: Record<string, TKey> = {
   order_changed: "error.orderChanged",
   porting_exists: "error.portingExists",
   invalid_phone_number: "messages.invalidTo",
+  // Call controls and voicemail settings (callControls.ts, media.ts).
+  cannot_block_emergency: "error.cannotBlockEmergency",
+  block_limit: "error.blockLimit",
+  forwarding_target_required: "settings.forwarding.targetRequired",
+  forwarding_destination_not_allowed: "settings.forwarding.invalidTarget",
+  vm_email_not_in_plan: "error.featureRequired",
+  vm_greeting_not_in_plan: "error.featureRequired",
+  no_email: "settings.vm.noEmail",
+  unsupported_media_type: "settings.vm.badType",
+  media_too_large: "settings.vm.tooBig",
+  invalid_media: "settings.vm.badType",
 };
 
 export function errorKeyFor(status: number | null, code?: string | null): TKey {

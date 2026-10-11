@@ -1,6 +1,7 @@
 // The app's API client: one HttpClient (http.ts) plus typed endpoints from the shared contract.
 // With VITE_MOCK_API=1 requests go to the in-browser fixture API (mock.ts) instead of the network.
-import type { Locale } from "@mimt/shared";
+import type { CreateMediaUploadResponse, Locale } from "@mimt/shared";
+import { ApiClientError, errorKeyFor } from "./errors";
 import { env } from "../env";
 import { businessEndpoints } from "./business";
 import { catalogEndpoints } from "./catalog";
@@ -55,3 +56,14 @@ export const api = {
 };
 
 export type Api = typeof api;
+
+/** PUTs a file to the signed upload URL from api.createUpload (no bearer token: the URL carries its own). */
+export async function uploadFile(upload: CreateMediaUploadResponse, file: Blob): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetchImpl(upload.uploadUrl, { method: upload.uploadMethod, headers: upload.uploadHeaders, body: file });
+  } catch (e) {
+    throw new ApiClientError(null, "network", "error.network", e instanceof Error ? e.message : "network error");
+  }
+  if (!res.ok) throw new ApiClientError(res.status, "upload_failed", errorKeyFor(res.status), `upload failed (${res.status})`);
+}

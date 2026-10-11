@@ -42,7 +42,10 @@ import {
   type BusinessHours,
   type BusinessMember,
   type BusinessResponse,
+  type BlockedNumberDto,
   type CallRecord,
+  type CallSettings,
+  DEFAULT_CALL_SETTINGS,
   type DidRoute,
   type E911AddressResponse,
   type Extension,
@@ -56,7 +59,9 @@ import {
   type RingGroup,
   type RingGroupRequest,
   type ServiceOrder,
+  type UpdateMeRequest,
   type VoicemailDto,
+  type VoicemailSettingsDto,
   type Weekday,
 } from "@mimt/shared";
 
@@ -96,6 +101,11 @@ interface State {
   porting: PortingRequest[];
   /** eSIM activation codes by device id (the real API keeps them encrypted). */
   esimCodes: Record<string, string>;
+  // Call controls and voicemail settings (callControls.ts, media.ts).
+  blocks: BlockedNumberDto[];
+  voicemailSettings: VoicemailSettingsDto;
+  /** Uploads created with POST /v1/media/uploads, by media id. */
+  uploads: Record<string, { purpose: string; received: boolean }>;
 }
 
 const ago = (minutes: number, now = Date.now()) => new Date(now - minutes * 60_000).toISOString();
@@ -139,6 +149,7 @@ function initialState(): State {
       numbers: [{ id: "num-1", e164: OUR, state: "active" }],
       e911: { addressRegistered: true, noticeAccepted: true, noticeVersion: "2026-10-fr-1" },
       usage: { outboundMinutes: 212, inboundMinutes: 340, outboundSms: 418, periodStart: "2026-10-01T00:00:00.000Z" },
+      callSettings: DEFAULT_CALL_SETTINGS,
     },
     e911: {
       id: "e911-1",
@@ -372,6 +383,9 @@ function initialState(): State {
     appointments: [],
     porting: [],
     esimCodes: {},
+    blocks: [{ id: "block-1", e164: "+12025550188", label: "Faux soutien technique", createdAt: ago(60 * 49) }],
+    voicemailSettings: { available: { greeting: true, email: true }, greeting: null, emailEnabled: false, email: "camille@example.com" },
+    uploads: {},
   };
 }
 
@@ -640,6 +654,31 @@ function esimResponse(order: ServiceOrder, device: Device) {
 type Handler = (ctx: { params: string[]; query: URLSearchParams; body: unknown; method: string }) => Response;
 type Route = [method: string, pattern: RegExp, handler: Handler, auth?: boolean];
 
+/** Same rules as apps/api routes/me.ts: forwarding needs call_forwarding and a Canada/US target, never 9-1-1. */
+function callSettingsPatch(b: UpdateMeRequest): CallSettings | Response {
+  const current = state.me.callSettings ?? DEFAULT_CALL_SETTINGS;
+  const next: CallSettings = { ...current };
+  if (b.forwarding) {
+    const target = b.forwarding.target === undefined ? current.forwarding.target : b.forwarding.target;
+    if (b.forwarding.mode !== "off") {
+      if (!PLANS[state.me.account.plan].features.includes("call_forwarding")) return fail(403, "plan_required");
+      if (!target) return fail(400, "forwarding_target_required");
+    }
+    if (target && (isEmergencyNumber(target) || !NANP_E164.test(target))) return fail(400, "forwarding_destination_not_allowed");
+    next.forwarding = { mode: b.forwarding.mode, target, timeoutS: b.forwarding.timeoutS ?? current.forwarding.timeoutS };
+  }
+  if (b.dnd) next.dnd = { enabled: b.dnd.enabled, schedule: b.dnd.schedule === undefined ? current.dnd.schedule : b.dnd.schedule };
+  if (b.blockedCallAction) next.blockedCallAction = b.blockedCallAction;
+  return next;
+}
+
+/** "514 555-0123", "+1…" → E.164 (Canada/US), like apps/api normalizeDialed. */
+function toE164(raw: string): string | null {
+  const digits = raw.replace(/\D/g, "");
+  const e164 = raw.trim().startsWith("+") ? `+${digits}` : digits.length === 10 ? `+1${digits}` : digits.length === 11 && digits.startsWith("1") ? `+${digits}` : null;
+  return e164 && NANP_E164.test(e164) ? e164 : null;
+}
+
 const ok = (body: unknown) => json(200, body);
 const created = (body: unknown) => json(201, body);
 const B = "/v1/business/([^/]+)";
@@ -659,9 +698,15 @@ const routes: Route[] = [
   // Me
   ["GET", /^\/v1\/me$/, () => ok(state.me)],
   ["PATCH", /^\/v1\/me$/, ({ body }) => {
-    const b = body as { locale?: MeResponse["user"]["locale"]; displayName?: string | null };
-    state.me = { ...state.me, user: { ...state.me.user, ...(b.locale ? { locale: b.locale } : {}), ...(b.displayName !== undefined ? { displayName: b.displayName } : {}) } };
-    return ok({ id: state.me.user.id, locale: state.me.user.locale, displayName: state.me.user.displayName });
+    const b = body as UpdateMeRequest;
+    const next = callSettingsPatch(b);
+    if (next instanceof Response) return next;
+    state.me = {
+      ...state.me,
+      callSettings: next,
+      user: { ...state.me.user, ...(b.locale ? { locale: b.locale } : {}), ...(b.displayName !== undefined ? { displayName: b.displayName } : {}) },
+    };
+    return ok({ id: state.me.user.id, locale: state.me.user.locale, displayName: state.me.user.displayName, callSettings: next });
   }],
   ["GET", /^\/v1\/me\/export$/, () =>
     ok({ exportedAt: new Date().toISOString(), format: "mimt-export-v1", profile: state.me, calls: state.calls, messages: state.messages, voicemails: state.voicemails })],
@@ -718,6 +763,82 @@ const routes: Route[] = [
     ok({ configured: state.aiConfigured, consent: Boolean(state.consents[AI_CONSENT_KIND]), plan: state.me.account.plan, monthlyBudgetCadCents: 1000, usedCadCents: 37, period: new Date().toISOString().slice(0, 7) })],
 
   // Voicemail
+  // Call blocking (9-1-1 can never be blocked).
+  ["GET", /^\/v1\/blocks$/, () => ok({ blocks: state.blocks })],
+  ["POST", /^\/v1\/blocks$/, ({ body }) => {
+    const b = body as { number?: string; label?: string | null };
+    if (isEmergencyNumber(b.number ?? "")) return fail(400, "cannot_block_emergency");
+    const e164 = toE164(b.number ?? "");
+    if (!e164) return fail(400, "validation_error");
+    const existing = state.blocks.find((x) => x.e164 === e164);
+    if (existing) return ok(existing);
+    if (state.blocks.length >= 500) return fail(409, "block_limit");
+    const row: BlockedNumberDto = { id: nextId("block"), e164, label: b.label?.trim() || null, createdAt: new Date().toISOString() };
+    state.blocks = [row, ...state.blocks];
+    return created(row);
+  }],
+  ["DELETE", /^\/v1\/blocks\/([^/]+)$/, ({ params }) => {
+    state.blocks = state.blocks.filter((x) => x.id !== params[0]);
+    return json(204, undefined);
+  }],
+  ["DELETE", /^\/v1\/blocks$/, ({ query }) => {
+    const e164 = toE164(query.get("number") ?? "");
+    state.blocks = state.blocks.filter((x) => x.e164 !== e164);
+    return json(204, undefined);
+  }],
+
+  // Media uploads: the signed URL points back at this fixture API (no bearer token, like Supabase).
+  ["POST", /^\/v1\/media\/uploads$/, ({ body }) => {
+    const b = body as { purpose?: string; contentType?: string; sizeBytes?: number };
+    if (b.purpose !== "greeting" && b.purpose !== "mms") return fail(400, "validation_error");
+    const mediaId = nextId("media");
+    state.uploads[mediaId] = { purpose: b.purpose, received: false };
+    return created({
+      mediaId,
+      uploadUrl: `https://mock.mimt.local/upload/${mediaId}`,
+      uploadMethod: "PUT",
+      uploadHeaders: { "Content-Type": b.contentType ?? "application/octet-stream" },
+      uploadExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+      maxBytes: 5 * 1024 * 1024,
+    });
+  }],
+  ["PUT", /^\/upload\/([^/]+)$/, ({ params }) => {
+    const u = state.uploads[params[0]!];
+    if (!u) return fail(404, "not_found");
+    u.received = true;
+    return ok({});
+  }, false],
+
+  // Voicemail settings: custom greeting and voicemail by email (courriel).
+  ["GET", /^\/v1\/voicemail\/settings$/, () => ok(state.voicemailSettings)],
+  ["PATCH", /^\/v1\/voicemail\/settings$/, ({ body }) => {
+    const b = body as { emailEnabled?: boolean };
+    if (b.emailEnabled) {
+      if (!state.voicemailSettings.available.email) return fail(403, "vm_email_not_in_plan");
+      if (!state.voicemailSettings.email) return fail(409, "no_email");
+    }
+    if (b.emailEnabled !== undefined) state.voicemailSettings = { ...state.voicemailSettings, emailEnabled: b.emailEnabled };
+    return ok(state.voicemailSettings);
+  }],
+  ["PUT", /^\/v1\/voicemail\/greeting$/, ({ body }) => {
+    if (!state.voicemailSettings.available.greeting) return fail(403, "vm_greeting_not_in_plan");
+    const mediaId = (body as { mediaId?: string }).mediaId ?? "";
+    const u = state.uploads[mediaId];
+    if (!u || u.purpose !== "greeting" || !u.received) return fail(400, "validation_error");
+    const now = new Date();
+    state.voicemailSettings = {
+      ...state.voicemailSettings,
+      greeting: { mediaId, url: SILENT_WAV, urlExpiresAt: new Date(now.getTime() + 15 * 60_000).toISOString(), updatedAt: now.toISOString() },
+    };
+    return ok(state.voicemailSettings);
+  }],
+  ["DELETE", /^\/v1\/voicemail\/greeting$/, () => {
+    state.voicemailSettings = { ...state.voicemailSettings, greeting: null };
+    return ok(state.voicemailSettings);
+  }],
+  ["POST", /^\/v1\/voicemail\/greeting\/call$/, () =>
+    state.voicemailSettings.available.greeting ? json(202, { status: "calling" }) : fail(403, "vm_greeting_not_in_plan")],
+
   ["GET", /^\/v1\/voicemails$/, () => ok({ voicemails: state.voicemails })],
   ["POST", /^\/v1\/voicemails\/([^/]+)\/summary$/, ({ params }) => {
     const vm = state.voicemails.find((v) => v.id === params[0]);

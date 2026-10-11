@@ -10,6 +10,7 @@ import { I18nProvider } from "./i18n/I18nProvider";
 import type { Lang } from "./i18n/core";
 import { Account } from "./pages/Account";
 import { AuthCallback } from "./pages/AuthCallback";
+import { CallSettings } from "./pages/CallSettings";
 import { Calls } from "./pages/Calls";
 import { Messages } from "./pages/Messages";
 import { NotFound } from "./pages/NotFound";
@@ -82,6 +83,7 @@ export function AppRoutes() {
         <Route path="appels" element={<Calls />} />
         <Route path="messagerie" element={<Voicemail />} />
         <Route path="compte" element={<Account />} />
+        <Route path="compte/appels" element={<CallSettings />} />
         <Route path="services" element={<Navigate to="/services/offres" replace />} />
         <Route path="services/offres" element={<Offers />} />
         <Route path="services/commandes" element={<Orders />} />
