@@ -190,9 +190,11 @@ function Thread({ peer, ourNumber, onSent }: { peer: string; ourNumber?: string;
 
   useEffect(() => {
     void load();
+    // Ask for AI suggestions only when AI is set up, consented to and within budget: each call costs budget.
     api
-      .suggestions(peer)
-      .then((s) => setSuggestions(s.suggestions))
+      .aiStatus()
+      .then((ai) => (ai.configured && ai.consent && ai.usedCadCents < ai.monthlyBudgetCadCents ? api.suggestions(peer) : null))
+      .then((s) => setSuggestions(s?.suggestions ?? []))
       .catch(() => setSuggestions([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [peer]);

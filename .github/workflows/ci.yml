@@ -25,3 +25,24 @@ jobs:
         run: |
           test -f apps/webphone/dist/.htaccess
           grep -Fq 'RewriteRule ^ index.html [L]' apps/webphone/dist/.htaccess
+
+  e2e:
+    # Webphone (built, not mock mode) against the real API on its in-memory repository.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @mimt/shared build
+      - run: pnpm --filter @mimt/e2e exec playwright install --with-deps chromium
+      - run: pnpm --filter @mimt/e2e e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: e2e/test-results/
+          retention-days: 7

@@ -84,7 +84,7 @@ test("sign in by SMS code, read messages and voicemail, add an extension, browse
   await expect(main.getByText(E2E_VOICEMAIL_TRANSCRIPT)).toBeVisible();
 
   // --- MIMT Affaires: create an extension -------------------------------------------------------------
-  await page.getByRole("link", { name: "MIMT Affaires" }).first().click();
+  await page.getByRole("complementary", { name: "Navigation principale" }).getByRole("link", { name: E2E_BUSINESS_NAME }).click();
   await expect(page).toHaveURL(/\/affaires\/[^/]+$/);
   await expect(main.getByText(E2E_BUSINESS_NAME).first()).toBeVisible();
   await page.getByRole("navigation", { name: "Sections de l'entreprise" }).getByRole("link", { name: "Postes" }).click();
