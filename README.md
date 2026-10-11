@@ -45,6 +45,11 @@ Aucun secret dans le code, le chat ou les URL. Les clés Twilio, Stripe, Supabas
 3. Français d'abord : interface, conditions, messages vocaux et soutien.
 4. Interdit de copier un concurrent : ni texte, ni nom, ni prix.
 
+
+## Mise en ligne
+
+Liste du propriétaire pour le lancement : [docs/MIMT-LAUNCH.md](docs/MIMT-LAUNCH.md).
+
 ---
 
 ## English
@@ -57,4 +62,4 @@ The repository is a pnpm monorepo:
 - `apps/web` (Next.js static site);
 - `packages/shared`.
 
-Phase 1 is under construction. See `docs/` for the regulatory research, costs and MVP plan.
+Also `apps/webphone` (app.mimt.ca, web softphone and business portal) and `e2e/` (Playwright). Owner go-live checklist: [docs/MIMT-LAUNCH.md](docs/MIMT-LAUNCH.md).
