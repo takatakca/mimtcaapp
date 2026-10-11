@@ -63,5 +63,25 @@ jobs:
                   ]
                   for name,pattern in patterns:
                       print("Failure category",name,len(re.findall(pattern,raw,re.I)))
+          if isinstance(data,list) and data:
+              latest=data[0]
+              depl=latest.get("deployment_uuid") or latest.get("uuid")
+              if depl:
+                  with urllib.request.urlopen(urllib.request.Request(base+"/deployments/"+depl,headers=h),timeout=25) as r:
+                      detail=json.load(r)
+                  raw=detail.get("logs") or ""
+                  lines=raw if isinstance(raw,list) else str(raw).splitlines()
+                  suspicious=[]
+                  for ob in lines:
+                      line=str(ob.get("output") or ob.get("message") or "") if isinstance(ob,dict) else str(ob)
+                      if re.search(r"(?i)unhealthy|failed|container.*exited|healthcheck|error",line):
+                          # redact URLs, secrets, email addresses, high-entropy IDs, and arbitrary quotes
+                          line=re.sub(r"(?:postgres(?:ql)?|https?)://\\S+","[redacted-url]",line)
+                          line=re.sub(r"(?i)(password|token|secret|key)=\\S+",r"\\1=[redacted]",line)
+                          line=re.sub(r"[A-Za-z0-9+/=]{45,}","[redacted-id]",line)
+                          line=re.sub(r"\\"[^\\"]{30,}\\"","[redacted-quote]",line)
+                          suspicious.append(line[-210:])
+                  print("Sanitized failure-context lines (last 8):")
+                  for line in suspicious[-8:]:print("CONTEXT:",line)
           print("No deployment log or secrets printed.")
           PY
