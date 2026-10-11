@@ -1,0 +1,47 @@
+name: Connect MIMT API to Coolify Internal Database Network
+on:
+  push:
+    branches: [ops/mimt-docker-network-20261011]
+permissions:
+  contents: read
+jobs:
+  network:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Join existing Coolify destination network and redeploy API
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          python - <<'PY'
+          import json,os,urllib.request,urllib.error
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          h={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"],"Content-Type":"application/json"}
+          uid=os.environ["COOLIFY_API_UUID"]
+          def call(method,path,data=None):
+              req=urllib.request.Request(base+path,method=method,headers=h,
+                  data=json.dumps(data).encode() if data is not None else None)
+              with urllib.request.urlopen(req,timeout=35) as r:
+                  raw=r.read(150000)
+                  return r.status,(json.loads(raw) if raw else {})
+          _,app=call("GET","/applications/"+uid)
+          _,dbs=call("GET","/databases")
+          if isinstance(dbs,dict):dbs=dbs.get("data",dbs.get("databases",[]))
+          matches=[d for d in dbs if d.get("name")=="mimt-prod-postgres"]
+          if len(matches)!=1:raise SystemExit("Dedicated MIMT PG not unique")
+          _,db=call("GET","/databases/"+matches[0]["uuid"])
+          if db.get("status")!="running:healthy" or db.get("is_public") is not False:
+              raise SystemExit("Private database not ready")
+          if db.get("environment_id")!=app.get("environment_id"):
+              raise SystemExit("App/database environment mismatch")
+          if not app.get("connect_to_docker_network"):
+              code,_=call("PATCH","/applications/"+uid,{"connect_to_docker_network":True})
+              print("Enabled MIMT shared Docker network HTTP:",code)
+          _,after=call("GET","/applications/"+uid)
+          if after.get("connect_to_docker_network") is not True:
+              raise SystemExit("MIMT API Docker network membership did not persist")
+          print("MIMT API now configured for private Docker network access")
+          status,_=call("POST","/deploy?uuid="+uid+"&force=true")
+          print("Coolify MIMT API redeployment queued HTTP:",status)
+          PY
