@@ -1,0 +1,50 @@
+name: Inspect MIMT API Private PG Cutover Logs
+on:
+  push:
+    branches: [diag/mimt-api-after-cutover-20261011]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect sanitized live migration and Docker connectivity signals
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          python - <<'PY'
+          import os,json,re,urllib.request,urllib.error
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          a=os.environ["COOLIFY_API_UUID"]
+          h={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"]}
+          def get(path):
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(base+path,headers=h),timeout=22) as r:
+                      return json.loads(r.read(600000))
+              except urllib.error.HTTPError as e:
+                  print("Coolify read error HTTP:",e.code)
+                  return {}
+          app=get("/applications/"+a)
+          print("API container status:",app.get("status"))
+          logs=get("/applications/"+a+"/logs?lines=320")
+          data=str(logs.get("logs",""))
+          flags=[
+              ("Migration completed","private MIMT PostgreSQL migrations verified"),
+              ("Startup migration finished","one-time startup bootstrap complete"),
+              ("MIMT migration applied","Applied migration:"),
+              ("DB connection refused","ECONNREFUSED|connection refused"),
+              ("DB DNS lookup failure","ENOTFOUND|EAI_AGAIN"),
+              ("Postgres auth failed","password authentication failed"),
+              ("SQL failure","relation .* does not exist|syntax error at"),
+              ("Migration checksum changed","Migration checksum changed"),
+              ("Private network guard failed","Production migration requires a private Docker-network hostname"),
+              ("Supabase safety guard failed","Refusing to migrate Supabase"),
+              ("TLS failure","self-signed certificate"),
+              ("Missing initialization data","No such file or directory|ENOENT"),
+          ]
+          for name,pattern in flags:
+              print("Log indicator",name,":",len(re.findall(pattern,data,re.I)))
+          print("Read-only inspection finished. No secrets or logs printed.")
+          PY
