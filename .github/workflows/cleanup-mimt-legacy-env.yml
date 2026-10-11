@@ -1,0 +1,58 @@
+name: Remove MIMT Legacy Supabase Variables Without Touching Data
+on:
+  push:
+    branches: [ops/mimt-remove-legacy-env-20261011]
+permissions:
+  contents: read
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete only stale MIMT app environment records and verify
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          python - <<'PY'
+          import json,os,urllib.request,urllib.parse
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          h={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"]}
+          app=os.environ["COOLIFY_API_UUID"]
+          def get(path):
+              with urllib.request.urlopen(urllib.request.Request(base+path,headers=h),timeout=30) as r:
+                  return json.load(r)
+          def delete(uuid):
+              req=urllib.request.Request(base+"/applications/"+app+"/envs/"+uuid,
+                   headers=h,method="DELETE")
+              with urllib.request.urlopen(req,timeout=30) as res:return res.status
+          env=get("/applications/"+app+"/envs")
+          if isinstance(env,dict):env=env.get("data",env.get("envs",[]))
+          urls=[e for e in env if e.get("key")=="DATABASE_URL"]
+          private=[e for e in urls if (
+              (lambda u:u.hostname and "." not in u.hostname and u.path=="/mimt_production")
+              (urllib.parse.urlsplit(e.get("value") or "")))]
+          legacy=[e for e in urls if "supabase" in str(
+              urllib.parse.urlsplit(e.get("value") or "").hostname or "").lower()]
+          if len(private)!=1 or not legacy or len(private)+len(legacy)!=len(urls):
+              raise SystemExit("Unsafe or ambiguous DB URL entries; no deletion.")
+          print("Correct dedicated MIMT URL present and legacy Supabase URL identified.")
+          stale=legacy+[e for e in env if e.get("key")=="DATABASE_SSL_CA_PEM"]
+          stale +=[e for e in env if e.get("key") in
+                   ("MIMT_STANDALONE_BOOTSTRAP_ONCE","MIMT_STANDALONE_MIGRATE_CONFIRM")
+                   and e.get("is_preview") is True]
+          for e in stale:
+              uuid=e.get("uuid")
+              if not uuid:raise SystemExit("Stale env entry lacks UUID; cannot safely delete.")
+              result=delete(uuid)
+              print("Removed obsolete MIMT app setting",e["key"],"HTTP",result)
+          current=get("/applications/"+app+"/envs")
+          if isinstance(current,dict):current=current.get("data",current.get("envs",[]))
+          remain=[e for e in current if e.get("key")=="DATABASE_URL"]
+          if len(remain)!=1 or remain[0].get("value")!=private[0].get("value"):
+              raise SystemExit("Cutover env drift remains; production deployment not safe.")
+          if any(e.get("key")=="DATABASE_SSL_CA_PEM" for e in current):
+              raise SystemExit("Legacy Supabase CA still present; must review before deployment.")
+          print("PASS: exactly one private MIMT database URL, zero legacy certificates.")
+          print("No databases, customers, hosting or passwords modified.")
+          PY
