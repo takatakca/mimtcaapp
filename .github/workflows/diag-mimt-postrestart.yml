@@ -1,0 +1,54 @@
+name: MIMT Final Post-Restart Production Audit
+on:
+  push:
+    branches: [diag/mimt-final-postrestart-20261011]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Independently verify live MIMT database health and no migration flags
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          python - <<'PY'
+          import os,json,urllib.request,urllib.parse,time,urllib.error
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          h={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"],"Accept":"application/json"}
+          appid=os.environ["COOLIFY_API_UUID"]
+          def get(path):
+              with urllib.request.urlopen(urllib.request.Request(base+path,headers=h),timeout=24) as response:
+                  return json.load(response)
+          env=get("/applications/"+appid+"/envs")
+          if isinstance(env,dict):env=env.get("data",env.get("envs",[]))
+          keys=[x.get("key") for x in env]
+          urls=[x.get("value","") for x in env if x.get("key")=="DATABASE_URL"]
+          if len(urls)!=1:raise SystemExit("MIMT database URL not unique")
+          u=urllib.parse.urlsplit(urls[0])
+          private=bool(u.hostname and "." not in u.hostname and u.path=="/mimt_production" and u.username=="mimt_owner")
+          print("Exactly one private MIMT URL:",private)
+          print("No legacy CA setting:","DATABASE_SSL_CA_PEM" not in keys)
+          print("No temporary migration flags:",not any(x in keys for x in ("MIMT_STANDALONE_BOOTSTRAP_ONCE","MIMT_STANDALONE_MIGRATE_CONFIRM")))
+          dbs=get("/databases")
+          if isinstance(dbs,dict):dbs=dbs.get("data",dbs.get("databases",[]))
+          matches=[x for x in dbs if x.get("name")=="mimt-prod-postgres"]
+          if len(matches)!=1:raise SystemExit("Private database not uniquely found")
+          db=get("/databases/"+matches[0]["uuid"])
+          print("PostgreSQL resource:",db.get("status"),"private:",db.get("is_public") is False)
+          app=get("/applications/"+appid)
+          print("API resource:",app.get("status"))
+          if (not private or db.get("status")!="running:healthy" or db.get("is_public") is not False or
+            any(x in keys for x in ("DATABASE_SSL_CA_PEM","MIMT_STANDALONE_BOOTSTRAP_ONCE","MIMT_STANDALONE_MIGRATE_CONFIRM"))):
+              raise SystemExit("Runtime configuration invalid")
+          for i in range(2):
+              with urllib.request.urlopen("https://api.mimt.ca/readyz?final_audit="+str(time.time_ns()),timeout=14) as r:
+                  response=json.loads(r.read(1500))
+                  print("Independent HTTP",r.status,"ok",response.get("ok"),"db",response.get("db"))
+                  if r.status!=200 or response.get("ok") is not True or response.get("db")!="up":
+                      raise SystemExit("Public database readiness not confirmed")
+              if i==0:time.sleep(12)
+          print("SUCCESS: stable private MIMT database readiness, two independent checks, no migration flags.")
+          PY
