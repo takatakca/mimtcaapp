@@ -1,0 +1,49 @@
+name: Deploy MIMT API With Private Database
+on:
+  push:
+    branches: [ops/mimt-deploy-private-db-20261011]
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Redeploy MIMT API from main to its private PostgreSQL
+        shell: bash
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,urllib.request,urllib.error,json,time,re
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          h={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"],"Accept":"application/json"}
+          uuid=os.environ["COOLIFY_API_UUID"]
+          url=base+"/deploy?uuid="+uuid+"&force=true"
+          with urllib.request.urlopen(urllib.request.Request(url,headers=h,method="POST"),timeout=35) as r:
+              print("Coolify accepted MIMT API production deployment:",r.status,flush=True)
+          for i in range(45):
+              time.sleep(10)
+              try:
+                  req=urllib.request.Request("https://api.mimt.ca/readyz?attempt="+str(i),headers={"Cache-Control":"no-cache"})
+                  with urllib.request.urlopen(req,timeout=12) as res:
+                      body=json.loads(res.read(1000))
+                      status=res.status
+              except urllib.error.HTTPError as e:
+                  status=e.code
+                  try:body=json.loads(e.read(1000))
+                  except:body={}
+              except Exception:
+                  status=0
+                  body={}
+              print("Verification",i+1,"status",status,"db",body.get("db"),flush=True)
+              if status==200 and body.get("ok") is True and body.get("db")=="up":
+                  print("SUCCESS: MIMT API database readiness passed.",flush=True)
+                  break
+          else:
+              print("MIMT API not ready; Coolify application logs must be inspected.",flush=True)
+              raise SystemExit(1)
+          PY
