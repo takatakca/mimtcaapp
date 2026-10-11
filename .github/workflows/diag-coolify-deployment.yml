@@ -70,6 +70,9 @@ jobs:
                   with urllib.request.urlopen(urllib.request.Request(base+"/deployments/"+depl,headers=h),timeout=25) as r:
                       detail=json.load(r)
                   raw=detail.get("logs") or ""
+                  if isinstance(raw,str) and raw.lstrip().startswith("["):
+                      try:raw=json.loads(raw)
+                      except:pass
                   lines=raw if isinstance(raw,list) else str(raw).splitlines()
                   suspicious=[]
                   for ob in lines:
