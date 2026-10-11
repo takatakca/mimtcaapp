@@ -14,6 +14,12 @@ import {
   generateContractSummary,
   isEmergencyNumber,
   isValidExtension,
+  generateLoaText,
+  signatureMatches,
+  PORT_IN_CANCELABLE,
+  PORT_IN_OPEN_NUMBER_STATUSES,
+  type CreatePortInRequest,
+  type NumberPortIn,
   quebecHolidaysCurrentAndNext,
   type AiReceptionistConfigDto,
   type ApiError,
@@ -67,6 +73,7 @@ interface State {
   offers: Offer[];
   orders: ServiceOrder[];
   orderEvents: OrderEventRecord[];
+  portIns: NumberPortIn[];
 }
 
 const ago = (minutes: number, now = Date.now()) => new Date(now - minutes * 60_000).toISOString();
@@ -284,6 +291,33 @@ function initialState(): State {
     ],
     orders: [],
     orderEvents: [],
+    portIns: [
+      {
+        id: "port-demo-1",
+        kind: "business",
+        businessId: BIZ_ID,
+        status: "foc_scheduled",
+        numbers: [{ e164: "+15145550177", status: "foc_scheduled", focDate: "2026-10-21", rejectionReason: null, completedAt: null }],
+        currentCarrier: "Bell Canada",
+        customerType: "business",
+        customerName: "Café Lumière inc.",
+        authorizedName: "Camille Tremblay",
+        authorizedEmail: "camille@cafelumiere.example",
+        serviceAddress: { street: "1234, rue Sainte-Catherine Ouest", unit: "200", city: "Montréal", province: "QC", postalCode: "H3B 1A1" },
+        hasPin: true,
+        temporaryNumber: OUR,
+        keepTemporaryNumber: false,
+        desiredDate: null,
+        focDate: "2026-10-21",
+        feeCents: 0,
+        loa: { version: "2026-10-loa-1", signedName: "Camille Tremblay", signedAt: createdAt, documentSha256: "0".repeat(64) },
+        statusReason: null,
+        createdAt,
+        updatedAt: createdAt,
+        completedAt: null,
+        canceledAt: null,
+      },
+    ],
   };
 }
 
@@ -687,6 +721,83 @@ const routes: Route[] = [
     state.orders.push(order);
     addOrderEvent(order, "submit", "draft", "submitted", "customer", now);
     return created(order);
+  }],
+
+  // Number port-in (transfert de numéro). The account number and PIN are dropped, never stored.
+  ["GET", /^\/v1\/port-ins$/, () => ok({ portIns: [...state.portIns].sort((a, b) => b.createdAt.localeCompare(a.createdAt)) })],
+  ["POST", /^\/v1\/port-ins$/, ({ body }) => {
+    const b = body as CreatePortInRequest;
+    const numbers = b.numbers ?? [];
+    if (numbers.length === 0 || numbers.length > 20 || !numbers.every((n) => NANP_E164.test(n))) return fail(400, "validation_error", "numbers");
+    if (new Set(numbers).size !== numbers.length) return fail(400, "validation_error", "duplicate numbers");
+    for (const f of [b.currentCarrier, b.customerName, b.authorizedName, b.authorizedEmail, b.accountNumber, b.serviceAddress?.street, b.serviceAddress?.city]) {
+      if (!f?.trim()) return fail(400, "validation_error", "missing field");
+    }
+    if (numbers.some((n) => state.me.numbers.some((x) => x.e164 === n))) return fail(409, "number_already_on_mimt");
+    const open = (n: string) => state.portIns.some((p) => p.numbers.some((x) => x.e164 === n && (PORT_IN_OPEN_NUMBER_STATUSES as readonly string[]).includes(x.status)));
+    if (numbers.some(open)) return fail(409, "port_in_exists");
+    const now = new Date().toISOString();
+    const p: NumberPortIn = {
+      id: nextId("port"),
+      kind: b.businessId ? "business" : "consumer",
+      businessId: b.businessId ?? null,
+      status: "pending_signature",
+      numbers: numbers.map((e164) => ({ e164, status: "pending", focDate: null, rejectionReason: null, completedAt: null })),
+      currentCarrier: b.currentCarrier.trim(),
+      customerType: b.customerType,
+      customerName: b.customerName.trim(),
+      authorizedName: b.authorizedName.trim(),
+      authorizedEmail: b.authorizedEmail.trim().toLowerCase(),
+      serviceAddress: { ...b.serviceAddress, unit: b.serviceAddress.unit || null },
+      hasPin: Boolean(b.pin),
+      temporaryNumber: b.temporaryNumber ?? null,
+      keepTemporaryNumber: Boolean(b.keepTemporaryNumber && b.temporaryNumber),
+      desiredDate: b.desiredDate ?? null,
+      focDate: null,
+      feeCents: 0,
+      loa: null,
+      statusReason: null,
+      createdAt: now,
+      updatedAt: now,
+      completedAt: null,
+      canceledAt: null,
+    };
+    state.portIns.push(p);
+    return created(p);
+  }],
+  ["GET", /^\/v1\/port-ins\/([^/]+)$/, ({ params }) => {
+    const p = state.portIns.find((x) => x.id === params[0]);
+    return p ? ok(p) : fail(404, "not_found");
+  }],
+  ["GET", /^\/v1\/port-ins\/([^/]+)\/loa$/, ({ params }) => {
+    const p = state.portIns.find((x) => x.id === params[0]);
+    if (!p) return fail(404, "not_found");
+    const loa = generateLoaText({ ...p, numbers: p.numbers.map((n) => n.e164) });
+    return ok({ version: loa.version, documentSha256: "0".repeat(64), fr: loa.fr, en: loa.en, signature: p.loa });
+  }],
+  ["POST", /^\/v1\/port-ins\/([^/]+)\/sign$/, ({ params, body }) => {
+    const p = state.portIns.find((x) => x.id === params[0]);
+    if (!p) return fail(404, "not_found");
+    const b = body as { signedName?: string; accept?: boolean };
+    if (p.status !== "pending_signature") return fail(409, "already_signed");
+    if (b.accept !== true) return fail(400, "validation_error", "accept");
+    if (!signatureMatches(b.signedName ?? "", p.authorizedName)) return fail(400, "signature_name_mismatch");
+    const now = new Date().toISOString();
+    Object.assign(p, {
+      status: "submitted",
+      updatedAt: now,
+      loa: { version: "2026-10-loa-1", signedName: (b.signedName ?? "").trim(), signedAt: now, documentSha256: "0".repeat(64) },
+      numbers: p.numbers.map((n) => ({ ...n, status: "submitted" })),
+    });
+    return ok(p);
+  }],
+  ["POST", /^\/v1\/port-ins\/([^/]+)\/cancel$/, ({ params }) => {
+    const p = state.portIns.find((x) => x.id === params[0]);
+    if (!p) return fail(404, "not_found");
+    if (!PORT_IN_CANCELABLE.includes(p.status)) return fail(409, "not_cancelable");
+    const now = new Date().toISOString();
+    Object.assign(p, { status: "canceled", canceledAt: now, updatedAt: now, numbers: p.numbers.map((n) => ({ ...n, status: "canceled" })) });
+    return ok(p);
   }],
 ];
 

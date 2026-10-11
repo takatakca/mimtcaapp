@@ -40,6 +40,9 @@ Sans configuration, l'API démarre quand même : stockage en mémoire (sans `DAT
 | `TWILIO_MESSAGING_SERVICE_SID` | | Réservé (Advanced Opt-Out) |
 | `TWILIO_VERIFY_SERVICE_SID` | | Connexion de secours par code SMS |
 | `EMERGENCY_FALLBACK_CALLER_ID` | | Numéro de l'entreprise avec adresse 9-1-1, utilisé si l'utilisateur n'a pas encore de numéro |
+| `TWILIO_PORTING_ENABLED` | | `true` : les transferts de numéro (`/v1/port-ins`) sont envoyés à l'API Porting de Twilio après la signature de la LOA. Sinon ils restent « signés » pour un envoi manuel |
+| `PORT_IN_FEE_CENTS` | | Frais de transfert en cents, **0 par défaut** (aucun frais approuvé) |
+| `PORT_IN_NOTIFICATION_EMAIL` | | Courriel des opérations en copie des avis de transfert Twilio |
 | `TAKATAK_ISSUER`, `TAKATAK_CLIENT_ID` | oui | OIDC TAKATAK (découverte via `/.well-known/openid-configuration`) |
 | `TAKATAK_JWKS_URL`, `TAKATAK_CLIENT_SECRET`, `TAKATAK_REDIRECT_URIS` | | Facultatifs (JWKS explicite, client confidentiel, liste blanche des redirections) |
 | `TAKATAK_WEBHOOK_URL`, `TAKATAK_WEBHOOK_SECRET` | oui | Webhooks signés vers TAKATAK (`X-MIMT-Signature: t=…,v1=…`) |
@@ -77,6 +80,7 @@ Les secrets vont dans les secrets de Coolify, jamais dans le code ni dans le cla
 7. **9-1-1** : vérifier que les adresses d'urgence (Emergency Calling) sont activées pour le Canada. Tester avec le numéro de test **933**, jamais 911.
 8. **Déclencheurs d'utilisation** (*Usage › Triggers*) : alerte quotidienne sur le coût total (ex. 25 $) avec rappel vers l'équipe, et une limite par sous-compte.
 9. **Verify** (facultatif) : service Verify pour la connexion de secours → `TWILIO_VERIFY_SERVICE_SID`, avec Fraud Guard activé.
+10. **Transfert de numéro** (facultatif) : activer l'API Porting sur le compte, confirmer qu'elle accepte les numéros canadiens, enregistrer le webhook `https://api.mimt.ca/webhooks/twilio/porting` (`POST /v1/Porting/Configuration/Webhook`, champ `port_in_target_url`), puis `TWILIO_PORTING_ENABLED=true`. La facture récente exigée par Twilio se téléverse encore dans la console (TODO dans `src/gateways/twilioPorting.ts`).
 
 ### Déploiement Coolify
 

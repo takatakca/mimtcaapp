@@ -22,6 +22,7 @@ import { healthRoutes } from "./routes/health.js";
 import { meRoutes } from "./routes/me.js";
 import { messageRoutes } from "./routes/messages.js";
 import { numberRoutes } from "./routes/numbers.js";
+import { portInRoutes } from "./routes/portIns.js";
 import { pushRoutes } from "./routes/push.js";
 import { rateRoutes } from "./routes/rates.js";
 import { referralRoutes } from "./routes/referrals.js";
@@ -94,6 +95,7 @@ export async function buildApp(deps: AppDeps) {
     businessRoutes,
     aiRoutes,
     aiReceptionistSocket,
+    portInRoutes,
   ];
   for (const r of routes) await app.register(async (scope) => r(scope, deps));
   return app;

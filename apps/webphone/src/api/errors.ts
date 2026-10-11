@@ -28,6 +28,17 @@ const CODE_TO_KEY: Record<string, TKey> = {
   insufficient_role: "error.forbidden",
   duplicate_extension: "error.duplicate",
   conflict: "error.duplicate",
+  // Number port-in
+  signature_name_mismatch: "error.portSignatureMismatch",
+  port_in_exists: "error.portInExists",
+  number_already_on_mimt: "error.numberAlreadyOnMimt",
+  not_portable: "error.notPortable",
+  pin_required: "error.portPinRequired",
+  not_cancelable: "error.portLocked",
+  already_signed: "error.portLocked",
+  canadian_numbers_only: "error.canadianNumbersOnly",
+  invalid_temporary_number: "error.validation",
+  duplicate_numbers: "error.validation",
 };
 
 export function errorKeyFor(status: number | null, code?: string | null): TKey {

@@ -25,6 +25,7 @@ const MAIN: NavItem[] = [
 const SERVICES: NavItem[] = [
   { to: "/services/offres", label: "nav.offers", icon: "offers" },
   { to: "/services/commandes", label: "nav.orders", icon: "orders" },
+  { to: "/services/transfert", label: "nav.portIn", icon: "phone" },
 ];
 
 function SideLink({ item }: { item: NavItem }) {

@@ -46,6 +46,7 @@ The API Dockerfile bundles the following files into the final image:
 /app/db/migrations/0006_blocks_forwarding.sql
 /app/db/migrations/0007_media_greetings.sql
 /app/db/migrations/0008_referrals_addons.sql
+/app/db/migrations/0009_port_in.sql
 ```
 
 These are MIMT's existing source SQL migrations. The `bootstrap.sql` creates **NOLOGIN** compatibility roles `anon` and `authenticated` and a fail-closed `auth.uid()` helper. It does not install or pretend to be a Supabase API/Auth service.

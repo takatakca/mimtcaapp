@@ -19,6 +19,7 @@ export const MIGRATION_ORDER = [
   "0006_blocks_forwarding.sql",
   "0007_media_greetings.sql",
   "0008_referrals_addons.sql",
+  "0009_port_in.sql",
 ] as const;
 
 export function assertPrivateMimtDatabase(databaseUrl: string, confirmation: string | undefined, nodeEnv: string | undefined) {
