@@ -1,0 +1,43 @@
+name: Deploy MIMT API After Supabase Environment Cleanup
+on:
+  push:
+    branches: [ops/mimt-api-redeploy-clean-env-20261011]
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Force latest MIMT API build and verify isolated database
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          python - <<'PY'
+          import os,json,urllib.request,urllib.error,time
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          h={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"]}
+          app=os.environ["COOLIFY_API_UUID"]
+          with urllib.request.urlopen(urllib.request.Request(base+"/deploy?uuid="+app+"&force=true",headers=h,method="POST"),timeout=40) as r:
+              print("MIMT API redeployment accepted",r.status,flush=True)
+          for attempt in range(30):
+              time.sleep(10)
+              try:
+                  url="https://api.mimt.ca/readyz?clean="+str(attempt)
+                  with urllib.request.urlopen(urllib.request.Request(url,headers={"Cache-Control":"no-cache"}),timeout=10) as r:
+                      status=r.status; data=json.loads(r.read(800))
+              except urllib.error.HTTPError as e:
+                  status=e.code
+                  try:data=json.loads(e.read(800))
+                  except:data={}
+              except Exception:
+                  status=0;data={}
+              print("Private PostgreSQL verification",attempt+1,"HTTP",status,"DB",data.get("db"),flush=True)
+              if status==200 and data.get("ok")==True and data.get("db")=="up":
+                  print("MIMT_PRIVATE_DATABASE_READY",flush=True)
+                  break
+          else:
+              raise SystemExit("API still unavailable: inspect Coolify deployment logs before further changes")
+          PY
