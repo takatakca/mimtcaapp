@@ -1,0 +1,51 @@
+name: Clear Legacy Supabase CA for Private MIMT PostgreSQL
+on:
+  push:
+    branches: [ops/mimt-clear-obsolete-ca-20261011]
+permissions:
+  contents: read
+jobs:
+  clear:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explicitly clear obsolete CA and redeploy MIMT API
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          python - <<'PY'
+          import json,os,urllib.request,urllib.parse
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          h={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"],"Content-Type":"application/json"}
+          a=os.environ["COOLIFY_API_UUID"]
+          def call(method,path,payload=None):
+              req=urllib.request.Request(base+path,headers=h,method=method,
+                  data=json.dumps(payload).encode() if payload is not None else None)
+              with urllib.request.urlopen(req,timeout=35) as r:
+                  data=r.read(250000)
+                  return r.status,(json.loads(data) if data else {})
+          _,vars=call("GET","/applications/"+a+"/envs")
+          if isinstance(vars,dict):vars=vars.get("data",vars.get("envs",[]))
+          keys={x["key"]:x for x in vars}
+          url=keys.get("DATABASE_URL",{}).get("value","")
+          parsed=urllib.parse.urlsplit(url)
+          if not parsed.hostname or "." in parsed.hostname or parsed.path!="/mimt_production":
+              raise SystemExit("Not connected to private MIMT PostgreSQL. No change.")
+          if "sslmode" in urllib.parse.parse_qs(parsed.query):
+              raise SystemExit("TLS mode is set; do not override certificate.")
+          if "DATABASE_SSL_CA_PEM" in keys:
+              verb="PATCH"
+          else:
+              verb="POST"
+          code,_=call(verb,"/applications/"+a+"/envs",
+               {"key":"DATABASE_SSL_CA_PEM","value":"","is_literal":True,"is_runtime":True,"is_buildtime":False})
+          print("Obsolete Supabase CA explicitly cleared: HTTP",code)
+          _,current=call("GET","/applications/"+a+"/envs")
+          if isinstance(current,dict):current=current.get("data",current.get("envs",[]))
+          rec=next((v for v in current if v.get("key")=="DATABASE_SSL_CA_PEM"),{})
+          if str(rec.get("value",""))!="":
+              raise SystemExit("Legacy CA was not cleared in Coolify; will not redeploy")
+          status,_=call("POST","/deploy?uuid="+a+"&force=true")
+          print("Private MIMT API redeploy queued:",status)
+          PY
