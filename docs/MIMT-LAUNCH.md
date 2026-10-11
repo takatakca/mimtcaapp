@@ -2,7 +2,7 @@
 
 Une seule liste pour mettre MIMT en ligne. Chaque case est une action **du propriétaire** (comptes, secrets, contrats) : le code est prêt. Les secrets se mettent dans Coolify ou GitHub, jamais dans le code, un courriel ou le clavardage.
 
-État au 2026-10-11 : mimt.ca et app.mimt.ca sont en ligne avec le contenu MIMT ; api.mimt.ca répond à `/healthz`, mais `/readyz` échoue tant que la base de données n'est pas démarrée.
+État au 2026-10-11 : mimt.ca et app.mimt.ca sont en ligne avec le contenu MIMT ; api.mimt.ca répond à `/readyz` avec `db: "up"` (base PostgreSQL privée démarrée).
 
 Documents détaillés (ne pas recopier ici) :
 - [PRODUCTION-RECOVERY-2026-10-10.md](PRODUCTION-RECOVERY-2026-10-10.md) : cPanel, DNS, Coolify, vérifications.
@@ -14,7 +14,7 @@ Documents détaillés (ne pas recopier ici) :
 - [ ] Coolify → MIMT → `mimt-prod-postgres` : vérifier ~1 Go de mémoire libre, ~20 Go de disque, un volume persistant, pas de port public, puis démarrer.
 - [ ] Mettre `DATABASE_URL` (URL interne de cette ressource) et, si TLS, `DATABASE_SSL_CA_PEM` dans l'app API.
 - [ ] Appliquer les migrations une seule fois (migrateur `migrateStandalone`, ordre 0001 → 0009). Le guide est dans MIMT-SELFHOSTED-POSTGRES-RECOVERY.md.
-- [ ] Vérifier `https://api.mimt.ca/readyz` → `ok: true`, `db: "up"`.
+- [x] Vérifier `https://api.mimt.ca/readyz` → `ok: true`, `db: "up"` (confirmé le 2026-10-11).
 - [ ] Sauvegardes planifiées et une restauration testée.
 
 ## 2. API (Coolify) : variables d'environnement
