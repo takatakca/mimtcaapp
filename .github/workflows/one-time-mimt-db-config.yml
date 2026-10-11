@@ -1,0 +1,57 @@
+name: MIMT Private DB One-Time Production Connection
+on:
+  push:
+    branches: [ops/mimt-db-production-cutover-20261011]
+permissions:
+  contents: read
+jobs:
+  connect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure private MIMT database and explicit one-time migration
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          python - <<'PY'
+          import os,json,urllib.request,urllib.parse
+          base=os.environ["COOLIFY_URL"].rstrip("/")+"/api/v1"
+          h={"Authorization":"Bearer "+os.environ["COOLIFY_TOKEN"],"Content-Type":"application/json"}
+          def call(method,path,data=None):
+              req=urllib.request.Request(base+path,headers=h,method=method,
+                  data=json.dumps(data).encode() if data is not None else None)
+              with urllib.request.urlopen(req,timeout=40) as r:
+                  raw=r.read(100000)
+                  return json.loads(raw) if raw else {}
+          dbs=call("GET","/databases")
+          if isinstance(dbs,dict):dbs=dbs.get("data",dbs.get("databases",[]))
+          items=[x for x in dbs if x.get("name")=="mimt-prod-postgres"]
+          if len(items)!=1:raise SystemExit("Dedicated database not uniquely found")
+          db=call("GET","/databases/"+items[0]["uuid"])
+          app=call("GET","/applications/"+os.environ["COOLIFY_API_UUID"])
+          if db.get("is_public") is not False or db.get("status")!="running:healthy":
+              raise SystemExit("Database is not private and healthy")
+          if db.get("environment_id")!=app.get("environment_id"):
+              raise SystemExit("Different MIMT environment")
+          uri=db.get("internal_db_url")
+          parsed=urllib.parse.urlsplit(uri)
+          if parsed.scheme not in ("postgres","postgresql") or "." in (parsed.hostname or ""):
+              raise SystemExit("Not a private Docker DB URL")
+          if parsed.path!="/mimt_production" or parsed.username!="mimt_owner":
+              raise SystemExit("Unexpected MIMT DB identity")
+          env=call("GET","/applications/"+os.environ["COOLIFY_API_UUID"]+"/envs")
+          current={x["key"]:x for x in env}
+          for key,value in (
+              ("DATABASE_URL",uri),
+              ("MIMT_STANDALONE_BOOTSTRAP_ONCE","YES_STARTUP_MIGRATE"),
+              ("MIMT_STANDALONE_MIGRATE_CONFIRM","YES_MY_PRIVATE_MIMT_DATABASE")):
+              verb="PATCH" if key in current else "POST"
+              call(verb,"/applications/"+os.environ["COOLIFY_API_UUID"]+"/envs",
+                   {"key":key,"value":value,"is_literal":True,"is_runtime":True,"is_buildtime":False})
+              print("Configured:",key)
+          if "DATABASE_SSL_CA_PEM" in current:
+              call("DELETE","/applications/"+os.environ["COOLIFY_API_UUID"]+"/envs/"+current["DATABASE_SSL_CA_PEM"]["uuid"])
+              print("Removed obsolete external database CA")
+          print("Coolify MIMT private DB configuration saved. No connection string printed.")
+          PY
