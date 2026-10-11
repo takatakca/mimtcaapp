@@ -40,5 +40,28 @@ jobs:
                   ("DB network lookup",r"ENOTFOUND|EAI_AGAIN"),
               ]:
                   print("  sanitized indicator",name,":",len(re.findall(pattern,log,re.I)))
+          if isinstance(data,list) and data:
+              latest=data[0]
+              depl=latest.get("deployment_uuid") or latest.get("uuid")
+              if depl:
+                  with urllib.request.urlopen(urllib.request.Request(base+"/deployments/"+depl,headers=h),timeout=25) as r:
+                      detail=json.load(r)
+                  raw=detail.get("logs") or ""
+                  if isinstance(raw,list):
+                      raw="\\n".join(str(z.get("output") or z.get("message") or "") if isinstance(z,dict) else str(z) for z in raw)
+                  raw=str(raw)
+                  print("Failure log payload length class:","empty" if not raw else "short" if len(raw)<1000 else "long")
+                  patterns=[
+                      ("Build COPY or source path missing",r"failed to compute cache key|failed to calculate checksum|COPY failed|not found in build context"),
+                      ("Docker image build failed",r"failed to solve|build failed|ERROR: process .* did not complete"),
+                      ("Deployment container health failed",r"healthcheck failed|container is unhealthy|unhealthy"),
+                      ("MIMT schema migration refused",r"MIMT_STANDALONE|Migration checksum changed|private Docker-network"),
+                      ("Unable to connect to new private database",r"ECONNREFUSED|ENOTFOUND|password authentication failed"),
+                      ("Insufficient disk or memory",r"No space left on device|out of memory|OOMKilled"),
+                      ("Unhandled application startup exception",r"uncaught exception|process exited|exit code 1"),
+                      ("Docker network connection failed",r"network .* not found|could not attach"),
+                  ]
+                  for name,pattern in patterns:
+                      print("Failure category",name,len(re.findall(pattern,raw,re.I)))
           print("No deployment log or secrets printed.")
           PY
