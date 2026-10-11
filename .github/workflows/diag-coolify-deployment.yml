@@ -87,3 +87,4 @@ jobs:
                   for line in suspicious[-8:]:print("CONTEXT:",line)
           print("No deployment log or secrets printed.")
           PY
+# Refresh at 2026-10-11 05:59 UTC to inspect second clean deployment.
