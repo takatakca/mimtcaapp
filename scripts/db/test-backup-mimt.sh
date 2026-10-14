@@ -43,6 +43,7 @@ export PATH="$workdir/bin:$PATH"
 export PGHOST=mimt-prod-postgres.internal
 export PGDATABASE=mimt_production
 export PGUSER=mimt_owner
+export PGSSLMODE=verify-full
 export MIMT_BACKUP_AGE_RECIPIENT="age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"
 export MIMT_BACKUP_S3_BUCKET="mimt-private-backups"
 export TEST_BACKUP_DEST="$workdir/offsite.age"
@@ -65,6 +66,16 @@ fi
 [[ ! -e "$TEST_BACKUP_DEST" ]]
 if MIMT_BACKUP_AGE_RECIPIENT=not-a-public-recipient bash "$ROOT/scripts/db/backup-mimt.sh" >/dev/null 2>&1; then
   echo 'FAIL: malformed encryption recipient accepted' >&2
+  exit 1
+fi
+[[ ! -e "$TEST_BACKUP_DEST" ]]
+if PGSSLMODE=prefer bash "$ROOT/scripts/db/backup-mimt.sh" >/dev/null 2>&1; then
+  echo 'FAIL: insecure PostgreSQL TLS mode accepted' >&2
+  exit 1
+fi
+[[ ! -e "$TEST_BACKUP_DEST" ]]
+if AWS_ENDPOINT_URL=http://untrusted.local bash "$ROOT/scripts/db/backup-mimt.sh" >/dev/null 2>&1; then
+  echo 'FAIL: insecure S3 endpoint accepted' >&2
   exit 1
 fi
 [[ ! -e "$TEST_BACKUP_DEST" ]]
