@@ -3,6 +3,8 @@
 Newest first, one line per piece of work. Rule: `AGENTS.md` › Work log rule.
 Format: `YYYY-MM-DD | agent | branch → PR | status | what | next step`
 
+- 2026-10-14 | ChatGPT (agent développement MIMT) | main | active | Empêcher les anciens commits CI de réécrire le site vitrine, découpler les secrets de déploiement par portée, créer les cinq documents de relève obligatoires | vérifier CI/déploiement après commit; maintenir les contrôles télécom manuels
+
 - 2026-10-14 | ChatGPT (MIMT GitHub agent) | main | done (site auto-déployé, CI réussie) | Ajout workflow auto de publication de mimt.ca après CI sur main (run 38609788525 : transfert FTPS + HTTP 200 avec marque MIMT), précontrôle DNS des secrets FTPS app, contrôle SPA /connexion et /messages, sécurité webphone Apache/noindex/OAuth return, tests anti-redirection et README/liste de lancement mis à jour | bloqué externe : corriger MOCHAHOST_APP_FTP_SERVER qui échoue ENOTFOUND, puis publication webphone; valider sauvegardes PostgreSQL, Twilio/9-1-1, réglementaire et facturation avant accès public
 
 - 2026-10-11 | claude (MIMT agent 2, session 01Bs3bum) | main | done | Webphone call and voicemail settings (/compte/appels): blocked numbers + blocked-call action, forwarding (plan-gated), do not disturb with nightly quiet hours, custom greeting upload/record by phone/reset, voicemail by email; demo mock handlers; test CallSettings.test.tsx | per-day quiet hours editor if users ask; deploy webphone once MOCHAHOST_APP_FTP_SERVER is fixed
