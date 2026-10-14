@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
 
+# Rapid sequential commits must not consume CI runners or trigger publication of
+# obsolete builds. Only the newest head on each branch is actionable.
+concurrency:
+  group: mimt-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
