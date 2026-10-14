@@ -17,6 +17,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @mimt/shared build
+      - name: Check MIMT off-host backup safeguards with hermetic fakes
+        run: bash scripts/db/test-backup-mimt.sh
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm --filter @mimt/web build
