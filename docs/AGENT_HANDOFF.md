@@ -11,13 +11,13 @@
 
 ## Tâche en cours
 
-**Contrôler les résultats de la CI et de l'auto-publication depuis les changements du 2026-10-14**, puis corriger tout échec constaté. La file d'actions CI a été temporairement chargée à cause de plusieurs commits successifs. N'annoncer une publication de la nouvelle protection comme « confirmée » qu'après vérification du job `Auto deploy MIMT website` **et** du SHA retourné par `https://mimt.ca/mimt-release.json`. Les anciens runs (sans manifeste) ne comptent pas.
+**Contrôler les résultats de la CI et de l'auto-publication depuis les changements du 2026-10-14**, puis corriger tout échec constaté. La file d'actions CI a été temporairement chargée à cause de plusieurs commits successifs. Le nouveau workflow possède deux portes : `release-candidate` AVANT compilation et `release-gate` juste avant FTPS. Un run `success` dont les étapes de transfert/vérification sont `skipped` ne prouve pas une publication; c'est un abandon sain d'un ancien commit. N'annoncer la publication comme « confirmée » qu'après la réussite réelle de ces étapes **et** concordance du SHA dans `https://mimt.ca/mimt-release.json`.
 
 **Premier travail indépendant suivant :** étendre les tests du déploiement et auditer les flux télécom sans mettre en péril le 9-1-1. Pour la priorité `DEP-04`, le blocage est externe : corriger la valeur de `MOCHAHOST_APP_FTP_SERVER` dans les secrets Actions; ne pas inventer le nom du serveur.
 
 ## Fichiers modifiés/créés pendant la reprise
 
-- `.github/workflows/auto-deploy-website.yml` — validation HEAD et empreinte de release.
+- `.github/workflows/auto-deploy-website.yml` — validation HEAD en deux étapes (avant build et avant FTPS) et empreinte de release.
 - `.github/workflows/deploy.yml` — secrets par portée, release SHA pour le site manuel; contrôle DNS préalable du webphone issu de la session précédente.
 - `WORKLOG.md` — déclaration de travail et statut.
 - `docs/PROJECT_STATUS.md` — preuve/stade par composant.
@@ -25,11 +25,13 @@
 - `docs/DEPLOYMENT.md` — procédures et contrôles.
 - `docs/DECISIONS.md` — décisions approuvées.
 - `docs/AGENT_HANDOFF.md` — relève.
+- `AGENTS.md`, `.github/workflows/ci.yml` — lecture obligatoire de la relève et vérification en CI de la présence des cinq documents et des protections de déploiement.
 
 ## SHA Git
 
 - **Dernier SHA de code de déploiement avant les nouveaux documents :** `233ff06ce57acdda9605fd10fa5d670bf4afd2b2`.
 - **Dernier commit de documentation confirmé avant création de ce fichier :** `65a7750d4d5a898173a466e809923f8d36cb5418` (`docs/DECISIONS.md`).
+- **Dernier commit de cette reprise vérifié avant la mise à jour finale de la relève :** `6bdcb607a8f1ae804a050c7535cb02cb08b0c863` (`WORKLOG.md`); optimisation pré-build : `9baf035918d72ccea15a1e93319abd89f1004432`; garde de contrat CI : `0b2dcbd4e2375da28c8309872cc7e1b5e3ca3c15`.
 - **SHA courant de publication** : lire `refs/heads/main` dans GitHub; il doit être postérieur aux SHA ci-dessus. Le présent commit de relève et tout commit ultérieur ne peuvent pas s'auto-citer par SHA.
 
 ## Commandes / vérifications effectivement exécutées
@@ -38,7 +40,8 @@
 - Consultation GitHub du HEAD, des commits récents, de l'arborescence complète, des PR ouvertes (aucune à l'inspection), de l'issue #5 et des GitHub Actions.
 - Dernière CI **antérieure à la reprise** : `38610373813`, succès à `3fdcc6768ef848ab53d45ac209213f5d60c6f33a`.
 - Déploiement du site **antérieur à la reprise** : `38610692280`, succès au même SHA (ancienne validation du contenu du site; pas encore un contrôle de `mimt-release.json`).
-- Les CI de cette nouvelle série ont commencé : `38612947004` et `38612979336` réussies; vérifier les suivantes jusqu'à la tête finale.
+- Les CI de cette nouvelle série ont commencé : `38612947004`, `38612979336`, `38613017799`, `38613110281`, `38613148388` et `38613403340` réussies à la dernière vérification. Les suivantes, incluant les changements de docs et la protection à deux étapes, étaient encore en file. **Ne pas déclarer le dernier SHA validé avant son statut GitHub `completed/success`.**
+- Le run auto [38613261711](https://github.com/takatakca/mimtcaapp/actions/runs/38613261711) a terminé `success` mais a **omis FTP et contrôle HTTP** parce que sa révision n'était plus la tête de `main` : protection anti-retour arrière effectivement constatée. Il ne prouve PAS une nouvelle publication.
 - L'outil Web n'a pas pu ouvrir directement `api.mimt.ca/readyz`, `api.mimt.ca/healthz` ou `app.mimt.ca` dans cette session; **indisponible depuis l'outil n'est pas synonyme d'une panne réelle**.
 - Aucune commande télécom, aucun changement de secret Coolify/Twilio/Stripe, aucun appel réel 9-1-1 et aucune migration de base n'ont été exécutés dans cette reprise.
 
