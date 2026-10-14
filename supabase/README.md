@@ -1,20 +1,36 @@
-# Supabase (MIMT)
+# MIMT — Migrations SQL PostgreSQL (répertoire historique `supabase/`)
 
-**FR —** Schéma Postgres de l'API MIMT, dans un projet Supabase **séparé de TAKATAK** (région `ca-central-1`, Loi 25).
+**État depuis le 11 octobre 2026 : MIMT utilise une base PostgreSQL 17 PRIVÉE et autonome dans Coolify (`mimt-prod-postgres`, base `mimt_production`).** Le nom historique du répertoire ne signifie **pas** que l'API MIMT peut utiliser le projet Supabase central TAKATAK.
 
-- `migrations/0001_init.sql` : toutes les tables (utilisateurs, comptes télécom, abonnements, droits, numéros, adresses et avis 9-1-1, appels, messages chiffrés, messagerie vocale, consentements, registre d'utilisation, fraude, handoff TAKATAK, outbox, audit).
-- `migrations/0002_push_tokens.sql` : jetons de notification des appareils (APNs/FCM) par utilisateur et plateforme, RLS lecture de ses propres lignes.
-- `migrations/0003_devices_rewards.sql` : appareils attestés et récompenses publicitaires. Aucune politique de lecture (rôle service seulement).
-- Bucket Storage privé `voicemail` (à créer dans le projet Supabase, pas public). L'API y copie les messages vocaux quand `SUPABASE_URL` et la clé service sont dans l'environnement.
-- RLS est activé sur **toutes** les tables. Le rôle `anon` n'a aucun accès. Les utilisateurs `authenticated` peuvent seulement **lire** leurs propres lignes (via `users.auth_user_id = auth.uid()`). Les tables sensibles (jetons, handoff, fraude, outbox, audit, désabonnements) n'ont aucune politique : refus total sauf pour le rôle service.
-- L'API se connecte avec la chaîne de connexion directe / service role (`DATABASE_URL`) et contourne RLS ; elle applique elle-même les règles d'accès.
-- Les corps de messages sont chiffrés par l'API (AES-256-GCM) avant l'insertion ; la base ne voit jamais le texte en clair.
+**Danger : ne jamais exécuter `supabase db push`, `psql ... -f` ou une migration de ce répertoire sur `TAKATAK User Official Dashboard V1`, même si une ancienne variable `DATABASE_URL` y pointe encore.**
 
-Appliquer : `supabase db push` (CLI liée au projet) ou `psql "$DATABASE_URL" -f migrations/0001_init.sql -f migrations/0002_push_tokens.sql -f migrations/0003_devices_rewards.sql` (dans l'ordre).
+## Source du schéma
 
-**EN —** Postgres schema for the MIMT API, in a Supabase project **separate from TAKATAK** (`ca-central-1`).
+Les fichiers `migrations/*.sql` restent la source versionnée pour le PostgreSQL MIMT. Ils incluent :
 
-- RLS is enabled on every table; `anon` gets nothing; `authenticated` can only read its own rows (mapped by `users.auth_user_id = auth.uid()`); sensitive tables have no policy (deny-all except service role).
-- The API connects with the service-role/direct connection string and enforces access itself.
-- Apply with `supabase db push` or `psql "$DATABASE_URL" -f migrations/0001_init.sql`.
-- Local check without Supabase: create roles `anon`, `authenticated`, `service_role` and a stub `auth.uid()` function first (see `apps/api/README.md`, "Tests against Postgres").
+- `0001_init.sql` : comptes, données télécom, 9-1-1, messages chiffrés, consentements et audit.
+- `0002_push_tokens.sql` : notifications des appareils.
+- Les deux migrations `0003_*.sql` : PBX et appareils/récompenses, dans l'ordre déterministe du migrateur.
+- `0004_ai.sql`, `0005_catalog.sql`, `0006_blocks_forwarding.sql`, `0007_media_greetings.sql`, `0008_referrals_addons.sql`, `0009_port_in.sql`.
+
+Les migrations initialement écrites pour Supabase peuvent employer des rôles, helpers et politiques RLS. L'instance autonome charge un bootstrap de compatibilité, **pas un faux service Supabase Auth/Storage**. La connexion API est un compte PostgreSQL restreint à la base MIMT; l'API applique les règles d'accès par utilisateur et par entreprise.
+
+## Méthode de migration en production
+
+Lire **[MIMT-SELFHOSTED-POSTGRES-RECOVERY.md](../docs/MIMT-SELFHOSTED-POSTGRES-RECOVERY.md)** avant d'agir. Le conteneur API regroupe le SQL avec `deploy/coolify/mimt-postgres-bootstrap.sql` et le job `apps/api/src/jobs/migrateStandalone.ts`. Le migrateur refuse les cibles Supabase ou non reconnues, nécessite une confirmation explicite et suit les checksums dans `mimt_schema_migrations`.
+
+Seulement dans le **conteneur API MIMT sur Coolify**, après preuve que `DATABASE_URL` cible `mimt_production` sur la ressource **privée** MIMT et avec une fenêtre de changement approuvée :
+
+```bash
+MIMT_STANDALONE_MIGRATE_CONFIRM=YES_MY_PRIVATE_MIMT_DATABASE node dist/jobs/migrateStandalone.js
+```
+
+Cette commande ne doit pas être relancée pour contourner une erreur de connexion ou TLS. Voir l'issue #5 et le runbook avant tout changement de schéma. Vérifier les migrations réellement appliquées et `GET /readyz` avant d'annoncer une base prête.
+
+## Autres services de stockage
+
+La base PostgreSQL Coolify **ne fournit pas** le Storage Supabase. Les fonctionnalités MMS, enregistrements et messages d'accueil utilisant `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` doivent avoir un stockage privé distinct configuré et validé. Ne pas déduire leur fonctionnement du statut `db:up`.
+
+## English
+
+The `supabase/` path is legacy nomenclature for **MIMT-owned SQL migrations**. Production uses MIMT's isolated, private Coolify PostgreSQL 17 database; it must **never** apply migrations to TAKATAK's master Supabase project. Use the explicitly confirmed standalone migrator from the runbook; never run an unscoped `supabase db push`. Backups and tested restoration are required before telecom public launch.
