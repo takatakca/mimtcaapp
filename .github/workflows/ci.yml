@@ -25,6 +25,10 @@ jobs:
         run: |
           test -f apps/webphone/dist/.htaccess
           grep -Fq 'RewriteRule ^ index.html [L]' apps/webphone/dist/.htaccess
+          grep -Fq 'Header always set X-Frame-Options "DENY"' apps/webphone/dist/.htaccess
+          grep -Fq 'Header always set Referrer-Policy "no-referrer"' apps/webphone/dist/.htaccess
+          grep -Fq 'Header always set Cache-Control "no-cache, no-store, must-revalidate"' apps/webphone/dist/.htaccess
+          grep -Fq 'name="robots" content="noindex, nofollow, noarchive"' apps/webphone/dist/index.html
 
   e2e:
     # Webphone (built, not mock mode) against the real API on its in-memory repository.
