@@ -37,7 +37,7 @@ jobs:
             test -s "$file"
           done
           grep -Fq 'release-candidate:' .github/workflows/auto-deploy-website.yml
-          grep -Fq 'release-gate:' .github/workflows/auto-deploy-website.yml
+          grep -Fq 'id: release-gate' .github/workflows/auto-deploy-website.yml
           grep -Fq 'mimt-release.json' .github/workflows/auto-deploy-website.yml
           grep -Fq 'mimt-release.json' .github/workflows/deploy.yml
       - name: Verify Apache SPA routing file included in built webphone
