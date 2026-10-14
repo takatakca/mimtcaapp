@@ -44,28 +44,36 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify all six production secrets are configured
+      - name: Verify only the secrets needed for the selected release scope
         shell: bash
         env:
+          SCOPE: ${{ inputs.deploy_scope }}
           MOCHAHOST_FTP_SERVER: ${{ secrets.MOCHAHOST_FTP_SERVER }}
           MOCHAHOST_FTP_USERNAME: ${{ secrets.MOCHAHOST_FTP_USERNAME }}
           MOCHAHOST_FTP_PASSWORD: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
+          MOCHAHOST_APP_FTP_SERVER: ${{ secrets.MOCHAHOST_APP_FTP_SERVER }}
+          MOCHAHOST_APP_FTP_USERNAME: ${{ secrets.MOCHAHOST_APP_FTP_USERNAME }}
+          MOCHAHOST_APP_FTP_PASSWORD: ${{ secrets.MOCHAHOST_APP_FTP_PASSWORD }}
           COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
           COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
         run: |
           set -euo pipefail
-          missing=0
-          for name in MOCHAHOST_FTP_SERVER MOCHAHOST_FTP_USERNAME MOCHAHOST_FTP_PASSWORD COOLIFY_URL COOLIFY_TOKEN COOLIFY_API_UUID; do
+          required=()
+          case "$SCOPE" in
+            website) required=(MOCHAHOST_FTP_SERVER MOCHAHOST_FTP_USERNAME MOCHAHOST_FTP_PASSWORD) ;;
+            webphone) required=(MOCHAHOST_APP_FTP_SERVER MOCHAHOST_APP_FTP_USERNAME MOCHAHOST_APP_FTP_PASSWORD) ;;
+            api) required=(COOLIFY_URL COOLIFY_TOKEN COOLIFY_API_UUID) ;;
+            all) required=(MOCHAHOST_FTP_SERVER MOCHAHOST_FTP_USERNAME MOCHAHOST_FTP_PASSWORD MOCHAHOST_APP_FTP_SERVER MOCHAHOST_APP_FTP_USERNAME MOCHAHOST_APP_FTP_PASSWORD COOLIFY_URL COOLIFY_TOKEN COOLIFY_API_UUID) ;;
+            *) echo "::error::Unsupported release scope"; exit 1 ;;
+          esac
+          for name in "${required[@]}"; do
             if [[ -z "${!name:-}" ]]; then
               echo "::error::Missing required repository secret: $name"
-              missing=1
+              exit 1
             fi
           done
-          if [[ "$missing" -ne 0 ]]; then
-            exit 1
-          fi
-          echo "All six deployment secret names have values."
+          echo "All required secrets for scope $SCOPE are configured."
 
       - name: Reject wrong or nested FTP destination paths before uploading
         shell: bash
