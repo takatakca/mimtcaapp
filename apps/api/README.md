@@ -1,6 +1,8 @@
 # MIMT API (`@mimt/api`)
 
-Fastify 5 · TypeScript (ESM) · Node 22 · Postgres (Supabase) · Twilio · Stripe.
+Fastify 5 · TypeScript (ESM) · Node 22 · PostgreSQL privé MIMT (Coolify; Supabase historique seulement) · Twilio · Stripe.
+
+> **Production (octobre 2026)** : la base active déclarée est `mimt-prod-postgres` sur Coolify, isolée du Supabase central TAKATAK. Le nom `supabase/migrations` est historique. Suivre [le runbook PostgreSQL autonome](../../docs/MIMT-SELFHOSTED-POSTGRES-RECOVERY.md); ne jamais lancer de migration directement sur le tableau de bord TAKATAK.
 Architecture et règles : [`docs/MIMT-MVP.md`](../../docs/MIMT-MVP.md), [`docs/MIMT-REGULATORY.md`](../../docs/MIMT-REGULATORY.md).
 
 ---
@@ -30,7 +32,7 @@ Sans configuration, l'API démarre quand même : stockage en mémoire (sans `DAT
 | `PUBLIC_BASE_URL` | https | URL publique (`https://api.mimt.ca`). Sert à valider `X-Twilio-Signature` et à construire les URL de webhooks |
 | `APP_BASE_URL` | | Retour après paiement Stripe (défaut `https://app.mimt.ca`) |
 | `CORS_ORIGINS` | | Liste séparée par virgules (défaut `mimt.ca`, `app.mimt.ca`, `takatak.ca`) |
-| `DATABASE_URL` | oui | Postgres Supabase (connexion directe / service role) |
+| `DATABASE_URL` | oui | URL PostgreSQL **privée MIMT** (Coolify : `mimt_production`). Si un déploiement utilise un vrai projet Supabase dédié MIMT, il doit respecter la garde du projet et les validations TLS. **Jamais** le projet central TAKATAK. |
 | `MIMT_DATABASE_PROJECT_REF` | oui (Supabase en production) | Référence du projet Supabase **exclusif à MIMT**. L'API vérifie que l'URL PostgreSQL (pooler ou directe) cible précisément ce projet. Jamais le projet TAKATAK central ou un autre client. |
 | `DATABASE_SSL_CA_PEM` | si certificat privé | Certificat d'autorité CA au format PEM pour **vérifier** le certificat TLS PostgreSQL. Dans Coolify, ajouter la CA authentique de la base, pas un certificat inventé. Les retours à la ligne réels ou `\\n` sont acceptés. Ne jamais définir `NODE_TLS_REJECT_UNAUTHORIZED=0` ni `rejectUnauthorized: false`. |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_API_KEY_SID`, `TWILIO_API_KEY_SECRET` | oui | Appels REST Twilio (clé API, pas le jeton maître) |
