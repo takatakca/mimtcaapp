@@ -14,6 +14,10 @@ done
 # Explicit fail-closed target verification protects the TAKATAK master database.
 [[ "$PGDATABASE" == "mimt_production" ]] || die "refusing to back up a database other than mimt_production"
 [[ "$PGUSER" == "mimt_owner" ]] || die "refusing to use an unexpected PostgreSQL role"
+# Prevent libpq's default "prefer" mode from silently falling back to plaintext TCP.
+[[ "${PGSSLMODE:-}" == "verify-full" ]] || die "PGSSLMODE=verify-full is required for network backups"
+[[ -z "${AWS_ENDPOINT_URL:-}" || "$AWS_ENDPOINT_URL" == https://* ]] ||
+  die "off-host S3 endpoint must use HTTPS"
 [[ ! "${PGHOST,,}" =~ supabase[.] ]] || die "refusing a Supabase host"
 [[ "$PGHOST" != *"://"* ]] || die "PGHOST must be a private hostname or socket path, not a URL"
 [[ "$MIMT_BACKUP_AGE_RECIPIENT" =~ ^age1[a-z0-9]{20,}$ ]] || die "MIMT_BACKUP_AGE_RECIPIENT must be a public age recipient"
