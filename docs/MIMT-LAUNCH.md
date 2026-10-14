@@ -2,7 +2,7 @@
 
 Une seule liste pour mettre MIMT en ligne. Chaque case est une action **du propriétaire** (comptes, secrets, contrats) : le code est prêt. Les secrets se mettent dans Coolify ou GitHub, jamais dans le code, un courriel ou le clavardage.
 
-État au 2026-10-11 : mimt.ca et app.mimt.ca sont en ligne avec le contenu MIMT ; api.mimt.ca répond à `/readyz` avec `db: "up"` (base PostgreSQL privée démarrée).
+État vérifié dans GitHub au 2026-10-14 : le site vitrine `mimt.ca` est public et sa première publication **automatique** après CI (run 38609788525) a réussi, avec transfert FTPS et contrôle HTTP. La dernière tentative de publier `app.mimt.ca` (run 38116824409) a échoué sur `MOCHAHOST_APP_FTP_SERVER` : erreur DNS `ENOTFOUND`. La disponibilité externe de `app.mimt.ca` et de `api.mimt.ca` n'est pas re-certifiée par ces contrôles. La base PostgreSQL privée avait passé le test `/readyz` le 11 octobre.
 
 Documents détaillés (ne pas recopier ici) :
 - [PRODUCTION-RECOVERY-2026-10-10.md](PRODUCTION-RECOVERY-2026-10-10.md) : cPanel, DNS, Coolify, vérifications.
@@ -60,7 +60,10 @@ Noms seulement. Les valeurs viennent de chaque fournisseur.
 ## 5. Sites web
 
 - [ ] DNS : mimt.ca, app.mimt.ca (MochaHost) et api.mimt.ca (serveur Coolify), certificats TLS valides.
-- [ ] Publication : GitHub → Actions → **Deploy** → Run workflow (portée `website`, `webphone`, `api` ou `all`). Les secrets `MOCHAHOST_FTP_*`, `MOCHAHOST_APP_FTP_*` et `COOLIFY_*` sont en place.
+- [x] **Site vitrine** : GitHub `main` → CI réussie → `Auto deploy MIMT website` → compilation Next.js → FTP relatif `./` → vérification HTTP. Première publication automatique confirmée [run 38609788525](https://github.com/takatakca/mimtcaapp/actions/runs/38609788525). Le workflow ne touche ni à l'API ni aux comptes télécom.
+- [ ] **Portail Web** : corriger dans les secrets GitHub `MOCHAHOST_APP_FTP_SERVER` (un **nom d'hôte DNS existant**, sans `ftp://`, port, espace ni chemin). Le serveur fourni à la dernière exécution n'était pas résolvable. Le compte FTPS doit pointer directement vers la racine de `app.mimt.ca`, distincte de `mimt.ca`. Ensuite GitHub → Actions → **Deploy** → Run workflow → `webphone`, chemin `./`. Le workflow contrôle désormais aussi les routes `/connexion` et `/messages` (règles Apache) et refuse les hôtes FTPS invalides avant de compiler.
+- [ ] **API** : garder un déploiement manuel (`Deploy`, portée `api`) jusqu'à la validation séparée des flux Twilio/9-1-1 et des paiements. Surveiller `/healthz` et `/readyz` ; une CI réussie n'est pas une preuve de conformité ou de mise en service.
+- [ ] Vérifier que `app.mimt.ca` sert le `index.html`, le `.htaccess`, les fichiers JS/CSS, les liens profonds et des certificats TLS valides après réparation FTPS.
 - [ ] Remplacer chaque `[À confirmer par MIMT]` du site (responsable des renseignements personnels, raison sociale, durées de conservation, centre 9-1-1, dates de mise à jour). Les chercher dans `apps/web`.
 - [ ] Faire relire par un avocat les pages 9-1-1, confidentialité, conditions et plaintes (marquées « à valider par l'avocat »), ainsi que les constantes du Code sur les services sans fil et du Code sur l'Internet.
 - [ ] Entente écrite pour le transfert de données IA hors Québec (Loi 25) avant d'activer l'IA : le site s'y engage.
