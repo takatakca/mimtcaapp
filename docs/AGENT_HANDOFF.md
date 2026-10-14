@@ -2,6 +2,17 @@
 
 **Mise à jour : 2026-10-14.** Repository `takatakca/mimtcaapp`, branche de publication `main`. À la reprise, **lire `AGENTS.md`, ce fichier, `WORKLOG.md`, vérifier HEAD GitHub et les Actions avant toute modification**. Un document de relève ne remplace jamais une vérification de `main`.
 
+## Complément de relève — deuxième cycle de développement
+
+- **Dernier commit poussé vérifié avant cet ajout** : `1335708113a1758bf524cee11334d2960865e7c9` (`WORKLOG.md`); la branche `main` a évolué ensuite, lire son HEAD au prochain agent. Le présent commit de relève ne peut contenir son propre SHA.
+- **Nouveaux fichiers** : `scripts/db/backup-mimt.sh` et `scripts/db/test-backup-mimt.sh`. Le premier prépare une sauvegarde PostgreSQL MIMT dédiée, chiffrée par clé publique age, vers S3 hors serveur, vérifiée par taille distante, sans dump clair sur disque. Il refuse une autre base, un rôle inattendu, Supabase, un SSL non vérifié et un endpoint S3 HTTP. Le second utilise des faux outils, **sans DB ni S3 réels**.
+- **Autres modifications** : `.github/workflows/ci.yml` exécute les tests backup et annule les anciens CI concurrents; `.github/workflows/verify-standalone-postgres.yml` annule les anciens tests de push sans annuler les audits manuels. `supabase/README.md`, `apps/api/README.md`, `docs/MIMT-SELFHOSTED-POSTGRES-RECOVERY.md`, `docs/MIMT-MVP.md`, `README.md`, `docs/PROJECT_STATUS.md`, `docs/TASK_QUEUE.md`, `docs/DEPLOYMENT.md` ont été corrigés pour la base MIMT privée et l'état du backup.
+- **Résultats confirmés** : plusieurs anciens runs CI réussis (`38613148388`, `38613403340`, etc.), test PostgreSQL jetable `38614216456` réussi; run auto `38613261711` `success` mais FTP **skipped** (révision dépassée, comportement attendu). **Aucune preuve encore de sauvegarde/restauration réelle ni de publication du dernier SHA.**
+- **Statut CI au dernier contrôle** : `38615064246` sur `16c8ce04` en cours, `38615119983` sur `13357081` en attente. Toutes les CI du commit actuel doivent être relues; les annulations d'anciens commits après ajout de `concurrency` sont intentionnelles. La compilation locale n'a pas été exécutée; les vérifications proviennent de GitHub Actions et des revues de code.
+- **Accès requis sans divulguer de valeurs** : en plus des secrets de publication antérieurs, `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE`, `PGPASSWORD`, `PGSSLMODE=verify-full` et CA, `MIMT_BACKUP_AGE_RECIPIENT` (clé publique), `MIMT_BACKUP_S3_BUCKET`, authentification AWS/S3 pour coffre hors hôte. L'identité age privée de déchiffrement doit être conservée en lieu distinct.
+- **Prochaine action exacte** : ouvrir le dernier run CI de la branche `main` et vérifier l'étape `Check MIMT off-host backup safeguards with hermetic fakes`. Corriger le test si rouge, sinon lire le nouveau run `Auto deploy MIMT website` : les étapes FTP et HTTP du commit courant doivent être `success` et `https://mimt.ca/mimt-release.json` doit contenir exactement ce SHA. Si la CI et le transfert sont en attente, ne pas annoncer de succès. Puis configurer la sauvegarde réelle et une restauration **isolée**, corriger le secret FTP du portail `MOCHAHOST_APP_FTP_SERVER` (ancien `ENOTFOUND`), et valider séparément les contrats Twilio/9-1-1/Stripe.
+- **Sécurité** : pas de nouvelle base Supabase payante, aucune migration dans TAKATAK, aucune activation publique de la téléphonie, aucune donnée/secrets divulgués.
+
 ## Dernière tâche terminée
 
 1. Empêcher un ancien `workflow_run` CI de publier une version obsolète par FTPS : `.github/workflows/auto-deploy-website.yml` compare le SHA approuvé à la tête distante de `main` juste avant le transfert, et saute la publication si une version plus récente existe (commit `400e88a69084fdf27ad0ec8c9bed642362f9ca65`).
@@ -13,7 +24,7 @@
 
 **Contrôler les résultats de la CI et de l'auto-publication depuis les changements du 2026-10-14**, puis corriger tout échec constaté. La file d'actions CI a été temporairement chargée à cause de plusieurs commits successifs. Le nouveau workflow possède deux portes : `release-candidate` AVANT compilation et `release-gate` juste avant FTPS. Un run `success` dont les étapes de transfert/vérification sont `skipped` ne prouve pas une publication; c'est un abandon sain d'un ancien commit. N'annoncer la publication comme « confirmée » qu'après la réussite réelle de ces étapes **et** concordance du SHA dans `https://mimt.ca/mimt-release.json`.
 
-**Premier travail indépendant suivant :** étendre les tests du déploiement et auditer les flux télécom sans mettre en péril le 9-1-1. Pour la priorité `DEP-04`, le blocage est externe : corriger la valeur de `MOCHAHOST_APP_FTP_SERVER` dans les secrets Actions; ne pas inventer le nom du serveur.
+**Premier travail indépendant suivant :** contrôler la CI comprenant le nouveau test de sauvegarde, remédier aux éventuelles erreurs, puis obtenir une publication de la vitrine au SHA final. Le backup de production exige encore un environnement sécurisé, une cadence, des alertes et une restauration isolée éprouvée. Pour la priorité `DEP-04`, le blocage est externe : corriger la valeur de `MOCHAHOST_APP_FTP_SERVER` dans les secrets Actions; ne pas inventer le nom du serveur.
 
 ## Fichiers modifiés/créés pendant la reprise
 
