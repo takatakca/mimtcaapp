@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { api } from "../api/client";
 import { toErrorKey } from "../api/errors";
 import { useSession } from "../auth/SessionProvider";
-import { isTakatakConfigured, startTakatakSignIn } from "../auth/takatak";
+import { isTakatakConfigured, safeReturnTo, startTakatakSignIn } from "../auth/takatak";
 import { ErrorNote, Wordmark } from "../components/ui";
 import { env } from "../env";
 import { useI18n } from "../i18n/I18nProvider";
@@ -17,7 +17,7 @@ export function SignIn() {
   const location = useLocation();
   const [error, setError] = useState<TKey | null>(null);
   const [busy, setBusy] = useState(false);
-  const returnTo = (location.state as { from?: string } | null)?.from ?? "/messages";
+  const returnTo = safeReturnTo((location.state as { from?: unknown } | null)?.from ?? "/messages");
   const configured = env.mock || isTakatakConfigured();
 
   const start = async () => {
