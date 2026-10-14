@@ -142,6 +142,20 @@ jobs:
             echo "::error::app.mimt.ca requires its own scoped FTP account. Create GitHub secrets MOCHAHOST_APP_FTP_SERVER, MOCHAHOST_APP_FTP_USERNAME and MOCHAHOST_APP_FTP_PASSWORD."
             exit 1
           fi
+      - name: Validate app FTPS server resolves before spending time building
+        shell: bash
+        env:
+          APP_SERVER: ${{ secrets.MOCHAHOST_APP_FTP_SERVER }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$APP_SERVER" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]] || [[ "$APP_SERVER" == *..* ]]; then
+            echo "::error::MOCHAHOST_APP_FTP_SERVER must contain only a DNS hostname, without ftp://, :21, spaces or a path."
+            exit 1
+          fi
+          if ! getent ahosts "$APP_SERVER" >/dev/null; then
+            echo "::error::MOCHAHOST_APP_FTP_SERVER cannot be resolved in DNS. Last failed deploy: ENOTFOUND. Correct the GitHub secret to the real MochaHost FTP hostname."
+            exit 1
+          fi
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
@@ -172,8 +186,15 @@ jobs:
           for attempt in {1..10}; do
             html="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://app.mimt.ca/?release=${GITHUB_SHA}" 2>/dev/null || true)"
             if grep -Fqi 'MIMT Web' <<<"$html" && grep -Fq 'id="root"' <<<"$html"; then
-              echo "Verified: app.mimt.ca serves the MIMT web app shell."
-              exit 0
+              # A healthy root page is not enough: the router needs Apache SPA fallback.
+              if ! curl -fsSL --connect-timeout 8 --max-time 20 "https://app.mimt.ca/connexion" | grep -Fqi 'MIMT Web'; then
+                echo "Attempt ${attempt}/10: /connexion does not serve the SPA (check uploaded .htaccess)."
+              elif ! curl -fsSL --connect-timeout 8 --max-time 20 "https://app.mimt.ca/messages" | grep -Fqi 'MIMT Web'; then
+                echo "Attempt ${attempt}/10: /messages does not serve the SPA (check uploaded .htaccess)."
+              else
+                echo "Verified: app.mimt.ca serves the app shell and browser deep links."
+                exit 0
+              fi
             fi
             echo "Attempt ${attempt}/10: app.mimt.ca is not serving the expected web app."
             sleep 10
