@@ -1,0 +1,86 @@
+name: Auto deploy MIMT website
+
+# Only the public, pre-launch static website is eligible for automatic publishing.
+# Telecom API, billing and emergency-call integrations remain manual release gates.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mimt-public-website-production
+  cancel-in-progress: false
+
+jobs:
+  deploy-website:
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required website FTPS configuration without exposing secrets
+        shell: bash
+        env:
+          FTP_SERVER: ${{ secrets.MOCHAHOST_FTP_SERVER }}
+          FTP_USER: ${{ secrets.MOCHAHOST_FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for value in "$FTP_SERVER" "$FTP_USER" "$FTP_PASSWORD"; do
+            if [[ -z "$value" ]]; then
+              echo "::error::Missing MOCHAHOST_FTP_SERVER, MOCHAHOST_FTP_USERNAME or MOCHAHOST_FTP_PASSWORD."
+              exit 1
+            fi
+          done
+          if [[ ! "$FTP_SERVER" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]] || [[ "$FTP_SERVER" == *..* ]]; then
+            echo "::error::MOCHAHOST_FTP_SERVER must be a hostname, not a URL, a path or a placeholder."
+            exit 1
+          fi
+          if ! getent ahosts "$FTP_SERVER" >/dev/null; then
+            echo "::error::Website FTPS host does not resolve in DNS. Check MOCHAHOST_FTP_SERVER."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          # Publish exactly the revision that passed CI, not a newer untested main.
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @mimt/shared build
+      - run: pnpm --filter @mimt/web build
+        env:
+          NEXT_PUBLIC_FORMS_ENDPOINT: ${{ vars.FORMS_ENDPOINT }}
+      - name: Upload only the public static website to the verified FTP login root
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.MOCHAHOST_FTP_SERVER }}
+          username: ${{ secrets.MOCHAHOST_FTP_USERNAME }}
+          password: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          local-dir: ./apps/web/out/
+          server-dir: ./
+      - name: Confirm published website content and reject old provider content
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..10}; do
+            html="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://mimt.ca/?release=${GITHUB_SHA}" 2>/dev/null || true)"
+            if [[ "$html" == *"Votre numéro canadien"* ]] && ! grep -Eiq 'Fongo (Mobile|Works|Internet|World|Home Phone)|Waterloo, Ontario|About Fongo' <<<"$html"; then
+              echo "Published MIMT French website is visible on https://mimt.ca."
+              exit 0
+            fi
+            echo "Public website verification attempt ${attempt}/10 failed."
+            sleep 10
+          done
+          echo "::error::FTPS upload did not result in the expected live MIMT website."
+          exit 1
