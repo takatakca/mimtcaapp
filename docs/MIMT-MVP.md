@@ -1,5 +1,7 @@
 # MIMT: architecture and MVP plan
 
+> **Document de planification historique daté du 9 octobre 2026.** Les passages ci-dessous qui indiquent « aucun code / aucun repository », ou qui prescrivent un projet Supabase payant, sont **dépassés**. Le code est dans `takatakca/mimtcaapp` et l'API utilise désormais le PostgreSQL 17 privé MIMT sur Coolify. Lire `docs/PROJECT_STATUS.md`, `docs/MIMT-LAUNCH.md` et `docs/MIMT-SELFHOSTED-POSTGRES-RECOVERY.md` pour l'état actuel; ne pas exécuter les anciennes instructions de provisioning.
+
 Prepared: 2026-10-09 by the MIMT agent (agent 2). Status: **plan only. No code, no repository, no purchases yet.**
 Companion docs: [MIMT.md](MIMT.md) (scope), [MIMT-REGULATORY.md](MIMT-REGULATORY.md) (rules), [MIMT-STACK.md](MIMT-STACK.md) (costs).
 
