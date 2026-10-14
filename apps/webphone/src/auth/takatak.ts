@@ -7,6 +7,16 @@ import { createPkcePair, randomUrlSafe } from "./pkce";
 const PENDING_KEY = "mimt.oauth.pending";
 export const CALLBACK_PATH = "/auth/callback";
 
+/** An OAuth return route must stay inside this application, never be a protocol-relative URL. */
+export function safeReturnTo(value: unknown): string {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || value.includes("\\") || /[\u0000-\u001f\u007f]/.test(value)) {
+    return "/messages";
+  }
+  // A direct callback/authentication loop is also an invalid post-login destination.
+  if (/^\/(?:auth\/|connexion(?:\/|$|\?|#))/.test(value)) return "/messages";
+  return value;
+}
+
 interface PendingAuth {
   state: string;
   nonce: string;
@@ -64,7 +74,7 @@ export async function startTakatakSignIn(locale: string, returnTo = "/"): Promis
     nonce: randomUrlSafe(16),
     verifier: pkce.verifier,
     redirectUri: redirectUri(),
-    returnTo,
+    returnTo: safeReturnTo(returnTo),
     createdAt: Date.now(),
   };
   sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
@@ -100,6 +110,8 @@ export function readCallback(search: string, now = Date.now()): CallbackResult {
   const state = params.get("state");
   if (!code || !state || !pending) return { ok: false, reason: "missing" };
   if (state !== pending.state) return { ok: false, reason: "state_mismatch" };
-  if (now - pending.createdAt > 10 * 60_000) return { ok: false, reason: "expired" };
-  return { ok: true, code, verifier: pending.verifier, redirectUri: pending.redirectUri, nonce: pending.nonce, returnTo: pending.returnTo };
+  if (!Number.isFinite(pending.createdAt) || pending.createdAt > now + 60_000 || now - pending.createdAt > 10 * 60_000) {
+    return { ok: false, reason: "expired" };
+  }
+  return { ok: true, code, verifier: pending.verifier, redirectUri: pending.redirectUri, nonce: pending.nonce, returnTo: safeReturnTo(pending.returnTo) };
 }
