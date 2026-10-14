@@ -54,7 +54,7 @@ Les requêtes sont **en lecture seule** et échouent si DNS/TLS n'est pas dispon
 
 Conditions à mettre dans un environnement de sauvegarde privé (noms seulement, ne pas coller de valeurs dans GitHub) :
 
-- Accès PostgreSQL privé : `PGHOST`, `PGPORT`, `PGUSER=mimt_owner`, `PGDATABASE=mimt_production`, `PGPASSWORD`, `PGSSLMODE` et CA TLS authentique selon configuration; le mot de passe n'apparaît pas dans les arguments de commande.
+- Accès PostgreSQL privé : `PGHOST`, `PGPORT`, `PGUSER=mimt_owner`, `PGDATABASE=mimt_production`, `PGPASSWORD`, **`PGSSLMODE=verify-full`** et CA TLS authentique correspondant au nom de l'hôte; le mot de passe n'apparaît pas dans les arguments de commande. La sauvegarde refuse le mode TLS permissif; configurer le certificat avant le premier lancement.
 - Chiffrement : `MIMT_BACKUP_AGE_RECIPIENT` (**clé publique** age uniquement). Conserver la clé de déchiffrement séparément, avec procédure de récupération.
 - Stockage hors hôte : `MIMT_BACKUP_S3_BUCKET`, facultatif `MIMT_BACKUP_S3_PREFIX`, identifiants AWS/compatible provenant d'un gestionnaire de secrets. Privilégier un coffre avec versioning, règles de rétention et suppression bloquée.
 - Exécutables disponibles dans l'environnement de sauvegarde : `pg_dump` (version compatible PostgreSQL 17), `age`, `aws`, Bash. Planifier une cadence quotidienne *après* validation humaine du stockage et des coûts. Alerter si un job échoue ou aucun objet récent n'existe.
