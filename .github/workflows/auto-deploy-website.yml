@@ -60,6 +60,12 @@ jobs:
       - run: pnpm --filter @mimt/web build
         env:
           NEXT_PUBLIC_FORMS_ENDPOINT: ${{ vars.FORMS_ENDPOINT }}
+      - name: Embed CI-validated revision in public static release manifest
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          printf '{"commit":"%s"}\n' "$RELEASE_SHA" > apps/web/out/mimt-release.json
       # workflow_run may finish after a newer main push. Never roll back production
       # by publishing a previously validated but now superseded commit.
       - name: Verify release commit still matches remote main
@@ -87,19 +93,24 @@ jobs:
           protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
           local-dir: ./apps/web/out/
           server-dir: ./
-      - name: Confirm published website content and reject old provider content
+      - name: Confirm published website content, revision and reject old provider content
         if: steps.release-gate.outputs.publish == 'true'
         shell: bash
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           for attempt in {1..10}; do
             html="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://mimt.ca/?release=${GITHUB_SHA}" 2>/dev/null || true)"
-            if [[ "$html" == *"Votre numéro canadien"* ]] && ! grep -Eiq 'Fongo (Mobile|Works|Internet|World|Home Phone)|Waterloo, Ontario|About Fongo' <<<"$html"; then
-              echo "Published MIMT French website is visible on https://mimt.ca."
+            manifest="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://mimt.ca/mimt-release.json?release=${RELEASE_SHA}" 2>/dev/null || true)"
+            if [[ "$html" == *"Votre numéro canadien"* ]] &&
+               ! grep -Eiq 'Fongo (Mobile|Works|Internet|World|Home Phone)|Waterloo, Ontario|About Fongo' <<<"$html" &&
+               jq -e --arg expected "$RELEASE_SHA" '.commit == $expected' <<<"$manifest" >/dev/null 2>&1; then
+              echo "Published MIMT French website at the expected CI-validated commit: $RELEASE_SHA."
               exit 0
             fi
             echo "Public website verification attempt ${attempt}/10 failed."
             sleep 10
           done
-          echo "::error::FTPS upload did not result in the expected live MIMT website."
+          echo "::error::FTPS upload did not publish the expected MIMT site and release commit. Check document root, CDN caching and mimt-release.json."
           exit 1
