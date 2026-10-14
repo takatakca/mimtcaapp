@@ -30,6 +30,8 @@ Ne jamais inclure des valeurs dans un commit, une URL, un journal ou une répons
 6. L'API nécessite `GET https://api.mimt.ca/healthz` -> `ok:true` et `GET /readyz` -> `ok:true, db:up`. Cela **ne valide pas** appels, SMS, 9-1-1, billing ou conformité.
 7. Pour un échec : ouvrir l'étape exacte dans GitHub Actions, classifier DNS/TLS/auth/transfert/docroot/schéma/health, corriger la cause, et éviter de relancer la même erreur sans modification.
 
+**État confirmé le 14 octobre :** [CI 38622709087](https://github.com/takatakca/mimtcaapp/actions/runs/38622709087) et [publication 38622899829](https://github.com/takatakca/mimtcaapp/actions/runs/38622899829) ont réussi au SHA `024dc80ce6de9a8cee5d9bb1ea90ec08ded4ea59`. Une révision ultérieure doit être vérifiée séparément; les envois FTPS `skipped` ne changent pas la production. Les adaptateurs `LogNotifier` et `LogEmailSender` n'envoient pas de messages et ne doivent jamais écrire de contenus clients dans les logs.
+
 ## Débogage reproductible
 
 ```bash

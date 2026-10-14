@@ -29,6 +29,12 @@ Le workflow manuel `Deploy` vérifie seulement les secrets utilisés par la port
 6. Conserver le déploiement API **manuel** jusqu'aux autorisations opérationnelles. Aucune CI ne certifie les urgences.
 7. Le script `scripts/db/backup-mimt.sh` de sauvegarde PostgreSQL privée, chiffrée age vers stockage S3 hors hôte, et son test hermétique `scripts/db/test-backup-mimt.sh` ont été ajoutés en octobre 2026. **Aucun backup de production, planification, stockage ou restauration réelle n'a été effectué par cette seule addition de code.**
 
+## Publication vérifiée et confidentialité (14 octobre 2026)
+
+La correction du contrôle GitHub Actions a réussi au commit `024dc80ce6de9a8cee5d9bb1ea90ec08ded4ea59` (CI [38622709087](https://github.com/takatakca/mimtcaapp/actions/runs/38622709087)). La **publication FTP avec validation HTTP du manifeste SHA** a réussi dans [38622899829](https://github.com/takatakca/mimtcaapp/actions/runs/38622899829). Ces preuves s'appliquent à la vitrine seulement, pas à la téléphonie.
+
+Les adaptateurs de secours de notifications/logs ont été corrigés et testés dans le code pour ne jamais journaliser transcription, sujet d'email, numéro d'appelant ou destinataire; la CI de la nouvelle révision était encore en attente lors de la mise à jour. **Un adaptateur de log n'est pas un prestataire de notification** : l'envoi réel exige une intégration push/email certifiée et des accès fournisseur.
+
 ## Principes
 
 TAKATAK est maître d'identité et des habilitations. MIMT est propriétaire des données télécom isolées; aucun secret, donnée client ou schéma du tableau de bord TAKATAK ne doit être copié ici. Chaque entreprise doit être isolée côté serveur. Le 9-1-1 n'est jamais bloqué par le forfait, un plafond ou une suspension; ses obligations de configuration/consentement restent en vigueur.

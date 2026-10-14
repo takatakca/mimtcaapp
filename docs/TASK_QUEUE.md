@@ -18,6 +18,7 @@ Date de tri : 2026-10-14. Trier par dépendances; statut `done`, `next`, `blocke
 | MED-01 | P1 | pending | Intégration réelle fichiers MMS/accueil téléphonique (stockage privé), accès, expirations, scans, email voix; aucune démo comme preuve de production. |
 | PBX-01 | P1 | pending | Vérifier sièges PBX vs quantités Stripe, rôles par entreprise, redirections, IVR et WebSocket en conditions réelles. |
 | RES-01 | P2 | blocked: accord revendeur | Vidéotron/équivalent : contrat, documentation API et environnement sandbox; ne pas activer l'adaptateur fictif. |
+| QA-02 | P1 | code terminé, CI à confirmer | Les adaptateurs de notification sans fournisseur ne doivent plus écrire transcriptions, destinataires ou numéros d'appelants en logs. Vérifier `apps/api/test/notification-privacy.test.ts`, puis l'activation d'un vrai fournisseur push/email avant de présenter la notification comme livrée. |
 | QA-01 | P1 | pending | Élargir les e2e aux risques réels (auth déconnectée, erreur réseau, changement de locataire, gestion SMS, secours 9-1-1). |
 
 ## Règle d'exécution
