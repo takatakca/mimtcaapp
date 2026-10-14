@@ -19,11 +19,13 @@ export interface EmailSender {
 /** "jean.tremblay@exemple.ca" → "j***@exemple.ca" for logs. */
 export const maskEmail = (email: string) => email.replace(/^(.)[^@]*@/, "$1***@");
 
-/** Default: logs that an email would be sent (recipient masked, no body, no link). */
+/** Fallback: explicitly records non-delivery without logging message content or caller identity. */
 export class LogEmailSender implements EmailSender {
   constructor(private readonly log: Pick<FastifyBaseLogger, "info">) {}
   async send(msg: EmailMessage) {
-    this.log.info({ to: maskEmail(msg.to), subject: msg.subject }, "email (log only: set EMAIL_PROVIDER to send)");
+    // The subject may contain a caller number; the body may include a transcript
+    // and a signed audio URL. Neither belongs in logs.
+    this.log.info({ delivered: false, channel: "email" }, "email not delivered: configure EMAIL_PROVIDER");
   }
 }
 
