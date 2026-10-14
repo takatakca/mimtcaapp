@@ -27,6 +27,7 @@ Le workflow manuel `Deploy` vérifie seulement les secrets utilisés par la port
 4. Valider le partenaire 9-1-1, les avis réglementaires, la confidentialité/Loi 25, les paiements Stripe/IAP, les paramètres de taxation et les accords fournisseurs avant activation commerciale.
 5. Vérifier les connexions stockages MMS/voicemail, le service email, les offres/prix et les appareils iOS/Android réels.
 6. Conserver le déploiement API **manuel** jusqu'aux autorisations opérationnelles. Aucune CI ne certifie les urgences.
+7. Le script `scripts/db/backup-mimt.sh` de sauvegarde PostgreSQL privée, chiffrée age vers stockage S3 hors hôte, et son test hermétique `scripts/db/test-backup-mimt.sh` ont été ajoutés en octobre 2026. **Aucun backup de production, planification, stockage ou restauration réelle n'a été effectué par cette seule addition de code.**
 
 ## Principes
 
