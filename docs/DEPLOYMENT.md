@@ -48,4 +48,17 @@ Les requêtes sont **en lecture seule** et échouent si DNS/TLS n'est pas dispon
 
 **Attention** : `MOCHAHOST_APP_FTP_SERVER` était invalide à la dernière publication manuelle examinée (run 38116824409). Il faut un véritable **nom DNS FTP**, sans `ftp://`, numéro de port ni répertoire. Ne pas réutiliser l'identifiant FTPS du site vitrine sur la racine du portail.
 
+## Sauvegarde chiffrée PostgreSQL privée (outil prêt, production non configurée)
+
+`bash scripts/db/backup-mimt.sh` est un utilitaire **manuel / cron Coolify séparé**; il ne migre rien, ne restaure rien et n'exécute aucune transaction d'écriture. Il fait un `pg_dump --format=custom` **sans archive en clair sur disque**, chiffre le flux avec une **clé publique age** et envoie l'objet chiffré en S3 avec chiffrement côté stockage (`--sse AES256`). Il contrôle les octets de l'objet distant. La script refuse toute base autre que `mimt_production`, le rôle inattendu ou un hôte Supabase. Le test CI `bash scripts/db/test-backup-mimt.sh` simule les fournisseurs sans accès ni secret réel.
+
+Conditions à mettre dans un environnement de sauvegarde privé (noms seulement, ne pas coller de valeurs dans GitHub) :
+
+- Accès PostgreSQL privé : `PGHOST`, `PGPORT`, `PGUSER=mimt_owner`, `PGDATABASE=mimt_production`, `PGPASSWORD`, `PGSSLMODE` et CA TLS authentique selon configuration; le mot de passe n'apparaît pas dans les arguments de commande.
+- Chiffrement : `MIMT_BACKUP_AGE_RECIPIENT` (**clé publique** age uniquement). Conserver la clé de déchiffrement séparément, avec procédure de récupération.
+- Stockage hors hôte : `MIMT_BACKUP_S3_BUCKET`, facultatif `MIMT_BACKUP_S3_PREFIX`, identifiants AWS/compatible provenant d'un gestionnaire de secrets. Privilégier un coffre avec versioning, règles de rétention et suppression bloquée.
+- Exécutables disponibles dans l'environnement de sauvegarde : `pg_dump` (version compatible PostgreSQL 17), `age`, `aws`, Bash. Planifier une cadence quotidienne *après* validation humaine du stockage et des coûts. Alerter si un job échoue ou aucun objet récent n'existe.
+
+**Restauration de preuve obligatoire :** créer une base **jetable**, hors production et distincte de `mimt_production`, avec des autorisations minimales; télécharger un objet chiffré, puis `age --decrypt -i /chemin/protégé/identité.age` en flux vers `pg_restore --no-owner --no-acl` sur cette base jetable. Contrôler les tables, le contenu attendu de façon non sensible et les migrations, puis détruire l'environnement d'essai. Ne jamais diriger cette commande vers la production ou la base TAKATAK. Le contrôle de taille S3 du script **ne prouve pas** qu'une restauration fonctionne.
+
 Documents complémentaires : [MIMT-LAUNCH.md](MIMT-LAUNCH.md), [MIMT-SELFHOSTED-POSTGRES-RECOVERY.md](MIMT-SELFHOSTED-POSTGRES-RECOVERY.md), [issue #5](https://github.com/takatakca/mimtcaapp/issues/5).
