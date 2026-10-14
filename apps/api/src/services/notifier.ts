@@ -11,14 +11,16 @@ export type NotificationTemplate =
   /** data.months, data.plan: a referral earned a free month. */
   | "referral_reward";
 
-/** Push/email delivery. Placeholder: logs only, until FCM/APNs and the email provider are wired. */
+/** Push/email delivery. A placeholder is NOT delivery; never log notification payloads. */
 export interface Notifier {
   notify(userId: string, template: NotificationTemplate, data: Record<string, unknown>): Promise<void>;
 }
 
 export class LogNotifier implements Notifier {
   constructor(private readonly log: Pick<FastifyBaseLogger, "info">) {}
-  async notify(userId: string, template: NotificationTemplate, data: Record<string, unknown>) {
-    this.log.info({ userId, template, data }, "notification (placeholder)");
+  async notify(_userId: string, template: NotificationTemplate, _data: Record<string, unknown>) {
+    // Voicemail summaries, caller numbers, AI content and customer identifiers must
+    // never appear in logs, even when delivery has not yet been configured.
+    this.log.info({ template, delivered: false }, "notification not delivered: push provider not configured");
   }
 }
