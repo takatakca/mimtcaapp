@@ -3,6 +3,8 @@
 Newest first, one line per piece of work. Rule: `AGENTS.md` › Work log rule.
 Format: `YYYY-MM-DD | agent | branch → PR | status | what | next step`
 
+- 2026-10-14 | ChatGPT (MIMT GitHub agent) | main | active | Stabiliser le déploiement statique GitHub→mimt.ca après CI, renforcer le diagnostic FTPS app.mimt.ca et corriger la documentation de publication | construire et vérifier les workflows; ne pas activer voix/facturation sans conformité
+
 - 2026-10-11 | claude (MIMT agent 2, session 01Bs3bum) | main | done | Webphone call and voicemail settings (/compte/appels): blocked numbers + blocked-call action, forwarding (plan-gated), do not disturb with nightly quiet hours, custom greeting upload/record by phone/reset, voicemail by email; demo mock handlers; test CallSettings.test.tsx | per-day quiet hours editor if users ask; deploy webphone once MOCHAHOST_APP_FTP_SERVER is fixed
 - 2026-10-10 | claude (port-in agent, session 01Bs3bum) | worktree-agent-a7b4a9d90baab32a2 | done | Parity P0 #7: VoIP number port-in (business first, consumers too): /v1/port-ins, migration 0009, bilingual LOA e-signature, Twilio Porting gateway + signed status webhook, routing switch on completion, webphone page | owner: apply 0009; confirm Twilio Porting API takes Canadian numbers, register the porting webhook, then TWILIO_PORTING_ENABLED=true; lawyer review of the LOA wording
 - 2026-10-10 | claude (MIMT agent 2, session 01Bs3bum) | main | done | Mobile: AI consent/summaries/smart replies/spam labels + MIMT Affaires member mode (extension, business caller ID, invite claim) | API: spamLabel on /v1/conversations; pick one spam wording (app « Spam probable » vs docs « Appel suspect »)
