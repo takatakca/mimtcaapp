@@ -1,0 +1,35 @@
+# MIMT — État vérifié du projet
+
+Dernière revue : **2026-10-14**. Source de vérité : branche `main` de `takatakca/mimtcaapp`, `AGENTS.md`, `WORKLOG.md`, `docs/MIMT-LAUNCH.md`, GitHub Actions. Ce document distingue **code présent**, **tests CI** et **service réel opérationnel**.
+
+## Produits et propriétaires
+
+| Périmètre | Code constaté | Vérification | Statut |
+| --- | --- | --- | --- |
+| Site vitrine `mimt.ca` | Next.js export statique, français/anglais, tarifs, aide, juridique | CI 38610373813 et auto-publication 38610692280 réussies au SHA `3fdcc676` | **En production comme vitrine/prélancement** |
+| Webphone `app.mimt.ca` | React/Vite, appels WebRTC, SMS, messagerie vocale, PBX, AI, paramètres, PWA | CI et e2e en mémoire réussis sur les versions examinées; dernière publication manuelle 38116824409 : échec FTPS `ENOTFOUND` | **Code présent, déploiement non validé** |
+| API `api.mimt.ca` | Fastify, appels/SMS/9-1-1, comptes, portabilité, facturation, webhooks, PBX | `/readyz` avec PostgreSQL privé déclaré OK le 2026-10-11 (issue #5); disponibilité du jour non revérifiée | **Base rétablie, lancement non certifié** |
+| PostgreSQL MIMT privé | `mimt-prod-postgres` dans Coolify, migrations MIMT | Test de migrations GitHub 38181589120 réussi; sauvegardes/restauration non prouvées | **Protection des données à compléter** |
+| Mobile iOS/Android | Expo React Native, Twilio Voice natif, onboarding, SMS, appels, contacts | CI TypeScript/tests; test sur appareils et publications magasins non prouvés | **Non lancé** |
+| Revendeur Internet/mobile | Modèles d'offres et commandes, adaptateur de fournisseur | Accès commercial/API Vidéotron pas validé | **Dépendance externe** |
+
+## Dernière intervention du 14 octobre 2026
+
+Le flux `CI → Auto deploy MIMT website` publie déjà la vitrine; une exécution réussie a été constatée au SHA `3fdcc676`. Suite aux redéploiements répétitifs, le workflow compare maintenant le commit approuvé par CI à la tête distante de `main` juste avant l'envoi FTPS : une version dépassée est ignorée. La publication inclut aussi `mimt-release.json`, dont le SHA doit correspondre au commit réellement envoyé. La publication manuelle du site vérifie la même preuve. La CI et la nouvelle publication de ces modifications doivent être constatées indépendamment.
+
+Le workflow manuel `Deploy` vérifie seulement les secrets utilisés par la portée choisie : `website`, `webphone`, `api` ou `all`. Les applications télécom ne sont **pas** ajoutées à la publication automatique.
+
+## Bloquants explicites
+
+1. Corriger la valeur GitHub `MOCHAHOST_APP_FTP_SERVER` (un hôte FTPS réel et résoluble), puis publier et tester `app.mimt.ca`, y compris les URL profondes et TLS.
+2. Configurer des sauvegardes PostgreSQL chiffrées **hors hôte** et exécuter une restauration documentée sans toucher TAKATAK.
+3. Certifier l'état de l'API, les migrations attendues, OAuth TAKATAK et les vrais flux Twilio sur un environnement contrôlé.
+4. Valider le partenaire 9-1-1, les avis réglementaires, la confidentialité/Loi 25, les paiements Stripe/IAP, les paramètres de taxation et les accords fournisseurs avant activation commerciale.
+5. Vérifier les connexions stockages MMS/voicemail, le service email, les offres/prix et les appareils iOS/Android réels.
+6. Conserver le déploiement API **manuel** jusqu'aux autorisations opérationnelles. Aucune CI ne certifie les urgences.
+
+## Principes
+
+TAKATAK est maître d'identité et des habilitations. MIMT est propriétaire des données télécom isolées; aucun secret, donnée client ou schéma du tableau de bord TAKATAK ne doit être copié ici. Chaque entreprise doit être isolée côté serveur. Le 9-1-1 n'est jamais bloqué par le forfait, un plafond ou une suspension; ses obligations de configuration/consentement restent en vigueur.
+
+Suivi actif : [issue #5](https://github.com/takatakca/mimtcaapp/issues/5), [GitHub Actions](https://github.com/takatakca/mimtcaapp/actions), [checklist du lancement](MIMT-LAUNCH.md).
