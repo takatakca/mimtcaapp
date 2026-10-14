@@ -15,12 +15,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy-website:
+  # Cheap remote HEAD check keeps superseded workflow_run events from rebuilding the
+  # whole monorepo. A second check just before FTP closes the build-time race.
+  release-candidate:
     if: >-
       ${{ github.event.workflow_run.conclusion == 'success' &&
           github.event.workflow_run.event == 'push' &&
           github.event.workflow_run.head_branch == 'main' &&
           github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    outputs:
+      current: ${{ steps.compare.outputs.current }}
+    steps:
+      - name: Compare approved CI SHA with current remote main
+        id: compare
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          current="$(git ls-remote --exit-code "https://github.com/${GITHUB_REPOSITORY}.git" refs/heads/main | cut -f1)"
+          if [[ "$current" != "$RELEASE_SHA" ]]; then
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CI revision superseded: no build and no deployment."
+          else
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy-website:
+    needs: release-candidate
+    if: needs.release-candidate.outputs.current == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Check required website FTPS configuration without exposing secrets
