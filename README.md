@@ -3,7 +3,7 @@
 **Votre numéro canadien, partout.** Appels, textos, messagerie vocale et téléphonie d'affaires par Internet (VoIP), au Québec et au Canada.
 Un membre de l'écosystème **GROUPE TAKATAK** ([takatak.ca](https://takatak.ca)).
 
-> Statut : **phase 1 en construction** (octobre 2026). Rien n'est en production. Voir `docs/MIMT-MVP.md`.
+> Statut au 14 octobre 2026 : **pré-lancement**. Le site vitrine `https://mimt.ca` est public et l'API PostgreSQL avait été déclarée prête le 11 octobre ; le lancement des services télécom n'est **pas** autorisé. Le portail Web et les intégrations Twilio, 9-1-1, paiements, sauvegardes et conformité doivent être validés séparément. Voir `docs/MIMT-LAUNCH.md` et l'issue #5.
 
 ## Contenu du dépôt
 
@@ -49,6 +49,10 @@ Aucun secret dans le code, le chat ou les URL. Les clés Twilio, Stripe, Supabas
 ## Mise en ligne
 
 Liste du propriétaire pour le lancement : [docs/MIMT-LAUNCH.md](docs/MIMT-LAUNCH.md).
+
+- **Site vitrine** : chaque CI réussie sur `main` déclenche `.github/workflows/auto-deploy-website.yml` (FTPS vers la racine du compte dédié à mimt.ca), puis une vérification HTTP publique. Les secrets GitHub `MOCHAHOST_FTP_SERVER`, `MOCHAHOST_FTP_USERNAME` et `MOCHAHOST_FTP_PASSWORD` doivent correspondre à ce compte. Un transfert est **réussi** uniquement si l'action et la vérification en direct passent.
+- **Portail Web et API** : publication manuelle `Actions → Deploy → Run workflow`, portée `webphone` ou `api`. Le portail utilise un compte FTPS séparé ; un hôte inexistant retourne une erreur DNS explicite. Le workflow vérifie aussi les liens profonds SPA après publication.
+- **Sécurité** : la publication du site n'active pas l'inscription télécom, l'appel RTPC, le 9-1-1 ni la facturation. Les autorisations et tests opérationnels restent obligatoires avant ouverture.
 
 ---
 
