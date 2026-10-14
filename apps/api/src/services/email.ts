@@ -22,10 +22,12 @@ export const maskEmail = (email: string) => email.replace(/^(.)[^@]*@/, "$1***@"
 /** Fallback: explicitly records non-delivery without logging message content or caller identity. */
 export class LogEmailSender implements EmailSender {
   constructor(private readonly log: Pick<FastifyBaseLogger, "info">) {}
-  async send(msg: EmailMessage) {
+  async send(_msg: EmailMessage): Promise<void> {
     // The subject may contain a caller number; the body may include a transcript
     // and a signed audio URL. Neither belongs in logs.
     this.log.info({ delivered: false, channel: "email" }, "email not delivered: configure EMAIL_PROVIDER");
+    // A fallback must NEVER report success to a caller expecting actual delivery.
+    throw new Error("email_provider_not_configured");
   }
 }
 
@@ -120,6 +122,12 @@ export function renderVoicemailEmail(input: {
 /** Sends due emails. Renders at send time so the transcript and link are fresh. Backoff 1 min → ~2 h. */
 export async function deliverEmails(deps: AppDeps, log: Pick<FastifyBaseLogger, "warn" | "info">, now = deps.now()): Promise<{ sent: number; failed: number; skipped: number }> {
   const sender = deps.email ?? new LogEmailSender(log);
+  if (sender instanceof LogEmailSender) {
+    // Leave queued email rows untouched. Marking them "sent" here would silently
+    // lose voicemail notifications when EMAIL_PROVIDER is not configured.
+    log.warn({ channel: "email", delivered: false }, "email outbox paused: configure EMAIL_PROVIDER");
+    return { sent: 0, failed: 0, skipped: 0 };
+  }
   const base = deps.config.PUBLIC_BASE_URL.replace(/\/$/, "");
   let sent = 0;
   let failed = 0;
