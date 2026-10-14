@@ -1,5 +1,7 @@
 # MIMT Production — no new Supabase subscription
 
+> **Historical recovery procedure.** On 2026-10-11 the dedicated private `mimt-prod-postgres` resource was started, MIMT migrations were applied through the guarded one-time runner, old TAKATAK Supabase configuration was removed from the API, and `https://api.mimt.ca/readyz` returned `ok:true, db:up` (issue #5; successful post-restart audit). Sections below describe **the pre-start state on October 10**, not the current instruction to restart/migrate again. **Do not repeat bootstrap or modify the DB merely because a historical checklist says 'stopped'.** Backups and an isolated restore test are still outstanding. Recheck current Coolify logs, volume and migrations before any new DB operation.
+
 ## Confirmed alternative (October 10, 2026)
 
 The central TAKATAK Supabase project is **not** the MIMT database. Never apply these migrations there.
