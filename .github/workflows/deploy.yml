@@ -107,6 +107,12 @@ jobs:
       - run: pnpm --filter @mimt/web build
         env:
           NEXT_PUBLIC_FORMS_ENDPOINT: ${{ vars.FORMS_ENDPOINT }}
+      - name: Embed manually released Git revision in public manifest
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          printf '{"commit":"%s"}\n' "$RELEASE_SHA" > apps/web/out/mimt-release.json
       - name: Upload mimt.ca
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -117,14 +123,19 @@ jobs:
           local-dir: ./apps/web/out/
           server-dir: ${{ inputs.web_ftp_dir }}
 
-      - name: Verify live mimt.ca actually serves the French MIMT website
+      - name: Verify live mimt.ca serves French MIMT website at released commit
         shell: bash
+        env:
+          RELEASE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           for attempt in {1..10}; do
             html="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://mimt.ca/?release=${GITHUB_SHA}" 2>/dev/null || true)"
-            if [[ "$html" == *"Votre numéro canadien"* ]] && ! grep -Eiq 'Fongo (Mobile|Works|Internet|World|Home Phone)|Waterloo, Ontario|About Fongo' <<<"$html"; then
-              echo "Verified: mimt.ca serves the new French MIMT homepage without Fongo content."
+            manifest="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://mimt.ca/mimt-release.json?release=${RELEASE_SHA}" 2>/dev/null || true)"
+            if [[ "$html" == *"Votre numéro canadien"* ]] &&
+               ! grep -Eiq 'Fongo (Mobile|Works|Internet|World|Home Phone)|Waterloo, Ontario|About Fongo' <<<"$html" &&
+               jq -e --arg expected "$RELEASE_SHA" '.commit == $expected' <<<"$manifest" >/dev/null 2>&1; then
+              echo "Verified: mimt.ca serves the expected manual-release commit: $RELEASE_SHA."
               exit 0
             fi
             echo "Attempt ${attempt}/10: mimt.ca still does not show the expected MIMT homepage."
