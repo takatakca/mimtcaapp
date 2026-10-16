@@ -39,7 +39,7 @@ Les adaptateurs de secours de notifications/logs ont été corrigés et testés 
 
 - `GET /v1/consents` est implémenté côté API, authentifié, restreint aux décisions du compte connecté, réduit à la plus récente par catégorie et ne retourne ni IP ni historique complet. Les écrans Confidentialité mobile et webphone restaurent les valeurs enregistrées après reconnexion; les consentements publicitaires ne sont pas présumés accordés en cas d'échec réseau.
 - **CI réussie :** [38949670716](https://github.com/takatakca/mimtcaapp/actions/runs/38949670716) ; **tests PostgreSQL réussis :** [38949670692](https://github.com/takatakca/mimtcaapp/actions/runs/38949670692) ; **site vitrine FTPS + preuve SHA :** [38949802395](https://github.com/takatakca/mimtcaapp/actions/runs/38949802395) au code `e71fefe21d81fe82aabf95a8f8ec1aa3cc0367d6`.
-- L'effacement local de la personnalisation publicitaire à la déconnexion (`b4b0c873...`) est poussé; dernier test CI à vérifier avant clôture. **API, webphone et applications mobiles ne sont pas pour autant publiés en production.** L'identité TAKATAK reste centrale; les consentements sont des enregistrements propres à MIMT.
+- L'effacement local de la personnalisation publicitaire à la déconnexion (`b4b0c873...`) est poussé; un test de régression isolé (`4b3a6d50...`) et la CI [38950202953](https://github.com/takatakca/mimtcaapp/actions/runs/38950202953) ont réussi. Cela ne remplace pas un test sur un appareil réel. **API, webphone et applications mobiles ne sont pas pour autant publiés en production.** L'identité TAKATAK reste centrale; les consentements sont des enregistrements propres à MIMT.
 
 ## Principes
 

@@ -121,7 +121,7 @@ Run: `pnpm install && pnpm --filter @mimt/shared build && pnpm --filter @mimt/ap
 | POST | `/v1/push/register` (APNs/FCM token per user/platform) | bearer |
 | POST | `/v1/rewards/claim` (501 `not_implemented` until AdMob SSV) | bearer |
 | POST | `/v1/billing/checkout` · GET `/v1/billing/portal` · POST `/v1/billing/iap/verify` (501) | bearer |
-| GET/PATCH/DELETE | `/v1/me` (PATCH also takes `forwarding`, `dnd`, `blockedCallAction`) · GET `/v1/me/export` · POST `/v1/consents` | bearer |
+| GET/PATCH/DELETE | `/v1/me` (PATCH also takes `forwarding`, `dnd`, `blockedCallAction`) · GET `/v1/me/export` · GET/POST `/v1/consents` (GET returns only the authenticated user's latest choice per kind; never returns consent IP or other users) | bearer |
 | GET/POST | `/v1/blocks` · DELETE `/v1/blocks/:id` · DELETE `/v1/blocks?number=` (inbound calls rejected or sent to voicemail, texts dropped; 9-1-1 cannot be blocked) | bearer |
 | POST | `/webhooks/twilio/voice/{outbound,inbound,dial-result,hangup,status,recording,transcription}` | `X-Twilio-Signature` |
 | POST | `/webhooks/twilio/sms/{inbound,status}` | `X-Twilio-Signature` |
