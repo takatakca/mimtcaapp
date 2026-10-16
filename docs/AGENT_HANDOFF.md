@@ -2,6 +2,11 @@
 
 **Mise à jour : 2026-10-14.** Repository `takatakca/mimtcaapp`, branche de publication `main`. À la reprise, **lire `AGENTS.md`, ce fichier, `WORKLOG.md`, vérifier HEAD GitHub et les Actions avant toute modification**. Un document de relève ne remplace jamais une vérification de `main`.
 
+## Relève — 16 octobre 2026 (claude, session 01GtWamF)
+
+- **CI rouge depuis `ac01dcb`** (correctif courriel) : le test `notification-privacy` attendait encore que `LogEmailSender.send` réussisse. Le test vérifie maintenant le refus `email_provider_not_configured` et l'absence de destinataire, sujet et lien dans les journaux. Local : 348/348 sur PostgreSQL 16 jetable, typecheck et tests de tous les paquets verts.
+- **Suite :** lire la CI de ce commit, puis la vidéoconférence (LiveKit) et PBX-01 (sièges ↔ quantité Stripe) sur la branche `claude/mimt-video-seats`.
+
 ## Relève — troisième cycle du 14 octobre 2026
 
 - **Repository et branche :** `takatakca/mimtcaapp`, `main`.

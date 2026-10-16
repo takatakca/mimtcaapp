@@ -24,11 +24,14 @@ describe("disabled delivery adapters never leak customer data into application l
   it("does not log recipients, email subjects, call details or signed audio URLs", async () => {
     const info = vi.fn();
     const sender = new LogEmailSender({ info } as unknown as ConstructorParameters<typeof LogEmailSender>[0]);
-    await sender.send({
-      to: "victim@example.ca",
-      subject: "Nouveau message vocal de +15145559876",
-      text: "CONFIDENTIAL VOICEMAIL https://example.test/audio?token=PRIVATE_TOKEN",
-    });
+    // The fallback must refuse (never report a fake delivery) and still keep the message out of the logs.
+    await expect(
+      sender.send({
+        to: "victim@example.ca",
+        subject: "Nouveau message vocal de +15145559876",
+        text: "CONFIDENTIAL VOICEMAIL https://example.test/audio?token=PRIVATE_TOKEN",
+      }),
+    ).rejects.toThrow("email_provider_not_configured");
     expect(info).toHaveBeenCalledTimes(1);
     const serialized = JSON.stringify(info.mock.calls);
     expect(serialized).toContain("delivered");
