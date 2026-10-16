@@ -3,6 +3,7 @@
 Newest first, one line per piece of work. Rule: `AGENTS.md` › Work log rule.
 Format: `YYYY-MM-DD | agent | branch → PR | status | what | next step`
 
+- 2026-10-16 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-video-meetings | active | mimt.ca redesign: conversion funnel, animations, carousels, download modal (web app now, stores « bientôt »), SEO, fresh TextNow/Fongo benchmark (docs/MIMT-SITE-BENCHMARK.md); no fake urgency | screenshots, CI green, merge → auto-deploy
 - 2026-10-16 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-video-meetings | active | Video meetings (LiveKit: rooms, guests, lobby, screen share) in API + webphone; PBX-01 Affaires seats ↔ Stripe quantity; one spam wording | PR, CI green, merge, deploy webphone when its FTP secret is fixed
 - 2026-10-16 | claude (MIMT agent 2, session 01GtWamF) | main | done | CI red since ac01dcb: notification-privacy test still expected LogEmailSender.send to resolve; it now asserts the refusal (email_provider_not_configured) and that no recipient/subject/link reaches logs. Local: 348/348 on Postgres, all packages green | read CI of this commit; then video meetings + PBX seats↔Stripe (branch claude/mimt-video-seats)
 
