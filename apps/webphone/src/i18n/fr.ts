@@ -4,9 +4,11 @@
 // l'application mobile reprennent apps/mobile/src/i18n/fr.ts.
 
 import { frExtra } from "./fr.extra";
+import { frMeet } from "./fr.meet";
 
 export const fr = {
   ...frExtra,
+  ...frMeet,
   "account.billingPortal": "Gérer la facturation",
   "account.complaints": "Plaintes : CPRST (Commission des plaintes relatives aux services de télécom-télévision)",
   "account.complaintsHint": "Si nous ne réglons pas votre plainte, la CPRST peut vous aider gratuitement.",

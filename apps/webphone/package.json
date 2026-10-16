@@ -11,8 +11,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@livekit/components-react": "^2.9.24",
+    "@livekit/components-styles": "^1.2.0",
     "@mimt/shared": "workspace:*",
     "@twilio/voice-sdk": "^2.18.5",
+    "livekit-client": "^2.23.0",
     "qrcode-generator": "1.4.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

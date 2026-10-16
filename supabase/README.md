@@ -11,7 +11,7 @@ Les fichiers `migrations/*.sql` restent la source versionnée pour le PostgreSQL
 - `0001_init.sql` : comptes, données télécom, 9-1-1, messages chiffrés, consentements et audit.
 - `0002_push_tokens.sql` : notifications des appareils.
 - Les deux migrations `0003_*.sql` : PBX et appareils/récompenses, dans l'ordre déterministe du migrateur.
-- `0004_ai.sql`, `0005_catalog.sql`, `0006_blocks_forwarding.sql`, `0007_media_greetings.sql`, `0008_referrals_addons.sql`, `0009_port_in.sql`.
+- `0004_ai.sql`, `0005_catalog.sql`, `0006_blocks_forwarding.sql`, `0007_media_greetings.sql`, `0008_referrals_addons.sql`, `0009_port_in.sql`, `0010_meetings.sql` (réunions vidéo).
 
 Les migrations initialement écrites pour Supabase peuvent employer des rôles, helpers et politiques RLS. L'instance autonome charge un bootstrap de compatibilité, **pas un faux service Supabase Auth/Storage**. La connexion API est un compte PostgreSQL restreint à la base MIMT; l'API applique les règles d'accès par utilisateur et par entreprise.
 

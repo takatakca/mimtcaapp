@@ -64,6 +64,7 @@ import {
   type VoicemailSettingsDto,
   type Weekday,
 } from "@mimt/shared";
+import { meetingMockRoutes, resetMeetingsMock } from "./mock.meetings";
 
 const OUR = "+15145550100";
 const USER_ID = "user-demo";
@@ -418,6 +419,7 @@ let state = initialState();
 /** Tests: start from fresh fixtures. */
 export function resetMockState(): void {
   state = initialState();
+  resetMeetingsMock();
 }
 
 const nextId = (prefix: string) => `${prefix}-${++state.seq}`;
@@ -1322,6 +1324,19 @@ const routes: Route[] = [
     return p ? ok(p) : fail(404, "porting_not_found");
   }],
 ];
+
+// Réunions MIMT (mock.meetings.ts).
+routes.push(
+  ...meetingMockRoutes({
+    ok,
+    created,
+    fail,
+    nextId,
+    userId: USER_ID,
+    displayName: () => state.me.user.displayName ?? "MIMT",
+    businessId: BIZ_ID,
+  }),
+);
 
 const latencyMs = () => (import.meta.env.MODE === "test" ? 0 : 150);
 

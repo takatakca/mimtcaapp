@@ -11,7 +11,7 @@ function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) return sourceFiles(p);
-    return /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) && !/i18n[\\/](fr|en)(\.extra)?\.ts$/.test(p) ? [p] : [];
+    return /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) && !/i18n[\\/](fr|en)(\.extra|\.meet)?\.ts$/.test(p) ? [p] : [];
   });
 }
 
@@ -38,7 +38,7 @@ describe("i18n dictionaries", () => {
   });
 
   it("every literal key used in src/ exists in fr", () => {
-    const keyLike = /["'`]((?:account|address|ai|app|biz|call|calls|common|contacts|day|error|line|messages|nav|notFound|offer|offers|order|orders|otp|phone|port|privacy|rec|settings|signin|spam|tabs|target|validation|voicemail)\.[A-Za-z0-9_.]+)["'`]/g;
+    const keyLike = /["'`]((?:account|address|ai|app|biz|call|calls|common|contacts|day|error|line|meet|messages|nav|notFound|offer|offers|order|orders|otp|phone|port|privacy|rec|settings|signin|spam|tabs|target|validation|voicemail)\.[A-Za-z0-9_.]+)["'`]/g;
     const missing = new Set<string>();
     for (const file of sourceFiles(join(__dirname, ".."))) {
       for (const m of readFileSync(file, "utf8").matchAll(keyLike)) if (!(m[1]! in fr)) missing.add(`${m[1]} (${file})`);

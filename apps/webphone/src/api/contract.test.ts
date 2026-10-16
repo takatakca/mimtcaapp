@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { businessEndpoints } from "./business";
 import { catalogEndpoints } from "./catalog";
+import { meetingEndpoints } from "./meetings";
 import type { HttpClient, Method } from "./http";
 
 const ROUTES_DIR = join(__dirname, "../../../api/src/routes");
@@ -29,7 +30,7 @@ function calledRoutes(): Map<string, string> {
     seen.set(current, shape(method, path.replace(/\bP-ID\b/g, ":")));
     return Promise.resolve(undefined);
   }) as HttpClient["request"];
-  const endpoints = { ...businessEndpoints(request), ...catalogEndpoints(request) } as Record<string, (...args: unknown[]) => Promise<unknown>>;
+  const endpoints = { ...businessEndpoints(request), ...catalogEndpoints(request), ...meetingEndpoints(request) } as Record<string, (...args: unknown[]) => Promise<unknown>>;
   for (const [name, fn] of Object.entries(endpoints)) {
     current = name;
     void fn("P-ID", "P-ID", {});
@@ -46,7 +47,7 @@ describe("API contract (webphone ↔ apps/api routes)", () => {
     expect(routes.has("PUT /v1/business/:/ai-receptionist")).toBe(true);
   });
 
-  it("every business and catalog endpoint exists in apps/api with the same method", () => {
+  it("every business, catalog and meeting endpoint exists in apps/api with the same method", () => {
     const called = calledRoutes();
     expect(called.size).toBeGreaterThan(40);
     const missing = [...called].filter(([, route]) => !routes.has(route)).map(([name, route]) => `${name}: ${route}`);

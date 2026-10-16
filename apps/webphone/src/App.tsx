@@ -1,5 +1,5 @@
 // Providers and routes. URLs are French first (app.mimt.ca/messages, /appels, /messagerie, /compte,
-// /services/…, /affaires/:id/…). The static host serves index.html for every path (SPA fallback).
+// /services/…, /affaires/:id/…, /reunions, public guest links /reunion/:token). The static host serves index.html for every path (SPA fallback).
 import type { ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
 import { SessionProvider, useSession } from "./auth/SessionProvider";
@@ -18,6 +18,9 @@ import { OtpSignIn } from "./pages/OtpSignIn";
 import { PortIn } from "./pages/PortIn";
 import { SignIn } from "./pages/SignIn";
 import { Voicemail } from "./pages/Voicemail";
+import { GuestJoin } from "./pages/meetings/GuestJoin";
+import { MeetingRoom } from "./pages/meetings/MeetingRoom";
+import { Meetings } from "./pages/meetings/Meetings";
 import { BusinessLayout } from "./pages/business/BusinessLayout";
 import { Extensions } from "./pages/business/Extensions";
 import { Hours } from "./pages/business/Hours";
@@ -70,6 +73,8 @@ export function AppRoutes() {
         }
       />
       <Route path={CALLBACK_PATH} element={<AuthCallback />} />
+      {/* Public guest link (no MIMT account needed). */}
+      <Route path="/reunion/:guestToken" element={<GuestJoin />} />
       <Route
         element={
           <RequireSession>
@@ -89,6 +94,8 @@ export function AppRoutes() {
         <Route path="services/commandes" element={<Orders />} />
         <Route path="services/commandes/:orderId" element={<OrderDetail />} />
         <Route path="services/transfert" element={<PortIn />} />
+        <Route path="reunions" element={<Meetings />} />
+        <Route path="reunions/:meetingId" element={<MeetingRoom />} />
         <Route path="affaires/:businessId" element={<BusinessLayout />}>
           <Route index element={<BusinessOverview />} />
           <Route path="postes" element={<Extensions />} />

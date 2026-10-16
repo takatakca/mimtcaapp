@@ -30,6 +30,8 @@ Référencement : titres et descriptions dans `lib/meta.ts`; JSON-LD (Organizati
 
 Tests : `pnpm --filter @mimt/web test` (Node `--test`, sans dépendance).
 
+Animations et entonnoir (2026-10) : CSS + IntersectionObserver (`components/SiteEffects.tsx`), carrousel accessible (`components/FeatureCarousel.tsx`), fenêtre « Télécharger maintenant » (`components/DownloadPrompt.tsx`, règles testées dans `lib/download-prompt.ts` : ouverture automatique une seule fois par visiteur, 25 s ou intention de sortie sur ordinateur, petite feuille en bas après 50 % de défilement sur mobile). Tout s'arrête sous `prefers-reduced-motion`. Cartes Open Graph : `node scripts/og-cards.mjs` après une compilation (utilise le Chromium du paquet e2e), PNG versionnés dans `public/og/`. Étude des concurrents : `docs/MIMT-SITE-BENCHMARK.md`.
+
 ## Variables d'environnement (lues à la compilation)
 
 | Variable | Rôle | Défaut |

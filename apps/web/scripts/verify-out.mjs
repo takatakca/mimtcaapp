@@ -4,6 +4,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { PLANS, formatCad } from "@mimt/shared";
 
 const out = fileURLToPath(new URL("../out/", import.meta.url));
 const errors = [];
@@ -43,6 +44,24 @@ for (const url of locs) {
   const h1 = (html.match(/<h1[\s>]/g) ?? []).length;
   if (h1 !== 1) fail(`${path}: ${h1} <h1> elements (want 1)`);
   for (const img of html.match(/<img\b[^>]*>/g) ?? []) if (!/\balt="/.test(img)) fail(`${path}: <img> without alt`);
+  if (!/<title>[^<]{10,}<\/title>/.test(html)) fail(`${path}: missing <title>`);
+  const og = (html.match(/<meta property="og:image" content="([^"]+)"/) ?? [])[1];
+  if (og && !existsSync(join(out, og.replace(/^https?:\/\/[^/]+/, "")))) fail(`${path}: og:image ${og} is not in out/`);
+
+  // Visible text only (no scripts, styles or HTML comments): honest-marketing rules.
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/g, " ")
+    .replace(/<style[\s\S]*?<\/style>/g, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<[^>]+>/g, " ");
+  const urgency = text.match(/plus que \d|plus que quelques|dernière chance|compte à rebours|offre se termine|places limitées|only \d+ left|last chance|countdown|hurry|le plus populaire|most popular/i);
+  if (urgency) fail(`${path}: false-urgency or popularity wording "${urgency[0]}"`);
+  const isCompare = path === "/comparer/" || path === "/en/compare/";
+  const rival = text.match(/textnow|fongo|\bfizz\b|magicjack|ooma/i);
+  if (rival && !isCompare) fail(`${path}: competitor name "${rival[0]}" outside the comparison page`);
+  if (/Appel suspect/.test(text)) fail(`${path}: use « Spam probable », not « Appel suspect »`);
+  if (/aggregateRating|ratingValue|"review"/.test(html)) fail(`${path}: ratings or reviews in JSON-LD (MIMT has none)`);
+
   const scripts = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
   if (scripts.length === 0) fail(`${path}: no JSON-LD`);
   for (const s of scripts) {
@@ -54,6 +73,26 @@ for (const url of locs) {
     } catch (e) {
       fail(`${path}: invalid JSON-LD (${e.message})`);
     }
+  }
+}
+
+// Home: the deploy workflow looks for this phrase; the funnel must keep its offers and structured data.
+const home = existsSync(join(out, "index.html")) ? readFileSync(join(out, "index.html"), "utf8") : "";
+if (!home.includes("Votre numéro canadien")) fail("/: must contain « Votre numéro canadien » (checked by auto-deploy-website.yml)");
+for (const t of ["SoftwareApplication", "FAQPage", "Service"]) if (!home.includes(`"@type":"${t}"`)) fail(`/: JSON-LD has no ${t}`);
+if (!home.includes("<!-- [À confirmer par MIMT] Mise en service gratuite")) fail("/: free-setup launch offer lost its [À confirmer par MIMT] marker");
+if (!home.includes("Offre de lancement; conditions à venir.")) fail("/: free-setup launch offer lost its small print");
+if (!home.includes('href="https://app.mimt.ca"')) fail("/: no link to the web app");
+if (!home.includes("data-download")) fail("/: no « Télécharger » trigger");
+
+// Prices on the plans pages come from PLANS (CAD, Quebec format in French).
+for (const [path, lang] of [["forfaits/index.html", "fr"], ["en/plans/index.html", "en"]]) {
+  const f = join(out, path);
+  if (!existsSync(f)) continue;
+  const html = readFileSync(f, "utf8").replace(/&nbsp;|\u00a0|\u202f/g, " ");
+  for (const p of Object.values(PLANS)) {
+    const amount = formatCad(p.monthlyPriceCents, lang).replace(/\u00a0|\u202f/g, " ");
+    if (!html.includes(amount)) fail(`/${path}: price ${amount} of ${p.code} not shown`);
   }
 }
 

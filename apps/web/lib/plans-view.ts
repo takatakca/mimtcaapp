@@ -44,6 +44,17 @@ export const FEATURE_LABELS: Record<Feature, { fr: string; en: string }> = {
   video_meetings: { fr: "Réunions vidéo (partage d'écran, invités par lien)", en: "Video meetings (screen sharing, guest links)" },
 };
 
+/**
+ * Features in PLANS whose service is not live yet: shown with « bientôt » / "coming soon".
+ * Remove a feature from this list on the day it ships.
+ */
+export const SOON_FEATURES: readonly Feature[] = ["video_meetings"];
+
+export function featureLabel(f: Feature, lang: Lang): string {
+  const base = FEATURE_LABELS[f][lang];
+  return SOON_FEATURES.includes(f) ? `${base} — ${lang === "fr" ? "bientôt" : "coming soon"}` : base;
+}
+
 /** Honest, capped bullet points for a plan card. */
 export function capLines(plan: Plan, lang: Lang): string[] {
   const c = plan.caps;

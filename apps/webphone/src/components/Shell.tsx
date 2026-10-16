@@ -7,6 +7,7 @@ import type { TKey } from "../i18n/core";
 import { Softphone } from "../phone/Softphone";
 import { Icon, type IconName } from "./Icon";
 import { DemoBanner, Wordmark } from "./ui";
+import { meetingScopes } from "../pages/meetings/shared";
 
 interface NavItem {
   to: string;
@@ -21,6 +22,8 @@ const MAIN: NavItem[] = [
   { to: "/messagerie", label: "tabs.voicemail", icon: "voicemail", short: "tabs.voicemailShort" },
   { to: "/compte", label: "tabs.account", icon: "account" },
 ];
+
+const MEETINGS: NavItem = { to: "/reunions", label: "nav.meetings", icon: "video" };
 
 const SERVICES: NavItem[] = [
   { to: "/services/offres", label: "nav.offers", icon: "offers" },
@@ -41,6 +44,9 @@ function SideLink({ item }: { item: NavItem }) {
 export function Shell() {
   const { t } = useI18n();
   const { businesses, me } = useSession();
+  // Réunions: premium and business plans, and every member of a business.
+  const scopes = meetingScopes(me, businesses);
+  const showMeetings = scopes.any || scopes.member;
   return (
     <div className="app">
       <a href="#main" className="skip-link">
@@ -53,6 +59,7 @@ export function Shell() {
           {MAIN.map((i) => (
             <SideLink key={i.to} item={i} />
           ))}
+          {showMeetings ? <SideLink item={MEETINGS} /> : null}
           <p className="side__section">{t("nav.services")}</p>
           {SERVICES.map((i) => (
             <SideLink key={i.to} item={i} />
@@ -76,6 +83,11 @@ export function Shell() {
       <header className="topbar">
         <Wordmark compact />
         <div className="topbar__links">
+          {showMeetings ? (
+            <NavLink to="/reunions" className="icon-btn" aria-label={t("nav.meetings")}>
+              <Icon name="video" />
+            </NavLink>
+          ) : null}
           {businesses[0] ? (
             <NavLink to={`/affaires/${businesses[0].business.id}`} className="icon-btn" aria-label={t("nav.business")}>
               <Icon name="business" />

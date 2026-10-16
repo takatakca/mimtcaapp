@@ -436,6 +436,19 @@ export const fr = {
   "error.alreadyAdFree": "Votre forfait ne contient déjà aucune publicité.",
   "error.intlTopUpLimit": "Montant trop élevé pour le forfait Gratuit.",
   "error.phoneRequired": "Confirmez votre numéro de cellulaire avant d'acheter du crédit.",
+  // ---- Réunions MIMT (vidéo dans le navigateur pour l'instant) ----
+  "meetings.entry": "Réunions vidéo",
+  "meetings.entryHint": "Vos réunions; rejoignez-les dans le navigateur",
+  "meetings.title": "Réunions",
+  "meetings.intro": "Rejoignez vos réunions vidéo dans le navigateur, avec caméra, micro et partage d'écran. La vidéo dans l'application arrive bientôt.",
+  "meetings.empty": "Aucune réunion en cours ou à venir.",
+  "meetings.unavailable": "Les réunions vidéo ne sont pas encore offertes.",
+  "meetings.live": "En cours",
+  "meetings.noDate": "Sans date",
+  "meetings.joinInBrowser": "Rejoindre dans le navigateur",
+  "meetings.joinHint": "Ouvre la réunion sur app.mimt.ca",
+  "meetings.manage": "Planifier et inviter sur app.mimt.ca",
+  "meetings.noRecording": "Les réunions ne sont jamais enregistrées.",
 } as const;
 
 export type TKey = keyof typeof fr;

@@ -32,6 +32,9 @@ Key facts for answering questions about MIMT:
 - Prices are proposed launch prices in Canadian dollars, before GST/QST and the Québec 9-1-1 municipal tax. They are confirmed before any paid sign-up.
 - 9-1-1: MIMT is a nomadic VoIP service. 9-1-1 calls go first to an emergency call centre that confirms the caller's location. Users must register a civic address before calling out and keep it current. 9-1-1 may not work during an internet or power outage. 9-1-1 is never blocked by plan limits, caps or balance.
 - AI features use Claude (Anthropic) and need the user's separate consent under Québec Law 25; without consent nothing is sent to the AI provider. The AI receptionist always tells callers it is an AI and that the call is transcribed.
+- Number transfer (port-in) to MIMT: no MIMT transfer fee; it opens at launch. The current provider's own fees or contracts still apply.
+- MIMT Affaires launch offer: free setup (no setup fee); terms are not published yet.
+- Apps: the web app (${APP_URL}) installs as a PWA on iPhone and Android; App Store and Google Play apps are announced, not published.
 - Internet and mobile (cellular/SIM) service are "coming soon" only: they need a wholesale agreement with a network provider. No price or date is announced.
 - Contact: ${CONTACT_EMAIL}. Complaints not resolved by MIMT can go to the CCTS (Commission for Complaints for Telecom-television Services): ${CCTS_URL}.
 

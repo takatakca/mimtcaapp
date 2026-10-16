@@ -1,6 +1,6 @@
 # MIMT Web (app.mimt.ca)
 
-Web softphone and MIMT Affaires admin portal: calls (Twilio Voice JS), texts, voicemail, account, business portal (extensions, ring groups, IVR, hours, numbers, team, recordings, AI receptionist), internet/mobile offers and orders, and number transfer. French first, English second. Installable as a PWA.
+Web softphone and MIMT Affaires admin portal: calls (Twilio Voice JS), texts, voicemail, account, business portal (extensions, ring groups, IVR, hours, numbers, team, recordings, AI receptionist), internet/mobile offers and orders, number transfer, and video meetings (Réunions MIMT on LiveKit: `/reunions`, public guest page `/reunion/<jeton>`, room loaded lazily with `livekit-client` + `@livekit/components-react`; in demo mode the room shows a "mode démo" placeholder and never connects; see `docs/MIMT-VIDEO.md`). French first, English second. Installable as a PWA.
 
 ## Développement
 

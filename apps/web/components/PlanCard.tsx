@@ -1,4 +1,4 @@
-import { FEATURE_LABELS, capLines, price, yearly, type Plan } from "@/lib/plans-view";
+import { featureLabel, capLines, price, yearly, type Plan } from "@/lib/plans-view";
 import { href, type Lang } from "@/lib/site";
 
 const BLURB: Record<string, { fr: string; en: string }> = {
@@ -16,8 +16,9 @@ export function PlanCard({ plan, lang, highlight, compact }: { plan: Plan; lang:
   const isBiz = plan.perLine;
   const features = plan.features.filter((f) => !(compact && f === "number_lock" && plan.code !== "lock"));
   return (
-    <article className={`card plan${highlight ? " plan--highlight" : ""}`} aria-labelledby={`plan-${plan.code}`}>
-      {highlight ? <p className="plan__flag">{fr ? "Le plus complet" : "Most complete"}</p> : null}
+    <article className={`card plan${highlight ? " plan--highlight" : ""}`} aria-labelledby={`plan-${plan.code}`} data-tilt="">
+      {/* "Recommandé", not "le plus populaire": MIMT has no subscribers yet, so popularity can't be claimed. */}
+      {highlight ? <p className="plan__flag">{fr ? "Recommandé" : "Recommended"}</p> : null}
       <h3 id={`plan-${plan.code}`}>{plan.name[lang]}</h3>
       <p className="plan__blurb">{BLURB[plan.code]?.[lang]}</p>
       <p className="plan__price">
@@ -34,7 +35,7 @@ export function PlanCard({ plan, lang, highlight, compact }: { plan: Plan; lang:
         ) : null}
         <li>{fr ? "Messagerie vocale" : "Voicemail"}</li>
         {features.map((f) => (
-          <li key={f}>{FEATURE_LABELS[f][lang]}</li>
+          <li key={f}>{featureLabel(f, lang)}</li>
         ))}
         {isBiz ? <li>{fr ? "Réceptionniste IA" : "AI receptionist"}</li> : null}
         {isBiz ? <li>{fr ? "Heures d'ouverture et jours fériés du Québec" : "Business hours and Québec holidays"}</li> : null}
@@ -43,7 +44,7 @@ export function PlanCard({ plan, lang, highlight, compact }: { plan: Plan; lang:
         className={`btn ${highlight ? "btn--primary" : "btn--outline"} plan__cta`}
         href={isBiz ? href(lang, "business", "demo") : href(lang, "home", fr ? "liste-attente" : "waitlist")}
       >
-        {isBiz ? (fr ? "Demander une démo" : "Request a demo") : fr ? "Rejoindre la liste d'attente" : "Join the waitlist"}
+        {isBiz ? (fr ? "Demander une démo" : "Request a demo") : fr ? "Obtenir l'accès anticipé" : "Get early access"}
       </a>
     </article>
   );

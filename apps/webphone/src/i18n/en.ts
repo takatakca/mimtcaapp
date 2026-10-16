@@ -1,9 +1,11 @@
 // English (Canada) — second language. Must have exactly the same keys as fr.ts (typed against it).
 import type { TKey } from "./fr";
 import { enExtra } from "./en.extra";
+import { enMeet } from "./en.meet";
 
 export const en: Record<TKey, string> = {
   ...enExtra,
+  ...enMeet,
   "account.billingPortal": "Manage billing",
   "account.complaints": "Complaints: CCTS (Commission for Complaints for Telecom-television Services)",
   "account.complaintsHint": "If we do not resolve your complaint, the CCTS can help you for free.",
