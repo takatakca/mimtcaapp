@@ -233,7 +233,7 @@ const FR = {
   ai: [
     { icon: "voicemail" as IconName, title: "Résumés vocaux", text: "Qui a appelé, pourquoi, et si c'est urgent, en une phrase." },
     { icon: "chat" as IconName, title: "Réponses suggérées", text: "Trois réponses courtes à vos textos. Rien ne part sans vous." },
-    { icon: "shield" as IconName, title: "Appels suspects", text: "Une étiquette sur les appels et textos douteux. Rien n'est bloqué." },
+    { icon: "shield" as IconName, title: "Spam probable", text: "Une étiquette « Spam probable » sur les appels et textos douteux. Rien n'est bloqué." },
     { icon: "spark" as IconName, title: "Réceptionniste IA", text: "Pour les entreprises : il répond, renseigne et transfère." },
   ],
   webTitle: "Votre numéro, aussi sur l'ordinateur",
@@ -283,7 +283,7 @@ const EN: typeof FR = {
   ai: [
     { icon: "voicemail", title: "Voicemail summaries", text: "Who called, why, and whether it's urgent, in one sentence." },
     { icon: "chat", title: "Suggested replies", text: "Three short replies to your texts. Nothing is sent without you." },
-    { icon: "shield", title: "Suspicious calls", text: "A label on doubtful calls and texts. Nothing is blocked." },
+    { icon: "shield", title: "Likely spam", text: "A “Likely spam” label on doubtful calls and texts. Nothing is blocked." },
     { icon: "spark", title: "AI receptionist", text: "For businesses: it answers, informs and transfers." },
   ],
   webTitle: "Your number, on your computer too",

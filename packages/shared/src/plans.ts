@@ -18,7 +18,9 @@ export type Feature =
   /** Custom voicemail greeting (recorded or uploaded), played instead of the default French/English one. */
   | "vm_greeting"
   /** Voicemail to email (courriel): transcript + a signed, expiring audio link. */
-  | "vm_email";
+  | "vm_email"
+  /** Réunions MIMT: video meetings (LiveKit). Participant caps by plan in meetings.ts. */
+  | "video_meetings";
 
 export type PlanCode = "free" | "lock" | "premium" | "business" | "business_pro";
 
@@ -68,7 +70,7 @@ export const PLANS: Record<PlanCode, Plan> = {
     name: { fr: "Premium", en: "Premium" },
     monthlyPriceCents: 1999,
     perLine: false,
-    features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "ai_assist", "vm_greeting", "vm_email"],
+    features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "ai_assist", "vm_greeting", "vm_email", "video_meetings"],
     caps: { outboundMinutes: 500, inboundMinutes: 1000, outboundSms: 500, concurrentCalls: 2, inactivityDays: null },
   },
   business: {
@@ -76,7 +78,7 @@ export const PLANS: Record<PlanCode, Plan> = {
     name: { fr: "Affaires", en: "Business" },
     monthlyPriceCents: 3499,
     perLine: true,
-    features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "auto_attendant", "ring_groups", "admin_portal", "ai_assist", "vm_greeting", "vm_email"],
+    features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "auto_attendant", "ring_groups", "admin_portal", "ai_assist", "vm_greeting", "vm_email", "video_meetings"],
     caps: { outboundMinutes: 1000, inboundMinutes: 2000, outboundSms: 500, concurrentCalls: 2, inactivityDays: null },
   },
   business_pro: {
@@ -84,7 +86,7 @@ export const PLANS: Record<PlanCode, Plan> = {
     name: { fr: "Affaires Pro", en: "Business Pro" },
     monthlyPriceCents: 4499,
     perLine: true,
-    features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "auto_attendant", "ring_groups", "admin_portal", "call_recording", "ai_assist", "vm_greeting", "vm_email"],
+    features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "auto_attendant", "ring_groups", "admin_portal", "call_recording", "ai_assist", "vm_greeting", "vm_email", "video_meetings"],
     caps: { outboundMinutes: 1000, inboundMinutes: 2000, outboundSms: 1000, concurrentCalls: 4, inactivityDays: null },
   },
 };

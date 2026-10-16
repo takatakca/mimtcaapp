@@ -130,7 +130,7 @@ export function faqItems(lang: Lang): FaqItem[] {
           id: "ia-quoi",
           topic: "ai",
           q: "Que fait l'IA de MIMT?",
-          a: "Elle résume vos messages vocaux, suggère des réponses courtes à vos textos (jamais envoyées sans vous), signale les appels et textos suspects et, pour les entreprises, peut répondre au téléphone comme réceptionniste virtuel. L'IA est fournie par Claude, d'Anthropic.",
+          a: "Elle résume vos messages vocaux, suggère des réponses courtes à vos textos (jamais envoyées sans vous), étiquette « Spam probable » les appels et textos douteux et, pour les entreprises, peut répondre au téléphone comme réceptionniste virtuel. L'IA est fournie par Claude, d'Anthropic.",
           link: { route: "ai", label: "Découvrir l'IA de MIMT" },
         },
         {
@@ -275,7 +275,7 @@ export function faqItems(lang: Lang): FaqItem[] {
           id: "ia-quoi",
           topic: "ai",
           q: "What does MIMT's AI do?",
-          a: "It summarizes your voicemails, suggests short replies to your texts (never sent without you), flags suspicious calls and texts and, for businesses, can answer the phone as a virtual receptionist. The AI is provided by Claude, from Anthropic.",
+          a: "It summarizes your voicemails, suggests short replies to your texts (never sent without you), labels doubtful calls and texts “Likely spam” and, for businesses, can answer the phone as a virtual receptionist. The AI is provided by Claude, from Anthropic.",
           link: { route: "ai", label: "Discover MIMT AI" },
         },
         {

@@ -274,7 +274,7 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
     return sendTwiml(reply, vr);
   });
 
-  /** « Appel suspect » label, computed off the request path. */
+  /** « Spam probable » label, computed off the request path. */
   function scheduleSpamScore(telecomAccountId: string, callSid: string, from: string | undefined, stirVerstat: string | undefined) {
     deps.ai?.background("spam:call", () => scoreInboundCall(deps, { callSid, telecomAccountId, from, stirVerstat }));
   }

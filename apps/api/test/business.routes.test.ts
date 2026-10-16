@@ -264,15 +264,14 @@ describe("business: recording policy, seats, usage, calls", () => {
     expect(ok.json().business.recordingPolicy).toMatchObject({ mode: "all", retentionDays: 30, consentPrompt: { fr: expect.stringContaining("enregistré") } });
   });
 
-  it("seats never exceed the paid subscription and never drop below active members", async () => {
-    const { business, owner } = await makeBusiness(ctx); // subscription quantity 5, 2 active members
-    const url = `/v1/business/${business.id}/seats`;
-    expect((await req("POST", url, owner.auth, { count: 6 })).json().error).toBe("seats_exceed_subscription");
-    expect((await req("POST", url, owner.auth, { count: 1 })).json().error).toBe("seats_below_members");
-    expect((await req("POST", url, owner.auth, { count: 4 })).json()).toEqual({ seats: 4 });
-
+  it("usage pools the per-line caps over the seats synced from Stripe (PBX-01 tests: business.seats.test.ts)", async () => {
+    const { business, owner } = await makeBusiness(ctx); // subscription quantity 5
+    await ctx.repo.pbx.setSeats(business.id, 4, null);
     const usage = (await req("GET", `/v1/business/${business.id}/usage`, owner.auth)).json();
     expect(usage).toMatchObject({ plan: "business", seats: 4, pooled: { outboundMinutes: { used: 0, cap: 4000 }, concurrentCalls: { cap: 8 } } });
+    // A stale mirror above the paid quantity never widens the pool.
+    await ctx.repo.pbx.setSeats(business.id, 9, null);
+    expect((await req("GET", `/v1/business/${business.id}/usage`, owner.auth)).json().seats).toBe(5);
   });
 
   it("calls: admins see every call, members only their own", async () => {

@@ -5,6 +5,7 @@ import type { CallControlsRepository } from "./callControls.js";
 import type { MediaRepository } from "./mediaTypes.js";
 import type { ReferralRepository } from "./referrals.js";
 import type { PortInRepository } from "./portIn.js";
+import type { MeetingRepository } from "./meetings.js";
 
 export type UserStatus = "active" | "suspended" | "pending_deletion" | "deleted";
 export type AccountStatus = "ACTIVE_MANAGED" | "ACTIVE_INDEPENDENT" | "OUTBOUND_SUSPENDED" | "SUSPENDED" | "CLOSED";
@@ -278,6 +279,8 @@ export interface Repository {
   readonly referrals: ReferralRepository;
   /** Number port-in (landline/VoIP into MIMT) storage: src/repo/portIn.ts. */
   readonly portIns: PortInRepository;
+  /** Réunions MIMT (video meetings) storage: src/repo/meetings.ts. */
+  readonly meetings: MeetingRepository;
   ping(): Promise<void>;
   close(): Promise<void>;
 

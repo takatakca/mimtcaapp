@@ -54,7 +54,7 @@ export async function twilioSmsWebhooks(app: FastifyInstance, deps: AppDeps) {
       segments: Number(p.NumSegments ?? 1) || 1,
       numMedia: Number(p.NumMedia ?? 0) || 0,
     });
-    // « Message suspect » label (heuristics; Claude only for ambiguous text with consent). Never blocks delivery.
+    // « Spam probable » label (heuristics; Claude only for ambiguous text with consent). Never blocks delivery.
     const accountId = number.telecomAccountId;
     deps.ai?.background("spam:sms", () => scoreInboundSms(deps, { messageId: message.id, telecomAccountId: accountId, from: p.From, body }));
     // MMS: copy media into private storage (every plan can receive pictures). Never fails the webhook.

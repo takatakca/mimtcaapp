@@ -6,6 +6,7 @@ import { MemoryCallControlsRepository } from "./callControlsMemory.js";
 import { MemoryMediaRepository } from "./mediaMemory.js";
 import { MemoryReferralRepository } from "./referralsMemory.js";
 import { MemoryPortInRepository } from "./portInMemory.js";
+import { MemoryMeetingRepository } from "./meetingsMemory.js";
 import type {
   AuditEntry,
   Call,
@@ -59,6 +60,7 @@ export class MemoryRepository implements Repository {
   readonly callControls = new MemoryCallControlsRepository();
   readonly media = new MemoryMediaRepository();
   readonly portIns = new MemoryPortInRepository();
+  readonly meetings = new MemoryMeetingRepository();
   devices: Array<{ platform: "ios" | "android"; deviceKey: string; userId: string; verifiedAt: Date }> = [];
   adRewards: Array<{ userId: string; transactionId: string; minutes: number; createdAt: Date; claimedAt: Date | null }> = [];
   readonly referrals = new MemoryReferralRepository(() => this.devices);

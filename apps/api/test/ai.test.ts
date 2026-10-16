@@ -216,7 +216,7 @@ describe("AI happy paths (fake gateway)", () => {
     expect(gw.classifySms).toHaveBeenCalledTimes(1);
   });
 
-  it("spam: inbound calls get a local « Appel suspect » label; emergency callbacks never do", async () => {
+  it("spam: inbound calls get a local « Spam probable » label; emergency callbacks never do", async () => {
     const u = await premiumUser();
     await twilioPost(ctx, "/webhooks/twilio/voice/inbound", { CallSid: "CAspam", From: "+18765550123", To: "+15145550100", StirVerstat: "TN-Validation-Failed" });
     await twilioPost(ctx, "/webhooks/twilio/voice/inbound", { CallSid: "CAok", From: "+14185550199", To: "+15145550100", StirVerstat: "TN-Validation-Passed-A" });

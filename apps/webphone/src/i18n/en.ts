@@ -183,6 +183,8 @@ export const en: Record<TKey, string> = {
   "biz.seats": "Lines",
   "biz.seatsHint": "{price} per line per month, plus taxes.",
   "biz.seatsSaved": "Number of lines updated.",
+  "biz.billingPastDue": "Payment overdue: update your card in billing to keep your lines active.",
+  "biz.billingCanceled": "Subscription canceled: business outgoing calls are blocked. Incoming calls and 9-1-1 remain available.",
   "biz.seatsTotal": "Total: {total} per month, plus taxes.",
   "biz.title": "MIMT Business",
   "biz.usage": "Pooled usage this month",
@@ -486,8 +488,8 @@ export const en: Record<TKey, string> = {
   "signin.webLead": "Call, text and listen to your voicemail from your computer, with your MIMT number.",
   "signin.webTitle": "MIMT Web",
 
-  "spam.call": "Suspicious call",
-  "spam.message": "Suspicious message",
+  "spam.call": "Likely spam",
+  "spam.message": "Likely spam",
 
   "tabs.account": "Account",
   "tabs.calls": "Calls",

@@ -37,7 +37,7 @@ export interface VoicemailInsight {
 // ------------------------------------------------------------------------------------------ spam
 
 export type SpamVerdict = "spam" | "scam" | "ok";
-/** What the apps display (« Appel suspect » / « Message suspect »). "ok" is never sent. */
+/** What the apps display (« Spam probable » / “Likely spam”). "ok" is never sent. */
 export type SpamLabel = Exclude<SpamVerdict, "ok">;
 
 // ------------------------------------------------------------------------------------------ smart replies

@@ -302,11 +302,19 @@ export interface UpdateBusinessRequest {
   mainNumber?: string | null;
   locale?: "fr-CA" | "en-CA";
 }
+/**
+ * Stripe lifecycle of the business plan subscription (same names as Stripe). past_due = payment needs
+ * attention (service continues); canceled/unpaid = business outbound calls blocked, inbound and 9-1-1 kept.
+ */
+export type BusinessBillingStatus = "active" | "trialing" | "past_due" | "canceled" | "incomplete" | "unpaid";
 export interface BusinessResponse {
   business: Business;
   /** Role of the caller in this business. */
   role: BusinessRole;
+  /** Lines; mirrors the quantity of the Stripe business subscription (Stripe is the source of truth). */
   seats: number;
+  /** Null when no business plan was ever bought. */
+  billingStatus?: BusinessBillingStatus | null;
 }
 /** GET /v1/business */
 export interface BusinessesResponse {
@@ -443,12 +451,20 @@ export interface BusinessUsageResponse {
   byUser: Array<{ userId: string; outboundMinutes: number; inboundMinutes: number }>;
 }
 
-/** POST /v1/business/:id/seats → updates the Stripe subscription quantity. */
+/**
+ * POST /v1/business/:id/seats (owner/admin) → updates the Stripe subscription quantity, prorated.
+ * Optional `Idempotency-Key` header (8-128 chars [A-Za-z0-9_-]) makes a double submit safe.
+ */
 export interface SeatsRequest {
   count: number;
+  /** Plan to buy when the business has no Stripe subscription yet (default "business"). */
+  plan?: BusinessPlanCode;
 }
 export interface SeatsResponse {
   seats: number;
+  /** Set when the business has no subscription yet: Stripe Checkout with quantity = count. Seats sync after payment. */
+  checkoutUrl?: string;
+  billingStatus?: BusinessBillingStatus | null;
 }
 
 /** POST /v1/calls/:sid/recording (Affaires Pro, recording policy all or on_demand). */

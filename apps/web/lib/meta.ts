@@ -44,12 +44,12 @@ export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; descripti
     fr: {
       title: "IA : résumés vocaux, réponses, réceptionniste",
       description:
-        "Résumés de messages vocaux, réponses suggérées, détection d'appels suspects et réceptionniste IA. Toujours avec votre consentement (Loi 25).",
+        "Résumés de messages vocaux, réponses suggérées, étiquettes « Spam probable » et réceptionniste IA. Toujours avec votre consentement (Loi 25).",
     },
     en: {
       title: "AI: voicemail summaries, replies, receptionist",
       description:
-        "Voicemail summaries, suggested replies, suspicious call labels and an AI receptionist. Always with your consent (Québec Law 25).",
+        "Voicemail summaries, suggested replies, “Likely spam” labels and an AI receptionist. Always with your consent (Québec Law 25).",
     },
   },
   webapp: {

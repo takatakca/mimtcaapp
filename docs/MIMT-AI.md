@@ -10,7 +10,7 @@ Companion docs: [MIMT-REGULATORY.md](MIMT-REGULATORY.md) · [MIMT-MVP.md](MIMT-M
 | --- | --- | --- | --- |
 | **Voicemail summary** (summary, intent, urgency, callback, spam likelihood) | Runs when Twilio posts a transcript; also `POST /v1/voicemails/:id/summary`. Shown as `ai` on `GET /v1/voicemails` and in the push text. | Plans with `vm_transcription` (Premium, Affaires) | Yes: the transcript. Needs `ai_processing` consent. |
 | **Smart SMS replies** (up to 3, never sent automatically) | `GET /v1/conversations/:peer/suggestions` | Any plan with an AI budget | Yes: the last 10 messages of the thread. Needs consent. |
-| **Spam labels** (« Appel suspect » / « Message suspect ») | `spamLabel` on `GET /v1/calls` and `GET /v1/conversations/:peer/messages` | Everyone | Calls: never (local rules only). SMS: only ambiguous texts, only with consent; OTP codes never. |
+| **Spam labels** (« Spam probable » / “Likely spam”, calls and texts; « Fraude probable » / “Likely scam” for scams) | `spamLabel` on `GET /v1/calls` and `GET /v1/conversations/:peer/messages` | Everyone | Calls: never (local rules only). SMS: only ambiguous texts, only with consent; OTP codes never. |
 | **AI receptionist** (MIMT Affaires) | DID or IVR target `{ "type": "ai_receptionist" }`; config `GET/PUT /v1/business/:id/ai-receptionist` | Affaires / Affaires Pro | Yes: the caller's speech (transcribed by Twilio). Covered by the business owner's acceptance of the receptionist terms. |
 | **Budget/status** | `GET /v1/ai/status` | Everyone | No |
 

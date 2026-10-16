@@ -31,6 +31,7 @@
     "@mimt/shared": "workspace:*",
     "fastify": "^5.12.5",
     "jose": "^6.2.12",
+    "livekit-server-sdk": "^2.19.1",
     "pino": "^10.4.0",
     "postgres": "^3.4.9",
     "stripe": "^23.0.0",

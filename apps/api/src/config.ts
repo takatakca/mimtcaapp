@@ -106,6 +106,14 @@ const EnvSchema = z
     APPLE_ROOT_CA_PEM: optional,
     GOOGLE_PLAY_PACKAGE_NAME: optional,
     GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: optional,
+    /** Réunions MIMT (LiveKit, docs/MIMT-VIDEO.md). All three or the meeting routes answer 503 not_configured. */
+    LIVEKIT_URL: z
+      .string()
+      .regex(/^wss?:\/\/[^\s/?#]+(\/[^\s?#]*)?$/, "LIVEKIT_URL must be a ws(s):// URL")
+      .optional(),
+    LIVEKIT_API_KEY: optional,
+    /** Signs meeting tokens and verifies LiveKit webhooks. Never returned nor logged. */
+    LIVEKIT_API_SECRET: optional,
     DEVICE_ATTESTATION_REQUIRED: z
       .enum(["true", "false"])
       .optional()
@@ -173,6 +181,9 @@ const EnvSchema = z
     }
     if (!env.MIMT_API_KEY && !env.MIMT_API_KEY_SHA256) {
       ctx.addIssue({ code: "custom", path: ["MIMT_API_KEY"], message: "MIMT_API_KEY or MIMT_API_KEY_SHA256 is required in production" });
+    }
+    if (env.LIVEKIT_URL && !env.LIVEKIT_URL.startsWith("wss://")) {
+      ctx.addIssue({ code: "custom", path: ["LIVEKIT_URL"], message: "LIVEKIT_URL must be wss:// in production" });
     }
     if (!env.PUBLIC_BASE_URL.startsWith("https://")) {
       ctx.addIssue({ code: "custom", path: ["PUBLIC_BASE_URL"], message: "PUBLIC_BASE_URL must be https in production" });

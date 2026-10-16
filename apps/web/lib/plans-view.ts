@@ -41,6 +41,7 @@ export const FEATURE_LABELS: Record<Feature, { fr: string; en: string }> = {
   ai_assist: { fr: "Fonctions IA, avec consentement (résumés vocaux, réponses suggérées)", en: "AI features, with consent (voicemail summaries, suggested replies)" },
   vm_greeting: { fr: "Message d'accueil personnalisé", en: "Custom voicemail greeting" },
   vm_email: { fr: "Messages vocaux par courriel", en: "Voicemail to email" },
+  video_meetings: { fr: "Réunions vidéo (partage d'écran, invités par lien)", en: "Video meetings (screen sharing, guest links)" },
 };
 
 /** Honest, capped bullet points for a plan card. */

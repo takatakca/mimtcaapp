@@ -49,7 +49,7 @@ ${(["business", "business_pro"] as PlanCode[]).map(planLine).join("\n")}
 
 - Voicemail summaries (who called, why, urgency) for plans with voicemail transcription.
 - Smart reply suggestions for texts; never sent automatically.
-- Suspicious call and text labels ("Appel suspect"). Labels only: nothing is blocked, 9-1-1 callbacks always ring through.
+- "Likely spam" labels on calls and texts ("Spam probable"). Labels only: nothing is blocked, 9-1-1 callbacks always ring through.
 - AI receptionist for businesses: answers, gives hours and FAQ answers, transfers to a person or takes a message.
 - Monthly AI cost cap per account (Premium ${cad(AI_MONTHLY_BUDGET_CAD_CENTS.premium)}, Affaires ${cad(AI_MONTHLY_BUDGET_CAD_CENTS.business)}, Affaires Pro ${cad(AI_MONTHLY_BUDGET_CAD_CENTS.business_pro)}); calls, texts and voicemail keep working when it is reached. Not included on Gratuit or Verrouillage du numéro.
 

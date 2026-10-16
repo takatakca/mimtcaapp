@@ -34,12 +34,12 @@ const FEATURES: { icon: IconName; who: { fr: string; en: string }; fr: [string, 
     icon: "shield",
     who: { fr: "Tous les forfaits (analyse IA : avec consentement)", en: "All plans (AI check: with consent)" },
     fr: [
-      "Appels et textos suspects",
-      "Des règles simples repèrent les appels et textos suspects (indicatifs à risque, rafales d'appels). Pour un texto ambigu, l'IA peut aider, avec votre consentement. C'est une étiquette « Appel suspect » : rien n'est bloqué, et les rappels des services d'urgence sonnent toujours.",
+      "Spam probable",
+      "Des règles simples repèrent les appels et textos suspects (indicatifs à risque, rafales d'appels). Pour un texto ambigu, l'IA peut aider, avec votre consentement. C'est une étiquette « Spam probable » : rien n'est bloqué, et les rappels des services d'urgence sonnent toujours.",
     ],
     en: [
-      "Suspicious calls and texts",
-      "Simple rules spot suspicious calls and texts (high-risk area codes, bursts of calls). For an unclear text, AI can help, with your consent. It's a “Suspicious call” label: nothing is blocked, and callbacks from emergency services always ring through.",
+      "Likely spam",
+      "Simple rules spot suspicious calls and texts (high-risk area codes, bursts of calls). For an unclear text, AI can help, with your consent. It's a “Likely spam” label: nothing is blocked, and callbacks from emergency services always ring through.",
     ],
   },
   {
@@ -68,8 +68,8 @@ export function AiPage({ lang }: { lang: Lang }) {
         title={fr ? "L'IA qui vous fait gagner du temps, avec votre accord" : "AI that saves you time, with your consent"}
         lead={
           fr
-            ? "Résumés de messages vocaux, réponses suggérées, appels suspects signalés et réceptionniste virtuel pour les entreprises. Chaque fonction est facultative et demande votre consentement."
-            : "Voicemail summaries, suggested replies, suspicious call labels and a virtual receptionist for businesses. Every feature is optional and asks for your consent."
+            ? "Résumés de messages vocaux, réponses suggérées, étiquettes « Spam probable » et réceptionniste virtuel pour les entreprises. Chaque fonction est facultative et demande votre consentement."
+            : "Voicemail summaries, suggested replies, “Likely spam” labels and a virtual receptionist for businesses. Every feature is optional and asks for your consent."
         }
       />
 
@@ -183,8 +183,8 @@ export function AiPage({ lang }: { lang: Lang }) {
           </div>
           <p className="fineprint">
             {fr
-              ? "Gratuit et Verrouillage du numéro : pas d'IA générative; l'étiquette d'appel suspect par règles simples reste incluse. Prix proposés, avant taxes. "
-              : "Free and Number Lock: no generative AI; the rule-based suspicious call label is still included. Proposed prices, before taxes. "}
+              ? "Gratuit et Verrouillage du numéro : pas d'IA générative; l'étiquette « Spam probable » par règles simples reste incluse. Prix proposés, avant taxes. "
+              : "Free and Number Lock: no generative AI; the rule-based “Likely spam” label is still included. Proposed prices, before taxes. "}
             <a href={href(lang, "plans")}>{fr ? "Tous les forfaits" : "All plans"}</a>
           </p>
         </div>
