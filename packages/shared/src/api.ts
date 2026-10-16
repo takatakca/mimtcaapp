@@ -134,6 +134,13 @@ export interface ConsentResponse {
   at: string;
 }
 
+/** GET /v1/consents — only this authenticated user's latest choice per user-consent kind.
+ * The audit history, IP addresses and other users' consents are never returned.
+ */
+export interface ConsentsResponse {
+  consents: ConsentResponse[];
+}
+
 // ------------------------------------------------------------------------------------------ 9-1-1
 
 /** PUT /v1/e911/address body. */

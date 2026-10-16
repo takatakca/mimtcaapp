@@ -32,6 +32,10 @@ Ne jamais inclure des valeurs dans un commit, une URL, un journal ou une répons
 
 **État confirmé le 14 octobre :** [CI 38622709087](https://github.com/takatakca/mimtcaapp/actions/runs/38622709087) et [publication 38622899829](https://github.com/takatakca/mimtcaapp/actions/runs/38622899829) ont réussi au SHA `024dc80ce6de9a8cee5d9bb1ea90ec08ded4ea59`. Une révision ultérieure doit être vérifiée séparément; les envois FTPS `skipped` ne changent pas la production. Les adaptateurs `LogNotifier` et `LogEmailSender` n'envoient pas de messages et ne doivent jamais écrire de contenus clients dans les logs.
 
+## Preuves récentes — 16 octobre 2026
+
+La CI du consentement par utilisateur ([38949670716](https://github.com/takatakca/mimtcaapp/actions/runs/38949670716)), les tests PostgreSQL ([38949670692](https://github.com/takatakca/mimtcaapp/actions/runs/38949670692)) et la publication **du site vitrine seulement** ([38949802395](https://github.com/takatakca/mimtcaapp/actions/runs/38949802395)) ont réussi au SHA `e71fefe21d81fe82aabf95a8f8ec1aa3cc0367d6`. La route API `GET /v1/consents` reste dans le code jusqu'au **déploiement manuel et contrôle de l'API**; ne pas la déclarer disponible depuis la seule réussite du site vitrine. Le commit mobile `b4b0c873...` (effacement local de personnalisation à la déconnexion mobile) et son test `4b3a6d50...` ont passé la CI [38950202953](https://github.com/takatakca/mimtcaapp/actions/runs/38950202953). Les modules API et mobile nécessitent toujours leur publication manuelle autorisée.
+
 ## Débogage reproductible
 
 ```bash

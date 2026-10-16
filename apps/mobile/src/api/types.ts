@@ -19,6 +19,7 @@ export type {
   ConsentKind,
   ConsentRequest,
   ConsentResponse,
+  ConsentsResponse,
   ConversationDto,
   ConversationsResponse,
   E911AckRequest,

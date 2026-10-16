@@ -1,6 +1,7 @@
 // Typed client for the MIMT API (apps/api). Handles bearer tokens, single-flight refresh on expiry
 // or 401, and maps every failure to a translated message key (see errors.ts).
 import Constants from "expo-constants";
+import { setPersonalisedConsent } from "../services/ads";
 import { ApiClientError, errorKeyFor } from "./errors";
 import { clearSession, loadSession, saveSession, toSession, type StoredSession } from "./tokens";
 import type {
@@ -14,6 +15,7 @@ import type {
   ClaimNumberResponse,
   ConsentRequest,
   ConsentResponse,
+  ConsentsResponse,
   ConversationsResponse,
   CreateMediaUploadRequest,
   CreateMediaUploadResponse,
@@ -96,8 +98,14 @@ export async function setTokens(tokens: AuthTokens): Promise<void> {
 export async function signOutLocally(): Promise<void> {
   session = null;
   sessionLoaded = true;
-  await clearSession();
-  signedOutListeners.forEach((l) => l());
+  // App/account switching must never reuse the previous user's local ad consent.
+  // An unavailable SecureStore must not prevent session revocation.
+  await setPersonalisedConsent(false, false).catch(() => undefined);
+  try {
+    await clearSession();
+  } finally {
+    signedOutListeners.forEach((l) => l());
+  }
 }
 
 function buildUrl(path: string, query?: Record<string, string | undefined>): string {
@@ -207,6 +215,7 @@ export const api = {
   /** Law 25 portability: the full export as JSON (the app hands it to the share sheet). */
   exportData: () => request<MeExportResponse>("GET", "/v1/me/export"),
   deleteAccount: () => request<void>("DELETE", "/v1/me"),
+  consents: () => request<ConsentsResponse>("GET", "/v1/consents"),
   setConsent: (body: ConsentRequest) => request<ConsentResponse>("POST", "/v1/consents", { body }),
 
   // Call blocking (inbound only; 9-1-1 can never be blocked). Forwarding and do not disturb go through updateMe.

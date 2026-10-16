@@ -31,6 +31,32 @@ describe("/v1/me", () => {
     expect(await ctx.repo.listConsents(u.user.id)).toHaveLength(1);
   });
 
+  it("reads only the current user's latest consents, supports withdrawals and never leaks IP", async () => {
+    const a = await makeUser(ctx);
+    const b = await makeUser(ctx);
+    expect((await ctx.app.inject({ url: "/v1/consents" })).statusCode).toBe(401);
+    const empty = await ctx.app.inject({ url: "/v1/consents", headers: a.auth });
+    expect(empty.json()).toEqual({ consents: [] });
+
+    const put = (headers: typeof a.auth, kind: string, granted: boolean) =>
+      ctx.app.inject({ method: "POST", url: "/v1/consents", headers, payload: { kind, granted, version: "2026-10", source: "test" } });
+    expect((await put(a.auth, "ads_personalised", true)).statusCode).toBe(201);
+    expect((await put(a.auth, "ads_personalised", false)).statusCode).toBe(201);
+    expect((await put(a.auth, "casl_marketing", true)).statusCode).toBe(201);
+    await put(b.auth, "casl_marketing", false);
+
+    const res = await ctx.app.inject({ url: "/v1/consents", headers: a.auth });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().consents).toMatchObject([
+      { kind: "casl_marketing", granted: true },
+      { kind: "ads_personalised", granted: false },
+    ]);
+    expect(res.json().consents).toHaveLength(2);
+    expect(JSON.stringify(res.json())).not.toContain('"ip"');
+    expect((await ctx.app.inject({ url: "/v1/consents", headers: b.auth })).json().consents)
+      .toMatchObject([{ kind: "casl_marketing", granted: false }]);
+  });
+
   it("exports the user's data with decrypted messages (Law 25 portability)", async () => {
     const u = await makeUser(ctx, { number: "+15145550100" });
     await twilioPost(ctx, "/webhooks/twilio/sms/inbound", { MessageSid: "SM1", From: "+15145550199", To: "+15145550100", Body: "coucou" });
