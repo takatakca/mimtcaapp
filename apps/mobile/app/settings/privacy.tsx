@@ -6,7 +6,7 @@ import { api } from "../../src/api/client";
 import { toErrorKey } from "../../src/api/errors";
 import { Body, Card, ErrorText, Notice, Row, Screen } from "../../src/components/ui";
 import { useI18n, type TKey } from "../../src/i18n";
-import { getPersonalisedConsent, setPersonalisedConsent, showAdPrivacyOptions } from "../../src/services/ads";
+import { setPersonalisedConsent, showAdPrivacyOptions } from "../../src/services/ads";
 import { colors, spacing } from "../../src/theme";
 
 const CONSENT_VERSION = "2026-10";
@@ -17,11 +17,31 @@ export default function Privacy() {
   const [ads, setAds] = useState(false);
   const [marketing, setMarketing] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [errorKey, setErrorKey] = useState<TKey | null>(null);
 
   useEffect(() => {
-    getPersonalisedConsent().then(setAds);
-    // TODO(api): read the current consents from GET /v1/consents once it exists.
+    let active = true;
+    api.consents()
+      .then(async ({ consents }) => {
+        if (!active) return;
+        const consentAds = consents.find((c) => c.kind === "ads_personalised")?.granted ?? false;
+        const consentMarketing = consents.find((c) => c.kind === "casl_marketing")?.granted ?? false;
+        // Server is authoritative. Without a grant, cached local ad personalization must be off.
+        await setPersonalisedConsent(consentAds, false);
+        if (!active) return;
+        setAds(consentAds);
+        setMarketing(consentMarketing);
+      })
+      .catch(async (e: unknown) => {
+        // On offline/unknown state, fail closed for personalized ads and make the error visible.
+        await setPersonalisedConsent(false, false).catch(() => undefined);
+        if (active) setErrorKey(toErrorKey(e));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, []);
 
   async function save(kind: "ads_personalised" | "casl_marketing", granted: boolean) {
@@ -50,6 +70,7 @@ export default function Privacy() {
             <Switch
               accessibilityLabel={t("privacy.adsPersonalised")}
               value={ads}
+              disabled={loading}
               trackColor={{ true: colors.electric, false: colors.midnightRaised }}
               onValueChange={(v) => {
                 setAds(v);
@@ -65,6 +86,7 @@ export default function Privacy() {
             <Switch
               accessibilityLabel={t("privacy.marketing")}
               value={marketing}
+              disabled={loading}
               trackColor={{ true: colors.electric, false: colors.midnightRaised }}
               onValueChange={(v) => {
                 setMarketing(v);

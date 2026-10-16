@@ -260,21 +260,35 @@ const CONSENTS: Array<{ kind: UserConsentKind; label: TKey; hint: TKey; version:
 
 function ConsentsSection() {
   const { t, lang } = useI18n();
-  // There is no GET /v1/consents: the AI consent comes from GET /v1/ai/status; the others start off
-  // (opt-in) and reflect what was set in this session.
   const [state, setState] = useState<Partial<Record<UserConsentKind, boolean>>>({});
+  const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<AiStatusResponse | null>(null);
   const [msg, setMsg] = useState<TKey | null>(null);
   useEffect(() => {
+    let active = true;
+    // Restore previously recorded consent choices instead of displaying false toggles.
+    api.consents()
+      .then(({ consents }) => {
+        if (!active) return;
+        const choices: Partial<Record<UserConsentKind, boolean>> = {};
+        for (const entry of consents) {
+          if (entry.kind === "casl_marketing" || entry.kind === AI_CONSENT_KIND) choices[entry.kind] = entry.granted;
+        }
+        setState((current) => ({ ...current, ...choices }));
+      })
+      .catch((e: unknown) => { if (active) setMsg(toErrorKey(e)); })
+      .finally(() => { if (active) setLoading(false); });
     // Links from the AI features land on /compte#ia.
     if (window.location.hash === "#ia") document.getElementById("ia")?.scrollIntoView?.({ block: "center" });
     api
       .aiStatus()
       .then((s) => {
+        if (!active) return;
         setStatus(s);
         setState((st) => ({ ...st, [AI_CONSENT_KIND]: s.consent }));
       })
       .catch(() => undefined);
+    return () => { active = false; };
   }, []);
   const toggle = async (kind: UserConsentKind, granted: boolean, version: string) => {
     setState((s) => ({ ...s, [kind]: granted }));
@@ -305,6 +319,7 @@ function ConsentsSection() {
               role="switch"
               className="switch"
               checked={state[c.kind] ?? false}
+              disabled={loading}
               onChange={(e) => void toggle(c.kind, e.target.checked, c.version)}
             />
           </label>

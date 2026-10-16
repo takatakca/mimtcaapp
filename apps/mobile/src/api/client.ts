@@ -14,6 +14,7 @@ import type {
   ClaimNumberResponse,
   ConsentRequest,
   ConsentResponse,
+  ConsentsResponse,
   ConversationsResponse,
   CreateMediaUploadRequest,
   CreateMediaUploadResponse,
@@ -207,6 +208,7 @@ export const api = {
   /** Law 25 portability: the full export as JSON (the app hands it to the share sheet). */
   exportData: () => request<MeExportResponse>("GET", "/v1/me/export"),
   deleteAccount: () => request<void>("DELETE", "/v1/me"),
+  consents: () => request<ConsentsResponse>("GET", "/v1/consents"),
   setConsent: (body: ConsentRequest) => request<ConsentResponse>("POST", "/v1/consents", { body }),
 
   // Call blocking (inbound only; 9-1-1 can never be blocked). Forwarding and do not disturb go through updateMe.

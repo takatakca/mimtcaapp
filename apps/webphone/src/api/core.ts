@@ -13,6 +13,7 @@ import type {
   CheckoutResponse,
   ConsentRequest,
   ConsentResponse,
+  ConsentsResponse,
   ConversationsResponse,
   CreateMediaUploadRequest,
   CreateMediaUploadResponse,
@@ -60,6 +61,7 @@ export function coreEndpoints(request: HttpClient["request"]) {
     exportData: () => request<MeExportResponse>("GET", "/v1/me/export"),
     /** 202: deletion scheduled, numbers quarantined. */
     deleteAccount: () => request<DeleteMeResponse>("DELETE", "/v1/me"),
+    consents: () => request<ConsentsResponse>("GET", "/v1/consents"),
     setConsent: (body: ConsentRequest) => request<ConsentResponse>("POST", "/v1/consents", { body }),
 
     // 9-1-1

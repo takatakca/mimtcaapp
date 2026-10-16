@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type { ConsentResponse, DeleteMeResponse, MeExportResponse, MeResponse, UpdateMeResponse } from "@mimt/shared";
+import type { ConsentResponse, ConsentsResponse, DeleteMeResponse, MeExportResponse, MeResponse, UpdateMeResponse } from "@mimt/shared";
 import {
   FORWARDING_TIMEOUT_MAX_S,
   FORWARDING_TIMEOUT_MIN_S,
@@ -8,6 +8,7 @@ import {
   WEEKDAYS,
   isValidHhmm,
   type CallSettings,
+  type UserConsentKind,
   type Weekday,
 } from "@mimt/shared";
 import { z } from "zod";
@@ -142,6 +143,25 @@ export async function meRoutes(app: FastifyInstance, deps: AppDeps) {
     });
     return saved;
   }
+
+  app.get("/v1/consents", auth, async (req): Promise<ConsentsResponse> => {
+    const { user } = await loadContext(deps, req);
+    const history = await repo.listConsents(user.id);
+    const latest = new Map<UserConsentKind, ConsentResponse>();
+    for (const row of history) {
+      if (!USER_CONSENT_KINDS.includes(row.kind as UserConsentKind)) continue;
+      const kind = row.kind as UserConsentKind;
+      const at = row.at.toISOString();
+      const previous = latest.get(kind);
+      if (!previous || at >= previous.at) {
+        latest.set(kind, { id: row.id, kind, granted: row.granted, version: row.version, at });
+      }
+    }
+    return { consents: USER_CONSENT_KINDS.flatMap((kind) => {
+      const entry = latest.get(kind);
+      return entry ? [entry] : [];
+    }) };
+  });
 
   app.post("/v1/consents", auth, async (req, reply) => {
     const body = parse(ConsentBody, req.body);

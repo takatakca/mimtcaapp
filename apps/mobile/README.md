@@ -76,7 +76,7 @@ Codes d'erreur reconnus (`{ error, message }`) : `cap_reached`, `e911_required`,
 - **MMS** : téléversement d'image (`POST /v1/messages/media`) pas encore défini ; le bouton est en place (Premium seulement).
 - **Android, double FirebaseMessagingService** (Twilio + expo-notifications) : vérifier sur appareil que les deux reçoivent leurs messages ; sinon suivre le guide Twilio « out-of-band Firebase Messaging Service » et relayer avec `voice.handleFirebaseMessage()`.
 - Vrais identifiants AdMob, icône, écran de démarrage et icône CallKit avec les fichiers officiels de `knowledgeAI/brand/` (ne jamais redessiner le logo).
-- Lecture des consentements existants (`GET /v1/consents`), pagination des listes, mises à jour en temps réel des textos.
+- Pagination des listes et mises à jour en temps réel des textos. La lecture des consentements existants (`GET /v1/consents`) est maintenant implémentée et liée à la page Confidentialité.
 - Tests sur appareils réels : appels entrants app fermée (PushKit/FCM), CallKit, haut-parleur/Bluetooth, DTMF, mise en attente.
 
 ---
