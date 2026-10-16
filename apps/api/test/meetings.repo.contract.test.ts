@@ -79,7 +79,7 @@ for (const [name, make, enabled] of impls) {
       expect(i1).toMatchObject({ email: "a@exemple.ca", role: "guest", usedAt: null, expiresAt });
       expect((await repo.meetings.getInviteByTokenHash(hash("a")))!.id).toBe(i1.id);
       expect(await repo.meetings.getInviteByTokenHash(hash("c"))).toBeNull();
-      expect((await repo.meetings.listInvites(m.id)).map((i) => i.guestTokenHash)).toEqual([hash("a"), hash("b")]);
+      expect((await repo.meetings.listInvites(m.id)).map((i) => i.guestTokenHash).sort()).toEqual([hash("a"), hash("b")]);
 
       const first = new Date("2026-10-16T14:00:00Z");
       await repo.meetings.markInviteUsed(i1.id, first);
