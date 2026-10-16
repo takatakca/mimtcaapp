@@ -1,6 +1,7 @@
 // Typed client for the MIMT API (apps/api). Handles bearer tokens, single-flight refresh on expiry
 // or 401, and maps every failure to a translated message key (see errors.ts).
 import Constants from "expo-constants";
+import { setPersonalisedConsent } from "../services/ads";
 import { ApiClientError, errorKeyFor } from "./errors";
 import { clearSession, loadSession, saveSession, toSession, type StoredSession } from "./tokens";
 import type {
@@ -97,8 +98,14 @@ export async function setTokens(tokens: AuthTokens): Promise<void> {
 export async function signOutLocally(): Promise<void> {
   session = null;
   sessionLoaded = true;
-  await clearSession();
-  signedOutListeners.forEach((l) => l());
+  // App/account switching must never reuse the previous user's local ad consent.
+  // An unavailable SecureStore must not prevent session revocation.
+  await setPersonalisedConsent(false, false).catch(() => undefined);
+  try {
+    await clearSession();
+  } finally {
+    signedOutListeners.forEach((l) => l());
+  }
 }
 
 function buildUrl(path: string, query?: Record<string, string | undefined>): string {

@@ -40,6 +40,8 @@ export async function getPersonalisedConsent(): Promise<boolean> {
 
 /** Synchronize server-side consent without unexpectedly prompting for iOS tracking on page load. */
 export async function setPersonalisedConsent(granted: boolean, requestTracking = true): Promise<void> {
+  // Immediately fail closed even when SecureStore is unavailable (e.g. device locked).
+  if (!granted) personalised = false;
   await SecureStore.setItemAsync(PERSONALISED_KEY, granted ? "true" : "false");
   if (granted && requestTracking && Platform.OS === "ios") await requestTrackingPermissionsAsync().catch(() => undefined);
   personalised = await computePersonalised();
