@@ -3,6 +3,7 @@
 Newest first, one line per piece of work. Rule: `AGENTS.md` › Work log rule.
 Format: `YYYY-MM-DD | agent | branch → PR | status | what | next step`
 
+- 2026-10-16 | claude (MIMT agent 2, session 01GtWamF) | claude/mimt-video-meetings | active | Video meetings (LiveKit: rooms, guests, lobby, screen share) in API + webphone; PBX-01 Affaires seats ↔ Stripe quantity; one spam wording | PR, CI green, merge, deploy webphone when its FTP secret is fixed
 - 2026-10-16 | claude (MIMT agent 2, session 01GtWamF) | main | done | CI red since ac01dcb: notification-privacy test still expected LogEmailSender.send to resolve; it now asserts the refusal (email_provider_not_configured) and that no recipient/subject/link reaches logs. Local: 348/348 on Postgres, all packages green | read CI of this commit; then video meetings + PBX seats↔Stripe (branch claude/mimt-video-seats)
 
 - 2026-10-14 | ChatGPT (agent MIMT) | main | done (code poussé, nouvelle CI en attente) | Réparation d'une assertion CI qui recherchait "release-gate:" au lieu de "id: release-gate" (CI 38622709087 réussie), site vitrine auto-publié/manifest SHA vérifié par GitHub Actions 38622899829 au commit 024dc80ce6de9a8cee5d9bb1ea90ec08ded4ea59; correction des adaptateurs LogNotifier/LogEmailSender pour ne plus enregistrer transcriptions, numéros et emails dans les logs; nouveau test notification-privacy.test.ts | valider CI 38623299278 et publication de la nouvelle tête; portail FTPS ENOTFOUND, sauvegarde réelle/restore et Twilio/9-1-1/Stripe toujours non certifiés
