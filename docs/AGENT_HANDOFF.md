@@ -26,6 +26,7 @@
 
 - **CI rouge depuis `ac01dcb`** (correctif courriel) : le test `notification-privacy` attendait encore que `LogEmailSender.send` réussisse. Le test vérifie maintenant le refus `email_provider_not_configured` et l'absence de destinataire, sujet et lien dans les journaux. Local : 348/348 sur PostgreSQL 16 jetable, typecheck et tests de tous les paquets verts.
 - **Ensuite (même jour), branche `claude/mimt-video-meetings` :** réunions vidéo LiveKit (migration 0010, `docs/MIMT-VIDEO.md`), PBX-01 sièges ↔ Stripe (code fait), libellé unique « Spam probable », refonte de mimt.ca (`docs/MIMT-SITE-BENCHMARK.md`), test d'ordre des messages rendu déterministe. Local : tous les paquets verts, PostgreSQL 378/378 deux fois.
+- **Fusion PR #14 (aaa0ef8), 16 oct. 23 h 43 UTC :** CI de `main` rouge à cause du téléchargement de Montserrat par `next/font/google` pendant le build (le même code passait sur la PR). Polices maintenant hébergées dans `apps/web/fonts` (licence OFL) avec `next/font/local`. Déploiement manuel : API réussi (run 38982899266); webphone refusé par le contrôle de format (run 38982896945) : le secret `MOCHAHOST_APP_FTP_SERVER` doit être un nom d'hôte seul.
 - **Prochaine action exacte :** lire la CI de la PR puis de `main` après fusion; vérifier `https://mimt.ca/mimt-release.json` au nouveau SHA. Côté propriétaire : LiveKit + `LIVEKIT_*` + migration 0010; essai Stripe en mode test; secret `MOCHAHOST_APP_FTP_SERVER`.
 
 ## Relève — troisième cycle du 14 octobre 2026
