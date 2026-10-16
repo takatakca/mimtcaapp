@@ -166,6 +166,8 @@ describe("AI happy paths (fake gateway)", () => {
     const u = await premiumUser();
     await consent(u.token);
     await inboundSms("+15145550100", "+14185550199", "Bonjour!");
+    // created_at has millisecond precision (Postgres run): keep the second text strictly later.
+    await new Promise((r) => setTimeout(r, 5));
     await inboundSms("+15145550100", "+14185550199", "On peut se voir jeudi?");
     const res = await suggestions(u.auth);
     expect(res.statusCode).toBe(200);
