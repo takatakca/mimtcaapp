@@ -57,8 +57,17 @@ export const MAIN_NAV: RouteKey[] = ["plans", "business", "ai", "soon", "help", 
 // The image is in French (French first); the alt text describes it as it is.
 const OG_ALT = "MIMT par GROUPE TAKATAK : Votre numéro canadien, partout. MIMT Mobile, MIMT Affaires, fait au Québec.";
 
+/** Pages with their own Open Graph card (public/og/<key>-<lang>.png, scripts/og-cards.mjs). Others use /og.png. */
+export const OG_PAGES: readonly RouteKey[] = ["home", "plans", "business", "ai", "webapp", "compare", "soon", "help"];
+
+export function ogImage(lang: Lang, key: RouteKey): string {
+  return OG_PAGES.includes(key) ? `/og/${key}-${lang}.png` : "/og.png";
+}
+
 export function pageMeta(lang: Lang, key: RouteKey, title: string, description: string): Metadata {
   const url = SITE_URL + ROUTES[key][lang];
+  const image = ogImage(lang, key);
+  const alt = OG_PAGES.includes(key) ? `MIMT : ${title}` : OG_ALT;
   const fullTitle = key === "home" ? title : `${title} | MIMT`;
   return {
     metadataBase: new URL(SITE_URL),
@@ -81,9 +90,9 @@ export function pageMeta(lang: Lang, key: RouteKey, title: string, description: 
       url,
       locale: lang === "fr" ? "fr_CA" : "en_CA",
       alternateLocale: lang === "fr" ? "en_CA" : "fr_CA",
-      images: [{ url: "/og.png", width: 1200, height: 630, alt: OG_ALT }],
+      images: [{ url: image, width: 1200, height: 630, alt }],
     },
-    twitter: { card: "summary_large_image", title: fullTitle, description, images: [{ url: "/og.png", alt: OG_ALT }] },
+    twitter: { card: "summary_large_image", title: fullTitle, description, images: [{ url: image, alt }] },
     icons: { icon: "/favicon.svg" },
   };
 }

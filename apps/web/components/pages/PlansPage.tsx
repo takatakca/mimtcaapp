@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
 import { PageHero, Shell } from "@/components/Shell";
 import { PlanCard } from "@/components/PlanCard";
+import { Offers } from "@/components/Offers";
 import {
   ADD_ONS,
   ALL_PLANS,
   BUSINESS_PLANS,
   CONSUMER_PLANS,
-  FEATURE_LABELS,
+  featureLabel,
   PLANS,
   formatCad,
   num,
@@ -28,6 +29,7 @@ const ROW_FEATURES: Feature[] = [
   "admin_portal",
   "call_recording",
   "ai_assist",
+  "video_meetings",
 ];
 
 function Yes({ lang }: { lang: Lang }) {
@@ -100,7 +102,7 @@ export function PlansPage({ lang }: { lang: Lang }) {
     { label: fr ? "Messagerie vocale" : "Voicemail", cell: () => <Yes lang={lang} /> },
     { label: "9-1-1", cell: () => (fr ? "Inclus (voir limites)" : "Included (see limits)") },
     ...ROW_FEATURES.map((f) => ({
-      label: FEATURE_LABELS[f][lang],
+      label: featureLabel(f, lang),
       cell: (p: Plan) => (p.features.includes(f) ? <Yes lang={lang} /> : <No lang={lang} />),
     })),
   ];
@@ -131,6 +133,11 @@ export function PlansPage({ lang }: { lang: Lang }) {
               <PlanCard key={c} plan={PLANS[c]} lang={lang} highlight={c === "premium"} />
             ))}
           </div>
+          <p className="fineprint">
+            {fr ? "Le 9-1-1 par Internet a des limites (panne d'Internet ou de courant, adresse à tenir à jour). " : "9-1-1 over the internet has limits (internet or power outage, address to keep current). "}
+            <a href={href(lang, "e911")}>{fr ? "Lire la page 9-1-1" : "Read the 9-1-1 page"}</a>
+          </p>
+          <Offers lang={lang} />
 
           <h2 className="mt-xl">MIMT {fr ? "Affaires" : "Business"}</h2>
           <div className="grid grid--2">

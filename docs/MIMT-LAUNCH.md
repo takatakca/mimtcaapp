@@ -13,7 +13,7 @@ Documents détaillés (ne pas recopier ici) :
 
 - [ ] Coolify → MIMT → `mimt-prod-postgres` : vérifier ~1 Go de mémoire libre, ~20 Go de disque, un volume persistant, pas de port public, puis démarrer.
 - [ ] Mettre `DATABASE_URL` (URL interne de cette ressource) et, si TLS, `DATABASE_SSL_CA_PEM` dans l'app API.
-- [ ] Appliquer les migrations une seule fois (migrateur `migrateStandalone`, ordre 0001 → 0009). Le guide est dans MIMT-SELFHOSTED-POSTGRES-RECOVERY.md.
+- [ ] Appliquer les migrations une seule fois (migrateur `migrateStandalone`, ordre 0001 → 0010). Le guide est dans MIMT-SELFHOSTED-POSTGRES-RECOVERY.md.
 - [x] Vérifier `https://api.mimt.ca/readyz` → `ok: true`, `db: "up"` (confirmé le 2026-10-11).
 - [ ] Sauvegardes planifiées et une restauration testée.
 
@@ -35,6 +35,7 @@ Noms seulement. Les valeurs viennent de chaque fournisseur.
 | Messagerie vocale par courriel | `EMAIL_PROVIDER=resend`, `EMAIL_API_KEY`, `EMAIL_FROM` |
 | Achats intégrés | `APPLE_BUNDLE_ID`, `APPLE_TEAM_ID`, `APPLE_ROOT_CA_PEM`, `GOOGLE_PLAY_PACKAGE_NAME`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` |
 | Transfert de numéro | `TWILIO_PORTING_ENABLED`, `PORT_IN_FEE_CENTS` (0 par défaut), `PORT_IN_NOTIFICATION_EMAIL` |
+| Réunions vidéo (LiveKit) | `LIVEKIT_URL` (`wss://rtc.mimt.ca`), `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` |
 | Internet et mobile | `PROVISIONING_PROVIDER`, `VIDEOTRON_*`, `CATALOG_ADMIN_USER_IDS` |
 | Cuba | `CUBA_CARRIER`, `CUBA_SIP_HOST` |
 | Surveillance | `SENTRY_DSN`, `BETTER_STACK_HEARTBEAT_URL`, `DAILY_SPEND_ALERT_CAD` |
@@ -75,6 +76,18 @@ Noms seulement. Les valeurs viennent de chaque fournisseur.
 ## 7. Revente Internet et mobile (plus tard)
 
 - [ ] Entente Vidéotron, documentation de l'API revendeur, accès de test, puis remplir l'adaptateur. La liste des questions est dans MIMT-RESALE.md.
+
+## 7 bis. Réunions vidéo (Réunions MIMT)
+
+Guide complet : [MIMT-VIDEO.md](MIMT-VIDEO.md). Sans ces étapes, la page Réunions affiche « pas encore offertes » et l'API répond 503.
+
+- [ ] Appliquer la migration `0010_meetings.sql` (migrateur unique, voir section 1).
+- [ ] Choisir l'hébergement : LiveKit sur Coolify (recommandé, données chez MIMT) ou LiveKit Cloud (prix [À VÉRIFIER], EFVP Loi 25 requise).
+- [ ] Coolify : générer la clé et le secret (`docker run --rm livekit/livekit-server generate-keys`), DNS `rtc.mimt.ca` → serveur, ressource `livekit/livekit-server` en réseau hôte, domaine `https://rtc.mimt.ca` → port 7880 avec TLS, pare-feu ouvert pour `7881/tcp` et `50000-60000/udp` (TURN/TLS au besoin).
+- [ ] Webhook LiveKit vers `https://api.mimt.ca/webhooks/livekit` (même clé que l'API).
+- [ ] API Coolify : `LIVEKIT_URL=wss://rtc.mimt.ca`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` (secret), puis redéployer. Facultatif : fournisseur de courriel pour envoyer les invitations.
+- [ ] Tests réels : Premium à 2, Affaires avec un invité en salle d'attente, partage d'écran, cellulaire en LTE, réseau d'entreprise sans UDP.
+- [ ] Politique de confidentialité : aucun enregistrement, données conservées (titre, invitations, journal d'arrivées) et leur durée [À confirmer par MIMT].
 
 ## 8. Avant d'ouvrir au public
 

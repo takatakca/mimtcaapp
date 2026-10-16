@@ -245,7 +245,7 @@ export interface CallRecord {
   durationS: number | null;
   /** Inbound call that was never answered. */
   missed: boolean;
-  /** Set when the call looks like spam/fraud: the app shows « Appel suspect ». Absent when the call looks fine. */
+  /** Set when the call looks like spam/fraud: the app shows « Spam probable ». Absent when the call looks fine. */
   spamLabel?: SpamLabel;
 }
 
@@ -281,7 +281,7 @@ export interface MessageDto {
   createdAt: string;
   /** Attachments with short-lived signed URLs. Received MMS is shown on every plan, including free. */
   media?: MessageMediaDto[];
-  /** Inbound messages only, when flagged: the app shows « Message suspect ». */
+  /** Inbound messages only, when flagged: the app shows « Spam probable ». */
   spamLabel?: SpamLabel;
 }
 

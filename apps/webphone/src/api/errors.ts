@@ -76,6 +76,14 @@ const CODE_TO_KEY: Record<string, TKey> = {
   unsupported_media_type: "settings.vm.badType",
   media_too_large: "settings.vm.tooBig",
   invalid_media: "settings.vm.badType",
+  meeting_full: "error.meetingFull",
+  meeting_ended: "error.meetingEnded",
+  invite_expired: "error.inviteExpired",
+  invalid_guest_token: "error.invalidGuestToken",
+  meeting_unavailable: "error.invalidGuestToken",
+  video_unavailable: "error.videoUnavailable",
+  meeting_host_required: "error.meetingHostRequired",
+  invalid_schedule: "error.validation",
 };
 
 export function errorKeyFor(status: number | null, code?: string | null): TKey {

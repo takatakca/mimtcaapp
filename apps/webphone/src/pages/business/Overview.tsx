@@ -92,6 +92,8 @@ function SeatsCard() {
     setBusy(true);
     try {
       const r = await api.setSeats(id, count);
+      // No subscription yet: Stripe Checkout with quantity = lines; seats sync after payment.
+      if (r.checkoutUrl) return window.location.assign(r.checkoutUrl);
       setCount(r.seats);
       setMsg("biz.seatsSaved");
       await refreshMe();
@@ -108,6 +110,16 @@ function SeatsCard() {
         {t("biz.seats")}
       </h2>
       <p className="muted small">{t("biz.seatsHint", { price: formatCad(price, lang) })}</p>
+      {biz.billingStatus === "past_due" ? (
+        <p className="note note--error" role="status">
+          {t("biz.billingPastDue")}
+        </p>
+      ) : null}
+      {biz.billingStatus === "canceled" || biz.billingStatus === "unpaid" ? (
+        <p className="note note--error" role="status">
+          {t("biz.billingCanceled")}
+        </p>
+      ) : null}
       <form className="row row--wrap" onSubmit={save}>
         <label htmlFor="seats" className="sr-only">
           {t("biz.seats")}

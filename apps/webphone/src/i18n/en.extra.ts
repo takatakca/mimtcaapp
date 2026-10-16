@@ -82,7 +82,7 @@ export const enExtra: Record<keyof typeof frExtra, string> = {
   "rec.play": "Play the call from {from}",
 
   "error.seatsExceed": "Add lines in billing first.",
-  "error.seatsBelow": "Remove members before removing lines.",
+  "error.seatsBelow": "Remove extensions before removing lines.",
   "error.mediaExpired": "The playback link expired. Refresh the list.",
   "error.contractSummaryRequired": "You must read and accept the Critical Information Summary.",
   "error.contractSummaryOutdated": "The contract summary changed. Read the new version and accept it.",

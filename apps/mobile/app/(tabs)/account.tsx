@@ -250,6 +250,7 @@ export default function Account() {
         <Row icon="shield-checkmark" title={t("account.privacy")} onPress={() => router.push("/settings/privacy")} />
         <Row icon="sparkles" title={t("ai.entry")} subtitle={t("ai.entryHint")} onPress={() => router.push("/settings/ai")} />
         <Row icon="business" title={t("business.entry")} subtitle={t("business.entryHint")} onPress={() => router.push("/settings/business")} />
+        <Row icon="videocam" title={t("meetings.entry")} subtitle={t("meetings.entryHint")} onPress={() => router.push("/settings/meetings")} />
         <Row
           icon="gift"
           title={t("account.referral")}

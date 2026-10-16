@@ -10,8 +10,8 @@ import { CALL_ATTEMPT_RULES } from "../fraud/policy.js";
 import { isDomesticZone, normalizeDialed } from "../lib/phone.js";
 import { dayPeriod, monthPeriod } from "../lib/time.js";
 import type { BusinessRow, ExtensionRow } from "../repo/pbxTypes.js";
-import type { TelecomAccount, User } from "../repo/types.js";
-import { getFeatures, HELD_STATES, outboundBlocked, setAccountStatus } from "../services/accounts.js";
+import type { Subscription, TelecomAccount, User } from "../repo/types.js";
+import { getFeatures, HELD_STATES, isLiveSubscription, outboundBlocked, setAccountStatus } from "../services/accounts.js";
 import { e911Ready } from "../routes/e911.js";
 import { NOT_IN_SERVICE, sayBilingual, VoiceResponse } from "../routes/twiml.js";
 import * as router from "./router.js";
@@ -27,6 +27,10 @@ const REFUSALS = {
   account_restricted: [
     "Les appels sortants sont suspendus sur ce compte d'entreprise. Communiquez avec votre administrateur.",
     "Outgoing calls are suspended on this business account. Please contact your administrator.",
+  ],
+  plan_canceled: [
+    "L'abonnement MIMT Affaires est annulé : les appels sortants de l'entreprise sont bloqués. Les appels entrants et le 9-1-1 restent disponibles.",
+    "The MIMT Business subscription is canceled: business outgoing calls are blocked. Incoming calls and 9-1-1 remain available.",
   ],
   no_number: ["Aucun numéro d'entreprise n'est configuré pour vos appels sortants.", "No business number is set up for your outgoing calls."],
   e911_required: [
@@ -51,14 +55,38 @@ export function refuse(reason: keyof typeof REFUSALS): VR {
 
 const baseUrl = (deps: AppDeps) => deps.config.PUBLIC_BASE_URL.replace(/\/$/, "");
 
-/** Plan and seats of a business; caps are per line, pooled by multiplying by the seat count. */
+const isBusinessPlanSub = (s: Subscription) => s.kind === "plan" && BUSINESS_PLANS.has(s.code as PlanCode);
+
+/** The business plan subscription that counts: the live one if any, else the latest one; null if none was ever bought. */
+export function businessSubscription(subs: Subscription[]): Subscription | null {
+  const plans = subs.filter(isBusinessPlanSub);
+  const live = plans.filter((s) => isLiveSubscription(s));
+  const pool = live.length ? live : plans;
+  return pool.reduce<Subscription | null>((best, s) => (!best || s.createdAt.getTime() >= best.createdAt.getTime() ? s : best), null);
+}
+
+/**
+ * Plan and seats of a business; caps are per line, pooled by multiplying by the seat count. Seats are the
+ * count synced from Stripe (business_seats), never above the quantity of the live business subscription.
+ */
 export async function businessPlan(deps: AppDeps, business: BusinessRow) {
-  const [{ plan, features }, seats, account] = await Promise.all([
+  const [{ plan, features }, seats, account, subs] = await Promise.all([
     getFeatures(deps.repo, business.telecomAccountId),
     deps.repo.pbx.getSeats(business.id),
     deps.repo.getAccount(business.telecomAccountId),
+    deps.repo.listSubscriptions(business.telecomAccountId),
   ]);
-  return { plan, features, seats: seats.seats, account, active: BUSINESS_PLANS.has(plan) };
+  const sub = businessSubscription(subs);
+  const live = sub && isLiveSubscription(sub) ? sub : null;
+  return {
+    plan,
+    features,
+    seats: live ? Math.max(1, Math.min(seats.seats, live.quantity)) : seats.seats,
+    account,
+    active: BUSINESS_PLANS.has(plan),
+    /** Stripe lifecycle of the business plan: past_due = payment attention, canceled/unpaid = outbound blocked. */
+    billingStatus: sub?.status ?? null,
+  };
 }
 
 export async function loadSnapshot(deps: AppDeps, business: BusinessRow, features?: Set<string>): Promise<router.PbxSnapshot> {
@@ -248,8 +276,12 @@ async function businessPstn(
   const { business, user, to } = input;
   const info = await businessPlan(deps, business);
   const account = info.account;
-  // No live business plan: not a business call (the consumer rules apply).
-  if (!account || !info.active) return null;
+  if (!account) return null;
+  // Business plan canceled or unpaid in Stripe: no business outbound calls (9-1-1 was handled before this hook,
+  // inbound calls to the business keep ringing).
+  if (!info.active && (info.billingStatus === "canceled" || info.billingStatus === "unpaid")) return refuse("plan_canceled");
+  // Never had a business plan: not a business call (the consumer rules apply).
+  if (!info.active) return null;
   if (outboundBlocked(account)) return refuse("account_restricted");
   if (!input.callerId) return refuse("no_number");
 

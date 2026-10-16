@@ -93,7 +93,7 @@ export function faqItems(lang: Lang): FaqItem[] {
           id: "transfert",
           topic: "mobile",
           q: "Puis-je transférer mon numéro actuel chez MIMT?",
-          a: "Le transfert de numéro vers MIMT est prévu, mais pas confirmé pour le lancement. Si vous quittez MIMT, vous pourrez transférer votre numéro chez un autre fournisseur.",
+          a: "Oui, et MIMT ne facture aucuns frais de transfert. Le transfert se fait en ligne avec une autorisation signée électroniquement; son ouverture sera annoncée au lancement. Les frais ou contrats de votre fournisseur actuel restent votre responsabilité. Si vous quittez MIMT, vous pourrez transférer votre numéro chez un autre fournisseur.",
         },
         {
           id: "international",
@@ -130,7 +130,7 @@ export function faqItems(lang: Lang): FaqItem[] {
           id: "ia-quoi",
           topic: "ai",
           q: "Que fait l'IA de MIMT?",
-          a: "Elle résume vos messages vocaux, suggère des réponses courtes à vos textos (jamais envoyées sans vous), signale les appels et textos suspects et, pour les entreprises, peut répondre au téléphone comme réceptionniste virtuel. L'IA est fournie par Claude, d'Anthropic.",
+          a: "Elle résume vos messages vocaux, suggère des réponses courtes à vos textos (jamais envoyées sans vous), étiquette « Spam probable » les appels et textos douteux et, pour les entreprises, peut répondre au téléphone comme réceptionniste virtuel. L'IA est fournie par Claude, d'Anthropic.",
           link: { route: "ai", label: "Découvrir l'IA de MIMT" },
         },
         {
@@ -238,7 +238,7 @@ export function faqItems(lang: Lang): FaqItem[] {
           id: "transfert",
           topic: "mobile",
           q: "Can I bring my current number to MIMT?",
-          a: "Porting a number to MIMT is planned but not confirmed for launch. If you leave MIMT, you can port your number to another provider.",
+          a: "Yes, and MIMT charges no transfer fee. The transfer is done online with an electronically signed authorization; it opens at launch. Your current provider's fees or contracts remain your responsibility. If you leave MIMT, you can port your number to another provider.",
         },
         {
           id: "international",
@@ -275,7 +275,7 @@ export function faqItems(lang: Lang): FaqItem[] {
           id: "ia-quoi",
           topic: "ai",
           q: "What does MIMT's AI do?",
-          a: "It summarizes your voicemails, suggests short replies to your texts (never sent without you), flags suspicious calls and texts and, for businesses, can answer the phone as a virtual receptionist. The AI is provided by Claude, from Anthropic.",
+          a: "It summarizes your voicemails, suggests short replies to your texts (never sent without you), labels doubtful calls and texts “Likely spam” and, for businesses, can answer the phone as a virtual receptionist. The AI is provided by Claude, from Anthropic.",
           link: { route: "ai", label: "Discover MIMT AI" },
         },
         {

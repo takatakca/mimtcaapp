@@ -102,7 +102,7 @@ Not found in official sources on 2026-10-10: TextNow per-country international r
 | Desk phones / devices | Device shop: unconfirmed | Pro device 5/mo; HT801/GHP611 55 (F11) | All business | CAD 5/mo + hardware | ❌ | P2: SIP device provisioning (Twilio SIP Domain), 4,99 $/device/mo |
 | Toll-free number | – | 2.50/mo + 2¢/min (F11) | All business | CAD 2.50 + usage | ❌ | P2: 4,99 $/mo + 3¢/min |
 | Call recording | – | Not listed | TELUS on-demand (Voice Plus) / automatic (Enhanced) (B2) | In seat price | 🟡 `CallRecordingPolicy` types with consent prompt (`business.ts`), `business_pro` flag | P1: recording with bilingual consent message (Quebec Law 25), retention settings |
-| Video meetings | – | – | TELUS 100–200 participants (B2); Bell Teams Meetings tier (B1) | In seat / add-on | ❌ | Out of scope; integrate (Teams/Meet link) rather than build |
+| Video meetings | – | – | TELUS 100–200 participants (B2); Bell Teams Meetings tier (B1) | In seat / add-on | 🟡 code ready (2026-10-16, owner decision to build): Réunions MIMT on LiveKit, Premium 4 / Affaires 25 / Affaires Pro 100 participants, 4 h, guest links, waiting room, screen share, chat (`routes/meetings.ts`, `docs/MIMT-VIDEO.md`) | Owner: deploy LiveKit (`rtc.mimt.ca`), set `LIVEKIT_*`, apply 0010 (VID-01) |
 | Team messaging | – | – | Bell team messaging (B1); Unison | In seat | ❌ | Out of scope for launch |
 | CRM integrations | – | – | TELUS Complete: Salesforce, Zendesk (B2); Bell: Jira, Asana, Box, Drive (B1); Unison: Outlook contacts, Teams (R1) | In seat | ❌ | P2: webhook + Zapier-style events first; HubSpot later |
 | Call logs / analytics | Call history | Works Pro call logs (F11) | Bell Call Dashboard 9.95+ (B1) | – | ✅ call history `/v1/calls`; ❌ business analytics | P2 dashboard |
@@ -149,7 +149,7 @@ Not found in official sources on 2026-10-10: TextNow per-country international r
 - Easy-to-remember numbers (2,99 $/mo, includes lock), digit-pattern search.
 - International SMS add-on; GIFs/stickers; reactions; passcode/biometric lock; widgets and custom tones.
 - Fax-to-email (business), toll-free numbers (4,99 $/mo + usage), SIP desk phones and ATA "Ligne maison" (6,99 $/mo, HT801 at cost), CNAM registration.
-- Business analytics dashboard, CRM webhooks/integrations, Teams/Meet links for video (do not build video).
+- Business analytics dashboard, CRM webhooks/integrations, Teams/Meet links for video (superseded 2026-10-16: video is built on LiveKit, see docs/MIMT-VIDEO.md).
 - AI receptionist and smart replies (phase-2 code) as the paid differentiator once parity is done.
 
 ---

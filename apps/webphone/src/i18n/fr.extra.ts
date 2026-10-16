@@ -22,7 +22,7 @@ export const frExtra = {
   "ai.consent.budget": "Budget IA ce mois-ci : {used} utilisés sur {budget}.",
   "ai.consent.noBudget": "Votre forfait n'inclut pas de budget IA. Premium et Affaires en incluent un.",
 
-  // IA : messagerie vocale, textos, appels suspects
+  // IA : messagerie vocale, textos, étiquettes « Spam probable »
   "ai.vm.summarize": "Résumer",
   "ai.vm.summarizeLabel": "Résumer ce message vocal avec l'IA",
   "ai.vm.summarizing": "Résumé en cours…",
@@ -89,7 +89,7 @@ export const frExtra = {
 
   // Erreurs : MIMT Affaires et commandes
   "error.seatsExceed": "Ajoutez d'abord des lignes dans la facturation.",
-  "error.seatsBelow": "Retirez des membres avant de retirer des lignes.",
+  "error.seatsBelow": "Retirez des postes avant de retirer des lignes.",
   "error.mediaExpired": "Le lien d'écoute a expiré. Actualisez la liste.",
   "error.contractSummaryRequired": "Vous devez lire et accepter le résumé des renseignements essentiels.",
   "error.contractSummaryOutdated": "Le résumé du contrat a changé. Relisez la nouvelle version et acceptez-la.",

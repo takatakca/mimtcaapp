@@ -113,7 +113,7 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
                 <li>Sans votre consentement, rien n&apos;est envoyé au fournisseur d&apos;IA; les appels, les textos et la messagerie vocale fonctionnent normalement.</li>
                 <li>Vous pouvez retirer votre consentement en tout temps dans l&apos;app.</li>
                 <li>Le fournisseur d&apos;IA traite ces renseignements à l&apos;extérieur du Canada. Durée de conservation chez le fournisseur : <Placeholder lang={lang} /></li>
-                <li>Les étiquettes « Appel suspect » par règles simples (sans IA) s&apos;appliquent à tous et ne bloquent jamais un appel.</li>
+                <li>Les étiquettes « Spam probable » par règles simples (sans IA) s&apos;appliquent à tous et ne bloquent jamais un appel.</li>
               </ul>
               <p>
                 <strong>Réceptionniste IA (MIMT Affaires).</strong> Quand une entreprise l&apos;active, l&apos;agent virtuel se
@@ -174,7 +174,7 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
                 <li>Without your consent, nothing is sent to the AI provider; calls, texts and voicemail work normally.</li>
                 <li>You can withdraw your consent at any time in the app.</li>
                 <li>The AI provider processes this information outside Canada. Retention period at the provider: <Placeholder lang={lang} /></li>
-                <li>Rule-based “Suspicious call” labels (no AI) apply to everyone and never block a call.</li>
+                <li>Rule-based “Likely spam” labels (no AI) apply to everyone and never block a call.</li>
               </ul>
               <p>
                 <strong>AI receptionist (MIMT Business).</strong> When a business turns it on, the virtual agent says it is an AI at

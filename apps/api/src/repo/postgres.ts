@@ -7,6 +7,7 @@ import { PostgresCallControlsRepository } from "./callControlsPostgres.js";
 import { PostgresMediaRepository } from "./mediaPostgres.js";
 import { PostgresReferralRepository } from "./referralsPostgres.js";
 import { PostgresPortInRepository } from "./portInPostgres.js";
+import { PostgresMeetingRepository } from "./meetingsPostgres.js";
 import type {
   AuditEntry,
   Call,
@@ -63,6 +64,10 @@ export class PostgresRepository implements Repository {
   private portInRepo?: PostgresPortInRepository;
   get portIns(): PostgresPortInRepository {
     return (this.portInRepo ??= new PostgresPortInRepository(this.sql));
+  }
+  private meetingRepo?: PostgresMeetingRepository;
+  get meetings(): PostgresMeetingRepository {
+    return (this.meetingRepo ??= new PostgresMeetingRepository(this.sql));
   }
 
   private mediaRepo?: PostgresMediaRepository;

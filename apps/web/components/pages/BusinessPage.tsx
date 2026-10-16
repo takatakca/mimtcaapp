@@ -1,6 +1,7 @@
 import { PageHero, Shell } from "@/components/Shell";
 import { LeadForm } from "@/components/LeadForm";
 import { PlanCard } from "@/components/PlanCard";
+import { Offers } from "@/components/Offers";
 import { FaqList } from "@/components/FaqList";
 import { Icon, type IconName } from "@/components/Visuals";
 import { DEFAULT_RECORDING_POLICY, quebecHolidaysCurrentAndNext } from "@mimt/shared";
@@ -310,6 +311,7 @@ export function BusinessPage({ lang }: { lang: Lang }) {
               : "Minutes are counted per line and pooled across the business. "}
             <a href={href(lang, "plans")}>{fr ? "Comparer avec les forfaits MIMT Mobile" : "Compare with MIMT Mobile plans"}</a>
           </p>
+          <Offers lang={lang} />
         </div>
       </section>
 

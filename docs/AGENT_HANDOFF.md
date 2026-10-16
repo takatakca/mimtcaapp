@@ -25,7 +25,8 @@
 ## Relève — 16 octobre 2026 (claude, session 01GtWamF)
 
 - **CI rouge depuis `ac01dcb`** (correctif courriel) : le test `notification-privacy` attendait encore que `LogEmailSender.send` réussisse. Le test vérifie maintenant le refus `email_provider_not_configured` et l'absence de destinataire, sujet et lien dans les journaux. Local : 348/348 sur PostgreSQL 16 jetable, typecheck et tests de tous les paquets verts.
-- **Suite :** lire la CI de ce commit, puis la vidéoconférence (LiveKit) et PBX-01 (sièges ↔ quantité Stripe) sur la branche `claude/mimt-video-seats`.
+- **Ensuite (même jour), branche `claude/mimt-video-meetings` :** réunions vidéo LiveKit (migration 0010, `docs/MIMT-VIDEO.md`), PBX-01 sièges ↔ Stripe (code fait), libellé unique « Spam probable », refonte de mimt.ca (`docs/MIMT-SITE-BENCHMARK.md`), test d'ordre des messages rendu déterministe. Local : tous les paquets verts, PostgreSQL 378/378 deux fois.
+- **Prochaine action exacte :** lire la CI de la PR puis de `main` après fusion; vérifier `https://mimt.ca/mimt-release.json` au nouveau SHA. Côté propriétaire : LiveKit + `LIVEKIT_*` + migration 0010; essai Stripe en mode test; secret `MOCHAHOST_APP_FTP_SERVER`.
 
 ## Relève — troisième cycle du 14 octobre 2026
 

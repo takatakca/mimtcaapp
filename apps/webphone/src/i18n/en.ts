@@ -1,9 +1,11 @@
 // English (Canada) — second language. Must have exactly the same keys as fr.ts (typed against it).
 import type { TKey } from "./fr";
 import { enExtra } from "./en.extra";
+import { enMeet } from "./en.meet";
 
 export const en: Record<TKey, string> = {
   ...enExtra,
+  ...enMeet,
   "account.billingPortal": "Manage billing",
   "account.complaints": "Complaints: CCTS (Commission for Complaints for Telecom-television Services)",
   "account.complaintsHint": "If we do not resolve your complaint, the CCTS can help you for free.",
@@ -183,6 +185,8 @@ export const en: Record<TKey, string> = {
   "biz.seats": "Lines",
   "biz.seatsHint": "{price} per line per month, plus taxes.",
   "biz.seatsSaved": "Number of lines updated.",
+  "biz.billingPastDue": "Payment overdue: update your card in billing to keep your lines active.",
+  "biz.billingCanceled": "Subscription canceled: business outgoing calls are blocked. Incoming calls and 9-1-1 remain available.",
   "biz.seatsTotal": "Total: {total} per month, plus taxes.",
   "biz.title": "MIMT Business",
   "biz.usage": "Pooled usage this month",
@@ -486,8 +490,8 @@ export const en: Record<TKey, string> = {
   "signin.webLead": "Call, text and listen to your voicemail from your computer, with your MIMT number.",
   "signin.webTitle": "MIMT Web",
 
-  "spam.call": "Suspicious call",
-  "spam.message": "Suspicious message",
+  "spam.call": "Likely spam",
+  "spam.message": "Likely spam",
 
   "tabs.account": "Account",
   "tabs.calls": "Calls",

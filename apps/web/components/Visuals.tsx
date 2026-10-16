@@ -124,7 +124,12 @@ export type IconName =
   | "shield"
   | "calendar"
   | "chat"
-  | "globe";
+  | "globe"
+  | "transfer"
+  | "video"
+  | "quebec"
+  | "lang"
+  | "tag";
 
 export function Icon({ name }: { name: IconName }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -145,6 +150,11 @@ export function Icon({ name }: { name: IconName }) {
     shield: <><path d="M12 2.5l8 3v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10v-6z" {...common} /><path d="M12 8v5M12 16h0" {...common} /></>,
     calendar: <><rect x="3.5" y="5" width="17" height="15.5" rx="2" {...common} /><path d="M3.5 10h17M8 3v4M16 3v4M8 14h2M14 14h2" {...common} /></>,
     chat: <><path d="M4 5h16v11H9l-5 4z" {...common} /><path d="M8 9.5h8M8 12.5h5" {...common} /></>,
+    transfer: <><path d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5" {...common} /></>,
+    video: <><rect x="2.5" y="6" width="13" height="12" rx="2.5" {...common} /><path d="M15.5 10.5l6-3.5v10l-6-3.5" {...common} /></>,
+    quebec: <><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" {...common} /><circle cx="12" cy="10" r="2.4" {...common} /></>,
+    lang: <><path d="M3 5h9M7.5 3v2M5 5c.6 3.5 3 6 6 7.5M10 5c-.8 3.6-3 6.4-6.5 8" {...common} /><path d="M12.5 21l4-10 4 10M14 17.5h5" {...common} /></>,
+    tag: <><path d="M3 12l9-9h8v8l-9 9z" {...common} /><path d="M9.5 14.5l5-5" {...common} /></>,
     globe: <><circle cx="12" cy="12" r="9" {...common} /><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3" {...common} /></>,
   };
   return (

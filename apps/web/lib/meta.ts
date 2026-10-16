@@ -8,34 +8,34 @@ import { pageMeta, type Lang, type RouteKey } from "./site.ts";
 export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; description: string }>> = {
   home: {
     fr: {
-      title: "MIMT | Votre numéro canadien, partout",
+      title: "MIMT | Numéro de téléphone virtuel canadien",
       description:
-        "Un vrai numéro canadien pour appeler et texter par Wi‑Fi ou données. Téléphonie d'affaires bilingue avec IA. Fait au Québec, en français d'abord.",
+        "Votre numéro canadien dans une app : appels et textos par Wi‑Fi, deuxième numéro, transfert de numéro gratuit. Téléphonie IP d'affaires. Fait au Québec.",
     },
     en: {
-      title: "MIMT | Your Canadian number, anywhere",
+      title: "MIMT | Virtual Canadian phone number app",
       description:
-        "A real Canadian number to call and text over Wi‑Fi or data. Bilingual business phone system with AI. Made in Québec, French first.",
+        "Your Canadian number in an app: calls and texts over Wi‑Fi, a second number, free number transfer. Business VoIP phone system. Made in Québec.",
     },
   },
   plans: {
     fr: {
-      title: "Forfaits et prix",
-      description: "Forfaits MIMT Mobile et MIMT Affaires : gratuit avec publicités, verrouillage du numéro, Premium et prix par ligne. Toutes les limites affichées.",
+      title: "Forfaits : appels gratuits et numéro virtuel",
+      description: "Forfait Gratuit à 0 $, Verrouillage du numéro, Premium et MIMT Affaires par ligne. Transfert de numéro gratuit. Toutes les limites affichées d'avance.",
     },
     en: {
-      title: "Plans and pricing",
-      description: "MIMT Mobile and MIMT Business plans: free with ads, Number Lock, Premium and per-line pricing. Every limit shown up front.",
+      title: "Plans: free calling app and virtual number",
+      description: "Free plan at $0, Number Lock, Premium and per-line MIMT Business. Free number transfer. Every limit shown up front, prices in Canadian dollars.",
     },
   },
   business: {
     fr: {
-      title: "MIMT Affaires : système téléphonique d'entreprise",
+      title: "Téléphonie IP d'entreprise à Montréal et au Québec",
       description:
         "Postes, réceptionniste automatique bilingue, groupes de sonnerie, heures et jours fériés du Québec, enregistrement avec avis. Prix par ligne.",
     },
     en: {
-      title: "MIMT Business: cloud business phone system",
+      title: "Business VoIP phone system, Montréal and Québec",
       description:
         "Extensions, bilingual auto-attendant, ring groups, business hours and Québec holidays, call recording with notice. Per-line pricing.",
     },
@@ -44,21 +44,21 @@ export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; descripti
     fr: {
       title: "IA : résumés vocaux, réponses, réceptionniste",
       description:
-        "Résumés de messages vocaux, réponses suggérées, détection d'appels suspects et réceptionniste IA. Toujours avec votre consentement (Loi 25).",
+        "Résumés de messages vocaux, réponses suggérées, étiquettes « Spam probable » et réceptionniste IA. Toujours avec votre consentement (Loi 25).",
     },
     en: {
       title: "AI: voicemail summaries, replies, receptionist",
       description:
-        "Voicemail summaries, suggested replies, suspicious call labels and an AI receptionist. Always with your consent (Québec Law 25).",
+        "Voicemail summaries, suggested replies, “Likely spam” labels and an AI receptionist. Always with your consent (Québec Law 25).",
     },
   },
   webapp: {
     fr: {
-      title: "App Web app.mimt.ca",
+      title: "App Web : appels et textos dans le navigateur",
       description: "Appelez, textez et écoutez vos messages vocaux dans le navigateur avec votre numéro MIMT. Portail administrateur pour MIMT Affaires.",
     },
     en: {
-      title: "Web app app.mimt.ca",
+      title: "Web app: calls and texts in your browser",
       description: "Call, text and play voicemail in your browser with your MIMT number. Admin portal for MIMT Business.",
     },
   },

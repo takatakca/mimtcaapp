@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { DownloadPrompt } from "@/components/DownloadPrompt";
+import { SiteEffects } from "@/components/SiteEffects";
 import { PAGE_META } from "@/lib/meta";
 import { breadcrumbLd, graph, jsonLdString, organizationLd, webPageLd, websiteLd, type JsonLdObject } from "@/lib/seo";
 import { APP_URL, CCTS_URL, LABELS, MAIN_NAV, ROUTES, href, type Lang, type RouteKey } from "@/lib/site";
@@ -61,8 +63,8 @@ function Header({ lang, page }: { lang: Lang; page: RouteKey }) {
         </nav>
         <div className="site-header__actions">
           <LangSwitch lang={lang} page={page} />
-          <a className="btn btn--primary btn--sm hide-sm" href={href(lang, "home", fr ? "liste-attente" : "waitlist")}>
-            {fr ? "Liste d'attente" : "Join the waitlist"}
+          <a className="btn btn--primary btn--sm hide-sm" href={href(lang, "webapp")} data-download="">
+            {fr ? "Télécharger l'app" : "Get the app"}
           </a>
           <details className="nav-mobile">
             <summary aria-label={fr ? "Menu" : "Menu"}>
@@ -71,8 +73,11 @@ function Header({ lang, page }: { lang: Lang; page: RouteKey }) {
             </summary>
             <nav aria-label={fr ? "Navigation mobile" : "Mobile navigation"}>
               <NavLinks lang={lang} page={page} />
-              <a className="btn btn--primary" href={href(lang, "home", fr ? "liste-attente" : "waitlist")}>
-                {fr ? "Rejoindre la liste d'attente" : "Join the waitlist"}
+              <a className="btn btn--primary" href={APP_URL} rel="noopener">
+                {fr ? "Essayer l'app Web" : "Try the web app"}
+              </a>
+              <a className="btn btn--outline-light" href={href(lang, "webapp")} data-download="">
+                {fr ? "Télécharger l'app" : "Get the app"}
               </a>
             </nav>
           </details>
@@ -191,7 +196,28 @@ export function Shell({
         {children}
       </main>
       <Footer lang={lang} />
+      <MobileCtaBar lang={lang} />
+      <DownloadPrompt lang={lang} auto={!NO_AUTO_PROMPT.includes(page)} />
+      <SiteEffects />
     </>
+  );
+}
+
+/** Legal and complaint pages never get the automatic download prompt (it still opens from a button). */
+const NO_AUTO_PROMPT: RouteKey[] = ["e911", "privacy", "terms", "complaints", "accessibility", "contact"];
+
+/** Sticky call-to-action bar on phones; appears once the page has scrolled (see home.css). */
+function MobileCtaBar({ lang }: { lang: Lang }) {
+  const fr = lang === "fr";
+  return (
+    <div className="mobile-cta" role="complementary" aria-label={fr ? "Actions rapides" : "Quick actions"}>
+      <a className="btn btn--primary btn--sm" href={APP_URL} rel="noopener">
+        {fr ? "Essayer l'app Web" : "Try the web app"}
+      </a>
+      <a className="btn btn--outline-light btn--sm" href={href(lang, "webapp")} data-download="">
+        {fr ? "Télécharger" : "Download"}
+      </a>
+    </div>
   );
 }
 
@@ -199,6 +225,7 @@ export function Shell({
 export function PageHero({ eyebrow, title, lead }: { eyebrow?: string; title: string; lead?: ReactNode }) {
   return (
     <section className="page-hero">
+      <div className="hero-glow" aria-hidden="true" />
       <div className="container">
         {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
         <h1>{title}</h1>

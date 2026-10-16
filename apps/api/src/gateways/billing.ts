@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { quebecTaxLines } from "../billing/taxes.js";
 
 export interface CheckoutLine {
   name: string;
@@ -36,6 +37,28 @@ export interface BillingGateway {
   createServiceItem?(input: ServiceItemInput): Promise<{ subscriptionId: string; itemId: string }>;
   /** Resale: removes the item when the service is cancelled (prorated). */
   removeServiceItem?(input: { itemId: string; idempotencyKey: string }): Promise<void>;
+  /**
+   * MIMT Affaires lines (PBX-01): sets the quantity of the business plan item and resizes the TPS/TVQ/9-1-1
+   * tax items of the same subscription to match. The customer.subscription.updated webhook confirms it.
+   */
+  updateSeatQuantity(input: SeatQuantityInput): Promise<void>;
+}
+
+export interface SeatQuantityInput {
+  subscriptionId: string;
+  quantity: number;
+  prorationBehavior: "create_prorations";
+  /** Same key on a retry = Stripe applies the change once. */
+  idempotencyKey: string;
+  locale: "fr-CA" | "en-CA";
+}
+
+/** Tax items are told apart from the plan item by their product name (set at checkout, French or English). */
+export function taxItemKind(name: string): "gst" | "qst" | "e911" | null {
+  if (/^(TPS|GST)\b/.test(name)) return "gst";
+  if (/^(TVQ|QST)\b/.test(name)) return "qst";
+  if (/9-1-1/.test(name)) return "e911";
+  return null;
 }
 
 export interface ServiceItemInput {
@@ -195,5 +218,35 @@ export class StripeGateway implements BillingGateway {
 
   async removeServiceItem(input: { itemId: string; idempotencyKey: string }) {
     await this.stripe.subscriptionItems.del(input.itemId, { proration_behavior: "create_prorations" }, { idempotencyKey: input.idempotencyKey });
+  }
+
+  async updateSeatQuantity(input: SeatQuantityInput) {
+    const sub = await this.stripe.subscriptions.retrieve(input.subscriptionId, { expand: ["items.data.price.product"] });
+    const productOf = (item: Stripe.SubscriptionItem) => {
+      const p = item.price.product;
+      return typeof p === "string" ? { id: p, name: "" } : { id: p.id, name: "name" in p ? p.name : "" };
+    };
+    const planItem = sub.items.data.find((i) => taxItemKind(productOf(i).name) === null);
+    if (!planItem) throw new Error("Stripe subscription has no plan item");
+    const interval = planItem.price.recurring?.interval === "year" ? "year" : "month";
+    const taxes = quebecTaxLines({
+      baseUnitCents: planItem.price.unit_amount ?? 0,
+      quantity: input.quantity,
+      recurring: interval,
+      chargeE911: true,
+      locale: input.locale,
+    });
+    const items: Stripe.SubscriptionUpdateParams.Item[] = [{ id: planItem.id, quantity: input.quantity }];
+    for (const item of sub.items.data) {
+      const product = productOf(item);
+      const kind = taxItemKind(product.name);
+      if (!kind) continue;
+      const line = taxes.find((l) => taxItemKind(l.name) === kind);
+      if (!line) items.push({ id: item.id, deleted: true });
+      else if (item.price.unit_amount !== line.unitAmountCents) {
+        items.push({ id: item.id, quantity: 1, price_data: { currency: "cad", product: product.id, unit_amount: line.unitAmountCents, recurring: { interval } } });
+      }
+    }
+    await this.stripe.subscriptions.update(sub.id, { items, proration_behavior: input.prorationBehavior }, { idempotencyKey: input.idempotencyKey });
   }
 }

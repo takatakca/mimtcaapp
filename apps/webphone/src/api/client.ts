@@ -6,6 +6,7 @@ import { env } from "../env";
 import { businessEndpoints } from "./business";
 import { catalogEndpoints } from "./catalog";
 import { portInEndpoints } from "./portIn";
+import { meetingEndpoints } from "./meetings";
 import { coreEndpoints } from "./core";
 import { createHttpClient, type FetchLike } from "./http";
 import { createTokenStore } from "./tokens";
@@ -53,6 +54,7 @@ export const api = {
   ...businessEndpoints(request),
   ...catalogEndpoints(request),
   ...portInEndpoints(request),
+  ...meetingEndpoints(request),
 };
 
 export type Api = typeof api;

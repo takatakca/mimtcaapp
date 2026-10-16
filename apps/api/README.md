@@ -45,6 +45,7 @@ Sans configuration, l'API démarre quand même : stockage en mémoire (sans `DAT
 | `TWILIO_PORTING_ENABLED` | | `true` : les transferts de numéro (`/v1/port-ins`) sont envoyés à l'API Porting de Twilio après la signature de la LOA. Sinon ils restent « signés » pour un envoi manuel |
 | `PORT_IN_FEE_CENTS` | | Frais de transfert en cents, **0 par défaut** (aucun frais approuvé) |
 | `PORT_IN_NOTIFICATION_EMAIL` | | Courriel des opérations en copie des avis de transfert Twilio |
+| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | | Réunions vidéo (LiveKit, `docs/MIMT-VIDEO.md`). `LIVEKIT_URL` en `wss://` en production. Sans les trois, `/v1/meetings*` répond 503. Le secret n'est jamais renvoyé ni journalisé |
 | `TAKATAK_ISSUER`, `TAKATAK_CLIENT_ID` | oui | OIDC TAKATAK (découverte via `/.well-known/openid-configuration`) |
 | `TAKATAK_JWKS_URL`, `TAKATAK_CLIENT_SECRET`, `TAKATAK_REDIRECT_URIS` | | Facultatifs (JWKS explicite, client confidentiel, liste blanche des redirections) |
 | `TAKATAK_WEBHOOK_URL`, `TAKATAK_WEBHOOK_SECRET` | oui | Webhooks signés vers TAKATAK (`X-MIMT-Signature: t=…,v1=…`) |
@@ -126,6 +127,9 @@ Run: `pnpm install && pnpm --filter @mimt/shared build && pnpm --filter @mimt/ap
 | POST | `/webhooks/twilio/voice/{outbound,inbound,dial-result,hangup,status,recording,transcription}` | `X-Twilio-Signature` |
 | POST | `/webhooks/twilio/sms/{inbound,status}` | `X-Twilio-Signature` |
 | POST | `/webhooks/stripe` | `Stripe-Signature` (raw body) |
+| GET/POST | `/v1/meetings` · GET/PATCH `/v1/meetings/:id` · POST `/v1/meetings/:id/{invites,token,admit,end}` (Réunions MIMT, LiveKit; 503 without `LIVEKIT_*`) | bearer (host, business members, invitees; manage = host or business owner/admin) |
+| POST | `/v1/meetings/join/guest` · `/v1/meetings/join/guest/info` (guest token in the body, 10/min per IP) | — |
+| POST | `/webhooks/livekit` | LiveKit `Authorization` JWT + body SHA-256 (raw body) |
 
 ### Design notes
 
@@ -135,6 +139,9 @@ Run: `pnpm install && pnpm --filter @mimt/shared build && pnpm --filter @mimt/ap
 - **Repository**: `Repository` interface with `PostgresRepository` and `MemoryRepository`; `test/repo.contract.test.ts` runs the same assertions against both.
 - **Call controls** (`src/services/callControls.ts`, migration `0006`): blocks, do not disturb (quiet hours in America/Montreal) and forwarding run on the inbound path only. Forwarding needs the `call_forwarding` plan feature, Canada/US targets that pass `fraud/destinations.ts` (no MIMT numbers, no 9-1-1), and remaining outbound minutes; the forwarded leg is counted as outbound minutes, the inbound leg as inbound minutes.
 - **Logs**: pino with redaction of auth headers, signatures, tokens and message bodies; request logs keep only the path.
+- **MIMT Affaires lines (PBX-01)**: Stripe is the source of truth. `POST /v1/business/:id/seats` (owner/admin) sets the quantity of the business plan item (`proration_behavior: create_prorations`, idempotency key `seats:<business>:<subscription>:<from>-<to>:<Idempotency-Key header or uuid>`) and resizes the TPS/TVQ/9-1-1 items; with no live subscription it returns a Stripe Checkout URL with quantity = lines. Never below the number of extensions (409 `seats_below_members`, French message). `customer.subscription.updated/deleted` mirrors the quantity into `business_seats` (pooled caps = per-line cap × synced seats, never above the paid quantity); `past_due` = payment attention (`billingStatus` on `GET /v1/business/:id`, calls continue), `canceled`/`unpaid` = business outbound PSTN calls refused, inbound calls and 9-1-1 unchanged. Real Stripe verification (test mode) is still owner-side.
+
+- **Réunions MIMT** (`src/routes/meetings.ts`, `src/video/gateway.ts`, migration `0010`, `docs/MIMT-VIDEO.md`): LiveKit sits behind `VideoGateway` (tests use a fake; token signing and webhook verification are also tested with the real SDK). Plan gating (`video_meetings`: Premium 4, Affaires 25, Affaires Pro 100 participants), cap checked with `listParticipants` at token issuance, 4-hour limit, 1-hour tokens, random room names, guest links valid 7 days for one meeting (SHA-256 stored), waiting room (no publish/subscribe/data until the host admits). Nothing is recorded. Env: `LIVEKIT_URL` (wss:// in production), `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` (never returned or logged).
 
 ### Tests against Postgres
 

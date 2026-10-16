@@ -134,6 +134,8 @@ for (const [name, make, enabled] of impls) {
         repo.createMessage({ twilioSid: null, telecomAccountId: account.id, direction, ourNumber: "+15145550100", peer, bodyEncrypted: "v1.x", bodyFingerprint: fp, status: "sent", segments: 1, numMedia: 0 });
       await mk("+15145550001", "outbound", "same");
       await mk("+15145550002", "outbound", "same");
+      // created_at has millisecond precision: keep the inbound reply strictly later so "last" is deterministic.
+      await new Promise((r) => setTimeout(r, 5));
       await mk("+15145550002", "inbound");
       const since = new Date(Date.now() - 60_000);
       expect(await repo.countOutboundSince(account.id, since)).toBe(2);

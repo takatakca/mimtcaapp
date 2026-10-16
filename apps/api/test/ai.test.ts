@@ -166,6 +166,8 @@ describe("AI happy paths (fake gateway)", () => {
     const u = await premiumUser();
     await consent(u.token);
     await inboundSms("+15145550100", "+14185550199", "Bonjour!");
+    // created_at has millisecond precision (Postgres run): keep the second text strictly later.
+    await new Promise((r) => setTimeout(r, 5));
     await inboundSms("+15145550100", "+14185550199", "On peut se voir jeudi?");
     const res = await suggestions(u.auth);
     expect(res.statusCode).toBe(200);
@@ -216,7 +218,7 @@ describe("AI happy paths (fake gateway)", () => {
     expect(gw.classifySms).toHaveBeenCalledTimes(1);
   });
 
-  it("spam: inbound calls get a local « Appel suspect » label; emergency callbacks never do", async () => {
+  it("spam: inbound calls get a local « Spam probable » label; emergency callbacks never do", async () => {
     const u = await premiumUser();
     await twilioPost(ctx, "/webhooks/twilio/voice/inbound", { CallSid: "CAspam", From: "+18765550123", To: "+15145550100", StirVerstat: "TN-Validation-Failed" });
     await twilioPost(ctx, "/webhooks/twilio/voice/inbound", { CallSid: "CAok", From: "+14185550199", To: "+15145550100", StirVerstat: "TN-Validation-Passed-A" });

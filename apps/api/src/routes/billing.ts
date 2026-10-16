@@ -23,6 +23,7 @@ import { getFeatures, getPlan, outboundBlocked, recomputeEntitlements, usagePeri
 import { redeemReferral, settleReferralOnPaidPlan } from "../services/referrals.js";
 import { purchaseFromApplePayload, verifyAppleTransactionJws, verifyGoogleSubscription } from "../billing/iap.js";
 import { quebecTaxLines } from "../billing/taxes.js";
+import { BUSINESS_PLANS, businessSubscription } from "../pbx/engine.js";
 import type { CheckoutLine } from "../gateways/billing.js";
 
 const CheckoutBody = z
@@ -256,6 +257,30 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000) : null,
     });
     await recomputeEntitlements(repo, account);
+    if (kind === "plan" && BUSINESS_PLANS.has(code as PlanCode)) await syncBusinessSeats(account, sub, item?.quantity ?? 1);
+  }
+
+  /**
+   * PBX-01: Stripe is the source of truth for MIMT Affaires lines. The seat count follows the quantity of the
+   * business subscription that counts (a stale event of an old subscription never overwrites the live one).
+   * Plan status comes from the subscription row: past_due = payment attention (service continues),
+   * canceled/unpaid = business outbound calls refused by the PBX engine (inbound and 9-1-1 unchanged).
+   */
+  async function syncBusinessSeats(account: TelecomAccount, sub: Stripe.Subscription, quantity: number) {
+    const business = await repo.pbx.getBusinessByAccount(account.id);
+    if (!business) return;
+    const current = businessSubscription(await repo.listSubscriptions(account.id));
+    if (current && current.stripeSubscriptionId !== sub.id) return;
+    const before = await repo.pbx.getSeats(business.id);
+    const seats = Math.min(500, Math.max(1, quantity));
+    await repo.pbx.setSeats(business.id, seats, sub.id);
+    await repo.audit({
+      actorUserId: null,
+      action: "business.billing_synced",
+      targetType: "business",
+      targetId: business.id,
+      meta: { status: sub.status, seats, previousSeats: before.seats, paymentAttention: sub.status === "past_due" },
+    });
   }
 
   /** Stores the card fingerprint of a paid invoice/payment (referral anti-fraud). Never fails the webhook. */

@@ -13,6 +13,7 @@ import type { RateLimiter } from "./fraud/rateLimiter.js";
 import type { Repository } from "./repo/types.js";
 import type { Notifier } from "./services/notifier.js";
 import type { EmailSender } from "./services/email.js";
+import type { VideoGateway } from "./video/gateway.js";
 
 export interface AppDeps {
   config: Config;
@@ -42,4 +43,6 @@ export interface AppDeps {
   provisioning?: ProvisioningProvider | null;
   /** Twilio Porting API (number port-in). Absent or null: requests are recorded and signed, then wait for ops. */
   porting?: TwilioPortingGateway | null;
+  /** Réunions MIMT SFU (LiveKit). Absent or null: meeting routes answer 503 not_configured. */
+  video?: VideoGateway | null;
 }

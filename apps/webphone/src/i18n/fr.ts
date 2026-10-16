@@ -4,9 +4,11 @@
 // l'application mobile reprennent apps/mobile/src/i18n/fr.ts.
 
 import { frExtra } from "./fr.extra";
+import { frMeet } from "./fr.meet";
 
 export const fr = {
   ...frExtra,
+  ...frMeet,
   "account.billingPortal": "Gérer la facturation",
   "account.complaints": "Plaintes : CPRST (Commission des plaintes relatives aux services de télécom-télévision)",
   "account.complaintsHint": "Si nous ne réglons pas votre plainte, la CPRST peut vous aider gratuitement.",
@@ -186,6 +188,8 @@ export const fr = {
   "biz.seats": "Lignes",
   "biz.seatsHint": "{price} par ligne par mois, taxes en sus.",
   "biz.seatsSaved": "Nombre de lignes mis à jour.",
+  "biz.billingPastDue": "Paiement en retard : mettez à jour votre carte dans la facturation pour garder vos lignes actives.",
+  "biz.billingCanceled": "Abonnement annulé : les appels sortants de l'entreprise sont bloqués. Les appels entrants et le 9-1-1 restent disponibles.",
   "biz.seatsTotal": "Total : {total} par mois, taxes en sus.",
   "biz.title": "MIMT Affaires",
   "biz.usage": "Utilisation partagée ce mois-ci",
@@ -489,8 +493,8 @@ export const fr = {
   "signin.webLead": "Appelez, textez et écoutez vos messages vocaux depuis votre ordinateur, avec votre numéro MIMT.",
   "signin.webTitle": "MIMT Web",
 
-  "spam.call": "Appel suspect",
-  "spam.message": "Message suspect",
+  "spam.call": "Spam probable",
+  "spam.message": "Spam probable",
 
   "tabs.account": "Compte",
   "tabs.calls": "Appels",

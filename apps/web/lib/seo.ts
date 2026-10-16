@@ -2,7 +2,7 @@
 // No LocalBusiness: the repo has no street address for MIMT (only "Montréal, Québec"), so none is invented.
 
 import { PLANS, type PlanCode } from "@mimt/shared";
-import { CONTACT_EMAIL, LABELS, ROUTES, SITE_URL, type Lang, type RouteKey } from "./site.ts";
+import { APP_URL, CONTACT_EMAIL, LABELS, ROUTES, SITE_URL, type Lang, type RouteKey } from "./site.ts";
 import type { FaqItem } from "./faq.ts";
 
 export type JsonLdObject = Record<string, unknown>;
@@ -151,16 +151,41 @@ export function serviceLd(lang: Lang, line: "mobile" | "business"): JsonLdObject
   };
 }
 
-export function faqPageLd(lang: Lang, items: FaqItem[]): JsonLdObject {
+export function faqPageLd(lang: Lang, items: FaqItem[], page: RouteKey = "help"): JsonLdObject {
   return {
     "@type": "FAQPage",
-    "@id": `${abs(ROUTES.help[lang])}#faq`,
+    "@id": `${abs(ROUTES[page][lang])}#faq`,
     inLanguage: inLanguage(lang),
     mainEntity: items.map((i) => ({
       "@type": "Question",
       name: i.q,
       acceptedAnswer: { "@type": "Answer", text: i.a },
     })),
+  };
+}
+
+/**
+ * The MIMT app (web app today; iPhone and Android apps announced, not published). Offers come from
+ * PLANS. No aggregateRating / review: MIMT has no published ratings, and none is ever invented.
+ */
+export function softwareApplicationLd(lang: Lang): JsonLdObject {
+  const fr = lang === "fr";
+  const codes: PlanCode[] = ["free", "lock", "premium"];
+  return {
+    "@type": "SoftwareApplication",
+    "@id": `${SITE_URL}/#app`,
+    name: "MIMT",
+    applicationCategory: "CommunicationApplication",
+    applicationSubCategory: fr ? "Téléphonie par Internet (VoIP)" : "Internet phone (VoIP)",
+    operatingSystem: fr ? "Navigateur Web (iOS et Android : bientôt)" : "Web browser (iOS and Android: coming soon)",
+    url: APP_URL,
+    installUrl: APP_URL,
+    inLanguage: ["fr-CA", "en-CA"],
+    description: fr
+      ? "Un numéro de téléphone canadien dans une app : appels et textos par Wi‑Fi ou données, messagerie vocale, transfert de numéro sans frais MIMT."
+      : "A Canadian phone number in an app: calls and texts over Wi‑Fi or data, voicemail, number transfer with no MIMT fee.",
+    publisher: { "@id": ORG_ID },
+    offers: codes.map((c) => planOfferLd(c, lang)),
   };
 }
 

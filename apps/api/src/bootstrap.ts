@@ -18,6 +18,7 @@ import { MemoryRepository } from "./repo/memory.js";
 import { PostgresRepository } from "./repo/postgres.js";
 import { LogNotifier } from "./services/notifier.js";
 import { createEmailSender } from "./services/email.js";
+import { createVideoGateway } from "./video/gateway.js";
 
 export const createLogger = (config: Config): Logger =>
   pino({ level: config.LOG_LEVEL, redact: { paths: REDACT_PATHS, censor: "[redacted]" } });
@@ -73,6 +74,9 @@ export function createDeps(config: Config, log: Logger): AppDeps {
   const porting = twilio && config.TWILIO_PORTING_ENABLED ? new TwilioRestPortingGateway(config) : null;
   if (!porting) log.warn("TWILIO_PORTING_ENABLED not set: port-in requests are signed and recorded, then wait for manual submission");
 
+  const video = createVideoGateway(config);
+  if (!video) log.warn("LIVEKIT_URL/LIVEKIT_API_KEY/LIVEKIT_API_SECRET not set: video meetings answer 503");
+
   return {
     config,
     repo,
@@ -91,6 +95,7 @@ export function createDeps(config: Config, log: Logger): AppDeps {
     now: () => new Date(),
     provisioning,
     porting,
+    video,
     ai: createAiServices({ config, ...(repo instanceof PostgresRepository ? { sql: repo.sql } : {}), log }),
   };
 }

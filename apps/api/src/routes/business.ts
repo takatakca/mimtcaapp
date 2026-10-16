@@ -2,6 +2,7 @@
 // Access: every route goes through businessAccess (not a member → 404, role too low → 403).
 // Routing logic itself lives in src/pbx/ (router.ts is pure and unit-tested).
 
+import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import {
   DEFAULT_WEEKLY_SCHEDULE,
@@ -55,11 +56,12 @@ import {
   WeeklySchema,
   type BusinessContext,
 } from "../pbx/access.js";
-import { BUSINESS_PLANS, businessPlan } from "../pbx/engine.js";
+import { businessPlan, businessSubscription } from "../pbx/engine.js";
 import { isOpen } from "../pbx/router.js";
 import type { BusinessRow, ExtensionRow } from "../repo/pbxTypes.js";
 import type { Call } from "../repo/types.js";
-import { getFeatures, HELD_STATES, outboundBlocked } from "../services/accounts.js";
+import { getFeatures, HELD_STATES, isLiveSubscription, outboundBlocked } from "../services/accounts.js";
+import { createPlanCheckout } from "../billing/planCheckout.js";
 import { e911Ready } from "./e911.js";
 
 /** Lifetime of the signed recording URLs. */
@@ -155,7 +157,8 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
     repo.audit({ actorUserId: ctx.user.id, action, targetType: "business", targetId, ip: req.ip, ...(meta ? { meta } : {}) });
 
   async function response(business: BusinessRow, role: BusinessResponse["role"]): Promise<BusinessResponse> {
-    return { business: businessDto(business), role, seats: (await pbx.getSeats(business.id)).seats };
+    const info = await businessPlan(deps, business);
+    return { business: businessDto(business), role, seats: info.seats, billingStatus: info.billingStatus };
   }
 
   /** Feature of the business plan (Affaires / Affaires Pro), else 403 plan_required. */
@@ -652,21 +655,70 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
   });
 
   /**
-   * Seats (lines). Pooled caps multiply by seats, so seats can never exceed the quantity of the paid
-   * business subscription (kept in sync by the Stripe webhook); buying lines goes through billing.
+   * Seats (lines), PBX-01. Owner/admin. Stripe is the source of truth: this changes the quantity of the
+   * business subscription (prorated, idempotent) and mirrors it; the customer.subscription.updated webhook
+   * confirms it. No subscription yet → a Stripe Checkout URL with quantity = count (seats sync on payment).
+   * Never below the lines in use (one per extension).
    */
   app.post("/v1/business/:id/seats", auth, async (req): Promise<SeatsResponse> => {
-    const ctx = await businessAccess(deps, req, "owner");
-    const { count } = parse(z.object({ count: z.number().int().min(1).max(500) }), req.body);
-    const subs = await repo.listSubscriptions(ctx.business.telecomAccountId);
-    const paid = subs.find((s) => s.kind === "plan" && BUSINESS_PLANS.has(s.code as never) && (s.status === "active" || s.status === "trialing"));
-    if (!paid) throw forbidden("plan_required", "A business plan is required");
-    if (count > paid.quantity) throw conflict("seats_exceed_subscription", "Add lines in billing first");
-    const active = (await pbx.listMembers(ctx.business.id)).filter((m) => m.status === "active").length;
-    if (count < active) throw conflict("seats_below_members", "Remove members before removing lines");
-    const seats = await pbx.setSeats(ctx.business.id, count, paid.stripeSubscriptionId);
-    await audit(ctx, req, "business.seats", ctx.business.id, { count });
-    return { seats: seats.seats };
+    const ctx = await businessAccess(deps, req, "admin");
+    const { count, plan } = parse(
+      z.object({ count: z.number().int().min(1).max(500), plan: z.enum(["business", "business_pro"]).optional() }),
+      req.body,
+    );
+    const clientKey = req.headers["idempotency-key"];
+    if (clientKey !== undefined && (typeof clientKey !== "string" || !/^[A-Za-z0-9_-]{8,128}$/.test(clientKey))) {
+      throw badRequest("invalid_idempotency_key", "Clé d'idempotence invalide (8 à 128 caractères A-Z, a-z, 0-9, _ ou -).");
+    }
+    const inUse = (await pbx.listExtensions(ctx.business.id)).length;
+    if (count < inUse) {
+      throw conflict(
+        "seats_below_members",
+        `Impossible de passer à ${count} ligne${count > 1 ? "s" : ""} : ${inUse} postes utilisent une ligne. Retirez des postes avant de retirer des lignes.`,
+      );
+    }
+    if (!deps.billing) throw notConfigured("Billing");
+    const account = await repo.getAccount(ctx.business.telecomAccountId);
+    if (!account) throw notFound();
+    const sub = businessSubscription(await repo.listSubscriptions(account.id));
+    const live = sub && isLiveSubscription(sub) ? sub : null;
+
+    if (!live) {
+      const session = await createPlanCheckout(deps, { account, user: ctx.user, plan: plan ?? "business", quantity: count });
+      await audit(ctx, req, "business.seats_checkout", ctx.business.id, { count, plan: plan ?? "business" });
+      return { seats: (await pbx.getSeats(ctx.business.id)).seats, checkoutUrl: session.url, billingStatus: sub?.status ?? null };
+    }
+    if (live.source !== "stripe" || !live.stripeSubscriptionId) {
+      throw conflict("seats_not_stripe", "Les lignes de ce forfait ne se gèrent pas par Stripe. Communiquez avec le soutien MIMT.");
+    }
+    if (count !== live.quantity) {
+      const idempotencyKey = `seats:${ctx.business.id}:${live.stripeSubscriptionId}:${live.quantity}-${count}:${clientKey ?? randomUUID()}`;
+      try {
+        await deps.billing.updateSeatQuantity({
+          subscriptionId: live.stripeSubscriptionId,
+          quantity: count,
+          prorationBehavior: "create_prorations",
+          idempotencyKey,
+          locale: ctx.user.locale,
+        });
+      } catch (err) {
+        req.log.error({ err, businessId: ctx.business.id }, "Stripe seat update failed");
+        throw new HttpError(502, "billing_unavailable", "La facturation n'a pas pu modifier le nombre de lignes. Réessayez plus tard.");
+      }
+      await repo.upsertSubscription({
+        telecomAccountId: live.telecomAccountId,
+        kind: live.kind,
+        code: live.code,
+        quantity: count,
+        stripeSubscriptionId: live.stripeSubscriptionId,
+        status: live.status,
+        source: live.source,
+        currentPeriodEnd: live.currentPeriodEnd,
+      });
+    }
+    const seats = await pbx.setSeats(ctx.business.id, count, live.stripeSubscriptionId);
+    await audit(ctx, req, "business.seats", ctx.business.id, { count, previous: live.quantity });
+    return { seats: seats.seats, billingStatus: live.status };
   });
 
   // --------------------------------------------------------------------- on-demand recording
