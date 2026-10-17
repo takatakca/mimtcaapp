@@ -91,6 +91,16 @@ export function DownloadPrompt({ lang, auto = true }: { lang: Lang; auto?: boole
     return cleanup;
   }, [auto, show]);
 
+  // While the small sheet is up, the sticky mobile CTA bar (same two actions) steps aside instead of
+  // stacking under it (styles/home.css: html[data-sheet]).
+  const sheetUp = sheet && !open;
+  useEffect(() => {
+    if (!sheetUp) return;
+    const root = document.documentElement;
+    root.setAttribute("data-sheet", "");
+    return () => root.removeAttribute("data-sheet");
+  }, [sheetUp]);
+
   // Modal behaviour: focus inside, Esc closes, Tab stays inside, page behind does not scroll.
   useEffect(() => {
     if (!open) return;
@@ -127,7 +137,7 @@ export function DownloadPrompt({ lang, auto = true }: { lang: Lang; auto?: boole
 
   return (
     <>
-      {sheet && !open ? (
+      {sheetUp ? (
         <div className="dl-sheet" role="dialog" aria-modal="false" aria-labelledby={sheetTitleId}>
           <p className="dl-sheet__title" id={sheetTitleId}>
             {fr ? "Utilisez MIMT dans votre navigateur" : "Use MIMT in your browser"}

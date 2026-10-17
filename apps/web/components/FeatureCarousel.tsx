@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/Visuals";
+import { nearestSlide, scrollLeftFor, shownSlides, wrapIndex, type TrackGeometry } from "@/lib/carousel";
 
 export interface Slide {
   icon: IconName;
@@ -22,10 +23,15 @@ export function FeatureCarousel({ lang, label, slides }: { lang: Lang; label: st
   const fr = lang === "fr";
   const track = useRef<HTMLUListElement>(null);
   const [index, setIndex] = useState(0);
+  // Slides at least half on screen. Before hydration (and without JavaScript) every slide is shown.
+  const [shown, setShown] = useState<boolean[]>(() => slides.map(() => true));
   const [playing, setPlaying] = useState(true);
   const [hover, setHover] = useState(false);
   const [focus, setFocus] = useState(false);
   const [reduce, setReduce] = useState(true);
+  // Slide picked with a dot, an arrow or autoplay. It stays the active one while the track scrolls
+  // to it: when several slides fit on screen, the last ones share the same end-of-track position.
+  const requested = useRef<number | null>(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -37,41 +43,45 @@ export function FeatureCarousel({ lang, label, slides }: { lang: Lang; label: st
     (i: number) => {
       const el = track.current;
       if (!el) return;
-      const n = slides.length;
-      const target = ((i % n) + n) % n;
-      const item = el.children[target] as HTMLElement | undefined;
-      if (!item) return;
-      el.scrollTo({ left: item.offsetLeft - el.offsetLeft, behavior: reduce ? "auto" : "smooth" });
+      const target = wrapIndex(i, slides.length);
+      requested.current = target;
+      setIndex(target);
+      el.scrollTo({ left: scrollLeftFor(target, geometry(el)), behavior: reduce ? "auto" : "smooth" });
     },
     [slides.length, reduce],
   );
 
-  // Track the slide closest to the left edge.
+  // Follow free scrolling (swipe, trackpad, wheel); keep the requested slide otherwise.
   useEffect(() => {
     const el = track.current;
     if (!el) return;
     let raf = 0;
-    const onScroll = () => {
+    const update = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        const items = [...el.children] as HTMLElement[];
-        let best = 0;
-        let dist = Infinity;
-        items.forEach((it, i) => {
-          const d = Math.abs(it.offsetLeft - el.offsetLeft - el.scrollLeft);
-          if (d < dist) {
-            dist = d;
-            best = i;
-          }
+        const g = geometry(el);
+        setShown((prev) => {
+          const next = shownSlides(g);
+          return next.length === prev.length && next.every((v, i) => v === prev[i]) ? prev : next;
         });
-        // At the very end of the track, the last slide counts as active.
-        if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 4) best = items.length - 1;
-        setIndex(best);
+        if (requested.current === null) setIndex(nearestSlide(g));
       });
     };
-    el.addEventListener("scroll", onScroll, { passive: true });
+    const release = () => {
+      requested.current = null;
+    };
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    el.addEventListener("pointerdown", release, { passive: true });
+    el.addEventListener("touchstart", release, { passive: true });
+    el.addEventListener("wheel", release, { passive: true });
+    window.addEventListener("resize", update);
     return () => {
-      el.removeEventListener("scroll", onScroll);
+      el.removeEventListener("scroll", update);
+      el.removeEventListener("pointerdown", release);
+      el.removeEventListener("touchstart", release);
+      el.removeEventListener("wheel", release);
+      window.removeEventListener("resize", update);
       cancelAnimationFrame(raf);
     };
   }, []);
@@ -80,9 +90,7 @@ export function FeatureCarousel({ lang, label, slides }: { lang: Lang; label: st
     if (!playing || hover || focus || reduce) return;
     const t = window.setInterval(() => {
       if (document.hidden) return;
-      const el = track.current;
-      const atEnd = el ? el.scrollLeft + el.clientWidth >= el.scrollWidth - 4 : false;
-      goTo(atEnd ? 0 : index + 1);
+      goTo(index + 1);
     }, AUTOPLAY_MS);
     return () => window.clearInterval(t);
   }, [playing, hover, focus, reduce, index, goTo]);
@@ -133,6 +141,8 @@ export function FeatureCarousel({ lang, label, slides }: { lang: Lang; label: st
             role="group"
             aria-roledescription={fr ? "diapositive" : "slide"}
             aria-label={`${i + 1} ${fr ? "sur" : "of"} ${slides.length} : ${s.title}`}
+            // Off-screen slides: Tab skips their links (reach them with the arrows or the dots).
+            inert={shown[i] === false ? true : undefined}
           >
             <span className="carousel__icon">
               <Icon name={s.icon} />
@@ -165,3 +175,15 @@ export function FeatureCarousel({ lang, label, slides }: { lang: Lang; label: st
 }
 
 type Lang = "fr" | "en";
+
+/** Slide positions relative to the start of the track. */
+function geometry(el: HTMLElement): TrackGeometry {
+  const items = [...el.children] as HTMLElement[];
+  return {
+    lefts: items.map((it) => it.offsetLeft - el.offsetLeft),
+    widths: items.map((it) => it.offsetWidth),
+    scrollLeft: el.scrollLeft,
+    clientWidth: el.clientWidth,
+    scrollWidth: el.scrollWidth,
+  };
+}

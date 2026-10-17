@@ -188,6 +188,14 @@ jobs:
           VITE_API_URL: ${{ vars.API_URL || 'https://api.mimt.ca' }}
           VITE_TAKATAK_ISSUER: ${{ vars.TAKATAK_ISSUER }}
           VITE_TAKATAK_CLIENT_ID: ${{ vars.TAKATAK_CLIENT_ID }}
+      - name: Check the build embeds the released commit in mimt-release.json
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # vite.config.ts writes {"commit":"$GITHUB_SHA"}; app.mimt.ca/mimt-release.json is verified after upload.
+          jq -e --arg expected "$RELEASE_SHA" '.commit == $expected' apps/webphone/dist/mimt-release.json >/dev/null
+          test -f apps/webphone/dist/.htaccess
       - name: Upload app.mimt.ca
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -198,27 +206,34 @@ jobs:
           local-dir: ./apps/webphone/dist/
           server-dir: ${{ inputs.webphone_ftp_dir }}
 
-      - name: Verify live app.mimt.ca is serving the MIMT web app
+      - name: Verify live app.mimt.ca is serving the MIMT web app at released commit
         shell: bash
+        env:
+          RELEASE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           for attempt in {1..10}; do
             html="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://app.mimt.ca/?release=${GITHUB_SHA}" 2>/dev/null || true)"
-            if grep -Fqi 'MIMT Web' <<<"$html" && grep -Fq 'id="root"' <<<"$html"; then
+            manifest="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://app.mimt.ca/mimt-release.json?release=${RELEASE_SHA}" 2>/dev/null || true)"
+            # The SPA fallback answers unknown paths with index.html, which jq rejects: a stale or
+            # partial upload without this release's manifest can never pass.
+            if ! jq -e --arg expected "$RELEASE_SHA" '.commit == $expected' <<<"$manifest" >/dev/null 2>&1; then
+              echo "Attempt ${attempt}/10: app.mimt.ca/mimt-release.json does not report commit ${RELEASE_SHA} yet."
+            elif grep -Fqi 'MIMT Web' <<<"$html" && grep -Fq 'id="root"' <<<"$html"; then
               # A healthy root page is not enough: the router needs Apache SPA fallback.
               if ! curl -fsSL --connect-timeout 8 --max-time 20 "https://app.mimt.ca/connexion" | grep -Fqi 'MIMT Web'; then
                 echo "Attempt ${attempt}/10: /connexion does not serve the SPA (check uploaded .htaccess)."
               elif ! curl -fsSL --connect-timeout 8 --max-time 20 "https://app.mimt.ca/messages" | grep -Fqi 'MIMT Web'; then
                 echo "Attempt ${attempt}/10: /messages does not serve the SPA (check uploaded .htaccess)."
               else
-                echo "Verified: app.mimt.ca serves the app shell and browser deep links."
+                echo "Verified: app.mimt.ca serves the app shell and browser deep links at commit ${RELEASE_SHA}."
                 exit 0
               fi
             fi
             echo "Attempt ${attempt}/10: app.mimt.ca is not serving the expected web app."
             sleep 10
           done
-          echo "::error::FTP sync finished but app.mimt.ca does not serve the MIMT Web app. Check cPanel document root, WEBPHONE_FTP_DIR, DNS and SSL."
+          echo "::error::FTP sync finished but app.mimt.ca does not serve the MIMT Web app at the released commit. Check cPanel document root, WEBPHONE_FTP_DIR, DNS, SSL, server/CDN cache and mimt-release.json."
           exit 1
 
   api:

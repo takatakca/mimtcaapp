@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 /**
  * Small progressive enhancements, all in one place (≈1 kB): shrinking sticky header, scroll reveal,
- * counters, button ripple and card tilt. Without JavaScript, or with prefers-reduced-motion,
+ * counters, button ripple, card tilt and Escape for the mobile menu. Without JavaScript, or with prefers-reduced-motion,
  * everything is visible and still.
  */
 export function SiteEffects() {
@@ -76,8 +76,22 @@ export function SiteEffects() {
       el.addEventListener("pointerleave", leave);
     });
 
+    // Mobile menu (<details class="nav-mobile">): Escape closes it and returns focus to its toggle.
+    // An open modal (download prompt) handles Escape itself and keeps priority.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      const menu = document.querySelector<HTMLDetailsElement>("details.nav-mobile[open]");
+      if (!menu) return;
+      e.preventDefault();
+      menu.open = false;
+      menu.querySelector<HTMLElement>("summary")?.focus();
+    };
+    document.addEventListener("keydown", onKey);
+
     return () => {
       window.removeEventListener("scroll", onScroll);
+      document.removeEventListener("keydown", onKey);
       document.removeEventListener("pointerdown", onDown);
       io?.disconnect();
       tilts.forEach((el) => {

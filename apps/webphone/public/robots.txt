@@ -1,0 +1,4 @@
+# app.mimt.ca is a signed-in app, not a website. Crawling stays allowed on purpose so search
+# engines can read the noindex (X-Robots-Tag header and <meta name="robots">) and drop the pages.
+User-agent: *
+Disallow:
