@@ -1,0 +1,82 @@
+name: MIMT API crash-loop diagnostic (read-only)
+
+# Temporary, read-only. Prints Coolify application status and only error/fatal log lines
+# (level, msg, err type/message, truncated). Never prints env values, URLs, UUIDs or bodies.
+on:
+  push:
+    branches: [diag/mimt-api-crashloop-20261017]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Coolify status and recent error logs
+        shell: bash
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re, urllib.request, urllib.error, urllib.parse
+          base=os.environ.get("COOLIFY_URL","").rstrip("/")+"/api/v1"
+          tok=os.environ.get("COOLIFY_TOKEN",""); uuid=os.environ.get("COOLIFY_API_UUID","")
+          if not base.startswith("https://") or not tok or not uuid: raise SystemExit("missing Coolify credentials")
+          H={"Authorization":"Bearer "+tok,"Accept":"application/json"}
+          q=urllib.parse.quote(uuid,safe="")
+          def get(p):
+              try:
+                  with urllib.request.urlopen(urllib.request.Request(base+p,headers=H),timeout=25) as r:
+                      return json.loads(r.read(4_000_000).decode())
+              except urllib.error.HTTPError as e:
+                  print("GET", p.split("?")[0].replace(uuid,"<app>"), "HTTP", e.code); return None
+              except Exception as e:
+                  print("GET failed:", type(e).__name__); return None
+          app=get("/applications/"+q)
+          if isinstance(app,dict):
+              for k in ("status","health_check_enabled","health_check_path","health_check_port","health_check_interval","health_check_timeout","health_check_retries","health_check_start_period","limits_memory","limits_memory_swap","limits_cpus","ports_exposes","restart_count","last_restart_at","last_restart_type","custom_docker_run_options"):
+                  if k in app:
+                      v=app.get(k)
+                      if k=="custom_docker_run_options": v=bool(v)
+                      print("app."+k, "=", str(v)[:80])
+          envs=get("/applications/"+q+"/envs")
+          if isinstance(envs,dict): envs=envs.get("data",[])
+          if isinstance(envs,list):
+              keys={e.get("key") for e in envs if isinstance(e,dict)}
+              for k in ("PORT","HOST","NODE_ENV","NODE_OPTIONS","MIMT_STANDALONE_MIGRATE_CONFIRM"):
+                  print("env", k, "present:", k in keys)
+              for e in envs:
+                  if isinstance(e,dict) and e.get("key") in ("PORT","HOST","NODE_ENV"):
+                      v=e.get("real_value") or e.get("value") or ""
+                      print("env", e["key"], "=", v if re.fullmatch(r"[A-Za-z0-9.]{1,20}", v or "") else "<non-trivial>")
+          logs=get("/applications/"+q+"/logs?lines=400")
+          text=""
+          if isinstance(logs,dict): text=logs.get("logs") or logs.get("data") or ""
+          if isinstance(text,list): text="\n".join(map(str,text))
+          lines=str(text).splitlines()
+          print("log lines fetched:", len(lines))
+          starts=sum(1 for l in lines if "Server listening" in l or "startup bootstrap complete" in l)
+          print("startups in window:", starts)
+          shown=0
+          for l in lines:
+              m=None
+              try:
+                  j=json.loads(l[l.index("{"):]) if "{" in l else None
+              except Exception: j=None
+              if isinstance(j,dict):
+                  lvl=j.get("level")
+                  if isinstance(lvl,int) and lvl>=50 or lvl in ("error","fatal"):
+                      err=j.get("err") or {}
+                      print("ERR", lvl, str(j.get("msg",""))[:120], "|", str(err.get("type",""))[:40], str(err.get("message",""))[:160].replace(uuid,"<app>"))
+                      shown+=1
+              elif re.search(r"(Error|error|FATAL|Killed|out of memory|ECONN|ETIMEDOUT|heap|SIGTERM|SIGKILL)", l):
+                  s=re.sub(r"(postgres(ql)?://)\S+", r"\1<redacted>", l)
+                  s=re.sub(r"[A-Za-z0-9+/=_-]{32,}", "<redacted>", s)
+                  print("LINE", s[:220]); shown+=1
+              if shown>=60: break
+          print("error lines shown:", shown)
+          PY
