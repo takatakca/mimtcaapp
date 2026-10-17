@@ -79,4 +79,50 @@ jobs:
                   print("LINE", s[:220]); shown+=1
               if shown>=60: break
           print("error lines shown:", shown)
+
+          # Pass 2: duplicate routes, server load hints, gaps in request logs.
+          apps=get("/applications")
+          if isinstance(apps,dict): apps=apps.get("data",[])
+          if isinstance(apps,list):
+              print("applications total:", len(apps))
+              for a in apps:
+                  if not isinstance(a,dict): continue
+                  f=str(a.get("fqdn") or "")
+                  if "mimt" in f:
+                      print("app with mimt domain:", "api.mimt.ca" in f, "| this app:", a.get("uuid")==uuid, "| status:", str(a.get("status"))[:40], "| name:", str(a.get("name"))[:30])
+          svcs=get("/services")
+          if isinstance(svcs,dict): svcs=svcs.get("data",[])
+          if isinstance(svcs,list):
+              print("services total:", len(svcs))
+              for sv in svcs:
+                  if isinstance(sv,dict):
+                      print("service:", str(sv.get("name"))[:30], "| status:", str(sv.get("status"))[:40])
+          dbs=get("/databases")
+          if isinstance(dbs,dict): dbs=dbs.get("data",[])
+          if isinstance(dbs,list):
+              for d in dbs:
+                  if isinstance(d,dict): print("database:", str(d.get("name"))[:30], "| status:", str(d.get("status"))[:40], "| mem limit:", d.get("limits_memory"))
+          servers=get("/servers")
+          if isinstance(servers,list):
+              for sv in servers:
+                  if isinstance(sv,dict):
+                      print("server reachable:", sv.get("is_reachable"), "| usable:", sv.get("is_usable"), "| proxy:", str((sv.get("proxy") or {}).get("type") if isinstance(sv.get("proxy"),dict) else sv.get("proxy_type"))[:20])
+          import datetime
+          ts=[]; slow=0; codes={}
+          for l in lines:
+              if "{" not in l: continue
+              try: j=json.loads(l[l.index("{"):])
+              except Exception: continue
+              t=j.get("time")
+              if isinstance(t,(int,float)): ts.append(t/1000 if t>1e12 else t)
+              rt=j.get("responseTime")
+              if isinstance(rt,(int,float)) and rt>2000: slow+=1
+              sc=(j.get("res") or {}).get("statusCode") if isinstance(j.get("res"),dict) else None
+              if sc: codes[sc]=codes.get(sc,0)+1
+          ts.sort()
+          print("json log lines:", len(ts), "| slow responses >2s:", slow, "| status codes:", codes)
+          if ts:
+              print("log window:", datetime.datetime.utcfromtimestamp(ts[0]).strftime("%H:%M:%S"), "->", datetime.datetime.utcfromtimestamp(ts[-1]).strftime("%H:%M:%S"))
+              gaps=[(ts[i]-ts[i-1], ts[i-1]) for i in range(1,len(ts)) if ts[i]-ts[i-1]>12]
+              print("gaps >12s:", [(round(g), datetime.datetime.utcfromtimestamp(t).strftime("%H:%M:%S")) for g,t in gaps[:20]])
           PY
