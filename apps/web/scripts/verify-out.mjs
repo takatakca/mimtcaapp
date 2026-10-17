@@ -14,6 +14,15 @@ for (const f of ["sitemap.xml", "robots.txt", "llms.txt", "404.html", "og.png", 
   if (!existsSync(join(out, f))) fail(`missing out/${f}`);
 }
 
+// Apache (MochaHost) config: HTTPS + www redirects, security headers, branded 404 (public/.htaccess).
+const htaccess = existsSync(join(out, ".htaccess")) ? readFileSync(join(out, ".htaccess"), "utf8") : "";
+if (!htaccess) fail("missing out/.htaccess (copied from public/.htaccess)");
+else {
+  for (const needle of ["ErrorDocument 404 /404.html", "Strict-Transport-Security", "Content-Security-Policy", "RewriteRule ^ https://mimt.ca%{REQUEST_URI} [R=301,L,NE]"]) {
+    if (!htaccess.includes(needle)) fail(`out/.htaccess: missing ${needle}`);
+  }
+}
+
 const sitemap = existsSync(join(out, "sitemap.xml")) ? readFileSync(join(out, "sitemap.xml"), "utf8") : "";
 const site = (sitemap.match(/<loc>(https?:\/\/[^/<]+)\//) ?? [])[1] ?? "https://mimt.ca";
 const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);

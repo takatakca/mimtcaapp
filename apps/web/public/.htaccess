@@ -1,0 +1,53 @@
+# mimt.ca — Apache / cPanel (MochaHost) configuration for the static Next.js export.
+# `next build` copies this file from apps/web/public/ into out/ (scripts/verify-out.mjs checks it);
+# the FTP deploy uploads it (SamKirkland/FTP-Deploy-Action only excludes **/.git* and node_modules).
+# Every block is guarded by <IfModule>, so a host without a module serves the site instead of a 500.
+# Needs AllowOverride FileInfo and mod_headers + mod_rewrite on the host. Check live with:
+#   curl -sI http://www.mimt.ca/x?y=1   (301 → https://www.mimt.ca/x?y=1 → https://mimt.ca/x?y=1)
+#   curl -sI https://mimt.ca/ | grep -i -E 'strict-transport|content-security|x-frame'
+
+# Branded, bilingual 404 page (app/global-not-found.tsx) instead of Apache's default.
+ErrorDocument 404 /404.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # 1. HTTP -> HTTPS (301, same host, path and query kept). AutoSSL/ACME challenges stay on HTTP.
+  #    X-Forwarded-Proto avoids a redirect loop if TLS is ever terminated by a proxy/CDN in front.
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  RewriteCond %{REQUEST_URI} !^/\.well-known/
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L,NE]
+
+  # 2. www.mimt.ca -> mimt.ca (301, path and query kept; canonical tags already point to the apex).
+  RewriteCond %{HTTP_HOST} ^www\.mimt\.ca$ [NC]
+  RewriteCond %{REQUEST_URI} !^/\.well-known/
+  RewriteRule ^ https://mimt.ca%{REQUEST_URI} [R=301,L,NE]
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+  # CSP choices (static export, no server to add nonces):
+  # - script-src 'unsafe-inline': Next.js inlines its RSC payload (self.__next_f.push…) and bootstrap
+  #   scripts in every page; their hashes change with every build and every page, so hashes in a
+  #   static .htaccess would break the site. External scripts are still limited to this origin.
+  # - style-src 'unsafe-inline': style="" attributes (animation delays) and next/font CSS.
+  # - connect-src https:: the lead forms POST to NEXT_PUBLIC_FORMS_ENDPOINT (GitHub variable
+  #   FORMS_ENDPOINT, origin not known here). Narrow it to that origin once it is fixed.
+  # - Fonts are self-hosted (next/font/local); images are local or data: URIs.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; media-src 'self'; connect-src 'self' https:; manifest-src 'self'; worker-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:; frame-ancestors 'self'; upgrade-insecure-requests"
+
+  # Pages, RSC payloads and machine-readable files: always revalidated so a deploy shows at once.
+  <FilesMatch "\.(html|txt|xml|json|webmanifest)$">
+    Header always set Cache-Control "no-cache"
+  </FilesMatch>
+  # Content-hashed Next.js output (_next/static/…): cache for a year, never revalidate.
+  <If "%{REQUEST_URI} =~ m#^/_next/static/#">
+    Header always set Cache-Control "public, max-age=31536000, immutable"
+  </If>
+</IfModule>
