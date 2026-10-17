@@ -22,6 +22,13 @@
  
 **Mise à jour : 2026-10-14.** Repository `takatakca/mimtcaapp`, branche de publication `main`. À la reprise, **lire `AGENTS.md`, ce fichier, `WORKLOG.md`, vérifier HEAD GitHub et les Actions avant toute modification**. Un document de relève ne remplace jamais une vérification de `main`.
 
+## Relève — 17 octobre 2026 (claude, session 01GtWamF)
+
+- **En ligne et vérifié :** mimt.ca au commit `a0f0376` (PR #15) : redirections HTTPS et www, en-têtes de sécurité, 404 de marque, 0 erreur console. api.mimt.ca redéployée (Deploy portée `api` réussie).
+- **Panne intermittente de l'API (toutes les 1–2 min : blocage ~30 s puis 503 Traefik) :** pas un bug de code. Diagnostic en lecture seule (branche `diag/mimt-api-crashloop-20261017`, runs 38985422850 et 38985725105) : conteneur MIMT `running:healthy`, 0 redémarrage, aucune ligne d'erreur; l'API Coolify elle-même expire; le serveur héberge 17 applications, Redis TAKATAK prod/staging et le PostgreSQL MIMT, sans limites de ressources. → Propriétaire : métriques du serveur Coolify, arrêter les applications inutiles, agrandir le serveur ou isoler MIMT. Relancer ensuite le test : `curl https://api.mimt.ca/healthz` toutes les 3 s pendant 2 min.
+- **app.mimt.ca encore au build du 10 oct. :** secret `MOCHAHOST_APP_FTP_SERVER` mal formé (doit être un nom d'hôte seul). Connexion TAKATAK désactivée : variables GitHub `TAKATAK_ISSUER` et `TAKATAK_CLIENT_ID` vides. Formulaires du site en `mailto:` : `FORMS_ENDPOINT` vide.
+- **Prochaine action exacte :** quand le secret FTP est corrigé, lancer Deploy portée `webphone` et vérifier `https://app.mimt.ca/mimt-release.json` = SHA déployé (contrôle désormais automatique).
+
 ## Relève — 16 octobre 2026 (claude, session 01GtWamF)
 
 - **CI rouge depuis `ac01dcb`** (correctif courriel) : le test `notification-privacy` attendait encore que `LogEmailSender.send` réussisse. Le test vérifie maintenant le refus `email_provider_not_configured` et l'absence de destinataire, sujet et lien dans les journaux. Local : 348/348 sur PostgreSQL 16 jetable, typecheck et tests de tous les paquets verts.
