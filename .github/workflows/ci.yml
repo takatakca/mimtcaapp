@@ -40,6 +40,7 @@ jobs:
           grep -Fq 'id: release-gate' .github/workflows/auto-deploy-website.yml
           grep -Fq 'mimt-release.json' .github/workflows/auto-deploy-website.yml
           grep -Fq 'mimt-release.json' .github/workflows/deploy.yml
+          grep -Fq 'https://app.mimt.ca/mimt-release.json' .github/workflows/deploy.yml
       - name: Verify Apache SPA routing file included in built webphone
         run: |
           test -f apps/webphone/dist/.htaccess
@@ -48,6 +49,14 @@ jobs:
           grep -Fq 'Header always set Referrer-Policy "no-referrer"' apps/webphone/dist/.htaccess
           grep -Fq 'Header always set Cache-Control "no-cache, no-store, must-revalidate"' apps/webphone/dist/.htaccess
           grep -Fq 'name="robots" content="noindex, nofollow, noarchive"' apps/webphone/dist/index.html
+          grep -Fq 'Header always set Strict-Transport-Security' apps/webphone/dist/.htaccess
+          grep -Fq "frame-ancestors 'none'" apps/webphone/dist/.htaccess
+          jq -e --arg expected "$GITHUB_SHA" '.commit == $expected' apps/webphone/dist/mimt-release.json
+      - name: Verify Apache config included in the built website
+        run: |
+          test -f apps/web/out/.htaccess
+          grep -Fq 'ErrorDocument 404 /404.html' apps/web/out/.htaccess
+          grep -Fq 'Header always set Strict-Transport-Security' apps/web/out/.htaccess
 
   e2e:
     # Webphone (built, not mock mode) against the real API on its in-memory repository.

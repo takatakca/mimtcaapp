@@ -1323,6 +1323,14 @@ html[data-scrolled] .wordmark__name {
 html[data-scrolled] .mobile-cta {
   transform: none;
 }
+/* The download sheet replaces the bar while it is shown (same actions, never two stacked CTA rows). */
+html[data-sheet] .mobile-cta {
+  transform: translateY(110%);
+  visibility: hidden;
+  transition:
+    transform 0.3s ease,
+    visibility 0s 0.3s;
+}
 @media (min-width: 720px) {
   .mobile-cta {
     display: none;
@@ -1462,7 +1470,7 @@ html[data-scrolled] .mobile-cta {
   position: fixed;
   left: 12px;
   right: 12px;
-  bottom: calc(76px + env(safe-area-inset-bottom));
+  bottom: calc(12px + env(safe-area-inset-bottom));
   z-index: 70;
   padding: 14px 52px 14px 16px;
   border-radius: 18px;
