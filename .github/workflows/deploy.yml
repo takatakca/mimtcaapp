@@ -206,13 +206,22 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @mimt/shared build
+      # TAKATAK sign-in ids are public (they end up in the bundle) but are accepted as a variable or a secret,
+      # with or without the VITE_ prefix, because that is how they tend to get pasted.
+      - name: Check TAKATAK sign-in settings (names only, never values)
+        env:
+          ISSUER: ${{ vars.TAKATAK_ISSUER || vars.VITE_TAKATAK_ISSUER || secrets.TAKATAK_ISSUER || secrets.VITE_TAKATAK_ISSUER }}
+          CLIENT_ID: ${{ vars.TAKATAK_CLIENT_ID || vars.VITE_TAKATAK_CLIENT_ID || secrets.TAKATAK_CLIENT_ID || secrets.VITE_TAKATAK_CLIENT_ID }}
+        run: |
+          [[ -n "$ISSUER" ]] && echo "TAKATAK issuer: set" || echo "::warning::TAKATAK issuer missing: add repository variable TAKATAK_ISSUER (Settings › Secrets and variables › Actions › Variables). Sign-in with TAKATAK stays disabled."
+          [[ -n "$CLIENT_ID" ]] && echo "TAKATAK client id: set" || echo "::warning::TAKATAK client id missing: add repository variable TAKATAK_CLIENT_ID. Sign-in with TAKATAK stays disabled."
       - run: pnpm --filter @mimt/webphone build
         env:
           VITE_API_URL: ${{ vars.API_URL || 'https://api.mimt.ca' }}
-          VITE_TAKATAK_ISSUER: ${{ vars.TAKATAK_ISSUER }}
-          VITE_TAKATAK_CLIENT_ID: ${{ vars.TAKATAK_CLIENT_ID }}
+          VITE_TAKATAK_ISSUER: ${{ vars.TAKATAK_ISSUER || vars.VITE_TAKATAK_ISSUER || secrets.TAKATAK_ISSUER || secrets.VITE_TAKATAK_ISSUER }}
+          VITE_TAKATAK_CLIENT_ID: ${{ vars.TAKATAK_CLIENT_ID || vars.VITE_TAKATAK_CLIENT_ID || secrets.TAKATAK_CLIENT_ID || secrets.VITE_TAKATAK_CLIENT_ID }}
           # Free-plan web ads (Google AdSense). Public ids, not secrets; unset = no ads. docs/MIMT-LAUNCH.md « Publicités et coûts ».
-          VITE_ADSENSE_CLIENT: ${{ vars.ADSENSE_CLIENT }}
+          VITE_ADSENSE_CLIENT: ${{ vars.ADSENSE_CLIENT || 'ca-pub-4518068873401341' }}
           VITE_ADSENSE_SLOT_BANNER: ${{ vars.ADSENSE_SLOT_BANNER }}
           VITE_ADSENSE_SLOT_SIDEBAR: ${{ vars.ADSENSE_SLOT_SIDEBAR }}
       - name: Check the build embeds the released commit in mimt-release.json

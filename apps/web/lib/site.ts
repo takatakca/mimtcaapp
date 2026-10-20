@@ -26,6 +26,7 @@ export const ROUTES = {
   terms: { fr: "/conditions/", en: "/en/terms/" },
   accessibility: { fr: "/accessibilite/", en: "/en/accessibility/" },
   contact: { fr: "/contact/", en: "/en/contact/" },
+  about: { fr: "/a-propos/", en: "/en/about/" },
 } as const;
 
 export type RouteKey = keyof typeof ROUTES;
@@ -49,6 +50,7 @@ export const LABELS: Record<RouteKey, { fr: string; en: string }> = {
   terms: { fr: "Conditions", en: "Terms" },
   accessibility: { fr: "Accessibilité", en: "Accessibility" },
   contact: { fr: "Contact", en: "Contact" },
+  about: { fr: "À propos", en: "About" },
 };
 
 export const MAIN_NAV: RouteKey[] = ["plans", "business", "ai", "soon", "help", "contact"];

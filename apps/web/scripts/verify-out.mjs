@@ -10,7 +10,7 @@ const out = fileURLToPath(new URL("../out/", import.meta.url));
 const errors = [];
 const fail = (msg) => errors.push(msg);
 
-for (const f of ["sitemap.xml", "robots.txt", "llms.txt", "404.html", "og.png", "favicon.svg"]) {
+for (const f of ["sitemap.xml", "robots.txt", "llms.txt", "404.html", "og.png", "favicon.svg", "ads.txt"]) {
   if (!existsSync(join(out, f))) fail(`missing out/${f}`);
 }
 
@@ -22,6 +22,12 @@ else {
     if (!htaccess.includes(needle)) fail(`out/.htaccess: missing ${needle}`);
   }
 }
+
+// AdSense: ads.txt holds exactly Google's DIRECT line, and every page loads the ad tag for the same publisher.
+const adsTxt = existsSync(join(out, "ads.txt")) ? readFileSync(join(out, "ads.txt"), "utf8") : "";
+const adsPub = (adsTxt.match(/^google\.com, (pub-\d{16}), DIRECT, f08c47fec0942fa0\n$/) ?? [])[1];
+if (!adsPub) fail(`out/ads.txt is not one "google.com, pub-…, DIRECT, f08c47fec0942fa0" line`);
+if (!/script-src[^;]*https:\/\/pagead2\.googlesyndication\.com/.test(htaccess)) fail("out/.htaccess: CSP script-src does not allow AdSense");
 
 const sitemap = existsSync(join(out, "sitemap.xml")) ? readFileSync(join(out, "sitemap.xml"), "utf8") : "";
 const site = (sitemap.match(/<loc>(https?:\/\/[^/<]+)\//) ?? [])[1] ?? "https://mimt.ca";
@@ -54,6 +60,8 @@ for (const url of locs) {
   if (h1 !== 1) fail(`${path}: ${h1} <h1> elements (want 1)`);
   for (const img of html.match(/<img\b[^>]*>/g) ?? []) if (!/\balt="/.test(img)) fail(`${path}: <img> without alt`);
   if (!/<title>[^<]{10,}<\/title>/.test(html)) fail(`${path}: missing <title>`);
+  if (adsPub && !html.includes(`adsbygoogle.js?client=ca-${adsPub}`)) fail(`${path}: no AdSense tag for ca-${adsPub}`);
+  if (!html.includes('"consent","default"')) fail(`${path}: no Law 25 consent defaults before the ad tag`);
   const og = (html.match(/<meta property="og:image" content="([^"]+)"/) ?? [])[1];
   if (og && !existsSync(join(out, og.replace(/^https?:\/\/[^/]+/, "")))) fail(`${path}: og:image ${og} is not in out/`);
 

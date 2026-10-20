@@ -67,6 +67,7 @@ ${link("compare", "How MIMT compares with typical free-number apps.")}
 ${link("soon", "Internet and mobile service: coming soon, waitlist only.")}
 ${link("help", "Frequently asked questions.")}
 ${link("contact", "Contact form.")}
+${link("about", "Who runs MIMT.")}
 
 ## Legal
 

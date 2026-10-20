@@ -12,8 +12,8 @@ const PROCESSORS = [
   { name: "Stripe", fr: "Paiements sur le Web et facturation.", en: "Web payments and billing." },
   {
     name: "Google",
-    fr: "Notifications Android, achats sur Google Play et publicités du forfait Gratuit.",
-    en: "Android notifications, Google Play purchases and ads on the Free plan.",
+    fr: "Notifications Android, achats sur Google Play, publicités sur mimt.ca et sur le forfait Gratuit (AdSense, AdMob).",
+    en: "Android notifications, Google Play purchases, ads on mimt.ca and on the Free plan (AdSense, AdMob).",
   },
   { name: "Apple", fr: "Notifications iPhone et achats sur l'App Store.", en: "iPhone notifications and App Store purchases." },
   {
@@ -238,8 +238,33 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
                 et les personnes concernées, et nous tenons un registre des incidents.
               </p>
 
-              <h2>Témoins (cookies) sur ce site</h2>
-              <p>Ce site n&apos;utilise pas de témoins publicitaires ni d&apos;outil de suivi.</p>
+              <h2 id="temoins">Témoins (cookies) et publicités Google</h2>
+              <p>
+                mimt.ca et le forfait Gratuit de app.mimt.ca affichent des annonces de Google AdSense. Google et ses partenaires
+                (des fournisseurs tiers) utilisent des témoins pour diffuser des annonces selon vos visites antérieures sur ce site
+                et sur d&apos;autres sites. Les témoins publicitaires de Google lui permettent, ainsi qu&apos;à ses partenaires, de
+                vous montrer des annonces fondées sur ces visites.
+              </p>
+              <ul>
+                <li>
+                  Sans votre accord, les témoins de personnalisation sont refusés et les annonces sont non personnalisées. Vous
+                  choisissez dans la bannière, et vous pouvez changer d&apos;idée en tout temps avec le lien « Gérer les témoins »
+                  au bas de chaque page.
+                </li>
+                <li>
+                  Vous pouvez aussi désactiver la publicité personnalisée dans les{" "}
+                  <a href="https://adssettings.google.com" rel="noopener">paramètres des annonces de Google</a>, ou les
+                  témoins de fournisseurs tiers sur <a href="https://www.aboutads.info/choices/" rel="noopener">aboutads.info</a>.
+                </li>
+                <li>
+                  Comment Google utilise ces données :{" "}
+                  <a href="https://policies.google.com/technologies/partner-sites?hl=fr-CA" rel="noopener">
+                    policies.google.com/technologies/partner-sites
+                  </a>
+                  .
+                </li>
+              </ul>
+              <p>Nous n&apos;utilisons aucun autre outil de suivi ni de mesure d&apos;audience sur ce site.</p>
             </>
           ) : (
             <>
@@ -267,8 +292,31 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
                 people affected, and we keep an incident register.
               </p>
 
-              <h2>Cookies on this site</h2>
-              <p>This site uses no advertising cookies or tracking tools.</p>
+              <h2 id="temoins">Cookies and Google ads</h2>
+              <p>
+                mimt.ca and the Free plan of app.mimt.ca show Google AdSense ads. Google and its partners (third-party vendors)
+                use cookies to serve ads based on your prior visits to this site and other sites. Google&apos;s advertising cookies
+                let it and its partners serve you ads based on those visits.
+              </p>
+              <ul>
+                <li>
+                  Without your agreement, personalisation cookies are refused and ads are non-personalised. You choose in the
+                  banner and can change your mind at any time with the &quot;Cookie settings&quot; link at the bottom of every page.
+                </li>
+                <li>
+                  You can also turn off personalised advertising in{" "}
+                  <a href="https://adssettings.google.com" rel="noopener">Google&apos;s ad settings</a>, or third-party vendor
+                  cookies at <a href="https://www.aboutads.info/choices/" rel="noopener">aboutads.info</a>.
+                </li>
+                <li>
+                  How Google uses this data:{" "}
+                  <a href="https://policies.google.com/technologies/partner-sites?hl=en-CA" rel="noopener">
+                    policies.google.com/technologies/partner-sites
+                  </a>
+                  .
+                </li>
+              </ul>
+              <p>We use no other tracking or audience measurement tools on this site.</p>
             </>
           )}
           <p className="fineprint">

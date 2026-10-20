@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ConsentBanner, ConsentLink } from "@/components/ConsentBanner";
 import { DownloadPrompt } from "@/components/DownloadPrompt";
 import { SiteEffects } from "@/components/SiteEffects";
 import { PAGE_META } from "@/lib/meta";
@@ -92,7 +93,7 @@ function Footer({ lang }: { lang: Lang }) {
   const year = new Date().getFullYear();
   const cols: { title: string; keys: RouteKey[] }[] = [
     { title: fr ? "Produits" : "Products", keys: ["home", "business", "ai", "webapp", "plans", "compare", "soon"] },
-    { title: fr ? "Soutien" : "Support", keys: ["help", "contact", "complaints"] },
+    { title: fr ? "Soutien" : "Support", keys: ["about", "help", "contact", "complaints"] },
     { title: fr ? "Légal" : "Legal", keys: ["e911", "privacy", "terms", "accessibility"] },
   ];
   const footerLabel = (key: RouteKey): string => {
@@ -163,7 +164,7 @@ function Footer({ lang }: { lang: Lang }) {
             <span className="site-footer__tagline"> · Digital Solutions. Real Results.</span>
           </p>
           <p>
-            © {year} MIMT. {fr ? "Tous droits réservés." : "All rights reserved."}
+            © {year} MIMT. {fr ? "Tous droits réservés." : "All rights reserved."} · <ConsentLink lang={lang} />
           </p>
         </div>
       </div>
@@ -198,13 +199,14 @@ export function Shell({
       <Footer lang={lang} />
       <MobileCtaBar lang={lang} />
       <DownloadPrompt lang={lang} auto={!NO_AUTO_PROMPT.includes(page)} />
+      <ConsentBanner lang={lang} />
       <SiteEffects />
     </>
   );
 }
 
 /** Legal and complaint pages never get the automatic download prompt (it still opens from a button). */
-const NO_AUTO_PROMPT: RouteKey[] = ["e911", "privacy", "terms", "complaints", "accessibility", "contact"];
+const NO_AUTO_PROMPT: RouteKey[] = ["about", "e911", "privacy", "terms", "complaints", "accessibility", "contact"];
 
 /** Sticky call-to-action bar on phones; appears once the page has scrolled (see home.css). */
 function MobileCtaBar({ lang }: { lang: Lang }) {
