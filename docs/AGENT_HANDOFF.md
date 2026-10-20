@@ -1,5 +1,12 @@
 # MIMT — Relève du développeur principal
 
+## Relève — 20 octobre 2026, sprint de lancement (claude, session 01GtWamF)
+
+- **Fait et en ligne :** PR #17 (AdSense) : `mimt.ca/ads.txt` = `google.com, pub-4518068873401341, DIRECT, f08c47fec0942fa0`; balise AdSense sur chaque page avec Consent Mode v2 refusé par défaut (Loi 25), bannière Accepter/Refuser + « Gérer les témoins »; page À propos; politique de confidentialité (témoins Google). PR #18 : modèle de marge `packages/shared/src/unitEconomics.ts` + `docs/MIMT-UNIT-ECONOMICS.md`. PR #20 (fork) : nouveaux forfaits (Essentiel 12,99 = code `lock`, Premium 29,99, Affaires 34,99, Pro 44,99), API refuse de démarrer si un forfait perd de l'argent, migration `0011_usage_messages.sql`.
+- **PR #19 (sélecteur de numéro) :** `GET /v1/public/numbers/search`, holds 10 min (`0012_number_holds.sql`), checkout `numberHold` → webhook Stripe achète le numéro; sélecteur sur l'accueil et Affaires; `app.mimt.ca/numero`; vraies captures de l'app (`apps/web/public/screens`, régénérer depuis le mode démo); copie honnête (pas de « gratuit entre utilisateurs » tant que la messagerie sans numéro n'existe pas). Test de fumée : `scripts/smoke/prod.sh <sha>`.
+- **Bloquants propriétaire :** (1) `TAKATAK_ISSUER`/`TAKATAK_CLIENT_ID` invisibles pour le dépôt (ni variables ni secrets de `takatakca/mimtcaapp`; variables d'organisation exclues des dépôts publics par défaut). (2) `TWILIO_VERIFY_SERVICE_SID` dans Coolify (connexion par texto). (3) Serveur Coolify surchargé. (4) Prix magasins (App Store/Play) ≥ 13,99 / 32,99 ou vente Web seulement.
+- **Prochaine action :** fusionner #19, déployer API (migrations 0011+0012 au démarrage) puis app, lancer `scripts/smoke/prod.sh`. Ensuite : messagerie et appels entre utilisateurs MIMT **sans numéro** (par identifiant MIMT) pour que le forfait Gratuit serve à quelque chose; E2E Playwright du tunnel complet en mode test Stripe.
+
 ## Relève complémentaire — 16 octobre 2026, fin du correctif de confidentialité
 
 - **Dernier code poussé avant cette documentation :** `4b3a6d50fa4ee0aca693edec1da3f840aea3f52f`. Son test de régression dans `apps/mobile/src/services/ads.test.ts` vérifie la désactivation des publicités personnalisées au retrait du consentement et en cas d'échec de SecureStore. `signOutLocally` nettoie aussi l'état de personnalisation à la déconnexion, tout en conservant les consentements MIMT sur le serveur.
