@@ -166,6 +166,7 @@ jobs:
         shell: bash
         env:
           APP_SERVER: ${{ secrets.MOCHAHOST_APP_FTP_SERVER }}
+          SITE_SERVER: ${{ secrets.MOCHAHOST_FTP_SERVER }}
         run: |
           set -euo pipefail
           # Common paste mistakes are repaired instead of failing: surrounding whitespace or newline,
@@ -179,6 +180,12 @@ jobs:
           if [[ "$host" == */* ]]; then host="${host%%/*}"; echo "::warning::MOCHAHOST_APP_FTP_SERVER had a path; removed it."; fi
           if [[ "$host" == *:* ]]; then host="${host%%:*}"; echo "::warning::MOCHAHOST_APP_FTP_SERVER had a :port; removed it (FTPS uses 21)."; fi
           host="${host%.}"
+          if [[ -z "$host" ]]; then
+            # The app FTP account lives on the same MochaHost cPanel server as the website account.
+            echo "::warning::MOCHAHOST_APP_FTP_SERVER holds no hostname (a folder path only?). Using the website FTP server; put the hostname alone in this secret and the folder in the deploy input."
+            host="$(printf '%s' "$SITE_SERVER" | tr -d '[:space:]')"
+            host="${host#*://}"; host="${host##*@}"; host="${host%%/*}"; host="${host%%:*}"; host="${host%.}"
+          fi
           echo "::add-mask::$host"
           if [[ ! "$host" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]] || [[ "$host" == *..* ]]; then
             echo "::error::MOCHAHOST_APP_FTP_SERVER must contain only a DNS hostname, without ftp://, :21, spaces or a path."
