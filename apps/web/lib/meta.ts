@@ -21,11 +21,11 @@ export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; descripti
   plans: {
     fr: {
       title: "Forfaits : appels gratuits et numéro virtuel",
-      description: "Forfait Gratuit à 0 $, Verrouillage du numéro, Premium et MIMT Affaires par ligne. Transfert de numéro gratuit. Toutes les limites affichées d'avance.",
+      description: "Gratuit entre applications, Essentiel avec votre numéro à 12,99 $, Premium et MIMT Affaires par ligne. Transfert de numéro gratuit. Limites affichées d'avance.",
     },
     en: {
       title: "Plans: free calling app and virtual number",
-      description: "Free plan at $0, Number Lock, Premium and per-line MIMT Business. Free number transfer. Every limit shown up front, prices in Canadian dollars.",
+      description: "Free between MIMT apps, Essential with your number at $12.99, Premium and per-line MIMT Business. Free number transfer. Every limit shown up front.",
     },
   },
   business: {

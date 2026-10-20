@@ -11,9 +11,10 @@ describe("Sans pub add-on", () => {
     expect(isSubscriptionAddOn("extra_number")).toBe(false);
   });
 
-  it("does not change the owner's plan prices or the free cap", () => {
-    expect(PLANS.free.caps.outboundMinutes).toBe(30);
-    expect(PLANS.premium.monthlyPriceCents).toBe(1999);
+  it("does not change the launch plan prices or the free plan (no phone-network number)", () => {
+    expect(PLANS.free.caps.hasNumber).toBe(false);
+    expect(PLANS.free.caps.outboundMinutes).toBe(0);
+    expect(PLANS.premium.monthlyPriceCents).toBe(2999);
     expect(ADD_ONS.extra_number.monthlyPriceCents).toBe(499);
   });
 

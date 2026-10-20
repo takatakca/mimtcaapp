@@ -1,32 +1,55 @@
 import { describe, expect, it } from "vitest";
-import { checkSmsCaps, checkVoiceCaps, effectiveCaps, exceedsDailySpend } from "../src/fraud/caps.js";
+import { checkOnNetCaps, checkSmsCaps, checkVoiceCaps, effectiveCaps, exceedsDailySpend } from "../src/fraud/caps.js";
 import { checkVoiceDestination } from "../src/fraud/destinations.js";
 import { looksLikeOtp } from "../src/fraud/policy.js";
 import { InMemoryRateLimiter } from "../src/fraud/rateLimiter.js";
 import { classifyDestination, normalizeDialed, smsSegments } from "../src/lib/phone.js";
-import type { Usage } from "../src/repo/types.js";
+import { emptyUsage, type Usage } from "../src/repo/types.js";
 
 const now = new Date("2026-10-09T12:00:00Z");
 const daysAgo = (d: number) => new Date(now.getTime() - d * 86_400_000);
-const usage = (u: Partial<Usage> = {}): Usage => ({
-  telecomAccountId: "a", period: "2026-10", minutesOut: 0, minutesIn: 0, smsOut: 0, bonusMinutesOut: 0, spendCad: 0, intlSpendCad: 0, ...u,
-});
+const usage = (u: Partial<Usage> = {}): Usage => ({ ...emptyUsage("a", "2026-10"), ...u });
 
 describe("caps", () => {
   it("halves outbound caps during the first 14 days", () => {
-    expect(effectiveCaps("free", "standard", daysAgo(3), now)).toMatchObject({ outboundMinutes: 15, outboundSms: 25 });
-    expect(effectiveCaps("free", "standard", daysAgo(15), now)).toMatchObject({ outboundMinutes: 30, outboundSms: 50 });
-    expect(effectiveCaps("premium", "new", daysAgo(60), now)).toMatchObject({ outboundMinutes: 250 });
-    expect(effectiveCaps("premium", "trusted", daysAgo(1), now)).toMatchObject({ outboundMinutes: 500 });
+    expect(effectiveCaps("lock", "standard", daysAgo(3), now)).toMatchObject({ outboundMinutes: 30, messages: 75 });
+    expect(effectiveCaps("lock", "standard", daysAgo(15), now)).toMatchObject({ outboundMinutes: 60, messages: 150 });
+    expect(effectiveCaps("premium", "new", daysAgo(60), now)).toMatchObject({ outboundMinutes: 100, mms: 25 });
+    expect(effectiveCaps("premium", "trusted", daysAgo(1), now)).toMatchObject({ outboundMinutes: 200 });
+  });
+
+  it("the free plan has no phone-network minutes or texts, only app-to-app minutes", () => {
+    const caps = effectiveCaps("free", "standard", daysAgo(60), now);
+    expect(checkVoiceCaps({ caps, usage: usage(), activeCalls: 0 })).toMatchObject({ ok: false, reason: "minutes_exhausted" });
+    expect(checkSmsCaps({ caps, usage: usage(), segments: 1 })).toMatchObject({ ok: false, reason: "sms_exhausted" });
+    expect(checkOnNetCaps({ caps, usage: usage({ minutesOnNet: 100 }) })).toEqual({ ok: true, remaining: 20 });
+    expect(checkOnNetCaps({ caps, usage: usage({ minutesOnNet: 120 }) })).toMatchObject({ ok: false, reason: "on_net_minutes_exhausted" });
+  });
+
+  it("paid app-to-app minutes draw from outbound minutes", () => {
+    const caps = effectiveCaps("lock", "standard", daysAgo(60), now);
+    expect(checkOnNetCaps({ caps, usage: usage({ minutesOut: 50 }) })).toEqual({ ok: true, remaining: 10 });
+    expect(checkOnNetCaps({ caps, usage: usage({ minutesOut: 60, minutesOnNet: 0 }) })).toMatchObject({ ok: false });
   });
 
   it("checks minutes, bonus minutes and concurrency", () => {
-    const caps = effectiveCaps("free", "standard", daysAgo(60), now);
-    expect(checkVoiceCaps({ caps, usage: usage({ minutesOut: 10 }), activeCalls: 0 })).toEqual({ ok: true, remaining: 20 });
-    expect(checkVoiceCaps({ caps, usage: usage({ minutesOut: 30 }), activeCalls: 0 })).toMatchObject({ ok: false, reason: "minutes_exhausted" });
-    expect(checkVoiceCaps({ caps, usage: usage({ minutesOut: 30, bonusMinutesOut: 250 }), activeCalls: 0 })).toEqual({ ok: true, remaining: 250 });
+    const caps = effectiveCaps("lock", "standard", daysAgo(60), now);
+    expect(checkVoiceCaps({ caps, usage: usage({ minutesOut: 10 }), activeCalls: 0 })).toEqual({ ok: true, remaining: 50 });
+    expect(checkVoiceCaps({ caps, usage: usage({ minutesOut: 60 }), activeCalls: 0 })).toMatchObject({ ok: false, reason: "minutes_exhausted" });
+    expect(checkVoiceCaps({ caps, usage: usage({ minutesOut: 60, bonusMinutesOut: 250 }), activeCalls: 0 })).toEqual({ ok: true, remaining: 250 });
     expect(checkVoiceCaps({ caps, usage: usage(), activeCalls: 1 })).toMatchObject({ ok: false, reason: "too_many_calls" });
-    expect(checkSmsCaps({ caps, usage: usage({ smsOut: 49 }), segments: 2 })).toMatchObject({ ok: false });
+  });
+
+  it("counts texts sent AND received against the messages cap, and MMS against their own cap", () => {
+    const caps = effectiveCaps("premium", "trusted", daysAgo(60), now);
+    expect(checkSmsCaps({ caps, usage: usage({ smsOut: 200, smsIn: 199 }), segments: 1 })).toEqual({ ok: true, remaining: 0 });
+    expect(checkSmsCaps({ caps, usage: usage({ smsOut: 200, smsIn: 199 }), segments: 2 })).toMatchObject({ ok: false, reason: "sms_exhausted" });
+    expect(checkSmsCaps({ caps, usage: usage({ mmsOut: 50 }), segments: 1, mms: true })).toMatchObject({ ok: false, reason: "mms_exhausted" });
+    expect(checkSmsCaps({ caps, usage: usage({ mmsOut: 50 }), segments: 1 })).toMatchObject({ ok: true });
+  });
+
+  it("the trial gets 20 minutes and 20 texts whatever the plan", () => {
+    expect(effectiveCaps("lock", "trusted", daysAgo(60), now, true)).toMatchObject({ outboundMinutes: 20, inboundMinutes: 20, messages: 20, mms: 0 });
   });
 
   it("flags daily spend above the threshold", () => {

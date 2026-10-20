@@ -124,7 +124,7 @@ async function forwardTwiml(
   const { repo } = deps;
   const target = settings.forwarding.target;
   if (!target || outboundBlocked(account)) return null;
-  const { plan, features } = await getFeatures(repo, account.id);
+  const { plan, features, trialing } = await getFeatures(repo, account.id);
   if (!features.has("call_forwarding")) return null;
 
   const check = await checkForwardTarget(deps, account, target);
@@ -141,7 +141,7 @@ async function forwardTwiml(
   const today = await repo.getUsage(account.id, dayPeriod(now));
   if (exceedsDailySpend(today.spendCad, deps.config.DAILY_SPEND_ALERT_CAD)) return null;
   // Forwarded legs use outbound minutes; the concurrency check is not applied (the inbound leg is the call).
-  const caps = effectiveCaps(plan, account.riskTier, account.createdAt, now);
+  const caps = effectiveCaps(plan, account.riskTier, account.createdAt, now, trialing);
   const minutes = checkVoiceCaps({ caps, usage: await repo.getUsage(account.id, monthPeriod(now)), activeCalls: 0 });
   if (!minutes.ok) return null;
 

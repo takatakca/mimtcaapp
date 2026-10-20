@@ -25,12 +25,16 @@ describe("usageLevel", () => {
 
 describe("usageRows", () => {
   it("uses the plan caps from @mimt/shared", () => {
-    const rows = usageRows("free", { outboundMinutes: 24, inboundMinutes: 10, outboundSms: 50 });
+    const rows = usageRows("lock", { outboundMinutes: 48, inboundMinutes: 20, messages: 150 });
     expect(rows.map((r) => [r.key, r.cap, r.percent, r.level])).toEqual([
-      ["outboundMinutes", 30, 80, "warn"],
-      ["inboundMinutes", 60, 17, "ok"],
-      ["outboundSms", 50, 100, "full"],
+      ["outboundMinutes", 60, 80, "warn"],
+      ["inboundMinutes", 120, 17, "ok"],
+      ["messages", 150, 100, "full"],
     ]);
-    expect(usageRows("premium", { outboundMinutes: 250, inboundMinutes: 0, outboundSms: 0 })[0]?.percent).toBe(50);
+    expect(usageRows("premium", { outboundMinutes: 100, inboundMinutes: 0, messages: 0 })[0]?.percent).toBe(50);
+  });
+
+  it("shows no row for what the plan does not include (Gratuit: no phone-network minutes or texts)", () => {
+    expect(usageRows("free", { outboundMinutes: 0, inboundMinutes: 0, messages: 0 })).toEqual([]);
   });
 });

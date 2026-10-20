@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { monthPeriod } from "../src/lib/time.js";
-import { makeUser, setup, twilioPost, type Ctx } from "./helpers.js";
+import { makeUser, setup as baseSetup, twilioPost, type Ctx, LEGACY_FREE } from "./helpers.js";
+
+// These tests predate launch pricing: their free users hold a phone-network number (LEGACY_FREE).
+const setup = (o: Parameters<typeof baseSetup>[0] = {}) => baseSetup({ ...o, config: { ...LEGACY_FREE, ...o.config } });
 
 let ctx: Ctx;
 beforeEach(async () => {
@@ -30,9 +33,9 @@ describe("sending SMS", () => {
     expect((await send(u.auth, { from: "+15145550100", to: "+18765551234", body: "x" })).json().error).toBe("destination_not_allowed");
   });
 
-  it("enforces the monthly SMS cap", async () => {
+  it("enforces the monthly message cap, texts sent and received", async () => {
     const u = await makeUser(ctx, { number: "+15145550100" });
-    await ctx.repo.addUsage(u.account.id, [monthPeriod(new Date())], { smsOut: 50 });
+    await ctx.repo.addUsage(u.account.id, [monthPeriod(new Date())], { smsOut: 60, smsIn: 40 });
     const res = await send(u.auth, { from: "+15145550100", to: "+15145550199", body: "hello" });
     expect(res.statusCode).toBe(403);
     expect(res.json().error).toBe("sms_quota_exhausted");

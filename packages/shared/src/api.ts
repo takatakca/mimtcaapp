@@ -73,7 +73,8 @@ export interface MeResponse {
   };
   numbers: Array<{ id: string; e164: string; state: NumberState }>;
   e911: { addressRegistered: boolean; noticeAccepted: boolean; noticeVersion: string };
-  usage: { outboundMinutes: number; inboundMinutes: number; outboundSms: number; periodStart: string };
+  /** `messages`: texts sent AND received this month (both count in the plan). */
+  usage: { outboundMinutes: number; inboundMinutes: number; messages: number; periodStart: string };
   /** Forwarding, do not disturb and blocked-call handling (callControls.ts). */
   callSettings?: CallSettings;
 }
@@ -345,6 +346,11 @@ export interface CheckoutRequest {
   amountCents?: number;
   /** Friend's referral code, redeemed on the first checkout (same rules as POST /v1/referrals/redeem). */
   referralCode?: string;
+  /**
+   * 7-day trial of Essentiel (plan "lock", monthly), when the server has TRIAL_ENABLED: card on file, tiny quota
+   * (TRIAL_CAPS), one per account. Refused with 400 trial_unavailable otherwise.
+   */
+  trial?: boolean;
 }
 export interface CheckoutResponse {
   /** Stripe Checkout URL to open in the browser. */

@@ -1,7 +1,8 @@
 // Glue between the Twilio voice webhooks and the pure router: loads a business's PBX snapshot,
 // handles calls to business DIDs, internal extension dialing and business outbound calls.
 
-import { PLANS, isValidExtension, type PlanCode } from "@mimt/shared";
+import { isValidExtension, type PlanCode } from "@mimt/shared";
+import { planOf } from "../plansConfig.js";
 import type twilio from "twilio";
 import type { AppDeps } from "../deps.js";
 import { checkInboundCaps, effectiveCaps, exceedsDailySpend } from "../fraud/caps.js";
@@ -160,7 +161,7 @@ export async function pbxInbound(
   const ctx: router.RouteContext = { snap, now, base: baseUrl(deps), numberId: number.id, ...(input.fromApp ? { callerId: number.e164 } : {}) };
 
   // Pooled inbound minutes (per-line cap × seats): past the pool, callers go straight to voicemail.
-  const caps = PLANS[info.active ? info.plan : "business"].caps;
+  const caps = planOf(info.active ? info.plan : "business").caps;
   const usage = await repo.getUsage(account.id, monthPeriod(now));
   if (!input.fromApp && !checkInboundCaps({ caps: { ...caps, inboundMinutes: caps.inboundMinutes * info.seats }, usage }).ok) {
     return router.voicemail(ctx, {});

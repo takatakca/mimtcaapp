@@ -1,3 +1,4 @@
+import { planOf } from "../plansConfig.js";
 import type { FastifyInstance } from "fastify";
 import {
   ADD_ONS,
@@ -5,6 +6,7 @@ import {
   formatCad,
   PLANS,
   SUBSCRIPTION_ADD_ONS,
+  TRIAL_DAYS,
   type BillingPortalResponse,
   type CheckoutRequest,
   type CheckoutResponse,
@@ -35,6 +37,7 @@ const CheckoutBody = z
     /** International credit amount, CAD cents. */
     amountCents: z.number().int().min(ADD_ONS.intl_credit_min.priceCents).max(10_000).optional(),
     referralCode: z.string().min(4).max(32).optional(),
+    trial: z.boolean().optional(),
   })
   .refine((b) => Boolean(b.plan) !== Boolean(b.addon), "Pass exactly one of plan or addon");
 
@@ -55,8 +58,16 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     let line: CheckoutLine;
     let mode: "subscription" | "payment";
     let code: string;
+    if (body.trial) {
+      // Optional 7-day Essentiel trial: off unless TRIAL_ENABLED, monthly only, once per account (any past plan).
+      if (!config.TRIAL_ENABLED) throw badRequest("trial_unavailable", "Aucun essai gratuit n'est offert en ce moment.");
+      if (body.plan !== "lock" || body.interval !== "month" || body.quantity !== 1) throw badRequest("trial_unavailable", "L'essai s'applique au forfait Essentiel mensuel.");
+      if ((await repo.listSubscriptions(account.id)).some((s) => s.kind === "plan")) {
+        throw conflict("trial_already_used", "L'essai gratuit est offert une seule fois par compte.");
+      }
+    }
     if (body.plan) {
-      const plan = PLANS[body.plan];
+      const plan = planOf(body.plan);
       const yearly = body.interval === "year";
       if (yearly && !plan.yearlyPriceCents) throw badRequest("no_yearly_price");
       if (!plan.perLine && body.quantity !== 1) throw badRequest("quantity_not_allowed");
@@ -125,6 +136,7 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       successUrl: `${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${appUrl}/billing/cancel`,
       locale: user.locale,
+      ...(body.trial ? { trialDays: TRIAL_DAYS } : {}),
     });
     return { checkoutUrl: session.url, sessionId: session.id };
   });

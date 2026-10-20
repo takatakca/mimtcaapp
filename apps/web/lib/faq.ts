@@ -61,13 +61,13 @@ export function faqItems(lang: Lang): FaqItem[] {
           id: "gratuit",
           topic: "mobile",
           q: "Le forfait Gratuit est-il vraiment gratuit?",
-          a: `Oui, 0 $ par mois, avec des publicités dans l'app et des limites claires : ${free.outboundMinutes} minutes sortantes, ${free.inboundMinutes} minutes entrantes et ${free.outboundSms} textos sortants par mois vers le Canada et les États-Unis. Le numéro est récupéré après ${free.inactivityDays} jours sans activité; nous vous avisons avant.`,
+          a: `Oui, 0 $ par mois, avec des publicités dans l'app. Il fonctionne entre applications MIMT : textos illimités et ${free.onNetMinutes} minutes d'appels par mois. Il ne comprend pas de numéro de téléphone : pour appeler et texter n'importe quel numéro, choisissez Essentiel (${lock}/mois).`,
         },
         {
           id: "garder-numero",
           topic: "mobile",
           q: "Comment garder mon numéro si je l'utilise peu?",
-          a: `Avec le forfait Verrouillage du numéro (${lock}/mois) ou Premium (${premium}/mois), votre numéro est conservé même sans activité.`,
+          a: `Avec Essentiel (${lock}/mois) ou Premium (${premium}/mois), votre numéro reste à vous tant que le forfait est payé, même sans activité.`,
         },
         {
           id: "remplace-cellulaire",
@@ -206,13 +206,13 @@ export function faqItems(lang: Lang): FaqItem[] {
           id: "gratuit",
           topic: "mobile",
           q: "Is the Free plan really free?",
-          a: `Yes, $0 per month, with in-app ads and clear limits: ${free.outboundMinutes} outbound minutes, ${free.inboundMinutes} inbound minutes and ${free.outboundSms} outbound texts per month to Canada and the US. The number is reclaimed after ${free.inactivityDays} days without activity; we warn you first.`,
+          a: `Yes, $0 per month, with in-app ads. It works between MIMT apps: unlimited texts and ${free.onNetMinutes} minutes of calls per month. It does not include a phone number: to call and text any number, choose Essential (${lock}/month).`,
         },
         {
           id: "garder-numero",
           topic: "mobile",
           q: "How do I keep my number if I rarely use it?",
-          a: `With Number Lock (${lock}/month) or Premium (${premium}/month), your number is kept even when inactive.`,
+          a: `With Essential (${lock}/month) or Premium (${premium}/month), your number stays yours as long as the plan is paid, even when inactive.`,
         },
         {
           id: "remplace-cellulaire",

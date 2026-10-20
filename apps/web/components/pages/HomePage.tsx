@@ -18,7 +18,8 @@ export function HomePage({ lang }: { lang: Lang }) {
   const fr = lang === "fr";
   const t = fr ? FR : EN;
   const faq = faqItems(lang).filter((i) => HOME_FAQ.includes(i.id));
-  const freePrice = fr ? `${PLANS.free.monthlyPriceCents / 100} $` : `$${PLANS.free.monthlyPriceCents / 100}`;
+  // The real number starts with Essentiel (plan code "lock"); Gratuit is MIMT-to-MIMT only.
+  const fromPrice = new Intl.NumberFormat(fr ? "fr-CA" : "en-CA", { style: "currency", currency: "CAD" }).format(PLANS.lock.monthlyPriceCents / 100);
   const slides = t.slides(lang);
 
   // Real facts only (never user counts, ratings or reviews).
@@ -45,7 +46,7 @@ export function HomePage({ lang }: { lang: Lang }) {
               <span className="h1-line">{t.h1a}</span> <span className="h1-line text-gradient">{t.h1b}</span> <span className="h1-line">{t.h1c}</span>
             </h1>
             <p className="lead home-hero__lead">
-              <strong>{t.leadStrong}</strong> {t.lead.replace("{free}", freePrice)}
+              <strong>{t.leadStrong}</strong> {t.lead.replace("{from}", fromPrice)}
             </p>
             <div className="cta-row">
               <a className="btn btn--primary btn--lg btn--shine" href={APP_URL} rel="noopener">
@@ -374,7 +375,7 @@ const FR: Copy = {
   h1b: "Partout.",
   h1c: "Sans frais cachés.",
   leadStrong: "Votre numéro canadien dans une app.",
-  lead: "Appelez et textez par Wi‑Fi ou données, sur votre cellulaire comme sur votre ordinateur. Commencez à {free}.",
+  lead: "Appelez et textez par Wi‑Fi ou données, sur votre cellulaire comme sur votre ordinateur. Votre numéro dès {from} par mois.",
   ctaWeb: "Essayer l'app Web gratuitement",
   ctaDownload: "Télécharger l'app",
   ticks: ["Forfait Gratuit", "Transfert de numéro gratuit", "Français d'abord"],
@@ -398,7 +399,7 @@ const FR: Copy = {
     { icon: "spark", tone: "deep", title: "Résumés par IA", text: "Qui a appelé, pourquoi, et si c'est urgent : en une phrase. Seulement avec votre consentement.", link: { href: href(lang, "ai"), label: "L'IA chez MIMT" } },
     { icon: "shield", tone: "blue", title: "Spam probable", text: "Une étiquette claire sur les appels et textos douteux. Vous décidez : rien n'est bloqué sans vous." },
     { icon: "phone", tone: "cyan", title: "Vos règles d'appel", text: "Bloquez un numéro, renvoyez vos appels, activez « Ne pas déranger » la nuit. Selon le forfait." },
-    { icon: "lock", tone: "deep", title: "Numéro verrouillé", text: "Gardez votre numéro même quand vous l'utilisez peu, avec Verrouillage du numéro ou Premium." },
+    { icon: "lock", tone: "deep", title: "Numéro verrouillé", text: "Votre numéro reste à vous tant que le forfait est payé, même quand vous l'utilisez peu." },
     { icon: "sos", tone: "blue", title: "9-1-1 avec votre adresse", text: "Adresse enregistrée avant le premier appel. Le 9-1-1 n'est jamais bloqué par votre forfait.", link: { href: href(lang, "e911"), label: "Lire les limites" } },
   ],
   statsLabel: "MIMT en chiffres",
@@ -450,7 +451,7 @@ const EN: Copy = {
   h1b: "Anywhere.",
   h1c: "No hidden fees.",
   leadStrong: "Your Canadian number, in an app.",
-  lead: "Call and text over Wi‑Fi or data, on your phone and on your computer. Start at {free}.",
+  lead: "Call and text over Wi‑Fi or data, on your phone and on your computer. Your number from {from} a month.",
   ctaWeb: "Try the web app for free",
   ctaDownload: "Get the app",
   ticks: ["Free plan", "Free number transfer", "French first, bilingual"],
@@ -474,7 +475,7 @@ const EN: Copy = {
     { icon: "spark", tone: "deep", title: "AI summaries", text: "Who called, why, and whether it's urgent: in one sentence. Only with your consent.", link: { href: href(lang, "ai"), label: "AI at MIMT" } },
     { icon: "shield", tone: "blue", title: "Likely spam", text: "A clear label on doubtful calls and texts. You decide: nothing is blocked without you." },
     { icon: "phone", tone: "cyan", title: "Your call rules", text: "Block a number, forward your calls, turn on Do Not Disturb at night. Depending on your plan." },
-    { icon: "lock", tone: "deep", title: "Locked number", text: "Keep your number even when you rarely use it, with Number Lock or Premium." },
+    { icon: "lock", tone: "deep", title: "Locked number", text: "Your number stays yours as long as the plan is paid, even when you rarely use it." },
     { icon: "sos", tone: "blue", title: "9-1-1 with your address", text: "Address registered before your first call. 9-1-1 is never blocked by your plan.", link: { href: href(lang, "e911"), label: "Read the limits" } },
   ],
   statsLabel: "MIMT in numbers",

@@ -209,7 +209,7 @@ export const fr = {
   "account.usage": "Utilisation ce mois-ci",
   "account.usageOutMin": "Minutes sortantes",
   "account.usageInMin": "Minutes entrantes",
-  "account.usageSms": "Textos envoyés",
+  "account.usageSms": "Textos (envoyés et reçus)",
   "account.usageOf": "{used} sur {cap}",
   "account.usageWarn": "Vous approchez de la limite de votre forfait.",
   "account.usageFull": "Limite atteinte. Le 9-1-1 reste toujours disponible.",

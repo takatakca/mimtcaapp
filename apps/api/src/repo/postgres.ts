@@ -1,6 +1,7 @@
 import type { NumberState } from "@mimt/shared";
 import postgres from "postgres";
 import { resolvePostgresTls } from "./postgresTls.js";
+import { emptyUsage } from "./types.js";
 import { PostgresPbxRepository } from "./pbxPostgres.js";
 import { PostgresCatalogRepository } from "./catalogPostgres.js";
 import { PostgresCallControlsRepository } from "./callControlsPostgres.js";
@@ -378,13 +379,17 @@ export class PostgresRepository implements Repository {
     await this.sql.begin(async (tx) => {
       for (const period of periods) {
         await tx`
-          insert into usage_ledger (telecom_account_id, period, minutes_out, minutes_in, sms_out, bonus_minutes_out, spend_cad, intl_spend_cad)
-          values (${accountId}, ${period}, ${d.minutesOut ?? 0}, ${d.minutesIn ?? 0}, ${d.smsOut ?? 0}, ${d.bonusMinutesOut ?? 0},
-                  ${d.spendCad ?? 0}, ${d.intlSpendCad ?? 0})
+          insert into usage_ledger (telecom_account_id, period, minutes_out, minutes_in, sms_out, sms_in, mms_out, minutes_on_net,
+                                    bonus_minutes_out, spend_cad, intl_spend_cad)
+          values (${accountId}, ${period}, ${d.minutesOut ?? 0}, ${d.minutesIn ?? 0}, ${d.smsOut ?? 0}, ${d.smsIn ?? 0}, ${d.mmsOut ?? 0},
+                  ${d.minutesOnNet ?? 0}, ${d.bonusMinutesOut ?? 0}, ${d.spendCad ?? 0}, ${d.intlSpendCad ?? 0})
           on conflict (telecom_account_id, period) do update set
             minutes_out = usage_ledger.minutes_out + excluded.minutes_out,
             minutes_in = usage_ledger.minutes_in + excluded.minutes_in,
             sms_out = usage_ledger.sms_out + excluded.sms_out,
+            sms_in = usage_ledger.sms_in + excluded.sms_in,
+            mms_out = usage_ledger.mms_out + excluded.mms_out,
+            minutes_on_net = usage_ledger.minutes_on_net + excluded.minutes_on_net,
             bonus_minutes_out = usage_ledger.bonus_minutes_out + excluded.bonus_minutes_out,
             spend_cad = usage_ledger.spend_cad + excluded.spend_cad,
             intl_spend_cad = usage_ledger.intl_spend_cad + excluded.intl_spend_cad`;
@@ -393,10 +398,11 @@ export class PostgresRepository implements Repository {
   }
   async getUsage(accountId: string, period: string): Promise<Usage> {
     const row = maybe<Usage>(
-      await this.sql`select telecom_account_id, period, minutes_out, minutes_in, sms_out, bonus_minutes_out, spend_cad, intl_spend_cad
+      await this.sql`select telecom_account_id, period, minutes_out, minutes_in, sms_out, sms_in, mms_out, minutes_on_net,
+          bonus_minutes_out, spend_cad, intl_spend_cad
         from usage_ledger where telecom_account_id = ${accountId} and period = ${period}`,
     );
-    return row ?? { telecomAccountId: accountId, period, minutesOut: 0, minutesIn: 0, smsOut: 0, bonusMinutesOut: 0, spendCad: 0, intlSpendCad: 0 };
+    return row ?? emptyUsage(accountId, period);
   }
   async freePlanUsage(period: string, now: Date) {
     // Same rule as planFromSubscriptions/isLiveSubscription: a live paid plan takes the account out of the free tier.

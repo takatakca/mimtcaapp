@@ -3,11 +3,12 @@ import { QUEBEC_AREA_CODES, NANP_E164, type AvailableNumbersResponse, type Claim
 import { z } from "zod";
 import type { AppDeps } from "../deps.js";
 import { loadContext, requireUser } from "../auth/guard.js";
-import { conflict, forbidden, notConfigured } from "../lib/errors.js";
+import { conflict, forbidden, HttpError, notConfigured } from "../lib/errors.js";
 import { classifyDestination } from "../lib/phone.js";
 import { parse } from "../lib/validate.js";
 import { getFeatures, HELD_STATES, outboundBlocked } from "../services/accounts.js";
-import { FREE_QUOTA_MESSAGE, freeNumberAvailable } from "../services/freeTier.js";
+import { FREE_QUOTA_MESSAGE, freeNumberAvailable, NUMBER_REQUIRES_PAID_MESSAGE } from "../services/freeTier.js";
+import { planOf } from "../plansConfig.js";
 import { e911Ready } from "./e911.js";
 
 const DEFAULT_AREA_CODES = ["514", "438", "450", "418", "819", "581", "579", "873"] as const satisfies readonly (typeof QUEBEC_AREA_CODES)[number][];
@@ -45,6 +46,8 @@ export async function numberRoutes(app: FastifyInstance, deps: AppDeps) {
     if (classifyDestination(e164) !== "ca") throw forbidden("canadian_numbers_only");
 
     const { extraNumbers, plan } = await getFeatures(repo, account.id);
+    // Launch pricing (docs/MIMT-UNIT-ECONOMICS.md): the free plan has no phone-network number; a number is paid up front.
+    if (!planOf(plan).caps.hasNumber) throw new HttpError(402, "number_requires_paid_plan", NUMBER_REQUIRES_PAID_MESSAGE);
     if (plan === "free" && config.DEVICE_ATTESTATION_REQUIRED && !user.deviceVerifiedAt) {
       throw forbidden("device_attestation_required", "Confirmez cet appareil avant d'obtenir un numéro gratuit.");
     }

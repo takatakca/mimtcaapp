@@ -260,7 +260,11 @@ export const frExtra = {
     "Désactivé par défaut : les annonces Google ne sont pas basées sur votre profil. Si vous l'activez, Google, un fournisseur situé hors du Québec, peut utiliser des témoins pour personnaliser les annonces. Retrait en tout temps (Loi 25).",
   "account.noAds": "Sans pub, {price} par mois",
   "account.noAdsHint": "Retire les publicités de l'application, sans changer de forfait.",
-  "error.freeQuotaReached": "Les numéros gratuits du jour sont tous attribués. Revenez demain ou choisissez Verrouillage du numéro (4,99 $) / Premium.",
+  "error.freeQuotaReached": "Les numéros gratuits du jour sont tous attribués. Revenez demain ou choisissez Essentiel (12,99 $) ou Premium.",
+  "error.numberRequiresPaidPlan": "Le forfait Gratuit ne comprend pas de numéro de téléphone. Choisissez Essentiel (12,99 $/mois) pour obtenir votre numéro tout de suite.",
+  "error.mmsQuotaExhausted": "Vous avez envoyé toutes les photos (MMS) de votre forfait ce mois-ci. Les textos restent permis.",
+  "error.trialUnavailable": "Aucun essai gratuit n'est offert en ce moment.",
+  "error.trialAlreadyUsed": "L'essai gratuit est offert une seule fois par compte.",
   "error.freeOutboundPaused":
-    "Les appels et textos vers le réseau téléphonique sont en pause pour le forfait gratuit jusqu'au mois prochain. Les appels et textos entre applications MIMT restent permis. Passez à Verrouillage du numéro (4,99 $) ou Premium pour continuer.",
+    "Les appels et textos vers le réseau téléphonique sont en pause pour le forfait gratuit jusqu'au mois prochain. Les appels et textos entre applications MIMT restent permis. Passez à Essentiel (12,99 $) ou Premium pour continuer.",
 } as const;

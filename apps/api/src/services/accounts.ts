@@ -53,6 +53,14 @@ export interface AccountFeatures {
   extraNumbers: number;
   /** Live subscription add-ons ("no_ads"). */
   addOns: SubscriptionAddOnCode[];
+  /** The plan is only in its free trial (TRIAL_ENABLED): caps are TRIAL_CAPS. */
+  trialing: boolean;
+}
+
+/** True when the live plan comes only from a Stripe trial (no paid period yet). */
+export function trialingOnly(subs: Subscription[], plan: PlanCode): boolean {
+  const live = subs.filter((s) => s.kind === "plan" && s.code === plan && isLiveSubscription(s));
+  return live.length > 0 && live.every((s) => s.status === "trialing");
 }
 
 export async function getFeatures(repo: Repository, accountId: string): Promise<AccountFeatures> {
@@ -68,7 +76,7 @@ export async function getFeatures(repo: Repository, accountId: string): Promise<
     features.add(e.feature);
     if (e.feature === "extra_number") extraNumbers += e.limit ?? 1;
   }
-  return { plan, features, extraNumbers, addOns };
+  return { plan, features, extraNumbers, addOns, trialing: plan !== "free" && trialingOnly(subs, plan) };
 }
 
 /** Rebuilds plan/add-on entitlements from subscriptions and tells TAKATAK. */

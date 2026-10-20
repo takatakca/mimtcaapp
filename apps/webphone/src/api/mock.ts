@@ -166,8 +166,8 @@ function initialState(): State {
       numbers: [{ id: "num-1", e164: OUR, state: "active" }],
       e911: { addressRegistered: true, noticeAccepted: true, noticeVersion: "2026-10-fr-1" },
       usage: consumerPlan
-        ? { outboundMinutes: 12, inboundMinutes: 25, outboundSms: 18, periodStart: "2026-10-01T00:00:00.000Z" }
-        : { outboundMinutes: 212, inboundMinutes: 340, outboundSms: 418, periodStart: "2026-10-01T00:00:00.000Z" },
+        ? { outboundMinutes: 12, inboundMinutes: 25, messages: 18, periodStart: "2026-10-01T00:00:00.000Z" }
+        : { outboundMinutes: 212, inboundMinutes: 340, messages: 398, periodStart: "2026-10-01T00:00:00.000Z" },
       callSettings: DEFAULT_CALL_SETTINGS,
     },
     e911: {
@@ -780,7 +780,7 @@ const routes: Route[] = [
     if (!b.body?.trim()) return fail(400, "validation_error", "empty body");
     const m: MessageDto = { id: nextId("msg"), direction: "outbound", ourNumber: b.from, peer: b.to, body: b.body, status: "queued", segments: Math.ceil(b.body.length / 160), numMedia: 0, createdAt: new Date().toISOString() };
     state.messages.push(m);
-    state.me = { ...state.me, usage: { ...state.me.usage, outboundSms: state.me.usage.outboundSms + m.segments } };
+    state.me = { ...state.me, usage: { ...state.me.usage, messages: state.me.usage.messages + m.segments } };
     return created(m);
   }],
   ["GET", /^\/v1\/ai\/status$/, () =>
@@ -898,11 +898,11 @@ const routes: Route[] = [
       plan: "business",
       seats: state.seats,
       periodStart: u.periodStart,
-      perLine: { outboundMinutes: caps.outboundMinutes, inboundMinutes: caps.inboundMinutes, outboundSms: caps.outboundSms, concurrentCalls: caps.concurrentCalls },
+      perLine: { outboundMinutes: caps.outboundMinutes, inboundMinutes: caps.inboundMinutes, messages: caps.messages, concurrentCalls: caps.concurrentCalls },
       pooled: {
         outboundMinutes: { used: u.outboundMinutes, cap: caps.outboundMinutes * state.seats },
         inboundMinutes: { used: u.inboundMinutes, cap: caps.inboundMinutes * state.seats },
-        outboundSms: { used: u.outboundSms, cap: caps.outboundSms * state.seats },
+        messages: { used: u.messages, cap: caps.messages * state.seats },
         concurrentCalls: { cap: caps.concurrentCalls * state.seats },
       },
       byUser: [{ userId: USER_ID, outboundMinutes: u.outboundMinutes, inboundMinutes: u.inboundMinutes }],
