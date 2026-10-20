@@ -61,6 +61,20 @@ describe("live number picker: public search", () => {
     expect(twilio.searchLocalNumbers).toHaveBeenCalledTimes(2);
   });
 
+  it("one failing area code does not hide the others; all failing answers 503", async () => {
+    twilio.searchLocalNumbers.mockImplementation((async ({ areaCode }: { areaCode?: string }) => {
+      if (areaCode === "514") throw new Error("carrier down");
+      return areaCode === "438" ? [{ e164: "+14385550101", locality: "Montréal", region: "QC" }] : [];
+    }) as never);
+    const res = await search("Montréal");
+    expect(res.statusCode).toBe(200);
+    expect(res.json().numbers.map((n: { e164: string }) => n.e164)).toEqual(["+14385550101"]);
+    twilio.searchLocalNumbers.mockImplementation((async () => {
+      throw new Error("carrier down");
+    }) as never);
+    expect((await search("418")).json().error).toBe("carrier_unavailable");
+  });
+
   it("rejects places that are not Canadian", async () => {
     expect((await search("212")).json().error).toBe("unknown_place");
     expect((await search("Paris")).json().error).toBe("unknown_place");

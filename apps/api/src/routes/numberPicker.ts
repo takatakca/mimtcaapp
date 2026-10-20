@@ -91,10 +91,18 @@ export async function numberPickerRoutes(app: FastifyInstance, deps: AppDeps) {
     if (!deps.twilio) throw notConfigured("Number search");
 
     const numbers: PublicNumber[] = [];
+    let failures = 0;
     for (const code of resolved.areaCodes) {
       if (numbers.length >= RESULTS) break;
-      numbers.push(...(await stillFree(await searchAreaCode(code))));
+      try {
+        numbers.push(...(await stillFree(await searchAreaCode(code))));
+      } catch (err) {
+        // One area code failing at the carrier must not hide the others; the cause goes to the logs.
+        failures++;
+        req.log.warn({ err, areaCode: code }, "Carrier number search failed");
+      }
     }
+    if (failures === resolved.areaCodes.length) throw new HttpError(503, "carrier_unavailable", "La recherche de numéros ne répond pas. Réessayez dans un instant.");
     reply.header("Cache-Control", "no-store");
     return { label: resolved.label, areaCodes: resolved.areaCodes, numbers: numbers.slice(0, RESULTS) };
   });
