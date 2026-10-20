@@ -1,6 +1,7 @@
 import type { Urgency, VoicemailDto } from "@mimt/shared";
 import { useState } from "react";
 import { api } from "../api/client";
+import { AdSlot } from "../ads/Ads";
 import { AiErrorNote } from "../components/AiErrorNote";
 import { Icon } from "../components/Icon";
 import { Badge, Empty, ErrorNote, Loading, PageHeader } from "../components/ui";
@@ -116,6 +117,7 @@ export function Voicemail() {
           );
         })}
       </ul>
+      <AdSlot placement="banner" />
     </div>
   );
 }

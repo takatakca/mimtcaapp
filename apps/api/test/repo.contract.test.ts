@@ -113,6 +113,51 @@ for (const [name, make, enabled] of impls) {
       expect((await repo.getUsage(account.id, "2026-11")).minutesOut).toBe(0);
     });
 
+    it("free-tier cost guard: free-plan usage and free number claims", async () => {
+      const { user, account: free } = await seed();
+      const mk = async () => {
+        const owner = await repo.createUser({ globalUserId: null, locale: "fr-CA", displayName: null });
+        return repo.createAccount({ ownerUserId: owner.id, kind: "consumer", status: "ACTIVE_MANAGED", riskTier: "new" });
+      };
+      const [premium, canceled, lapsedGrant, lock] = [await mk(), await mk(), await mk(), await mk()];
+      const now = new Date(Date.UTC(2026, 9, 20, 12));
+      const sub = (telecomAccountId: string, code: string, extra: Partial<Parameters<Repository["upsertSubscription"]>[0]> = {}) =>
+        repo.upsertSubscription({ telecomAccountId, kind: "plan", code, quantity: 1, stripeSubscriptionId: null, status: "active", source: "stripe", currentPeriodEnd: null, ...extra });
+      await sub(premium.id, "premium", { stripeSubscriptionId: "sub_p" });
+      await sub(canceled.id, "premium", { stripeSubscriptionId: "sub_c", status: "canceled" });
+      await sub(lapsedGrant.id, "premium", { source: "manual", currentPeriodEnd: new Date(now.getTime() - 1000) });
+      await sub(lock.id, "lock", { stripeSubscriptionId: "sub_l", status: "past_due" });
+      for (const a of [free, premium, canceled, lapsedGrant, lock]) {
+        await repo.addUsage(a.id, ["2026-10", "2026-10-20"], { spendCad: 1.25, smsOut: 2 });
+      }
+      await repo.addUsage(free.id, ["2026-09"], { spendCad: 99 });
+      // free + canceled + lapsed manual grant count as free; premium and past_due lock do not.
+      const usage = await repo.freePlanUsage("2026-10", now);
+      expect(usage.spendCad).toBeCloseTo(3.75);
+      expect(usage.smsOut).toBe(6);
+      expect(await repo.freePlanUsage("2026-11", now)).toEqual({ spendCad: 0, smsOut: 0 });
+
+      const day = new Date(Date.UTC(2026, 9, 20));
+      await repo.audit({ actorUserId: user.id, action: "number.claimed", meta: { plan: "free" }, at: new Date(day.getTime() + 3600_000) });
+      await repo.audit({ actorUserId: user.id, action: "number.claimed", meta: { plan: "free" }, at: new Date(day.getTime() - 1000) });
+      await repo.audit({ actorUserId: user.id, action: "number.claimed", meta: { plan: "premium" }, at: new Date(day.getTime() + 7200_000) });
+      await repo.audit({ actorUserId: user.id, action: "other", meta: { plan: "free" }, at: new Date(day.getTime() + 7200_000) });
+      expect(await repo.countFreeNumberClaimsSince(day)).toBe(1);
+
+      // Held numbers (active/locked/grace) of free accounts only.
+      const num = (e164: string, telecomAccountId: string | null, state: "active" | "locked" | "grace" | "quarantine" | "released" | "porting_in") =>
+        repo.createNumber({ e164, twilioSid: `PN${e164}`, telecomAccountId, kind: "local", state, lastActivityAt: now, stateChangedAt: now });
+      await num("+15145550101", free.id, "active");
+      await num("+15145550102", canceled.id, "locked");
+      await num("+15145550103", lapsedGrant.id, "grace");
+      await num("+15145550104", free.id, "quarantine");
+      await num("+15145550105", free.id, "released");
+      await num("+15145550106", premium.id, "active");
+      await num("+15145550107", lock.id, "active");
+      await num("+15145550108", null, "released");
+      expect(await repo.countActiveFreeNumbers(now)).toBe(3);
+    });
+
     it("calls page (keyset pagination, own account only)", async () => {
       const { user, account } = await seed();
       const other = await repo.createAccount({ ownerUserId: user.id, kind: "business", status: "ACTIVE_MANAGED", riskTier: "new" });

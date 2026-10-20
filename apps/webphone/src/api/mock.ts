@@ -128,7 +128,21 @@ function offer(p: Pick<Offer, "id" | "code" | "productLine" | "name" | "descript
   };
 }
 
+/**
+ * Demo only: localStorage "mimt.demo.plan" = free | lock | premium shows that consumer plan instead of
+ * the default business account (e.g. to preview the free-plan ads placeholder).
+ */
+function demoPlan(): "free" | "lock" | "premium" | null {
+  try {
+    const v = globalThis.localStorage?.getItem("mimt.demo.plan");
+    return v === "free" || v === "lock" || v === "premium" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 function initialState(): State {
+  const consumerPlan = demoPlan();
   const createdAt = "2026-09-01T14:00:00.000Z";
   const ext = (id: string, number: string, displayName: string, userId: string | null, did: string | null): Extension => ({
     id,
@@ -146,10 +160,14 @@ function initialState(): State {
     seq: 100,
     me: {
       user: { id: USER_ID, globalUserId: "tk-demo", locale: "fr-CA", displayName: "Camille Tremblay" },
-      account: { id: "acct-demo", kind: "business", plan: "business", status: "active" },
+      account: consumerPlan
+        ? { id: "acct-demo", kind: "consumer", plan: consumerPlan, status: "active", addOns: [] }
+        : { id: "acct-demo", kind: "business", plan: "business", status: "active" },
       numbers: [{ id: "num-1", e164: OUR, state: "active" }],
       e911: { addressRegistered: true, noticeAccepted: true, noticeVersion: "2026-10-fr-1" },
-      usage: { outboundMinutes: 212, inboundMinutes: 340, outboundSms: 418, periodStart: "2026-10-01T00:00:00.000Z" },
+      usage: consumerPlan
+        ? { outboundMinutes: 12, inboundMinutes: 25, outboundSms: 18, periodStart: "2026-10-01T00:00:00.000Z" }
+        : { outboundMinutes: 212, inboundMinutes: 340, outboundSms: 418, periodStart: "2026-10-01T00:00:00.000Z" },
       callSettings: DEFAULT_CALL_SETTINGS,
     },
     e911: {
@@ -713,6 +731,10 @@ const routes: Route[] = [
   ["GET", /^\/v1\/me\/export$/, () =>
     ok({ exportedAt: new Date().toISOString(), format: "mimt-export-v1", profile: state.me, calls: state.calls, messages: state.messages, voicemails: state.voicemails })],
   ["DELETE", /^\/v1\/me$/, () => json(202, { status: "pending_deletion", deletionScheduledAt: new Date(Date.now() + 30 * 86_400_000).toISOString() })],
+  ["GET", /^\/v1\/consents$/, () =>
+    ok({
+      consents: Object.entries(state.consents).map(([kind, granted]) => ({ id: `consent-${kind}`, kind, granted: Boolean(granted), version: "demo", at: new Date().toISOString() })),
+    })],
   ["POST", /^\/v1\/consents$/, ({ body }) => {
     const b = body as { kind: string; granted: boolean; version: string };
     if (!(USER_CONSENT_KINDS as readonly string[]).includes(b.kind)) return fail(400, "validation_error", "unknown consent kind");

@@ -8,6 +8,19 @@ const htaccess = readFileSync(new URL("../public/.htaccess", import.meta.url), "
 const csp = (htaccess.match(/Header always set Content-Security-Policy "([^"]+)"/) ?? [])[1] ?? "";
 const directive = (name: string) => (csp.split(";").map((d) => d.trim()).find((d) => d.startsWith(`${name} `)) ?? "").split(/\s+/).slice(1);
 
+const ADSENSE_SCRIPT_ORIGINS = [
+  "https://pagead2.googlesyndication.com",
+  "https://*.googlesyndication.com",
+  "https://googleads.g.doubleclick.net",
+  "https://*.doubleclick.net",
+  "https://www.google.com",
+  "https://adservice.google.com",
+  "https://adservice.google.ca",
+  "https://fundingchoicesmessages.google.com",
+  "https://*.gstatic.com",
+  "https://*.adtrafficquality.google",
+];
+
 describe("app.mimt.ca .htaccess", () => {
   it("redirects HTTP to HTTPS and keeps the SPA fallback for unknown paths only", () => {
     expect(htaccess).toContain("RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L,NE]");
@@ -30,13 +43,26 @@ describe("app.mimt.ca .htaccess", () => {
 
   it("has a CSP that cannot be framed and allows only what the app talks to", () => {
     expect(directive("frame-ancestors")).toEqual(["'none'"]);
-    expect(directive("script-src")).toEqual(["'self'"]);
+    // Scripts: the app itself plus Google AdSense (free-plan ads, src/ads/) and nothing else.
+    expect(directive("script-src")).toEqual(["'self'", ...ADSENSE_SCRIPT_ORIGINS]);
+    expect(directive("script-src").join(" ")).not.toMatch(/unsafe|data:|blob:|\*\s|^\*$|http:/);
     expect(directive("object-src")).toEqual(["'none'"]);
     const connect = directive("connect-src");
     for (const origin of ["https://api.mimt.ca", "https://takatak.ca", "wss://*.twilio.com", "https://*.twilio.com", "wss://rtc.mimt.ca", "https://rtc.mimt.ca"]) {
       expect(connect).toContain(origin);
     }
     expect(directive("media-src")).toEqual(expect.arrayContaining(["blob:", "https://api.mimt.ca"]));
+  });
+
+  it("lets Google AdSense render its ad iframes and requests, and nothing else is framed", () => {
+    expect(directive("frame-src")).toEqual(
+      expect.arrayContaining(["https://googleads.g.doubleclick.net", "https://tpc.googlesyndication.com", "https://*.googlesyndication.com", "https://www.google.com"]),
+    );
+    expect(directive("frame-src").every((o) => o.startsWith("https://"))).toBe(true);
+    expect(directive("img-src")).toEqual(expect.arrayContaining(["'self'", "https://pagead2.googlesyndication.com", "https://*.doubleclick.net"]));
+    expect(directive("connect-src")).toEqual(expect.arrayContaining(["https://pagead2.googlesyndication.com", "https://adservice.google.com"]));
+    // Still never framed itself.
+    expect(htaccess).toContain('Header always set X-Frame-Options "DENY"');
   });
 
   it("never lets the app shell or the service worker be cached long; hashed assets are immutable", () => {

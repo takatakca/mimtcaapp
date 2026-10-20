@@ -8,5 +8,14 @@ export const env = {
    * The app shows a "Mode démo" banner. Never set it for app.mimt.ca.
    */
   mock: import.meta.env.VITE_MOCK_API === "1",
+  /**
+   * Google AdSense for the free plan (src/ads/). Public ids, not secrets. Unset client or banner slot =
+   * no ads at all. docs/MIMT-LAUNCH.md « Publicités et coûts ».
+   */
+  adsense: {
+    client: (import.meta.env.VITE_ADSENSE_CLIENT || "").trim(),
+    slotBanner: (import.meta.env.VITE_ADSENSE_SLOT_BANNER || "").trim(),
+    slotSidebar: (import.meta.env.VITE_ADSENSE_SLOT_SIDEBAR || "").trim(),
+  },
   appVersion: "web-0.1.0",
 };

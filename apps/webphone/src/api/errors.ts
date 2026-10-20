@@ -76,6 +76,10 @@ const CODE_TO_KEY: Record<string, TKey> = {
   unsupported_media_type: "settings.vm.badType",
   media_too_large: "settings.vm.tooBig",
   invalid_media: "settings.vm.badType",
+  // Free-plan cost guard (apps/api/src/services/freeTier.ts).
+  free_quota_reached: "error.freeQuotaReached",
+  free_budget_reached: "error.freeOutboundPaused",
+  free_outbound_disabled: "error.freeOutboundPaused",
   meeting_full: "error.meetingFull",
   meeting_ended: "error.meetingEnded",
   invite_expired: "error.inviteExpired",

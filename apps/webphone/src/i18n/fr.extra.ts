@@ -249,4 +249,18 @@ export const frExtra = {
   "settings.vm.upload": "Téléverser un message d'accueil",
   "settings.vm.uploadButton": "Téléverser",
   "settings.vm.uploadHint": "Fichier MP3 ou WAV, {seconds} secondes au plus.",
+
+  // Publicités (forfait gratuit, src/ads/) et garde-fou de coûts du forfait gratuit
+  "ads.label": "Publicité",
+  "ads.placeholder": "Espace publicitaire (démo) : une annonce Google s'affiche ici avec le forfait gratuit.",
+  "ads.remove": "Enlever les publicités",
+  "ads.rewardedApp": "Gagnez 10 minutes dans l'app mobile",
+  "privacy.adsPersonalised": "Publicités personnalisées (forfait gratuit)",
+  "privacy.adsPersonalisedHint":
+    "Désactivé par défaut : les annonces Google ne sont pas basées sur votre profil. Si vous l'activez, Google, un fournisseur situé hors du Québec, peut utiliser des témoins pour personnaliser les annonces. Retrait en tout temps (Loi 25).",
+  "account.noAds": "Sans pub, {price} par mois",
+  "account.noAdsHint": "Retire les publicités de l'application, sans changer de forfait.",
+  "error.freeQuotaReached": "Les numéros gratuits du jour sont tous attribués. Revenez demain ou choisissez Verrouillage du numéro (4,99 $) / Premium.",
+  "error.freeOutboundPaused":
+    "Les appels et textos vers le réseau téléphonique sont en pause pour le forfait gratuit jusqu'au mois prochain. Les appels et textos entre applications MIMT restent permis. Passez à Verrouillage du numéro (4,99 $) ou Premium pour continuer.",
 } as const;

@@ -56,6 +56,11 @@ Sans configuration, l'API démarre quand même : stockage en mémoire (sans `DAT
 | `E911_NOTICE_VERSION` | | Version de l'avis 9-1-1 à accepter (changer à chaque modification du texte) |
 | `DAILY_SPEND_ALERT_CAD` | | Seuil quotidien de dépenses qui suspend les appels/SMS sortants (défaut 25) |
 | `USD_TO_CAD`, `INTL_ASSUMED_RATE_CENTS_PER_MIN` | | Conversion des prix Twilio ; tarif prudent pour limiter la durée des appels internationaux |
+| `FREE_NEW_NUMBERS_PER_DAY` | | Garde-fou du forfait gratuit : nouveaux numéros gratuits par jour UTC (défaut 5 ; 0 = aucun). Au-delà : 409 `free_quota_reached` |
+| `FREE_ACTIVE_NUMBERS_MAX` | | Total des numéros gratuits détenus (actif, verrouillé, grâce) par les comptes sans forfait payant (défaut 50 ; 0 = aucun nouveau). Atteint : 409 `free_quota_reached`. Coût fixe ≈ 2,64 $/numéro/mois |
+| `FREE_SIGNUPS_ENABLED` | | `false` refuse toute réclamation de numéro gratuit (défaut `true`) ; les forfaits payants ne sont pas touchés |
+| `FREE_OUTBOUND_PSTN_ENABLED` | | `false` refuse les appels et textos sortants vers le réseau téléphonique du forfait gratuit (défaut `true`) |
+| `FREE_TIER_MONTHLY_BUDGET_CAD` | | Dépense Twilio estimée de tous les comptes gratuits ce mois UTC (appels du registre d'usage + 0,023 $ par segment SMS sortant). Atteinte : appels/SMS sortants gratuits refusés jusqu'au 1er (défaut 150). 9-1-1, appels/textos entre applications MIMT et entrants toujours permis. Suivi : `GET /v1/admin/costs` |
 
 Les secrets vont dans les secrets de Coolify, jamais dans le code ni dans le clavardage.
 
@@ -114,7 +119,8 @@ Run: `pnpm install && pnpm --filter @mimt/shared build && pnpm --filter @mimt/ap
 | GET | `/v1/takatak/overview?global_user_id=` | `X-MIMT-Api-Key` |
 | GET | `/v1/e911/notice?locale=` | — |
 | GET/PUT | `/v1/e911/address` (GET: 404 when none) · POST `/v1/e911/acknowledge` | bearer |
-| GET | `/v1/numbers/available?areaCode=` · POST `/v1/numbers/claim` | bearer |
+| GET | `/v1/numbers/available?areaCode=` · POST `/v1/numbers/claim` (free plan: 409 `free_quota_reached` past `FREE_NEW_NUMBERS_PER_DAY`, at `FREE_ACTIVE_NUMBERS_MAX` or with `FREE_SIGNUPS_ENABLED=false`) | bearer |
+| GET | `/v1/admin/costs` → `{month, freeSpendCad, budgetCad, budgetReached, outboundEnabled, freeNumbersToday, capToday, activeFreeNumbers, activeFreeMax, estimatedFixedMonthlyCad, signupsEnabled}` (free-tier cost guard) | bearer + `CATALOG_ADMIN_USER_IDS` |
 | GET | `/v1/voice/token?platform=ios\|android\|web` · `/v1/calls?cursor=&limit=` (recents, own account) | bearer |
 | POST | `/v1/messages` · GET `/v1/conversations` · GET `/v1/conversations/:peer/messages?cursor=&limit=` | bearer |
 | GET | `/v1/voicemails` (each with a 15-min signed `audioUrl`) · DELETE `/v1/voicemails/:id` | bearer |

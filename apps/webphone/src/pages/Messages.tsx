@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../api/client";
 import { toErrorKey } from "../api/errors";
 import { useSession } from "../auth/SessionProvider";
+import { AdSlot } from "../ads/Ads";
 import { AiErrorNote } from "../components/AiErrorNote";
 import { Icon } from "../components/Icon";
 import { Badge, Empty, ErrorNote, Loading, PageHeader } from "../components/ui";
@@ -63,6 +64,7 @@ export function Messages() {
             </li>
           ))}
         </ul>
+        <AdSlot placement="banner" />
       </section>
       <section className="split__detail" aria-label={t("messages.thread")}>
         {composing && !peer ? (

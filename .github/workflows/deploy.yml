@@ -107,6 +107,8 @@ jobs:
       - run: pnpm --filter @mimt/web build
         env:
           NEXT_PUBLIC_FORMS_ENDPOINT: ${{ vars.FORMS_ENDPOINT }}
+          # AdSense ads.txt on the root domain (covers app.mimt.ca). Unset: no ads.txt. docs/MIMT-LAUNCH.md « Publicités et coûts ».
+          NEXT_PUBLIC_ADSENSE_PUBLISHER_ID: ${{ vars.ADSENSE_PUBLISHER_ID || vars.ADSENSE_CLIENT }}
       - name: Embed manually released Git revision in public manifest
         env:
           RELEASE_SHA: ${{ github.sha }}
@@ -209,6 +211,10 @@ jobs:
           VITE_API_URL: ${{ vars.API_URL || 'https://api.mimt.ca' }}
           VITE_TAKATAK_ISSUER: ${{ vars.TAKATAK_ISSUER }}
           VITE_TAKATAK_CLIENT_ID: ${{ vars.TAKATAK_CLIENT_ID }}
+          # Free-plan web ads (Google AdSense). Public ids, not secrets; unset = no ads. docs/MIMT-LAUNCH.md « Publicités et coûts ».
+          VITE_ADSENSE_CLIENT: ${{ vars.ADSENSE_CLIENT }}
+          VITE_ADSENSE_SLOT_BANNER: ${{ vars.ADSENSE_SLOT_BANNER }}
+          VITE_ADSENSE_SLOT_SIDEBAR: ${{ vars.ADSENSE_SLOT_SIDEBAR }}
       - name: Check the build embeds the released commit in mimt-release.json
         env:
           RELEASE_SHA: ${{ github.sha }}
