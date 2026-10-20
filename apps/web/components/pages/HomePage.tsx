@@ -19,7 +19,6 @@ export function HomePage({ lang }: { lang: Lang }) {
   const fr = lang === "fr";
   const t = fr ? FR : EN;
   const faq = faqItems(lang).filter((i) => HOME_FAQ.includes(i.id));
-  const freePrice = fr ? `${PLANS.free.monthlyPriceCents / 100} $` : `$${PLANS.free.monthlyPriceCents / 100}`;
   const slides = t.slides(lang);
 
   return (
@@ -37,7 +36,7 @@ export function HomePage({ lang }: { lang: Lang }) {
               <span className="h1-line">{t.h1a}</span> <span className="h1-line text-gradient">{t.h1b}</span> <span className="h1-line">{t.h1c}</span>
             </h1>
             <p className="lead home-hero__lead">
-              <strong>{t.leadStrong}</strong> {t.lead.replace("{free}", freePrice)}
+              <strong>{t.leadStrong}</strong> {t.lead}
             </p>
             <NumberPicker lang={lang} plan="lock" />
             <ul className="hero-ticks">
@@ -222,28 +221,15 @@ export function HomePage({ lang }: { lang: Lang }) {
               </a>
             </div>
           </div>
-          <div className="browser" aria-hidden="true" data-reveal="">
-            <div className="browser__bar">
-              <span />
-              <span />
-              <span />
-              <p>app.mimt.ca</p>
-            </div>
-            <div className="browser__body">
-              <div className="browser__side">
-                <i />
-                <i />
-                <i />
-                <i />
-              </div>
-              <div className="browser__main">
-                <b className="browser__msg browser__msg--in" />
-                <b className="browser__msg browser__msg--out" />
-                <b className="browser__msg browser__msg--in browser__msg--short" />
-                <b className="browser__dial" />
-              </div>
-            </div>
-          </div>
+          <figure className="device device--desktop" data-reveal="">
+            <img
+              src="/screens/app-desktop-messages.webp"
+              width={1440}
+              height={855}
+              loading="lazy"
+              alt={fr ? "app.mimt.ca dans le navigateur : la liste des conversations et un échange texto" : "app.mimt.ca in the browser: the conversation list and a text exchange"}
+            />
+          </figure>
         </div>
       </section>
 
@@ -336,10 +322,10 @@ const FR: Copy = {
   h1b: "Partout.",
   h1c: "Sans frais cachés.",
   leadStrong: "Votre numéro canadien dans une app.",
-  lead: "Appelez et textez par Wi‑Fi ou données, sur votre cellulaire comme sur votre ordinateur. Commencez à {free}.",
-  ctaWeb: "Commencer gratuitement dans l'app Web",
+  lead: "Appelez et textez par Wi‑Fi ou données, sur votre cellulaire comme sur votre ordinateur.",
+  ctaWeb: "Ouvrir l'app Web",
   ticks: ["Vrai numéro canadien", "Transfert de numéro gratuit", "Français d'abord"],
-  heroNote: "Un numéro à vous dès {lock} par mois. Sans numéro, MIMT reste gratuit entre utilisateurs :",
+  heroNote: "Un numéro à vous dès {lock} par mois, payé d'avance et activé tout de suite. Déjà client?",
   trustLabel: "Nos engagements",
   trust: [
     { icon: "quebec", text: "Fait au Québec" },
@@ -405,10 +391,10 @@ const EN: Copy = {
   h1b: "Anywhere.",
   h1c: "No hidden fees.",
   leadStrong: "Your Canadian number, in an app.",
-  lead: "Call and text over Wi‑Fi or data, on your phone and on your computer. Start at {free}.",
-  ctaWeb: "Start free in the web app",
+  lead: "Call and text over Wi‑Fi or data, on your phone and on your computer.",
+  ctaWeb: "Open the web app",
   ticks: ["A real Canadian number", "Free number transfer", "French first, bilingual"],
-  heroNote: "A number of your own from {lock} a month. Without a number, MIMT stays free between users:",
+  heroNote: "A number of your own from {lock} a month, paid up front and active right away. Already a customer?",
   trustLabel: "Our commitments",
   trust: [
     { icon: "quebec", text: "Made in Québec" },

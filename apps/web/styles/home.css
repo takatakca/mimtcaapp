@@ -1771,3 +1771,38 @@ html[data-sheet] .mobile-cta {
 .picker-band .picker {
   margin-top: 0;
 }
+
+/* Real app screenshots (public/screens) in plain device frames. */
+.device {
+  margin: 0;
+  position: relative;
+  border-radius: 34px;
+  padding: 10px;
+  background: #0b1630;
+  border: 1px solid rgba(41, 195, 255, 0.35);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
+}
+.device img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 26px;
+}
+.device--phone {
+  max-width: 320px;
+  margin: 0 auto;
+}
+.device--desktop {
+  border-radius: 14px;
+  padding: 6px;
+}
+.device--desktop img {
+  border-radius: 9px;
+}
+.hero-art__cap {
+  position: relative;
+  margin-top: 10px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--silver);
+}
