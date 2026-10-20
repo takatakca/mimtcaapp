@@ -467,6 +467,15 @@ export class MemoryRepository implements Repository {
     }
     return { spendCad, smsOut };
   }
+  async countActiveFreeNumbers(now: Date) {
+    let n = 0;
+    for (const num of this.numbers.values()) {
+      if (!num.telecomAccountId || !["active", "locked", "grace"].includes(num.state)) continue;
+      const subs = [...this.subscriptions.values()].filter((s) => s.telecomAccountId === num.telecomAccountId);
+      if (planFromSubscriptions(subs, now) === "free") n++;
+    }
+    return n;
+  }
   async countFreeNumberClaimsSince(since: Date) {
     return this.auditLog.filter((e) => e.action === "number.claimed" && e.meta?.plan === "free" && e.at >= since).length;
   }

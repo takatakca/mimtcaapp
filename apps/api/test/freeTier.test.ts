@@ -85,6 +85,42 @@ describe("free-tier cost guard: new free numbers per day", () => {
     }
   });
 
+  it("refuses a free claim once FREE_ACTIVE_NUMBERS_MAX free numbers are held; paid plans bypass it", async () => {
+    await restart({ FREE_ACTIVE_NUMBERS_MAX: "2", FREE_NEW_NUMBERS_PER_DAY: "100" });
+    await makeUser(ctx, { number: "+15145550101" });
+    await makeUser(ctx, { number: "+15145550102" });
+    const u = await makeUser(ctx, { e911: true, ack: true });
+    const res = await claim(u.auth);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("free_quota_reached");
+    expect(res.json().message).toMatch(/^Les numéros gratuits du jour sont tous attribués/);
+    expect(ctx.twilio!.purchaseNumber).not.toHaveBeenCalled();
+
+    await subscribe(u.account.id, "lock");
+    expect((await claim(u.auth)).statusCode).toBe(201);
+  });
+
+  it("does not count released or quarantined numbers, nor numbers of paid accounts, toward the total cap", async () => {
+    await restart({ FREE_ACTIVE_NUMBERS_MAX: "1", FREE_NEW_NUMBERS_PER_DAY: "100" });
+    const a = await makeUser(ctx, { number: "+15145550101" });
+    const b = await makeUser(ctx, { number: "+15145550102" });
+    const paid = await makeUser(ctx, { number: "+15145550103" });
+    await subscribe(paid.account.id, "premium");
+    await ctx.repo.updateNumber(a.number!.id, { state: "released" });
+    await ctx.repo.updateNumber(b.number!.id, { state: "quarantine" });
+    const u = await makeUser(ctx, { e911: true, ack: true });
+    expect((await claim(u.auth)).statusCode).toBe(201);
+    // Now one free number is held: the next free claim is refused.
+    const v = await makeUser(ctx, { e911: true, ack: true });
+    expect((await claim(v.auth, "+15145550198")).json().error).toBe("free_quota_reached");
+  });
+
+  it("refuses every free claim when FREE_ACTIVE_NUMBERS_MAX is 0", async () => {
+    await restart({ FREE_ACTIVE_NUMBERS_MAX: "0" });
+    const u = await makeUser(ctx, { e911: true, ack: true });
+    expect((await claim(u.auth)).statusCode).toBe(409);
+  });
+
   it("still checks 9-1-1 before the quota", async () => {
     await restart({ FREE_NEW_NUMBERS_PER_DAY: "0" });
     const u = await makeUser(ctx, { e911: false, ack: true });
@@ -206,7 +242,10 @@ describe("GET /v1/admin/costs", () => {
   });
 
   it("reports the month, free spend, budget and today's free numbers", async () => {
-    await restart({ FREE_NEW_NUMBERS_PER_DAY: "7", FREE_TIER_MONTHLY_BUDGET_CAD: "150" });
+    await restart({ FREE_NEW_NUMBERS_PER_DAY: "7", FREE_TIER_MONTHLY_BUDGET_CAD: "150", FREE_ACTIVE_NUMBERS_MAX: "40" });
+    await makeUser(ctx, { number: "+15145550101" });
+    await makeUser(ctx, { number: "+15145550102" });
+    await makeUser(ctx, { number: "+15145550103" });
     const staff = await makeUser(ctx);
     // The allowlist is read per request (same mechanism as the catalog admin routes).
     ctx.deps.config.CATALOG_ADMIN_USER_IDS.push(staff.user.id);
@@ -227,6 +266,9 @@ describe("GET /v1/admin/costs", () => {
       outboundEnabled: true,
       freeNumbersToday: 2,
       capToday: 7,
+      activeFreeNumbers: 3,
+      activeFreeMax: 40,
+      estimatedFixedMonthlyCad: 7.92,
       signupsEnabled: true,
     });
   });

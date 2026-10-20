@@ -367,6 +367,8 @@ export interface Repository {
   freePlanUsage(period: string, now: Date): Promise<{ spendCad: number; smsOut: number }>;
   /** Free-tier cost guard: audit rows "number.claimed" with meta.plan = "free" at or after `since`. */
   countFreeNumberClaimsSince(since: Date): Promise<number>;
+  /** Free-tier cost guard: numbers in state active/locked/grace held by accounts without a live paid plan (same rule as freePlanUsage). */
+  countActiveFreeNumbers(now: Date): Promise<number>;
 
   addFraudEvent(e: Omit<FraudEvent, "id" | "at">): Promise<FraudEvent>;
   listFraudEvents(accountId: string): Promise<FraudEvent[]>;

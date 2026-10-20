@@ -143,6 +143,19 @@ for (const [name, make, enabled] of impls) {
       await repo.audit({ actorUserId: user.id, action: "number.claimed", meta: { plan: "premium" }, at: new Date(day.getTime() + 7200_000) });
       await repo.audit({ actorUserId: user.id, action: "other", meta: { plan: "free" }, at: new Date(day.getTime() + 7200_000) });
       expect(await repo.countFreeNumberClaimsSince(day)).toBe(1);
+
+      // Held numbers (active/locked/grace) of free accounts only.
+      const num = (e164: string, telecomAccountId: string | null, state: "active" | "locked" | "grace" | "quarantine" | "released" | "porting_in") =>
+        repo.createNumber({ e164, twilioSid: `PN${e164}`, telecomAccountId, kind: "local", state, lastActivityAt: now, stateChangedAt: now });
+      await num("+15145550101", free.id, "active");
+      await num("+15145550102", canceled.id, "locked");
+      await num("+15145550103", lapsedGrant.id, "grace");
+      await num("+15145550104", free.id, "quarantine");
+      await num("+15145550105", free.id, "released");
+      await num("+15145550106", premium.id, "active");
+      await num("+15145550107", lock.id, "active");
+      await num("+15145550108", null, "released");
+      expect(await repo.countActiveFreeNumbers(now)).toBe(3);
     });
 
     it("calls page (keyset pagination, own account only)", async () => {

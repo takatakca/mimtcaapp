@@ -39,7 +39,7 @@ Noms seulement. Les valeurs viennent de chaque fournisseur.
 | Internet et mobile | `PROVISIONING_PROVIDER`, `VIDEOTRON_*`, `CATALOG_ADMIN_USER_IDS` |
 | Cuba | `CUBA_CARRIER`, `CUBA_SIP_HOST` |
 | Surveillance | `SENTRY_DSN`, `BETTER_STACK_HEARTBEAT_URL`, `DAILY_SPEND_ALERT_CAD` |
-| Garde-fou du forfait gratuit (section 7 ter) | `FREE_NEW_NUMBERS_PER_DAY`, `FREE_TIER_MONTHLY_BUDGET_CAD`, `FREE_OUTBOUND_PSTN_ENABLED`, `FREE_SIGNUPS_ENABLED` (valeurs par défaut sûres) |
+| Garde-fou du forfait gratuit (section 7 ter) | `FREE_NEW_NUMBERS_PER_DAY`, `FREE_ACTIVE_NUMBERS_MAX`, `FREE_TIER_MONTHLY_BUDGET_CAD`, `FREE_OUTBOUND_PSTN_ENABLED`, `FREE_SIGNUPS_ENABLED` (valeurs par défaut sûres) |
 
 - [ ] Le proxy Coolify doit laisser passer les WebSocket sur `/ws/ai/receptionist`.
 
@@ -100,14 +100,15 @@ Toutes facultatives; sans elles, les valeurs par défaut s'appliquent dès le d�
 
 | Variable | Défaut | Recommandé au lancement | Effet |
 |---|---|---|---|
-| `FREE_NEW_NUMBERS_PER_DAY` | 10 | 5 à 10 | Nouveaux numéros gratuits par jour UTC. Au-delà : « Les numéros gratuits du jour sont tous attribués… » (409). `0` = aucun. |
+| `FREE_NEW_NUMBERS_PER_DAY` | 5 | 5 | Nouveaux numéros gratuits par jour UTC. Au-delà : « Les numéros gratuits du jour sont tous attribués… » (409). `0` = aucun. |
+| `FREE_ACTIVE_NUMBERS_MAX` | 50 | 50 | Total des numéros gratuits détenus (actifs, verrouillés ou en période de grâce). Atteint : même refus (409). 50 numéros ≈ 132 $ par mois de frais fixes. `0` = aucun nouveau numéro gratuit. |
 | `FREE_TIER_MONTHLY_BUDGET_CAD` | 150 | 150 | Dépense Twilio estimée de tous les comptes gratuits ce mois-ci (appels facturés + 0,023 $ par texto sortant). Atteinte : appels et textos sortants vers le réseau refusés pour le forfait gratuit jusqu'au 1er du mois. |
 | `FREE_OUTBOUND_PSTN_ENABLED` | `true` | `true` | `false` coupe tout de suite les appels et textos sortants du forfait gratuit. |
 | `FREE_SIGNUPS_ENABLED` | `true` | `true` | `false` arrête toute attribution de numéro gratuit (les forfaits payants continuent). |
 
 - Jamais touchés : le **9-1-1**, les appels et textos entre applications MIMT, les appels et textos entrants, les forfaits payants (Verrouillage, Premium, Affaires).
-- Le budget mensuel ne compte pas la location des numéros (1,60 $ + 9-1-1 1,04 $ par numéro et par mois) : c'est `FREE_NEW_NUMBERS_PER_DAY` qui la limite. Exemple : 10 par jour = jusqu'à 300 nouveaux numéros gratuits par mois, soit environ 790 $ par mois de numéros une fois tous attribués (les numéros inactifs 30 jours sont repris). Commencer à 5 et monter quand les revenus publicitaires sont mesurés.
-- Suivi : `GET https://api.mimt.ca/v1/admin/costs` (jeton d'un utilisateur listé dans `CATALOG_ADMIN_USER_IDS`) → `month`, `freeSpendCad`, `budgetCad`, `freeNumbersToday`, `capToday`.
+- Le budget mensuel ne compte pas la location des numéros (1,60 $ + 9-1-1 1,04 $ = 2,64 $ par numéro et par mois). Elle est plafonnée par `FREE_ACTIVE_NUMBERS_MAX` (total détenu) et `FREE_NEW_NUMBERS_PER_DAY` (rythme). Avec les valeurs par défaut, au plus 50 numéros gratuits, soit environ 132 $ par mois de frais fixes, plus le budget d'usage de 150 $. Monter ces plafonds quand les revenus publicitaires sont mesurés. Les numéros inactifs 30 jours sont repris et libèrent une place.
+- Suivi : `GET https://api.mimt.ca/v1/admin/costs` (jeton d'un utilisateur listé dans `CATALOG_ADMIN_USER_IDS`) → `month`, `freeSpendCad`, `budgetCad`, `freeNumbersToday`, `capToday`, `activeFreeNumbers`, `activeFreeMax`, `estimatedFixedMonthlyCad`.
 - Urgence (facture qui s'emballe) : `FREE_SIGNUPS_ENABLED=false` et `FREE_OUTBOUND_PSTN_ENABLED=false` dans Coolify, puis redéployer l'API. Le 9-1-1 reste permis.
 
 ### Connexion par texto (Twilio Verify)

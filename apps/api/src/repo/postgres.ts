@@ -412,6 +412,18 @@ export class PostgresRepository implements Repository {
             and not (s.source = 'manual' and s.current_period_end is not null and s.current_period_end <= ${now}))`;
     return { spendCad: Number(row?.spendCad ?? 0), smsOut: Number(row?.smsOut ?? 0) };
   }
+  async countActiveFreeNumbers(now: Date) {
+    const [row] = await this.sql<{ n: number }[]>`
+      select count(*)::int as n from phone_numbers p
+      where p.telecom_account_id is not null and p.state in ('active', 'locked', 'grace')
+        and not exists (
+          select 1 from subscriptions s
+          where s.telecom_account_id = p.telecom_account_id
+            and s.kind = 'plan' and s.code <> 'free'
+            and s.status in ('active', 'trialing', 'past_due')
+            and not (s.source = 'manual' and s.current_period_end is not null and s.current_period_end <= ${now}))`;
+    return row?.n ?? 0;
+  }
   async countFreeNumberClaimsSince(since: Date) {
     const [row] = await this.sql<{ n: number }[]>`
       select count(*)::int as n from audit_log
