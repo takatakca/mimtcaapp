@@ -2,8 +2,8 @@ import { featureLabel, capLines, price, yearly, type Plan } from "@/lib/plans-vi
 import { href, type Lang } from "@/lib/site";
 
 const BLURB: Record<string, { fr: string; en: string }> = {
-  free: { fr: "Pour essayer, avec publicités.", en: "To try it out, with ads." },
-  lock: { fr: "Le gratuit, sans perdre votre numéro.", en: "The free plan, without losing your number." },
+  free: { fr: "Entre applications MIMT, avec publicités.", en: "Between MIMT apps, with ads." },
+  lock: { fr: "Votre vrai numéro canadien, l'essentiel compris.", en: "Your real Canadian number, the essentials included." },
   premium: { fr: "Pour en faire votre numéro principal.", en: "To make it your main number." },
   business: { fr: "Une ligne d'affaires complète.", en: "A complete business line." },
   business_pro: { fr: "Pour les équipes qui enregistrent leurs appels.", en: "For teams that record calls." },

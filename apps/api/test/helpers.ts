@@ -18,6 +18,8 @@ export const AUTH_TOKEN = "test-twilio-auth-token";
 export const NOTICE = "test-notice-1";
 export const ISSUER = "https://takatak.test";
 export const API_KEY = "test-takatak-api-key";
+/** Free plan WITH a phone-network number (pre-launch pricing, PLAN_FREE_NUMBER): for tests of the FREE_* cost guard. */
+export const LEGACY_FREE = { PLAN_FREE_NUMBER: "true" } as const;
 
 export function testConfig(extra: Record<string, string> = {}) {
   return loadConfig({

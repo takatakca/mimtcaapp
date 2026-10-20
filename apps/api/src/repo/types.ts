@@ -212,12 +212,35 @@ export interface Usage {
   minutesOut: number;
   minutesIn: number;
   smsOut: number;
+  /** Inbound SMS segments and MMS: Twilio bills receiving too, so they count in the plan's messages. */
+  smsIn: number;
+  /** Outbound MMS (within smsOut). */
+  mmsOut: number;
+  /** App-to-app call minutes (free plan fair use; paid plans count them in minutesOut). */
+  minutesOnNet: number;
   bonusMinutesOut: number;
   spendCad: number;
   intlSpendCad: number;
 }
 
-export type UsageDelta = Partial<Omit<Usage, "telecomAccountId" | "period">>;
+export const emptyUsage = (telecomAccountId: string, period: string): Usage => ({
+  telecomAccountId,
+  period,
+  minutesOut: 0,
+  minutesIn: 0,
+  smsOut: 0,
+  smsIn: 0,
+  mmsOut: 0,
+  minutesOnNet: 0,
+  bonusMinutesOut: 0,
+  spendCad: 0,
+  intlSpendCad: 0,
+});
+
+/** Messages counted against a plan's `messages` cap: sent and received. */
+export const messagesUsed = (u: Pick<Usage, "smsOut" | "smsIn">) => u.smsOut + u.smsIn;
+
+export type UsageDelta =Partial<Omit<Usage, "telecomAccountId" | "period">>;
 
 export interface FraudEvent {
   id: string;

@@ -23,6 +23,8 @@ export interface BillingGateway {
     locale: "fr-CA" | "en-CA";
     /** Session lifetime (Stripe accepts 30 min to 24 h). Used to match a number hold. */
     expiresAt?: Date;
+    /** Subscription trial (TRIAL_ENABLED): the card is always collected, the first charge comes after the trial. */
+    trialDays?: number;
   }): Promise<{ id: string; url: string }>;
   createPortal(customerId: string, returnUrl: string): Promise<string>;
   /** Verifies the Stripe-Signature header against the raw body. Throws on mismatch. */
@@ -124,7 +126,11 @@ export class StripeGateway implements BillingGateway {
         },
       },
       metadata: input.metadata,
-      ...(input.mode === "subscription" ? { subscription_data: { metadata: input.metadata } } : { payment_intent_data: { metadata: input.metadata } }),
+      ...(input.mode === "subscription"
+        ? { subscription_data: { metadata: input.metadata, ...(input.trialDays ? { trial_period_days: input.trialDays } : {}) } }
+        : { payment_intent_data: { metadata: input.metadata } }),
+      // A trial never starts without a card on file (no free numbers without a way to charge).
+      ...(input.trialDays ? { payment_method_collection: "always" as const } : {}),
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
       ...(input.expiresAt ? { expires_at: Math.floor(input.expiresAt.getTime() / 1000) } : {}),

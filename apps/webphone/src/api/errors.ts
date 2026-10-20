@@ -80,6 +80,11 @@ const CODE_TO_KEY: Record<string, TKey> = {
   free_quota_reached: "error.freeQuotaReached",
   free_budget_reached: "error.freeOutboundPaused",
   free_outbound_disabled: "error.freeOutboundPaused",
+  // Launch pricing (docs/MIMT-UNIT-ECONOMICS.md).
+  number_requires_paid_plan: "error.numberRequiresPaidPlan",
+  mms_quota_exhausted: "error.mmsQuotaExhausted",
+  trial_unavailable: "error.trialUnavailable",
+  trial_already_used: "error.trialAlreadyUsed",
   meeting_full: "error.meetingFull",
   meeting_ended: "error.meetingEnded",
   invite_expired: "error.inviteExpired",

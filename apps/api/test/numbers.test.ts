@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { makeUser, setup, type Ctx } from "./helpers.js";
+import { makeUser, setup as baseSetup, type Ctx, LEGACY_FREE } from "./helpers.js";
+
+// These tests predate launch pricing: their free users hold a phone-network number (LEGACY_FREE).
+const setup = (o: Parameters<typeof baseSetup>[0] = {}) => baseSetup({ ...o, config: { ...LEGACY_FREE, ...o.config } });
 
 let ctx: Ctx;
 beforeEach(async () => {

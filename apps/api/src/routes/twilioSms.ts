@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { AppDeps } from "../deps.js";
 import { scoreInboundSms } from "../ai/spam.js";
-import { HELD_STATES } from "../services/accounts.js";
+import { HELD_STATES, usagePeriods } from "../services/accounts.js";
 import { ingestInboundMedia } from "../services/media.js";
 import { MessagingResponse, NOT_IN_SERVICE, sendTwiml, twilioParams } from "./twiml.js";
 
@@ -54,6 +54,8 @@ export async function twilioSmsWebhooks(app: FastifyInstance, deps: AppDeps) {
       segments: Number(p.NumSegments ?? 1) || 1,
       numMedia: Number(p.NumMedia ?? 0) || 0,
     });
+    // Twilio bills received texts too: they count in the plan's messages (never refused: the cost is already paid).
+    await repo.addUsage(number.telecomAccountId, usagePeriods(deps.now()), { smsIn: message.numMedia > 0 ? 1 : message.segments });
     // « Spam probable » label (heuristics; Claude only for ambiguous text with consent). Never blocks delivery.
     const accountId = number.telecomAccountId;
     deps.ai?.background("spam:sms", () => scoreInboundSms(deps, { messageId: message.id, telecomAccountId: accountId, from: p.From, body }));

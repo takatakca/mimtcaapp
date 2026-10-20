@@ -60,7 +60,18 @@ export function capLines(plan: Plan, lang: Lang): string[] {
   const c = plan.caps;
   const fr = lang === "fr";
   const pooled = plan.perLine ? (fr ? " par ligne" : " per line") : "";
+  if (!c.hasNumber) {
+    // Gratuit: MIMT-to-MIMT only (docs/MIMT-UNIT-ECONOMICS.md), no phone-network number.
+    return [
+      fr ? "Pas de numéro de téléphone : seulement entre applications MIMT" : "No phone number: MIMT app to MIMT app only",
+      fr ? "Textos illimités entre applications MIMT" : "Unlimited texts between MIMT apps",
+      fr
+        ? `${num(c.onNetMinutes ?? 0, lang)} minutes d'appels entre applications MIMT/mois`
+        : `${num(c.onNetMinutes ?? 0, lang)} minutes of MIMT app-to-app calls/month`,
+    ];
+  }
   const lines = [
+    fr ? "Votre numéro canadien, payé d'avance et attribué tout de suite" : "Your Canadian number, paid up front and assigned right away",
     fr
       ? `${num(c.outboundMinutes, lang)} minutes sortantes/mois${pooled} (Canada et É.-U.)`
       : `${num(c.outboundMinutes, lang)} outbound minutes/month${pooled} (Canada & US)`,
@@ -68,9 +79,17 @@ export function capLines(plan: Plan, lang: Lang): string[] {
       ? `${num(c.inboundMinutes, lang)} minutes entrantes/mois${pooled}`
       : `${num(c.inboundMinutes, lang)} inbound minutes/month${pooled}`,
     fr
-      ? `${num(c.outboundSms, lang)} textos sortants/mois${pooled}`
-      : `${num(c.outboundSms, lang)} outbound texts/month${pooled}`,
+      ? `${num(c.messages, lang)} textos/mois${pooled}, envoyés et reçus`
+      : `${num(c.messages, lang)} texts/month${pooled}, sent and received`,
   ];
+  if (c.mms > 0) lines.push(fr ? `Dont ${num(c.mms, lang)} messages photo (MMS) envoyés` : `Including ${num(c.mms, lang)} picture messages (MMS) sent`);
+  if (c.transcriptionMinutes > 0) {
+    lines.push(fr ? `${num(c.transcriptionMinutes, lang)} minutes de transcription vocale/mois` : `${num(c.transcriptionMinutes, lang)} minutes of voicemail transcription/month`);
+  }
+  if (c.recordingMinutes > 0) {
+    lines.push(fr ? `${num(c.recordingMinutes, lang)} minutes d'enregistrement/mois${pooled}` : `${num(c.recordingMinutes, lang)} recording minutes/month${pooled}`);
+  }
+  lines.push(fr ? "Appels entre applications MIMT compris dans les minutes sortantes" : "MIMT app-to-app calls count as outbound minutes");
   if (c.inactivityDays !== null) {
     lines.push(
       fr

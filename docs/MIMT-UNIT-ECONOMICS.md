@@ -73,15 +73,32 @@ Ce qui change par rapport à la suggestion du propriétaire :
 - Essai de 7 jours : **désactivé par défaut**. S'il est activé, carte au dossier obligatoire et quota de 20 min / 20
   textos. Twilio facture le numéro au mois complet dès l'achat : un essai non converti coûte environ 3,89 $.
 
-## Garde-fous côté serveur (à livrer avec le changement de prix)
+## Garde-fous côté serveur (livrés avec la gamme de lancement)
 
-- Tous les prix et quotas configurables par variables d'environnement, refusés au démarrage s'ils cassent la règle.
-- Quota entrant et sortant appliqué avant de connecter l'appel; textos sortants refusés au-delà du quota.
-- Les textos reçus au-delà du quota coûtent quand même (Twilio facture à la réception) : filtrage anti-pourriel et
-  suivi par client dans `/v1/admin/costs`.
+- `packages/shared/src/plans.ts` porte la gamme ci-dessus; un test fait échouer la CI si un forfait payant casse la
+  règle. Le code interne `lock` désigne **Essentiel** (contraintes de base de données et SKU des magasins inchangés).
+- Prix et quotas modifiables par variables d'environnement de l'API (`apps/api/src/plansConfig.ts`) :
+  `PLAN_<CODE>_PRICE_CENTS`, `_OUT_MIN`, `_IN_MIN`, `_MESSAGES`, `_MMS` (`<CODE>` : `LOCK`, `PREMIUM`, `BUSINESS`,
+  `BUSINESS_PRO`), `FREE_ON_NET_MINUTES`, tarifs `TWILIO_USD_*` et `USD_TO_CAD`. **L'API refuse de démarrer** si un
+  forfait payant dépasse 70 %, avec le forfait et les chiffres dans l'erreur.
+- Minutes sortantes et entrantes vérifiées avant de connecter l'appel; textos **envoyés et reçus** comptés ensemble;
+  MMS plafonnés à part; appels entre applications : réserve de 120 min au Gratuit, minutes sortantes aux forfaits payants.
+- Les textos reçus au-delà du quota coûtent quand même (Twilio facture à la réception) : ils sont comptés et livrés,
+  jamais refusés; suivi par client dans `/v1/admin/costs`.
+- Gratuit : aucune attribution de numéro (`402 number_requires_paid_plan`). `PLAN_FREE_NUMBER=true` réactive
+  l'ancien gratuit avec numéro (numéros déjà donnés, promotion décidée par le propriétaire), plafonné par `FREE_*`.
+- Essai de 7 jours : `TRIAL_ENABLED=true`, Essentiel mensuel seulement, carte exigée par Stripe, une fois par compte,
+  quota de 20 min / 20 textos.
+- Module « 250 minutes de plus » : 9,99 $ (7,99 $ donnait 84 %). Numéro supplémentaire 4,99 $ : 58 %.
 - Plafonds `FREE_*` conservés; 9-1-1 jamais bloqué.
 
 ## Ce qui peut casser la règle
+
+- **Achats dans les applications (App Store, Google Play)** : la commission de 15 à 30 % n'est pas comptée ci-dessus.
+  À 15 %, Essentiel à 12,99 $ passe à environ 74 % : fixer le prix magasin d'Essentiel à au moins 13,99 $ et celui de
+  Premium à au moins 32,99 $, ou vendre ces forfaits sur le Web (Stripe) seulement.
+- **Récompense de parrainage** : un mois Premium crédité (29,99 $) n'apporte aucun revenu ce mois-là; garder le
+  plafond de récompenses par compte.
 
 - **Le dollar canadien** : à 1,60 CAD / USD, Premium passe au-dessus de 70 % (test automatique).
 - **Hausse de prix Twilio** : mettre à jour les tarifs dans `unitEconomics.ts`; la CI dit tout de suite quel forfait

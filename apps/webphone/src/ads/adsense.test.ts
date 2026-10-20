@@ -28,7 +28,7 @@ describe("adSenseConfig", () => {
 });
 
 describe("adMode: who sees ads", () => {
-  it("shows live ads to the free plan and to Number Lock (no no_ads feature)", () => {
+  it("shows live ads to the free plan and to Essentiel (plan code lock, no no_ads feature)", () => {
     expect(adMode(base)).toBe("live");
     expect(adMode({ ...base, plan: "lock" })).toBe("live");
   });

@@ -141,8 +141,8 @@ export function NumberCheckout() {
                   </span>
                   <span className="plan-pick__caps">
                     {fr
-                      ? `${PLANS[code].caps.outboundMinutes} min sortantes, ${PLANS[code].caps.inboundMinutes} min entrantes, ${PLANS[code].caps.outboundSms} textos`
-                      : `${PLANS[code].caps.outboundMinutes} outbound min, ${PLANS[code].caps.inboundMinutes} inbound min, ${PLANS[code].caps.outboundSms} texts`}
+                      ? `${PLANS[code].caps.outboundMinutes} min sortantes, ${PLANS[code].caps.inboundMinutes} min entrantes, ${PLANS[code].caps.messages} textos`
+                      : `${PLANS[code].caps.outboundMinutes} outbound min, ${PLANS[code].caps.inboundMinutes} inbound min, ${PLANS[code].caps.messages} texts`}
                   </span>
                 </label>
               ))}

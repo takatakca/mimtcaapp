@@ -7,6 +7,7 @@ import websocket from "@fastify/websocket";
 import type { AppDeps } from "./deps.js";
 import { HttpError } from "./lib/errors.js";
 import { loggerOptions } from "./logger.js";
+import { setActivePlans } from "./plansConfig.js";
 import { adminCostRoutes } from "./routes/adminCosts.js";
 import { aiRoutes } from "./routes/ai.js";
 import { authRoutes } from "./routes/auth.js";
@@ -40,6 +41,8 @@ import { voicemailSettingsRoutes } from "./routes/voicemailSettings.js";
 type Routes = (app: import("fastify").FastifyInstance, deps: AppDeps) => Promise<void>;
 
 export async function buildApp(deps: AppDeps) {
+  // Prices and quotas validated at config load (plansConfig.ts); every cap check reads them through planOf().
+  if (deps.config.plans) setActivePlans(deps.config.plans);
   const app = Fastify({
     logger: loggerOptions(deps.config),
     trustProxy: true,

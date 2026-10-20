@@ -15,10 +15,10 @@ import { usageRows } from "../lib/usage";
 
 import { useAsync } from "../lib/useAsync";
 
-const USAGE_LABEL: Record<"outboundMinutes" | "inboundMinutes" | "outboundSms", TKey> = {
+const USAGE_LABEL: Record<"outboundMinutes" | "inboundMinutes" | "messages", TKey> = {
   outboundMinutes: "account.usageOutMin",
   inboundMinutes: "account.usageInMin",
-  outboundSms: "account.usageSms",
+  messages: "account.usageSms",
 };
 
 export function Account() {

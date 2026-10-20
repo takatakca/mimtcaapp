@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_ASSUMPTIONS, LAUNCH_LINEUP, planEconomics, usageQuota } from "./unitEconomics.js";
+import { ADD_ONS, PLANS, TRIAL_CAPS } from "./plans.js";
+import { DEFAULT_ASSUMPTIONS, LAUNCH_LINEUP, planEconomics, planRuleViolations, quotaFromCaps, usageQuota } from "./unitEconomics.js";
 
 describe("unit economics rule: worst-case carrier cost ≤ 70 % of the price after Stripe fees", () => {
   for (const code of ["essentiel", "premium", "business", "business_pro"] as const) {
@@ -29,5 +30,30 @@ describe("unit economics rule: worst-case carrier cost ≤ 70 % of the price aft
   it("a weaker loonie is caught: at 1.60 CAD/USD Premium no longer passes", () => {
     const e = planEconomics(LAUNCH_LINEUP.premium.priceCents, LAUNCH_LINEUP.premium.quota, undefined, { ...DEFAULT_ASSUMPTIONS, usdToCad: 1.6 });
     expect(e.ok).toBe(false);
+  });
+});
+
+describe("PLANS never drift from the rule", () => {
+  it("every paid plan's price and caps pass", () => {
+    expect(planRuleViolations(PLANS)).toEqual([]);
+  });
+
+  it("matches the launch line-up in the docs", () => {
+    for (const code of ["premium", "business", "business_pro"] as const) {
+      expect(quotaFromCaps(PLANS[code].caps)).toEqual(LAUNCH_LINEUP[code].quota);
+      expect(PLANS[code].monthlyPriceCents).toBe(LAUNCH_LINEUP[code].priceCents);
+    }
+    expect(quotaFromCaps(PLANS.lock.caps)).toEqual(LAUNCH_LINEUP.essentiel.quota);
+    expect(PLANS.lock.monthlyPriceCents).toBe(LAUNCH_LINEUP.essentiel.priceCents);
+    expect(quotaFromCaps(PLANS.free.caps)).toEqual(LAUNCH_LINEUP.free.quota);
+  });
+
+  it("the trial quota is the line-up's", () => {
+    expect(quotaFromCaps(TRIAL_CAPS)).toEqual(LAUNCH_LINEUP.trial.quota);
+  });
+
+  it("paid add-ons pass too: 250 extra minutes, extra number", () => {
+    expect(planEconomics(ADD_ONS.minutes_250.priceCents, usageQuota({ hasNumber: false, outboundMinutes: 250 })).ok).toBe(true);
+    expect(planEconomics(ADD_ONS.extra_number.monthlyPriceCents, usageQuota({})).ok).toBe(true);
   });
 });

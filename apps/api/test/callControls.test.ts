@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { WeeklySchedule } from "@mimt/shared";
 import { monthPeriod } from "../src/lib/time.js";
-import { makeUser, setup, twilioPost, type Ctx } from "./helpers.js";
+import { makeUser, setup as baseSetup, twilioPost, type Ctx, LEGACY_FREE } from "./helpers.js";
+
+// These tests predate launch pricing: their free users hold a phone-network number (LEGACY_FREE).
+const setup = (o: Parameters<typeof baseSetup>[0] = {}) => baseSetup({ ...o, config: { ...LEGACY_FREE, ...o.config } });
 
 const IN = "/webhooks/twilio/voice/inbound";
 const OUT = "/webhooks/twilio/voice/outbound";
@@ -131,7 +134,7 @@ describe("call forwarding", () => {
     expect((await ctx.app.inject({ url: "/v1/me", headers: u.auth })).json().callSettings.forwarding.mode).toBe("always");
 
     const call = await twilioPost(ctx, IN, { CallSid: "CAf1", From: CALLER, To: MINE });
-    expect(call.body).toMatch(new RegExp(`<Dial callerId="\\${MINE}" timeout="25" timeLimit="14400" answerOnBridge="true"`));
+    expect(call.body).toMatch(new RegExp(`<Dial callerId="\\${MINE}" timeout="25" timeLimit="12000" answerOnBridge="true"`));
     expect(call.body).toContain("<Number>+14385550147</Number>");
     expect(call.body).not.toContain("<Client>");
 

@@ -4,8 +4,9 @@
 // - When the referee's first paid plan invoice is paid (Stripe invoice.paid), both get one month of Premium.
 // - Anti-fraud: no self-referral; the same attested device or the same card on both sides (or on two
 //   referees of the same referrer) settles the referral as "rejected" with no reward.
+import { planOf } from "../plansConfig.js";
 import { createHash, randomInt } from "node:crypto";
-import { PLANS, type PlanCode, type ReferralDto, type ReferralRejectReason } from "@mimt/shared";
+import type { PlanCode, ReferralDto, ReferralRejectReason } from "@mimt/shared";
 import type { AppDeps } from "../deps.js";
 import { badRequest, conflict, forbidden, notFound } from "../lib/errors.js";
 import { addDays, daysBetween } from "../lib/time.js";
@@ -157,7 +158,7 @@ export async function grantPremiumMonth(deps: AppDeps, account: TelecomAccount, 
   const subs = await repo.listSubscriptions(account.id);
   const paid = subs.filter((s) => s.kind === "plan" && s.source === "stripe" && isLiveSubscription(s, now));
   const paidPlan = planFromSubscriptions(paid, now);
-  const premiumCents = PLANS[REFERRAL_REWARD.plan].monthlyPriceCents;
+  const premiumCents = planOf(REFERRAL_REWARD.plan).monthlyPriceCents;
   if (PLAN_RANK.indexOf(paidPlan) >= PLAN_RANK.indexOf(REFERRAL_REWARD.plan) && account.stripeCustomerId && deps.billing?.creditBalance) {
     await deps.billing.creditBalance({
       customerId: account.stripeCustomerId,

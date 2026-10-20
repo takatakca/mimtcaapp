@@ -49,7 +49,7 @@ const subscriptionUpdated = (accountId: string, kind: "plan" | "addon", code: st
     items: { data: [{ quantity: 1, current_period_end: Math.floor(Date.now() / 1000) + 30 * 86_400 }] },
   });
 
-const invoicePaid = (accountId: string, invoiceId: string, code = "premium", amountPaid = 1999) =>
+const invoicePaid = (accountId: string, invoiceId: string, code = "premium", amountPaid = 2999) =>
   webhook("invoice.paid", {
     id: invoiceId,
     customer: "cus_1",
@@ -172,7 +172,7 @@ describe("referral program (P1 item 3)", () => {
     // Referrer (free) gets 30 days of Premium; the referee already pays Premium, so its month is a Stripe credit.
     expect((await me(referrer.auth)).account.plan).toBe("premium");
     expect(billing.creditBalance).toHaveBeenCalledTimes(1);
-    expect(billing.creditBalance.mock.calls[0]![0]).toMatchObject({ customerId: "cus_1", amountCents: 1999 });
+    expect(billing.creditBalance.mock.calls[0]![0]).toMatchObject({ customerId: "cus_1", amountCents: 2999 });
     expect(ctx.notifier.sent).toEqual(expect.arrayContaining([[referrer.user.id, "referral_reward", { months: 1, plan: "premium" }]]));
     expect(await ctx.repo.referrals.listPaymentFingerprints(referee.account.id)).toEqual(["fp_referee"]);
 

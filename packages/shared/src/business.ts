@@ -441,11 +441,12 @@ export interface BusinessUsageResponse {
   plan: BusinessPlanCode | null;
   seats: number;
   periodStart: string;
-  perLine: { outboundMinutes: number; inboundMinutes: number; outboundSms: number; concurrentCalls: number };
+  perLine: { outboundMinutes: number; inboundMinutes: number; messages: number; concurrentCalls: number };
   pooled: {
     outboundMinutes: { used: number; cap: number };
     inboundMinutes: { used: number; cap: number };
-    outboundSms: { used: number; cap: number };
+    /** Texts sent and received (both are billed by the carrier). */
+    messages: { used: number; cap: number };
     concurrentCalls: { cap: number };
   };
   byUser: Array<{ userId: string; outboundMinutes: number; inboundMinutes: number }>;

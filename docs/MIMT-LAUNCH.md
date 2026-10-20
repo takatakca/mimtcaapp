@@ -57,6 +57,9 @@ Noms seulement. Les valeurs viennent de chaque fournisseur.
 - [ ] Stripe : webhook `https://api.mimt.ca/webhooks/stripe` avec l'événement **`invoice.paid`** activé (sinon les récompenses de parrainage ne se règlent jamais).
 - [ ] App Store et Google Play : abonnements `ca.mimt.app.noads.monthly` (3,99 $) et `ca.mimt.app.noads.yearly` (29,99 $), dans un groupe séparé des forfaits.
 - [ ] AdMob : unités de publicité récompensée avec la vérification côté serveur (SSV) vers l'API.
+- [ ] Gamme de lancement (`docs/MIMT-UNIT-ECONOMICS.md`) : Gratuit sans numéro, Essentiel 12,99 $, Premium 29,99 $, Affaires 34,99 $ et Affaires Pro 44,99 $ par ligne. Stripe crée les prix tout seul à partir du code. Prix et quotas modifiables dans Coolify (`PLAN_LOCK_PRICE_CENTS`, `PLAN_PREMIUM_OUT_MIN`, etc.) : l'API refuse de démarrer si un forfait perd de l'argent au pire cas.
+- [ ] App Store et Google Play : les produits `ca.mimt.app.lock.*` sont maintenant **Essentiel**. Prix magasin d'au moins 13,99 $ (Essentiel) et 32,99 $ (Premium) à cause de la commission, ou vente sur le Web seulement.
+- [ ] Essai de 7 jours (facultatif) : `TRIAL_ENABLED=true` dans Coolify. Carte exigée; un essai non converti coûte environ 3,89 $.
 - [ ] Confirmer les tarifs internationaux de `packages/shared/src/rates.ts` (ce sont des valeurs provisoires), puis mettre `INTL_RATES_ARE_PLACEHOLDERS = false`. Revoir la liste de pays permis au forfait gratuit.
 
 ## 5. Sites web
@@ -96,6 +99,9 @@ Un utilisateur gratuit coûte environ 6 $ par mois chez Twilio (numéro 1,60 $, 
 
 ### Garde-fou de coûts (API, Coolify)
 
+Depuis la gamme de lancement, le Gratuit n'a plus de numéro : les variables ci-dessous ne servent que si
+`PLAN_FREE_NUMBER=true` (ancien gratuit avec numéro, pour les numéros déjà attribués ou une promotion).
+
 Toutes facultatives; sans elles, les valeurs par défaut s'appliquent dès le déploiement de l'API.
 
 | Variable | Défaut | Recommandé au lancement | Effet |
@@ -106,7 +112,7 @@ Toutes facultatives; sans elles, les valeurs par défaut s'appliquent dès le d�
 | `FREE_OUTBOUND_PSTN_ENABLED` | `true` | `true` | `false` coupe tout de suite les appels et textos sortants du forfait gratuit. |
 | `FREE_SIGNUPS_ENABLED` | `true` | `true` | `false` arrête toute attribution de numéro gratuit (les forfaits payants continuent). |
 
-- Jamais touchés : le **9-1-1**, les appels et textos entre applications MIMT, les appels et textos entrants, les forfaits payants (Verrouillage, Premium, Affaires).
+- Jamais touchés : le **9-1-1**, les appels et textos entre applications MIMT, les appels et textos entrants, les forfaits payants (Essentiel, Premium, Affaires).
 - Le budget mensuel ne compte pas la location des numéros (1,60 $ + 9-1-1 1,04 $ = 2,64 $ par numéro et par mois). Elle est plafonnée par `FREE_ACTIVE_NUMBERS_MAX` (total détenu) et `FREE_NEW_NUMBERS_PER_DAY` (rythme). Avec les valeurs par défaut, au plus 50 numéros gratuits, soit environ 132 $ par mois de frais fixes, plus le budget d'usage de 150 $. Monter ces plafonds quand les revenus publicitaires sont mesurés. Les numéros inactifs 30 jours sont repris et libèrent une place.
 - Suivi : `GET https://api.mimt.ca/v1/admin/costs` (jeton d'un utilisateur listé dans `CATALOG_ADMIN_USER_IDS`) → `month`, `freeSpendCad`, `budgetCad`, `freeNumbersToday`, `capToday`, `activeFreeNumbers`, `activeFreeMax`, `estimatedFixedMonthlyCad`.
 - Urgence (facture qui s'emballe) : `FREE_SIGNUPS_ENABLED=false` et `FREE_OUTBOUND_PSTN_ENABLED=false` dans Coolify, puis redéployer l'API. Le 9-1-1 reste permis.
@@ -118,7 +124,7 @@ Toutes facultatives; sans elles, les valeurs par défaut s'appliquent dès le d�
 
 ### Publicités Web (Google AdSense, app.mimt.ca)
 
-Le code est prêt : les annonces ne s'affichent qu'au forfait gratuit et à Verrouillage du numéro (sans module « Sans pub »), en bas des listes Messages, Appels et Messagerie vocale et dans la barre latérale sur ordinateur. Jamais pendant un appel, ni sur Compte (9-1-1, facturation), Services (paiement), Réunions, Affaires ou la connexion. Non personnalisées par défaut (Loi 25) : personnalisées seulement si l'utilisateur active « Publicités personnalisées » dans Compte › Confidentialité. Chaque annonce porte « Publicité » et un lien « Enlever les publicités » vers le module Sans pub (3,99 $/mois). Sans identifiants AdSense, aucune annonce et aucun script Google.
+Le code est prêt : les annonces ne s'affichent qu'au forfait gratuit et à Essentiel (sans module « Sans pub »), en bas des listes Messages, Appels et Messagerie vocale et dans la barre latérale sur ordinateur. Jamais pendant un appel, ni sur Compte (9-1-1, facturation), Services (paiement), Réunions, Affaires ou la connexion. Non personnalisées par défaut (Loi 25) : personnalisées seulement si l'utilisateur active « Publicités personnalisées » dans Compte › Confidentialité. Chaque annonce porte « Publicité » et un lien « Enlever les publicités » vers le module Sans pub (3,99 $/mois). Sans identifiants AdSense, aucune annonce et aucun script Google.
 
 - [ ] Créer le compte AdSense avec le compte Google de MIMT (bénéficiaire = raison sociale, paiement en CAD, renseignements fiscaux).
 - [ ] AdSense → Sites → ajouter **mimt.ca** (le domaine racine; app.mimt.ca est couvert comme sous-domaine). Méthode de validation : **ads.txt**.

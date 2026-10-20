@@ -268,7 +268,7 @@ describe("business: recording policy, seats, usage, calls", () => {
     const { business, owner } = await makeBusiness(ctx); // subscription quantity 5
     await ctx.repo.pbx.setSeats(business.id, 4, null);
     const usage = (await req("GET", `/v1/business/${business.id}/usage`, owner.auth)).json();
-    expect(usage).toMatchObject({ plan: "business", seats: 4, pooled: { outboundMinutes: { used: 0, cap: 4000 }, concurrentCalls: { cap: 8 } } });
+    expect(usage).toMatchObject({ plan: "business", seats: 4, pooled: { outboundMinutes: { used: 0, cap: 1200 }, concurrentCalls: { cap: 8 } } });
     // A stale mirror above the paid quantity never widens the pool.
     await ctx.repo.pbx.setSeats(business.id, 9, null);
     expect((await req("GET", `/v1/business/${business.id}/usage`, owner.auth)).json().seats).toBe(5);

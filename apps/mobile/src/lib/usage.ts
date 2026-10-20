@@ -18,7 +18,7 @@ export function usageLevel(percent: number): UsageLevel {
 }
 
 export interface UsageRow {
-  key: "outboundMinutes" | "inboundMinutes" | "outboundSms";
+  key: "outboundMinutes" | "inboundMinutes" | "messages";
   used: number;
   cap: number;
   percent: number;
@@ -27,11 +27,14 @@ export interface UsageRow {
 
 export function usageRows(
   plan: PlanCode,
-  usage: { outboundMinutes: number; inboundMinutes: number; outboundSms: number },
+  usage: { outboundMinutes: number; inboundMinutes: number; messages: number },
 ): UsageRow[] {
   const caps = PLANS[plan].caps;
-  return (["outboundMinutes", "inboundMinutes", "outboundSms"] as const).map((key) => {
-    const percent = usagePercent(usage[key], caps[key]);
-    return { key, used: usage[key], cap: caps[key], percent, level: usageLevel(percent) };
-  });
+  // A zero cap is not in the plan (Gratuit has no phone-network minutes or texts): no row for it.
+  return (["outboundMinutes", "inboundMinutes", "messages"] as const)
+    .filter((key) => caps[key] > 0)
+    .map((key) => {
+      const percent = usagePercent(usage[key], caps[key]);
+      return { key, used: usage[key], cap: caps[key], percent, level: usageLevel(percent) };
+    });
 }
