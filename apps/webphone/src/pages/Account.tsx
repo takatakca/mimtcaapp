@@ -178,7 +178,7 @@ function PortalButton() {
   );
 }
 
-function E911Section() {
+export function E911Section() {
   const { t, locale } = useI18n();
   const { me, refreshMe } = useSession();
   const addr = useAsync(

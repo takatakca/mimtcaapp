@@ -7,6 +7,7 @@ import { ErrorNote, Field, Wordmark } from "../components/ui";
 import { useI18n } from "../i18n/I18nProvider";
 import type { TKey } from "../i18n/core";
 import { formatPhone, toDialable } from "../lib/dial";
+import { afterSignIn } from "../lib/numberHold";
 
 export function OtpSignIn() {
   const { t } = useI18n();
@@ -44,7 +45,7 @@ export function OtpSignIn() {
     setError(null);
     try {
       await signIn(await api.otpVerify(sentTo, code.trim()));
-      navigate("/messages", { replace: true });
+      navigate(afterSignIn(), { replace: true });
     } catch (err) {
       const key = toErrorKey(err);
       setError(key === "error.session" ? "error.invalidCode" : key);

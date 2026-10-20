@@ -1,5 +1,6 @@
 import { PageHero, Shell } from "@/components/Shell";
 import { LeadForm } from "@/components/LeadForm";
+import { NumberPicker } from "@/components/NumberPicker";
 import { PlanCard } from "@/components/PlanCard";
 import { Offers } from "@/components/Offers";
 import { FaqList } from "@/components/FaqList";
@@ -130,6 +131,20 @@ export function BusinessPage({ lang }: { lang: Lang }) {
             : `Extensions, bilingual greeting, ring groups, hours and Québec holidays, AI receptionist. From ${formatCad(biz.monthlyPriceCents, lang)} per line per month, no hardware to buy.`
         }
       />
+
+      <section className="section section--tint" id="numero" aria-labelledby="biz-number">
+        <div className="container picker-band">
+          <div>
+            <h2 id="biz-number">{fr ? "Réservez le numéro de votre entreprise" : "Reserve your business number"}</h2>
+            <p className="section-lead">
+              {fr
+                ? "Cherchez par indicatif ou par ville. Le numéro choisi est réservé 10 minutes, le temps de créer le compte et de payer la première ligne. Vous gardez aussi votre numéro actuel : le transfert est gratuit."
+                : "Search by area code or city. The number you pick is held for 10 minutes while you create the account and pay for the first line. You can also keep your current number: transfer is free."}
+            </p>
+          </div>
+          <NumberPicker lang={lang} plan="business" id="numero-affaires" />
+        </div>
+      </section>
 
       <section className="section" aria-labelledby="biz-features">
         <div className="container">

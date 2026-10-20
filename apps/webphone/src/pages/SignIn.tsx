@@ -8,6 +8,7 @@ import { ErrorNote, Wordmark } from "../components/ui";
 import { env } from "../env";
 import { useI18n } from "../i18n/I18nProvider";
 import type { TKey } from "../i18n/core";
+import { afterSignIn } from "../lib/numberHold";
 import { LanguageSwitch } from "./LanguageSwitch";
 
 export function SignIn() {
@@ -17,7 +18,7 @@ export function SignIn() {
   const location = useLocation();
   const [error, setError] = useState<TKey | null>(null);
   const [busy, setBusy] = useState(false);
-  const returnTo = safeReturnTo((location.state as { from?: unknown } | null)?.from ?? "/messages");
+  const returnTo = safeReturnTo((location.state as { from?: unknown } | null)?.from ?? afterSignIn());
   const configured = env.mock || isTakatakConfigured();
 
   const start = async () => {

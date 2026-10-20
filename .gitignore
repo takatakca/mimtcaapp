@@ -11,3 +11,4 @@ android/
 !.env.example
 coverage/
 .DS_Store
+.claude/worktrees/

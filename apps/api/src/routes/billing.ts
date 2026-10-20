@@ -26,6 +26,8 @@ import { redeemReferral, settleReferralOnPaidPlan } from "../services/referrals.
 import { purchaseFromApplePayload, verifyAppleTransactionJws, verifyGoogleSubscription } from "../billing/iap.js";
 import { quebecTaxLines } from "../billing/taxes.js";
 import { BUSINESS_PLANS, businessSubscription } from "../pbx/engine.js";
+import { checkHoldForCheckout } from "../services/numberHoldCheckout.js";
+import { provisionHeldNumber } from "../services/numberProvisioning.js";
 import type { CheckoutLine } from "../gateways/billing.js";
 
 const CheckoutBody = z
@@ -37,9 +39,11 @@ const CheckoutBody = z
     /** International credit amount, CAD cents. */
     amountCents: z.number().int().min(ADD_ONS.intl_credit_min.priceCents).max(10_000).optional(),
     referralCode: z.string().min(4).max(32).optional(),
+    numberHold: z.object({ id: z.string().uuid(), token: z.string().min(16).max(128) }).optional(),
     trial: z.boolean().optional(),
   })
-  .refine((b) => Boolean(b.plan) !== Boolean(b.addon), "Pass exactly one of plan or addon");
+  .refine((b) => Boolean(b.plan) !== Boolean(b.addon), "Pass exactly one of plan or addon")
+  .refine((b) => !b.numberHold || Boolean(b.plan), "A held number is bought with a plan");
 
 const SUB_STATUSES = new Set<Subscription["status"]>(["active", "trialing", "past_due", "canceled", "incomplete", "unpaid"]);
 
@@ -119,6 +123,9 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       if (!existing) await redeemReferral(deps, { user, account, code: body.referralCode });
     }
 
+    // Live picker: the held number must still be ours and the account ready to own a number (9-1-1, verification).
+    const hold = body.numberHold ? await checkHoldForCheckout(deps, { user, account, ...body.numberHold }) : null;
+
     const customerId = account.stripeCustomerId ?? (await createCustomer(account, user.email, user.displayName, user.locale));
     const taxLines = quebecTaxLines({
       baseUnitCents: line.unitAmountCents,
@@ -132,12 +139,16 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       mode,
       line,
       taxLines,
-      metadata: { telecom_account_id: account.id, kind: body.plan ? "plan" : "addon", code },
+      metadata: { telecom_account_id: account.id, kind: body.plan ? "plan" : "addon", code, ...(hold ? { number_hold_id: hold.id } : {}) },
       successUrl: `${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${appUrl}/billing/cancel`,
       locale: user.locale,
+      ...(hold ? { expiresAt: hold.checkoutExpiresAt } : {}),
       ...(body.trial ? { trialDays: TRIAL_DAYS } : {}),
     });
+    if (hold && !(await repo.numberHolds.startCheckout(hold.id, { telecomAccountId: account.id, checkoutSessionId: session.id, expiresAt: hold.checkoutExpiresAt, now: deps.now() }))) {
+      throw conflict("hold_expired", "La réservation de ce numéro a expiré. Choisissez-en un autre.");
+    }
     return { checkoutUrl: session.url, sessionId: session.id };
   });
 
@@ -316,6 +327,8 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
         if (!account) return app.log.warn({ session: s.id }, "Checkout for unknown account");
         if (s.mode === "subscription" && typeof s.subscription === "string") {
           await syncSubscription(await deps.billing!.retrieveSubscription(s.subscription));
+          // Number picked in the live picker: bought now that the plan is paid.
+          if (s.metadata?.number_hold_id) await provisionHeldNumber(deps, s.metadata.number_hold_id, account);
         } else if (s.mode === "payment" && s.payment_status === "paid") {
           const pi = typeof s.payment_intent === "string" ? s.payment_intent : (s.payment_intent?.id ?? null);
           if (pi) await recordFingerprint(account, { paymentIntentId: pi });
@@ -329,6 +342,12 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
           }
         }
         await repo.audit({ actorUserId: null, action: "billing.checkout_completed", targetType: "telecom_account", targetId: account.id, meta: { code: s.metadata?.code } });
+        return;
+      }
+      case "checkout.session.expired": {
+        // Abandoned checkout: the held number goes back to the picker right away.
+        const holdId = event.data.object.metadata?.number_hold_id;
+        if (holdId) await repo.numberHolds.finish(holdId, "released");
         return;
       }
       case "customer.subscription.created":

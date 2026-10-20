@@ -346,6 +346,8 @@ export interface CheckoutRequest {
   amountCents?: number;
   /** Friend's referral code, redeemed on the first checkout (same rules as POST /v1/referrals/redeem). */
   referralCode?: string;
+  /** Number picked in the live picker (POST /v1/public/numbers/holds): bought as soon as the payment clears. Plans only. */
+  numberHold?: { id: string; token: string };
   /**
    * 7-day trial of Essentiel (plan "lock", monthly), when the server has TRIAL_ENABLED: card on file, tiny quota
    * (TRIAL_CAPS), one per account. Refused with 400 trial_unavailable otherwise.

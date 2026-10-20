@@ -7,6 +7,8 @@ export const CONTACT_EMAIL = "info@mimt.ca";
 export const CCTS_URL = "https://www.ccts-cprst.ca";
 /** The MIMT web app (softphone + business admin portal), apps/webphone. */
 export const APP_URL = "https://app.mimt.ca";
+/** MIMT API (public number search and holds; everything else goes through the app). */
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "https://api.mimt.ca").replace(/\/$/, "");
 /** Shown wherever the docs leave a legal or business fact blank. Never replace it with a guess. */
 export const TBC = { fr: "[À confirmer par MIMT]", en: "[To be confirmed by MIMT]" } as const;
 

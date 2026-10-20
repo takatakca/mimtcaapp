@@ -5,6 +5,7 @@ import { MemoryCatalogRepository } from "./catalogMemory.js";
 import { MemoryCallControlsRepository } from "./callControlsMemory.js";
 import { MemoryMediaRepository } from "./mediaMemory.js";
 import { MemoryReferralRepository } from "./referralsMemory.js";
+import { MemoryNumberHoldRepository } from "./numberHoldsMemory.js";
 import { MemoryPortInRepository } from "./portInMemory.js";
 import { MemoryMeetingRepository } from "./meetingsMemory.js";
 import { planFromSubscriptions } from "../services/accounts.js";
@@ -66,6 +67,7 @@ export class MemoryRepository implements Repository {
   devices: Array<{ platform: "ios" | "android"; deviceKey: string; userId: string; verifiedAt: Date }> = [];
   adRewards: Array<{ userId: string; transactionId: string; minutes: number; createdAt: Date; claimedAt: Date | null }> = [];
   readonly referrals = new MemoryReferralRepository(() => this.devices);
+  readonly numberHolds = new MemoryNumberHoldRepository();
 
   async ping() {}
   async close() {}
