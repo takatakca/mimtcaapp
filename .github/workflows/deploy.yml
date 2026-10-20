@@ -162,19 +162,33 @@ jobs:
             exit 1
           fi
       - name: Validate app FTPS server resolves before spending time building
+        id: app_ftp
         shell: bash
         env:
           APP_SERVER: ${{ secrets.MOCHAHOST_APP_FTP_SERVER }}
         run: |
           set -euo pipefail
-          if [[ ! "$APP_SERVER" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]] || [[ "$APP_SERVER" == *..* ]]; then
+          # Common paste mistakes are repaired instead of failing: surrounding whitespace or newline,
+          # an ftp://, ftps:// or sftp:// prefix, a user@ part, a :port suffix, a trailing /path.
+          # Only the kind of repair is printed, never the value.
+          raw="$APP_SERVER"
+          host="$(printf '%s' "$raw" | tr -d '[:space:]')"
+          [[ "$host" != "$raw" ]] && echo "::warning::MOCHAHOST_APP_FTP_SERVER had spaces or a line break; ignored them."
+          if [[ "$host" =~ ^[A-Za-z]+:// ]]; then host="${host#*://}"; echo "::warning::MOCHAHOST_APP_FTP_SERVER had a scheme (ftp://); removed it."; fi
+          if [[ "$host" == *@* ]]; then host="${host##*@}"; echo "::warning::MOCHAHOST_APP_FTP_SERVER had a user@ part; removed it."; fi
+          if [[ "$host" == */* ]]; then host="${host%%/*}"; echo "::warning::MOCHAHOST_APP_FTP_SERVER had a path; removed it."; fi
+          if [[ "$host" == *:* ]]; then host="${host%%:*}"; echo "::warning::MOCHAHOST_APP_FTP_SERVER had a :port; removed it (FTPS uses 21)."; fi
+          host="${host%.}"
+          echo "::add-mask::$host"
+          if [[ ! "$host" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]] || [[ "$host" == *..* ]]; then
             echo "::error::MOCHAHOST_APP_FTP_SERVER must contain only a DNS hostname, without ftp://, :21, spaces or a path."
             exit 1
           fi
-          if ! getent ahosts "$APP_SERVER" >/dev/null; then
+          if ! getent ahosts "$host" >/dev/null; then
             echo "::error::MOCHAHOST_APP_FTP_SERVER cannot be resolved in DNS. Last failed deploy: ENOTFOUND. Correct the GitHub secret to the real MochaHost FTP hostname."
             exit 1
           fi
+          echo "server=$host" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
@@ -199,7 +213,7 @@ jobs:
       - name: Upload app.mimt.ca
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.MOCHAHOST_APP_FTP_SERVER }}
+          server: ${{ steps.app_ftp.outputs.server }}
           username: ${{ secrets.MOCHAHOST_APP_FTP_USERNAME }}
           password: ${{ secrets.MOCHAHOST_APP_FTP_PASSWORD }}
           protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
