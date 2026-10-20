@@ -1,5 +1,6 @@
 import { Shell } from "@/components/Shell";
 import { LeadForm } from "@/components/LeadForm";
+import { NumberPicker } from "@/components/NumberPicker";
 import { FaqList } from "@/components/FaqList";
 import { FeatureCarousel, type Slide } from "@/components/FeatureCarousel";
 import { HeroArt, Skyline } from "@/components/HeroArt";
@@ -7,7 +8,7 @@ import { Offers } from "@/components/Offers";
 import { Icon, type IconName } from "@/components/Visuals";
 import { PlanCard } from "@/components/PlanCard";
 import { faqItems } from "@/lib/faq";
-import { ALL_PLANS, CONSUMER_PLANS, PLANS, formatCad, num } from "@/lib/plans-view";
+import { CONSUMER_PLANS, PLANS, formatCad } from "@/lib/plans-view";
 import { faqPageLd, serviceLd, softwareApplicationLd } from "@/lib/seo";
 import { APP_URL, href, type Lang } from "@/lib/site";
 
@@ -21,14 +22,6 @@ export function HomePage({ lang }: { lang: Lang }) {
   const freePrice = fr ? `${PLANS.free.monthlyPriceCents / 100} $` : `$${PLANS.free.monthlyPriceCents / 100}`;
   const slides = t.slides(lang);
 
-  // Real facts only (never user counts, ratings or reviews).
-  const stats: { value: number; label: string }[] = [
-    { value: 2, label: t.statLangs },
-    { value: ALL_PLANS.length, label: t.statPlans },
-    { value: 3, label: t.statSteps },
-    { value: PLANS.premium.caps.outboundMinutes, label: t.statMinutes },
-  ];
-
   return (
     <Shell lang={lang} page="home" ld={[softwareApplicationLd(lang), serviceLd(lang, "mobile"), serviceLd(lang, "business"), faqPageLd(lang, faq, "home")]}>
       {/* ---------- Hero ---------- */}
@@ -38,7 +31,6 @@ export function HomePage({ lang }: { lang: Lang }) {
         <div className="container home-hero__inner">
           <div className="home-hero__copy">
             <p className="hero-pills">
-              <span className="pill pill--glow">{t.pillEarly}</span>
               <span className="pill pill--soft">{t.pillQc}</span>
             </p>
             <h1 id="hero-title">
@@ -47,23 +39,18 @@ export function HomePage({ lang }: { lang: Lang }) {
             <p className="lead home-hero__lead">
               <strong>{t.leadStrong}</strong> {t.lead.replace("{free}", freePrice)}
             </p>
-            <div className="cta-row">
-              <a className="btn btn--primary btn--lg btn--shine" href={APP_URL} rel="noopener">
-                {t.ctaWeb}
-              </a>
-              <a className="btn btn--ghost btn--lg" href={href(lang, "webapp")} data-download="">
-                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-                  <path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                {t.ctaDownload}
-              </a>
-            </div>
+            <NumberPicker lang={lang} plan="lock" />
             <ul className="hero-ticks">
               {t.ticks.map((x) => (
                 <li key={x}>{x}</li>
               ))}
             </ul>
-            <p className="hero-note">{t.heroNote}</p>
+            <p className="hero-note">
+              {t.heroNote.replace("{lock}", formatCad(PLANS.lock.monthlyPriceCents, lang))}{" "}
+              <a href={APP_URL} rel="noopener">
+                {t.ctaWeb}
+              </a>
+            </p>
           </div>
           <HeroArt lang={lang} />
         </div>
@@ -96,20 +83,6 @@ export function HomePage({ lang }: { lang: Lang }) {
           </div>
           <FeatureCarousel lang={lang} label={t.featuresTitle} slides={slides} />
         </div>
-      </section>
-
-      {/* ---------- Counters (facts from the repo) ---------- */}
-      <section className="stats" aria-label={t.statsLabel}>
-        <ul className="container stats__list">
-          {stats.map((s) => (
-            <li key={s.label} data-reveal="">
-              <span className="stats__value" data-count={s.value}>
-                {num(s.value, lang)}
-              </span>
-              <span className="stats__label">{s.label}</span>
-            </li>
-          ))}
-        </ul>
       </section>
 
       {/* ---------- How it works ---------- */}
@@ -293,15 +266,12 @@ export function HomePage({ lang }: { lang: Lang }) {
         <div className="hero-glow" aria-hidden="true" />
         <div className="container final-cta__inner">
           <div data-reveal="">
-            <p className="kicker kicker--light">{fr ? "Accès anticipé" : "Early access"}</p>
+            <p className="kicker kicker--light">{fr ? "Commencer" : "Get started"}</p>
             <h2 id="wl-title">{t.wlTitle}</h2>
             <p className="lead">{t.wlLead}</p>
             <div className="cta-row">
               <a className="btn btn--primary btn--lg" href={APP_URL} rel="noopener">
                 {t.ctaWeb}
-              </a>
-              <a className="btn btn--ghost btn--lg" href={href(lang, "webapp")} data-download="">
-                {t.ctaDownload}
               </a>
             </div>
             <p className="final-cta__qc">
@@ -312,8 +282,8 @@ export function HomePage({ lang }: { lang: Lang }) {
             </p>
           </div>
           <div className="card form-card" id="liste-attente-form" data-reveal="">
-            <h3 className="form-card__title">{fr ? "Inscrivez-vous pour l'accès anticipé" : "Sign up for early access"}</h3>
-            <LeadForm kind="waitlist" lang={lang} submitLabel={fr ? "M'inscrire" : "Sign me up"} />
+            <h3 className="form-card__title">{fr ? "Apps iPhone et Android : soyez avisé à leur sortie" : "iPhone and Android apps: get notified when they ship"}</h3>
+            <LeadForm kind="waitlist" lang={lang} submitLabel={fr ? "M'aviser" : "Notify me"} />
             <p className="fineprint">
               {fr ? "Téléphone résidentiel, Internet et cellulaire : " : "Home phone, internet and cellular: "}
               <a href={href(lang, "soon")}>{fr ? "voir ce qui s'en vient" : "see what's coming"}</a>
@@ -326,7 +296,6 @@ export function HomePage({ lang }: { lang: Lang }) {
 }
 
 type Copy = {
-  pillEarly: string;
   pillQc: string;
   h1a: string;
   h1b: string;
@@ -334,7 +303,6 @@ type Copy = {
   leadStrong: string;
   lead: string;
   ctaWeb: string;
-  ctaDownload: string;
   ticks: string[];
   heroNote: string;
   trustLabel: string;
@@ -343,11 +311,6 @@ type Copy = {
   featuresTitle: string;
   featuresLead: string;
   slides: (lang: Lang) => Slide[];
-  statsLabel: string;
-  statLangs: string;
-  statPlans: string;
-  statSteps: string;
-  statMinutes: string;
   howTitle: string;
   steps: { icon: IconName; title: string; text: string }[];
   plansTitle: string;
@@ -368,17 +331,15 @@ type Copy = {
 };
 
 const FR: Copy = {
-  pillEarly: "Accès anticipé",
   pillQc: "Fait au Québec",
   h1a: "Votre numéro.",
   h1b: "Partout.",
   h1c: "Sans frais cachés.",
   leadStrong: "Votre numéro canadien dans une app.",
   lead: "Appelez et textez par Wi‑Fi ou données, sur votre cellulaire comme sur votre ordinateur. Commencez à {free}.",
-  ctaWeb: "Essayer l'app Web gratuitement",
-  ctaDownload: "Télécharger l'app",
-  ticks: ["Forfait Gratuit", "Transfert de numéro gratuit", "Français d'abord"],
-  heroNote: "Appels et textos ouverts au lancement. Inscrivez-vous pour l'accès anticipé.",
+  ctaWeb: "Commencer gratuitement dans l'app Web",
+  ticks: ["Vrai numéro canadien", "Transfert de numéro gratuit", "Français d'abord"],
+  heroNote: "Un numéro à vous dès {lock} par mois. Sans numéro, MIMT reste gratuit entre utilisateurs :",
   trustLabel: "Nos engagements",
   trust: [
     { icon: "quebec", text: "Fait au Québec" },
@@ -401,11 +362,6 @@ const FR: Copy = {
     { icon: "lock", tone: "deep", title: "Numéro verrouillé", text: "Gardez votre numéro même quand vous l'utilisez peu, avec Verrouillage du numéro ou Premium." },
     { icon: "sos", tone: "blue", title: "9-1-1 avec votre adresse", text: "Adresse enregistrée avant le premier appel. Le 9-1-1 n'est jamais bloqué par votre forfait.", link: { href: href(lang, "e911"), label: "Lire les limites" } },
   ],
-  statsLabel: "MIMT en chiffres",
-  statLangs: "langues, le français d'abord",
-  statPlans: "forfaits, limites affichées",
-  statSteps: "étapes pour démarrer",
-  statMinutes: "minutes par mois avec Premium",
   howTitle: "Prêt en trois étapes",
   steps: [
     { icon: "desk", title: "Ouvrez l'app", text: "Dans le navigateur à app.mimt.ca, ou sur iPhone et Android dès leur sortie." },
@@ -438,23 +394,21 @@ const FR: Copy = {
   webTitle: "Votre numéro, aussi sur l'ordinateur",
   webLead: "Avec l'app Web app.mimt.ca, appelez, textez et écoutez vos messages dans le navigateur, avec le même compte. Installable sur iPhone et Android en deux touches.",
   faqTitle: "Vos questions, nos réponses courtes",
-  wlTitle: "Votre numéro partout, dès le lancement",
-  wlLead: "MIMT ouvre bientôt au public. Inscrivez-vous pour l'accès anticipé : un seul courriel au lancement, sauf si vous acceptez nos nouvelles.",
+  wlTitle: "Votre numéro, partout, dès aujourd'hui",
+  wlLead: "Créez votre compte dans l'app Web en une minute, avec votre compte TAKATAK ou un code par texto.",
   qcText: "Conçu à Montréal, en français d'abord. MIMT fait partie de l'écosystème GROUPE TAKATAK.",
 };
 
 const EN: Copy = {
-  pillEarly: "Early access",
   pillQc: "Made in Québec",
   h1a: "Your number.",
   h1b: "Anywhere.",
   h1c: "No hidden fees.",
   leadStrong: "Your Canadian number, in an app.",
   lead: "Call and text over Wi‑Fi or data, on your phone and on your computer. Start at {free}.",
-  ctaWeb: "Try the web app for free",
-  ctaDownload: "Get the app",
-  ticks: ["Free plan", "Free number transfer", "French first, bilingual"],
-  heroNote: "Calls and texts open at launch. Sign up for early access.",
+  ctaWeb: "Start free in the web app",
+  ticks: ["A real Canadian number", "Free number transfer", "French first, bilingual"],
+  heroNote: "A number of your own from {lock} a month. Without a number, MIMT stays free between users:",
   trustLabel: "Our commitments",
   trust: [
     { icon: "quebec", text: "Made in Québec" },
@@ -477,11 +431,6 @@ const EN: Copy = {
     { icon: "lock", tone: "deep", title: "Locked number", text: "Keep your number even when you rarely use it, with Number Lock or Premium." },
     { icon: "sos", tone: "blue", title: "9-1-1 with your address", text: "Address registered before your first call. 9-1-1 is never blocked by your plan.", link: { href: href(lang, "e911"), label: "Read the limits" } },
   ],
-  statsLabel: "MIMT in numbers",
-  statLangs: "languages, French first",
-  statPlans: "plans, limits shown",
-  statSteps: "steps to get started",
-  statMinutes: "minutes a month with Premium",
   howTitle: "Ready in three steps",
   steps: [
     { icon: "desk", title: "Open the app", text: "In your browser at app.mimt.ca, or on iPhone and Android as soon as they're out." },
@@ -514,7 +463,7 @@ const EN: Copy = {
   webTitle: "Your number, on your computer too",
   webLead: "With the web app app.mimt.ca, call, text and play voicemail in your browser, with the same account. Installs on iPhone and Android in two taps.",
   faqTitle: "Your questions, short answers",
-  wlTitle: "Your number everywhere, from day one",
-  wlLead: "MIMT opens to the public soon. Sign up for early access: one email at launch, unless you also opt in to our news.",
+  wlTitle: "Your number, anywhere, starting today",
+  wlLead: "Create your account in the web app in a minute, with your TAKATAK account or a code by text.",
   qcText: "Built in Montréal, French first. MIMT is part of the GROUPE TAKATAK ecosystem.",
 };

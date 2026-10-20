@@ -14,6 +14,8 @@ import { CallSettings } from "./pages/CallSettings";
 import { Calls } from "./pages/Calls";
 import { Messages } from "./pages/Messages";
 import { NotFound } from "./pages/NotFound";
+import { NumberCheckout } from "./pages/NumberCheckout";
+import { BillingResult } from "./pages/BillingResult";
 import { OtpSignIn } from "./pages/OtpSignIn";
 import { PortIn } from "./pages/PortIn";
 import { SignIn } from "./pages/SignIn";
@@ -35,6 +37,7 @@ import { Offers } from "./pages/services/Offers";
 import { OrderDetail } from "./pages/services/OrderDetail";
 import { Orders } from "./pages/services/Orders";
 import { PhoneProvider } from "./phone/PhoneProvider";
+import { afterSignIn } from "./lib/numberHold";
 
 /** Signed-in area: waits for the session restore, then sends signed-out visitors to /connexion. */
 function RequireSession({ children }: { children: ReactNode }) {
@@ -49,7 +52,8 @@ function RequireSession({ children }: { children: ReactNode }) {
 function SignedOutOnly({ children }: { children: ReactNode }) {
   const { status } = useSession();
   if (status === "loading") return <Loading />;
-  if (status === "signedIn") return <Navigate to="/messages" replace />;
+  // Back to the number picked on mimt.ca when one is waiting.
+  if (status === "signedIn") return <Navigate to={afterSignIn()} replace />;
   return <>{children}</>;
 }
 
@@ -73,6 +77,8 @@ export function AppRoutes() {
         }
       />
       <Route path={CALLBACK_PATH} element={<AuthCallback />} />
+      {/* Number picked on mimt.ca: works signed out (sign-in is one of its steps). */}
+      <Route path="/numero" element={<NumberCheckout />} />
       {/* Public guest link (no MIMT account needed). */}
       <Route path="/reunion/:guestToken" element={<GuestJoin />} />
       <Route
@@ -89,6 +95,8 @@ export function AppRoutes() {
         <Route path="messagerie" element={<Voicemail />} />
         <Route path="compte" element={<Account />} />
         <Route path="compte/appels" element={<CallSettings />} />
+        <Route path="billing/success" element={<BillingResult outcome="success" />} />
+        <Route path="billing/cancel" element={<BillingResult outcome="cancel" />} />
         <Route path="services" element={<Navigate to="/services/offres" replace />} />
         <Route path="services/offres" element={<Offers />} />
         <Route path="services/commandes" element={<Orders />} />

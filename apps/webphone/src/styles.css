@@ -1657,3 +1657,53 @@ a.list__row:hover,
 .ad--sidebar .ad__unit {
   min-height: 200px;
 }
+
+/* /numero: number picked on mimt.ca (pages/NumberCheckout.tsx). */
+.hold-card__eyebrow {
+  margin: 8px 0 0;
+  color: var(--cyan, #29c3ff);
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.hold-card__number {
+  margin: 4px 0 8px;
+  font-size: clamp(1.8rem, 7vw, 2.4rem);
+  font-variant-numeric: tabular-nums;
+}
+.hold-card .card {
+  margin: 12px 0;
+}
+.plan-pick {
+  border: 0;
+  padding: 0;
+  margin: 0 0 14px;
+  display: grid;
+  gap: 8px;
+}
+.plan-pick__opt {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 4px 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line, #d9e1ec);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.plan-pick__opt.is-on {
+  border-color: var(--electric, #1f8bff);
+  box-shadow: 0 0 0 1px var(--electric, #1f8bff);
+}
+.plan-pick__name {
+  font-weight: 700;
+}
+.plan-pick__price {
+  font-variant-numeric: tabular-nums;
+}
+.plan-pick__caps {
+  grid-column: 2 / -1;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}

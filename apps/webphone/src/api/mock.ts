@@ -886,6 +886,8 @@ const routes: Route[] = [
   }],
 
   // Billing: stays inside the app in demo mode.
+  ["GET", /^\/v1\/public\/numbers\/holds\/([^/]+)$/, ({ params }) =>
+    ok({ id: decodeURIComponent(params[0]!), e164: "+15145550102", status: "held", expiresAt: new Date(Date.now() + 9 * 60_000).toISOString() }), false],
   ["POST", /^\/v1\/billing\/checkout$/, () => ok({ checkoutUrl: "/compte?paiement=demo", sessionId: nextId("cs") })],
   ["GET", /^\/v1\/billing\/portal$/, () => ok({ portalUrl: "/compte?portail=demo" })],
 

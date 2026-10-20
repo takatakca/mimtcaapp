@@ -1589,3 +1589,185 @@ html[data-sheet] .mobile-cta {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* Live number picker (components/NumberPicker). Works on the dark hero and on light sections. */
+.picker {
+  margin-top: 22px;
+  padding: 18px;
+  border-radius: var(--radius);
+  background: rgba(11, 27, 61, 0.72);
+  border: 1px solid rgba(184, 196, 211, 0.22);
+  color: var(--white);
+  max-width: 560px;
+}
+.section .picker {
+  background: var(--midnight);
+}
+.picker__label,
+.picker__eyebrow {
+  display: block;
+  font-family: var(--font-h);
+  font-weight: 700;
+  font-size: 1rem;
+  margin: 0 0 10px;
+}
+.picker__eyebrow {
+  color: var(--cyan);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.picker__row {
+  display: flex;
+  gap: 8px;
+}
+.picker__input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(184, 196, 211, 0.35);
+  background: var(--navy);
+  color: var(--white);
+  font: inherit;
+  font-size: 1rem;
+}
+.picker__input:focus-visible {
+  outline: 2px solid var(--electric);
+  outline-offset: 1px;
+}
+.picker__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+.chip {
+  border: 1px solid rgba(184, 196, 211, 0.3);
+  background: transparent;
+  color: var(--silver);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.chip:hover,
+.chip:focus-visible {
+  color: var(--white);
+  border-color: var(--electric);
+}
+.picker__status {
+  margin: 14px 0 6px;
+  font-size: 0.92rem;
+  color: var(--silver);
+}
+.picker__status--error {
+  color: #ffb4b4;
+}
+.picker__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.picker__item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(184, 196, 211, 0.18);
+  background: rgba(6, 13, 31, 0.6);
+  color: var(--white);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.picker__item:hover,
+.picker__item:focus-visible {
+  border-color: var(--electric);
+}
+.picker__item:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+.picker__digits {
+  font-family: var(--font-h);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+}
+.picker__place {
+  color: var(--silver);
+  font-size: 0.85rem;
+}
+.picker__take {
+  color: var(--cyan);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.picker__fine {
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  color: var(--silver);
+}
+.picker__number {
+  font-family: var(--font-h);
+  font-weight: 800;
+  font-size: clamp(1.8rem, 6vw, 2.4rem);
+  font-variant-numeric: tabular-nums;
+  margin: 0 0 6px;
+}
+.picker__timer {
+  margin: 0 0 14px;
+  color: var(--silver);
+}
+.picker__timer strong {
+  color: var(--white);
+  font-variant-numeric: tabular-nums;
+}
+.picker__release {
+  display: block;
+  margin-top: 12px;
+  color: var(--silver);
+  font-size: 0.9rem;
+}
+.picker__title {
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+@media (max-width: 480px) {
+  .picker {
+    padding: 14px;
+  }
+  .picker__row {
+    flex-direction: column;
+  }
+  .picker__item {
+    grid-template-columns: 1fr auto;
+  }
+  .picker__place {
+    display: none;
+  }
+}
+.picker-band {
+  display: grid;
+  gap: 24px;
+  align-items: start;
+}
+@media (min-width: 900px) {
+  .picker-band {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.picker-band .picker {
+  margin-top: 0;
+}

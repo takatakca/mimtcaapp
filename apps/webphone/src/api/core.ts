@@ -27,6 +27,7 @@ import type {
   MeResponse,
   MessageDto,
   MessagesResponse,
+  NumberHoldResponse,
   OtpStartResponse,
   RecordGreetingByCallResponse,
   ReplySuggestionsResponse,
@@ -114,6 +115,9 @@ export function coreEndpoints(request: HttpClient["request"]) {
 
     // Billing (Stripe Checkout on the web; the API decides the success/cancel URLs).
     checkout: (body: CheckoutRequest) => request<CheckoutResponse>("POST", "/v1/billing/checkout", { body }),
+    /** Live picker hold (public: the token is the proof). */
+    numberHold: (id: string, token: string) =>
+      request<NumberHoldResponse>("GET", `/v1/public/numbers/holds/${seg(id)}`, { auth: false, headers: { "X-Hold-Token": token } }),
     billingPortal: () => request<BillingPortalResponse>("GET", "/v1/billing/portal"),
   };
 }

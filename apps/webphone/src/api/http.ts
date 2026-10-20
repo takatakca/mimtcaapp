@@ -11,6 +11,8 @@ export interface RequestOptions {
   /** Send the bearer token (default true). */
   auth?: boolean;
   query?: Record<string, string | number | undefined>;
+  /** Extra request headers (e.g. X-Hold-Token for a number hold). */
+  headers?: Record<string, string>;
 }
 
 export type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
@@ -63,6 +65,7 @@ export function createHttpClient(deps: HttpClientDeps): HttpClient {
       "X-App-Version": deps.appVersion,
     };
     if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+    Object.assign(headers, opts.headers);
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
     try {
       return await deps.fetch(url(path, opts.query), {
