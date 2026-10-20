@@ -1,6 +1,6 @@
-// After `next build`: writes out/ads.txt from NEXT_PUBLIC_ADSENSE_PUBLISHER_ID (pub-… or ca-pub-…).
-// Unset: no ads.txt is published (and any stale one is removed). Malformed: the build fails.
-import { existsSync, rmSync, writeFileSync } from "node:fs";
+// After `next build`: writes out/ads.txt for NEXT_PUBLIC_ADSENSE_PUBLISHER_ID (pub-… or ca-pub-…),
+// or MIMT's own publisher when unset. Malformed: the build fails.
+import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { adsTxt } from "../lib/adsTxt.ts";
 
@@ -13,8 +13,5 @@ if (raw && !body) {
 }
 if (body) {
   writeFileSync(file, body);
-  console.log("ads.txt written for AdSense");
-} else {
-  if (existsSync(file)) rmSync(file);
-  console.log("ads.txt skipped (NEXT_PUBLIC_ADSENSE_PUBLISHER_ID unset)");
+  console.log(`ads.txt written for AdSense: ${body.trim()}`);
 }

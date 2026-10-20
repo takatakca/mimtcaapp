@@ -212,7 +212,7 @@ jobs:
           VITE_TAKATAK_ISSUER: ${{ vars.TAKATAK_ISSUER }}
           VITE_TAKATAK_CLIENT_ID: ${{ vars.TAKATAK_CLIENT_ID }}
           # Free-plan web ads (Google AdSense). Public ids, not secrets; unset = no ads. docs/MIMT-LAUNCH.md « Publicités et coûts ».
-          VITE_ADSENSE_CLIENT: ${{ vars.ADSENSE_CLIENT }}
+          VITE_ADSENSE_CLIENT: ${{ vars.ADSENSE_CLIENT || 'ca-pub-4518068873401341' }}
           VITE_ADSENSE_SLOT_BANNER: ${{ vars.ADSENSE_SLOT_BANNER }}
           VITE_ADSENSE_SLOT_SIDEBAR: ${{ vars.ADSENSE_SLOT_SIDEBAR }}
       - name: Check the build embeds the released commit in mimt-release.json

@@ -134,6 +134,10 @@ export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; descripti
     fr: { title: "Nous joindre", description: "Écrivez à l'équipe MIMT en français ou en anglais : questions, démo MIMT Affaires, presse ou plainte." },
     en: { title: "Contact us", description: "Write to the MIMT team in French or English: questions, MIMT Business demo, press or complaint." },
   },
+  about: {
+    fr: { title: "À propos de MIMT", description: "Qui est derrière MIMT : une entreprise québécoise de GROUPE TAKATAK qui offre numéros canadiens, appels et textos par Internet." },
+    en: { title: "About MIMT", description: "Who is behind MIMT: a Québec company of GROUPE TAKATAK offering Canadian numbers, calls and texts over the internet." },
+  },
 };
 
 /** Next.js metadata (canonical, hreflang fr-CA/en-CA, Open Graph, Twitter) for one page. */
