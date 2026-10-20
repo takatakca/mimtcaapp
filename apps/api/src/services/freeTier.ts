@@ -20,15 +20,19 @@ export const FREE_NUMBER_FIXED_CAD_PER_MONTH = 2.64;
 export const FREE_SMS_EST_CAD_PER_SEGMENT = 0.023;
 
 export const FREE_QUOTA_MESSAGE =
-  "Les numéros gratuits du jour sont tous attribués. Revenez demain ou choisissez Verrouillage du numéro (4,99 $) / Premium.";
+  "Les numéros gratuits du jour sont tous attribués. Revenez demain ou choisissez Essentiel (12,99 $) ou Premium.";
+
+/** Launch pricing: a phone-network number comes with a paid plan (Essentiel 12,99 $ and up), paid up front. */
+export const NUMBER_REQUIRES_PAID_MESSAGE =
+  "Le forfait Gratuit ne comprend pas de numéro de téléphone. Choisissez Essentiel (12,99 $/mois) pour obtenir votre numéro tout de suite.";
 
 export const FREE_OUTBOUND_PAUSED_MESSAGE =
   "Les appels et textos vers le réseau téléphonique sont en pause pour le forfait gratuit jusqu'au mois prochain. " +
-  "Les appels et textos entre applications MIMT restent permis. Passez à Verrouillage du numéro (4,99 $) ou Premium pour continuer.";
+  "Les appels et textos entre applications MIMT restent permis. Passez à Essentiel (12,99 $) ou Premium pour continuer.";
 
 export const FREE_OUTBOUND_PAUSED_TWIML = {
-  fr: "Les appels vers le réseau téléphonique sont en pause pour le forfait gratuit. Les appels entre applications MIMT restent gratuits. Passez au forfait Verrouillage du numéro ou Premium dans l'application.",
-  en: "Calls to the phone network are paused on the free plan. Calls between MIMT apps stay free. Upgrade to Number Lock or Premium in the app.",
+  fr: "Les appels vers le réseau téléphonique sont en pause pour le forfait gratuit. Les appels entre applications MIMT restent gratuits. Passez au forfait Essentiel ou Premium dans l'application.",
+  en: "Calls to the phone network are paused on the free plan. Calls between MIMT apps stay free. Upgrade to Essential or Premium in the app.",
 } as const;
 
 const startOfUtcDay = (d: Date) => new Date(`${dayPeriod(d)}T00:00:00.000Z`);

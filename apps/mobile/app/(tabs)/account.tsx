@@ -22,7 +22,7 @@ const SUPPORT_URL = { fr: "https://mimt.ca/soutien", en: "https://mimt.ca/en/sup
 const USAGE_LABEL: Record<string, TKey> = {
   outboundMinutes: "account.usageOutMin",
   inboundMinutes: "account.usageInMin",
-  outboundSms: "account.usageSms",
+  messages: "account.usageSms",
 };
 // Consumer upgrades shown in the app. Business plans are sold on the web from the TAKATAK dashboard.
 const UPGRADES: Partial<Record<PlanCode, PaidPlanCode[]>> = { free: ["lock", "premium"], lock: ["premium"] };

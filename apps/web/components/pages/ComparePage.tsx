@@ -15,18 +15,18 @@ function rows(lang: Lang): Row[] {
     ? [
         { topic: "Numéro canadien", mimt: "Oui, choisi parmi les indicatifs offerts (Québec d'abord).", typical: "Souvent offert." },
         {
-          topic: "Appels sortants sur le forfait gratuit",
-          mimt: `${free.outboundMinutes} minutes par mois vers le Canada et les É.-U., ${free.outboundSms} textos. Limite affichée d'avance.`,
+          topic: "Forfait gratuit",
+          mimt: `Entre applications MIMT : textos illimités et ${free.onNetMinutes} minutes d'appels par mois. Pas de numéro de téléphone gratuit : le vrai numéro vient avec Essentiel (${formatCad(lock.monthlyPriceCents, lang)}/mois).`,
           typical: "Souvent illimités par Wi‑Fi, avec publicités.",
         },
         {
           topic: "Forfait payant",
-          mimt: `Premium ${formatCad(premium.monthlyPriceCents, lang)}/mois : ${premium.caps.outboundMinutes} minutes et ${premium.caps.outboundSms} textos, sans publicité, transcription, IA.`,
+          mimt: `Premium ${formatCad(premium.monthlyPriceCents, lang)}/mois : ${premium.caps.outboundMinutes} minutes sortantes, ${premium.caps.inboundMinutes} entrantes et ${premium.caps.messages} textos, sans publicité, transcription, IA.`,
           typical: "Varie : abonnements sans publicité ou forfaits de données, parfois facturés à la semaine.",
         },
         {
           topic: "Garder son numéro",
-          mimt: `Règle publiée : récupéré après ${free.inactivityDays} jours sans activité, avis aux jours ${w1} et ${w2}, puis ${QUARANTINE_DAYS} jours de quarantaine avant réattribution. Verrouillage : ${formatCad(lock.monthlyPriceCents, lang)}/mois ou ${formatCad(lock.yearlyPriceCents ?? 0, lang)}/an.`,
+          mimt: `Le numéro reste à vous tant que le forfait est payé, même sans activité. Après un forfait annulé : avis aux jours ${w1} et ${w2}, puis ${QUARANTINE_DAYS} jours de quarantaine avant réattribution.`,
           typical: "Varie; la règle n'est pas toujours publiée en nombre de jours.",
         },
         { topic: "Langue", mimt: "Français d'abord partout (app, site, conditions, menus vocaux), anglais ensuite.", typical: "Varie selon l'application." },
@@ -56,18 +56,18 @@ function rows(lang: Lang): Row[] {
     : [
         { topic: "Canadian number", mimt: "Yes, picked from available area codes (Québec first).", typical: "Often offered." },
         {
-          topic: "Outbound calls on the free plan",
-          mimt: `${free.outboundMinutes} minutes per month to Canada and the US, ${free.outboundSms} texts. Limit shown up front.`,
+          topic: "Free plan",
+          mimt: `Between MIMT apps: unlimited texts and ${free.onNetMinutes} minutes of calls per month. No free phone number: the real number comes with Essential (${formatCad(lock.monthlyPriceCents, lang)}/month).`,
           typical: "Often unlimited over Wi‑Fi, with ads.",
         },
         {
           topic: "Paid plan",
-          mimt: `Premium ${formatCad(premium.monthlyPriceCents, lang)}/month: ${premium.caps.outboundMinutes} minutes and ${premium.caps.outboundSms} texts, no ads, transcription, AI.`,
+          mimt: `Premium ${formatCad(premium.monthlyPriceCents, lang)}/month: ${premium.caps.outboundMinutes} outbound minutes, ${premium.caps.inboundMinutes} inbound and ${premium.caps.messages} texts, no ads, transcription, AI.`,
           typical: "Varies: ad-free subscriptions or data plans, sometimes billed weekly.",
         },
         {
           topic: "Keeping your number",
-          mimt: `Published rule: reclaimed after ${free.inactivityDays} days without activity, warnings on days ${w1} and ${w2}, then a ${QUARANTINE_DAYS}-day quarantine before reassignment. Number Lock: ${formatCad(lock.monthlyPriceCents, lang)}/month or ${formatCad(lock.yearlyPriceCents ?? 0, lang)}/year.`,
+          mimt: `Your number stays yours as long as the plan is paid, even when inactive. After a cancelled plan: warnings on days ${w1} and ${w2}, then a ${QUARANTINE_DAYS}-day quarantine before reassignment.`,
           typical: "Varies; the rule isn't always published as a number of days.",
         },
         { topic: "Language", mimt: "French first everywhere (app, site, terms, voice menus), English second.", typical: "Varies by app." },

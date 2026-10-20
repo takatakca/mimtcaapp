@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { isEmergencyNumber } from "@mimt/shared";
 import type { AppDeps } from "../deps.js";
-import { checkInboundCaps, checkVoiceCaps, effectiveCaps, exceedsDailySpend } from "../fraud/caps.js";
+import { checkInboundCaps, checkOnNetCaps, checkVoiceCaps, effectiveCaps, exceedsDailySpend } from "../fraud/caps.js";
 import { checkVoiceDestination } from "../fraud/destinations.js";
 import { intlTimeLimitS, retailCentsPerMinute } from "../billing/rates.js";
 import { CALL_ATTEMPT_RULES } from "../fraud/policy.js";
@@ -14,6 +14,7 @@ import { scoreInboundCall } from "../ai/spam.js";
 import { processVoicemailTranscript } from "../ai/voicemail.js";
 import { pbxInbound, pbxOutbound } from "../pbx/engine.js";
 import { getFeatures, HELD_STATES, outboundBlocked, setAccountStatus, usagePeriods } from "../services/accounts.js";
+import { planOf } from "../plansConfig.js";
 import { afterDialControls, inboundCallControls } from "../services/callControls.js";
 import { queueVoicemailEmail } from "../services/email.js";
 import { greetingPlayUrl } from "../services/greeting.js";
@@ -41,6 +42,10 @@ const REFUSALS = {
     "Before calling, register your 9-1-1 address and accept the 9-1-1 notice in the app.",
   ],
   minutes_exhausted: ["Vous avez utilisé toutes vos minutes ce mois-ci.", "You have used all your minutes this month."],
+  on_net_minutes_exhausted: [
+    "Vous avez utilisé vos minutes d'appels entre applications MIMT ce mois-ci. Passez à Essentiel pour continuer.",
+    "You have used your MIMT app-to-app calling minutes this month. Upgrade to Essential to keep calling.",
+  ],
   too_many_calls: ["Vous avez déjà un appel en cours.", "You already have a call in progress."],
   destination_blocked: ["Cette destination n'est pas permise avec votre forfait.", "This destination is not allowed on your plan."],
   intl_no_credit: ["Votre crédit international est insuffisant.", "Your international credit is too low."],
@@ -151,14 +156,23 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
           })
         : Promise.resolve();
 
-    // App-to-app: free and unlimited, rings the other user's app directly.
+    // App-to-app: rings the other user's app directly, no phone network. Each app leg still costs Twilio, so it is
+    // fair use: the free plan's own pool (FREE_ON_NET_MINUTES), paid plans' outbound minutes (fraud/caps.ts).
     const target = await repo.getNumberByE164(to);
     if (target?.telecomAccountId && HELD_STATES.has(target.state)) {
       const targetAccount = await repo.getAccount(target.telecomAccountId);
       if (targetAccount && targetAccount.status !== "SUSPENDED" && targetAccount.status !== "CLOSED") {
+        const { plan, trialing } = await getFeatures(repo, account.id);
+        const onNet = checkOnNetCaps({ caps: effectiveCaps(plan, account.riskTier, account.createdAt, now, trialing), usage: await repo.getUsage(account.id, monthPeriod(now)) });
+        if (!onNet.ok) return sendTwiml(reply, refuse("on_net_minutes_exhausted"));
         await record("app", caller?.e164 ?? `client:${user.id}`);
         const vr = new VoiceResponse();
-        vr.dial({ answerOnBridge: true, timeout: RING_TIMEOUT_S, ...(caller ? { callerId: caller.e164 } : {}) }).client(targetAccount.ownerUserId);
+        vr.dial({
+          answerOnBridge: true,
+          timeout: RING_TIMEOUT_S,
+          timeLimit: Math.min(onNet.remaining * 60, MAX_CALL_S),
+          ...(caller ? { callerId: caller.e164 } : {}),
+        }).client(targetAccount.ownerUserId);
         return sendTwiml(reply, vr);
       }
     }
@@ -180,7 +194,7 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
       return sendTwiml(reply, refuse("account_restricted"));
     }
 
-    const { plan, features } = await getFeatures(repo, account.id);
+    const { plan, features, trialing } = await getFeatures(repo, account.id);
     // Free plan: international only with bought credit, and only to the short free-plan list (fraud/destinations.ts).
     const freePlan = plan === "free";
     // Free-tier cost guard (services/freeTier.ts). 9-1-1 and app-to-app calls were handled above and never get here.
@@ -198,7 +212,7 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
       return sendTwiml(reply, refuse(dest.reason === "intl_no_credit" ? "intl_no_credit" : "destination_blocked"));
     }
 
-    const caps = effectiveCaps(plan, account.riskTier, account.createdAt, now);
+    const caps = effectiveCaps(plan, account.riskTier, account.createdAt, now, trialing);
     const activeCalls = await repo.countActiveCalls(account.id, new Date(now.getTime() - ACTIVE_CALL_WINDOW_MS));
     let timeLimit: number;
     if (isDomesticZone(dest.zone)) {
@@ -267,8 +281,8 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
       });
       scheduleSpamScore(account.id, p.CallSid, p.From, p.StirVerstat);
     }
-    const { plan } = await getFeatures(repo, account.id);
-    const caps = effectiveCaps(plan, account.riskTier, account.createdAt, now);
+    const { plan, trialing } = await getFeatures(repo, account.id);
+    const caps = effectiveCaps(plan, account.riskTier, account.createdAt, now, trialing);
     if (!checkInboundCaps({ caps, usage: await repo.getUsage(account.id, monthPeriod(now)) }).ok) {
       return sendTwiml(reply, await voicemail(number, account));
     }
@@ -360,6 +374,15 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
     if (call.direction === "outbound" && call.kind !== "emergency") {
       const n = await repo.getNumberByE164(call.fromNumber);
       if (n && n.telecomAccountId === account.id) await repo.updateNumber(n.id, { lastActivityAt: now });
+    }
+    if (call.kind === "app" && call.direction === "outbound") {
+      // App-to-app minutes: the free plan's own pool, or paid plans' outbound minutes (fraud/caps.ts checkOnNetCaps).
+      const appMinutes = Math.ceil(durationS / 60);
+      if (appMinutes <= 0) return;
+      const { plan } = await getFeatures(repo, account.id);
+      const ownPool = planOf(plan).caps.onNetMinutes !== null;
+      await repo.addUsage(account.id, usagePeriods(now), ownPool ? { minutesOnNet: appMinutes } : { minutesOut: appMinutes });
+      return;
     }
     if (call.kind !== "pstn") return;
 

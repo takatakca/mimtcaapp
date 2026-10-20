@@ -1,19 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { monthPeriod } from "../src/lib/time.js";
-import { makeUser, setup, twilioPost, type Ctx } from "./helpers.js";
+import { LEGACY_FREE, makeUser, setup, twilioPost, type Ctx } from "./helpers.js";
 
 // Free-tier cost guard (src/services/freeTier.ts).
 const OUT = "/webhooks/twilio/voice/outbound";
 
 let ctx: Ctx;
 beforeEach(async () => {
-  ctx = await setup();
+  ctx = await setup({ config: LEGACY_FREE });
 });
 afterEach(() => ctx.app.close());
 
 async function restart(config: Record<string, string>) {
   await ctx.app.close();
-  ctx = await setup({ config });
+  ctx = await setup({ config: { ...LEGACY_FREE, ...config } });
 }
 
 const claim = (auth: Record<string, string>, e164 = "+15145550199") =>
@@ -51,7 +51,7 @@ describe("free-tier cost guard: new free numbers per day", () => {
     const res = await claim(second.auth, "+15145550198");
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("free_quota_reached");
-    expect(res.json().message).toMatch(/^Les numéros gratuits du jour sont tous attribués\..*Verrouillage du numéro \(4,99 \$\) \/ Premium/);
+    expect(res.json().message).toMatch(/^Les numéros gratuits du jour sont tous attribués\..*Essentiel \(12,99 \$\) ou Premium/);
     expect(ctx.twilio!.purchaseNumber).toHaveBeenCalledTimes(1);
   });
 

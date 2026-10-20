@@ -8,6 +8,7 @@ import { MemoryReferralRepository } from "./referralsMemory.js";
 import { MemoryPortInRepository } from "./portInMemory.js";
 import { MemoryMeetingRepository } from "./meetingsMemory.js";
 import { planFromSubscriptions } from "../services/accounts.js";
+import { emptyUsage } from "./types.js";
 import type {
   AuditEntry,
   Call,
@@ -442,7 +443,7 @@ export class MemoryRepository implements Repository {
   async addUsage(accountId: string, periods: string[], delta: Partial<Usage>) {
     for (const period of periods) {
       const u = this.usage.get(`${accountId}|${period}`) ?? (await this.getUsage(accountId, period));
-      for (const k of ["minutesOut", "minutesIn", "smsOut", "bonusMinutesOut", "spendCad", "intlSpendCad"] as const) {
+      for (const k of ["minutesOut", "minutesIn", "smsOut", "smsIn", "mmsOut", "minutesOnNet", "bonusMinutesOut", "spendCad", "intlSpendCad"] as const) {
         u[k] += delta[k] ?? 0;
       }
       this.usage.set(`${accountId}|${period}`, u);
@@ -450,9 +451,7 @@ export class MemoryRepository implements Repository {
   }
   async getUsage(accountId: string, period: string): Promise<Usage> {
     const u = this.usage.get(`${accountId}|${period}`);
-    return u
-      ? clone(u)
-      : { telecomAccountId: accountId, period, minutesOut: 0, minutesIn: 0, smsOut: 0, bonusMinutesOut: 0, spendCad: 0, intlSpendCad: 0 };
+    return u ? clone(u) : emptyUsage(accountId, period);
   }
 
   async freePlanUsage(period: string, now: Date) {

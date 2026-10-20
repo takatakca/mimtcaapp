@@ -35,7 +35,7 @@ export const fr = {
   "account.usageInMin": "Minutes entrantes",
   "account.usageOf": "{used} sur {cap}",
   "account.usageOutMin": "Minutes sortantes",
-  "account.usageSms": "Textos envoyés",
+  "account.usageSms": "Textos (envoyés et reçus)",
   "account.usageWarn": "Vous approchez de la limite de votre forfait.",
 
   "address.city": "Ville",

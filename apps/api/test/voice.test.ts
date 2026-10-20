@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { intlRateFor } from "@mimt/shared";
 import { monthPeriod } from "../src/lib/time.js";
-import { makeUser, setup, twilioPost, type Ctx } from "./helpers.js";
+import { makeUser, setup as baseSetup, twilioPost, type Ctx, LEGACY_FREE } from "./helpers.js";
+
+// These tests predate launch pricing: their free users hold a phone-network number (LEGACY_FREE).
+const setup = (o: Parameters<typeof baseSetup>[0] = {}) => baseSetup({ ...o, config: { ...LEGACY_FREE, ...o.config } });
 
 const OUT = "/webhooks/twilio/voice/outbound";
 const IN = "/webhooks/twilio/voice/inbound";

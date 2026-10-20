@@ -183,8 +183,8 @@ export function AiPage({ lang }: { lang: Lang }) {
           </div>
           <p className="fineprint">
             {fr
-              ? "Gratuit et Verrouillage du numéro : pas d'IA générative; l'étiquette « Spam probable » par règles simples reste incluse. Prix proposés, avant taxes. "
-              : "Free and Number Lock: no generative AI; the rule-based “Likely spam” label is still included. Proposed prices, before taxes. "}
+              ? "Gratuit et Essentiel : pas d'IA générative; l'étiquette « Spam probable » par règles simples reste incluse. Prix proposés, avant taxes. "
+              : "Free and Essential: no generative AI; the rule-based “Likely spam” label is still included. Proposed prices, before taxes. "}
             <a href={href(lang, "plans")}>{fr ? "Tous les forfaits" : "All plans"}</a>
           </p>
         </div>

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isSipHost } from "./lib/cuba.js";
+import { plansFromEnv, type PlanTable } from "./plansConfig.js";
 
 const optional = z.string().min(1).optional();
 const csv = (fallback: string[]) =>
@@ -130,6 +131,11 @@ const EnvSchema = z
       .enum(["true", "false"])
       .optional()
       .transform((v) => v !== "false"),
+    /** Optional 7-day trial of Essentiel: card on file (Stripe Checkout), tiny quota (TRIAL_CAPS). Off by default. */
+    TRIAL_ENABLED: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((v) => v === "true"),
     DEVICE_ATTESTATION_REQUIRED: z
       .enum(["true", "false"])
       .optional()
@@ -206,7 +212,10 @@ const EnvSchema = z
     }
   });
 
-export type Config = z.infer<typeof EnvSchema>;
+export type Config = z.infer<typeof EnvSchema> & {
+  /** Plan prices and quotas (shared defaults + PLAN_* overrides), checked against the unit-economics rule. */
+  plans: PlanTable;
+};
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
   // .env files often carry empty values: treat them as unset.
@@ -220,7 +229,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     throw new Error(`Invalid configuration: ${issues}`);
   }
-  return parsed.data;
+  return { ...parsed.data, plans: plansFromEnv(cleaned, parsed.data.USD_TO_CAD) };
 }
 
 export const twilioRestConfigured = (c: Config) => Boolean(c.TWILIO_ACCOUNT_SID && c.TWILIO_API_KEY_SID && c.TWILIO_API_KEY_SECRET);

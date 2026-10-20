@@ -252,7 +252,11 @@ export const enExtra: Record<keyof typeof frExtra, string> = {
     "Off by default: Google ads are not based on your profile. If you turn it on, Google, a provider located outside Quebec, may use cookies to personalise ads. You can withdraw at any time (Law 25).",
   "account.noAds": "Ad-free, {price} per month",
   "account.noAdsHint": "Removes ads from the app without changing your plan.",
-  "error.freeQuotaReached": "Today's free numbers are all taken. Come back tomorrow or choose Number Lock ($4.99) / Premium.",
+  "error.freeQuotaReached": "Today's free numbers are all taken. Come back tomorrow or choose Essential ($12.99) or Premium.",
+  "error.numberRequiresPaidPlan": "The Free plan does not include a phone number. Choose Essential ($12.99/month) to get your number right away.",
+  "error.mmsQuotaExhausted": "You have sent all the picture messages (MMS) in your plan this month. Texts still work.",
+  "error.trialUnavailable": "No free trial is offered right now.",
+  "error.trialAlreadyUsed": "The free trial is offered once per account.",
   "error.freeOutboundPaused":
-    "Calls and texts to the phone network are paused on the free plan until next month. Calls and texts between MIMT apps are still allowed. Upgrade to Number Lock ($4.99) or Premium to continue.",
+    "Calls and texts to the phone network are paused on the free plan until next month. Calls and texts between MIMT apps are still allowed. Upgrade to Essential ($12.99) or Premium to continue.",
 };

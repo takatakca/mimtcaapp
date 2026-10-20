@@ -16,7 +16,7 @@ describe("/v1/me", () => {
       account: { id: u.account.id, kind: "consumer", plan: "free" },
       numbers: [{ e164: "+15145550100", state: "active" }],
       e911: { addressRegistered: true, noticeAccepted: true, noticeVersion: NOTICE },
-      usage: { outboundMinutes: 0, inboundMinutes: 0, outboundSms: 0 },
+      usage: { outboundMinutes: 0, inboundMinutes: 0, messages: 0 },
     });
   });
 

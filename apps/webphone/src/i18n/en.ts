@@ -32,7 +32,7 @@ export const en: Record<TKey, string> = {
   "account.usageInMin": "Inbound minutes",
   "account.usageOf": "{used} of {cap}",
   "account.usageOutMin": "Outbound minutes",
-  "account.usageSms": "Texts sent",
+  "account.usageSms": "Texts (sent and received)",
   "account.usageWarn": "You are close to your plan's limit.",
 
   "address.city": "City",

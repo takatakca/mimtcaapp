@@ -77,7 +77,14 @@ test("plan card prices and limits come from PLANS", () => {
     for (const lang of ["fr", "en"] as const) {
       assert.equal(price(p, lang).amount, formatCad(p.monthlyPriceCents, lang), `${code}/${lang}`);
       if (p.yearlyPriceCents) assert.ok(yearly(p, lang)?.includes(formatCad(p.yearlyPriceCents, lang)));
-      assert.ok(capLines(p, lang)[0]!.includes(num(p.caps.outboundMinutes, lang)));
+      const lines = capLines(p, lang).join("\n");
+      if (p.caps.hasNumber) {
+        for (const n of [p.caps.outboundMinutes, p.caps.inboundMinutes, p.caps.messages]) assert.ok(lines.includes(num(n, lang)), `${code}/${lang}: ${n}`);
+      } else {
+        // Gratuit: says plainly there is no phone number, and shows the app-to-app minutes.
+        assert.match(lines, lang === "fr" ? /Pas de numéro de téléphone/ : /No phone number/);
+        assert.ok(lines.includes(num(p.caps.onNetMinutes ?? 0, lang)));
+      }
     }
   }
 });

@@ -70,7 +70,7 @@ export async function messageRoutes(app: FastifyInstance, deps: AppDeps) {
     if (!dest.ok) throw forbidden(dest.reason, "SMS is limited to Canada and the US");
     if (await repo.isOptedOut(from.e164, to)) throw forbidden("recipient_opted_out");
 
-    const { plan, features } = await getFeatures(repo, account.id);
+    const { plan, features, trialing } = await getFeatures(repo, account.id);
     if ((body.mediaUrls?.length || body.mediaIds?.length) && !features.has("mms")) throw forbidden("mms_not_in_plan");
     // Free-tier cost guard (services/freeTier.ts): texts to other MIMT numbers (app-to-app) stay allowed.
     if (plan === "free") {
@@ -101,9 +101,13 @@ export async function messageRoutes(app: FastifyInstance, deps: AppDeps) {
     if (plan === "free" && looksLikeOtp(body.body)) await block(account, "sms_otp_content", 403, "otp_content_blocked");
 
     const segments = smsSegments(body.body);
-    const caps = effectiveCaps(plan, account.riskTier, account.createdAt, now);
-    const cap = checkSmsCaps({ caps, usage: await repo.getUsage(account.id, monthPeriod(now)), segments });
-    if (!cap.ok) throw forbidden("sms_quota_exhausted", "Monthly SMS allowance used");
+    const caps = effectiveCaps(plan, account.riskTier, account.createdAt, now, trialing);
+    const isMms = Boolean(body.mediaUrls?.length || body.mediaIds?.length);
+    const cap = checkSmsCaps({ caps, usage: await repo.getUsage(account.id, monthPeriod(now)), segments, mms: isMms });
+    if (!cap.ok) {
+      if (cap.reason === "mms_exhausted") throw forbidden("mms_quota_exhausted", "Monthly MMS allowance used");
+      throw forbidden("sms_quota_exhausted", "Monthly message allowance used (sent and received)");
+    }
     const today = await repo.getUsage(account.id, dayPeriod(now));
     if (exceedsDailySpend(today.spendCad, config.DAILY_SPEND_ALERT_CAD)) {
       await setAccountStatus(repo, account, "OUTBOUND_SUSPENDED", "daily_spend_guard");
@@ -148,7 +152,7 @@ export async function messageRoutes(app: FastifyInstance, deps: AppDeps) {
       const linked = await repo.media.updateMedia(m.id, { messageId: message.id });
       if (linked) attached.push(await mediaDto(deps, linked));
     }
-    await repo.addUsage(account.id, usagePeriods(now), { smsOut: sent.segments });
+    await repo.addUsage(account.id, usagePeriods(now), { smsOut: sent.segments, ...(mediaUrls.length ? { mmsOut: 1 } : {}) });
     await repo.updateNumber(from.id, { lastActivityAt: now });
     return reply.code(201).send(messageDto(deps, message, attached));
   });

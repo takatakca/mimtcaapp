@@ -3,6 +3,8 @@
 // "Worst case" = every quota used to the last unit, in its most expensive form. docs/MIMT-UNIT-ECONOMICS.md has the table.
 // Every number is overridable (API env, see apps/api config) because carrier prices and the exchange rate move.
 
+import type { Plan, PlanCaps } from "./plans.js";
+
 /** Twilio list prices for Canada, USD (owner's sheet, 2026-10-20). */
 export interface CarrierRatesUsd {
   /** Local Canadian number, per month. */
@@ -157,3 +159,29 @@ export const LAUNCH_LINEUP = {
 } as const satisfies Record<string, { priceCents: number; quota: UsageQuota }>;
 
 export { quota as usageQuota };
+
+/** The cost quota implied by plan caps (on-net minutes that draw from outbound minutes cost nothing extra). */
+export function quotaFromCaps(caps: PlanCaps): UsageQuota {
+  return {
+    hasNumber: caps.hasNumber,
+    outboundMinutes: caps.outboundMinutes,
+    inboundMinutes: caps.inboundMinutes,
+    messages: caps.messages,
+    mms: caps.mms,
+    onNetMinutes: caps.onNetMinutes ?? 0,
+    transcriptionMinutes: caps.transcriptionMinutes,
+    recordingMinutes: caps.recordingMinutes,
+  };
+}
+
+/** Paid plans that break the rule, with their numbers; [] when every paid plan passes. */
+export function planRuleViolations(
+  plans: Record<string, Pick<Plan, "code" | "monthlyPriceCents" | "caps">>,
+  r: CarrierRatesUsd = DEFAULT_CARRIER_RATES_USD,
+  a: EconomicsAssumptions = DEFAULT_ASSUMPTIONS,
+): { code: string; economics: PlanEconomics }[] {
+  return Object.values(plans)
+    .filter((p) => p.monthlyPriceCents > 0)
+    .map((p) => ({ code: p.code, economics: planEconomics(p.monthlyPriceCents, quotaFromCaps(p.caps), r, a) }))
+    .filter((v) => !v.economics.ok);
+}

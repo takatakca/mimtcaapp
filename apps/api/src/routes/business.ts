@@ -2,12 +2,12 @@
 // Access: every route goes through businessAccess (not a member → 404, role too low → 403).
 // Routing logic itself lives in src/pbx/ (router.ts is pure and unit-tested).
 
+import { planOf } from "../plansConfig.js";
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import {
   DEFAULT_WEEKLY_SCHEDULE,
   NANP_E164,
-  PLANS,
   BUSINESS_TIMEZONE,
   type BusinessCallRecord,
   type BusinessCallsResponse,
@@ -633,7 +633,7 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
     const now = deps.now();
     const period = monthPeriod(now);
     const periodStart = `${period}-01T00:00:00.000Z`;
-    const caps = PLANS[info.active ? info.plan : "business"].caps;
+    const caps = planOf(info.active ? info.plan : "business").caps;
     const [usage, byUser] = await Promise.all([
       repo.getUsage(ctx.business.telecomAccountId, period),
       pbx.minutesByUser(ctx.business.telecomAccountId, new Date(periodStart)),
@@ -643,11 +643,11 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
       plan: info.active ? (info.plan as BusinessUsageResponse["plan"]) : null,
       seats: s,
       periodStart,
-      perLine: { outboundMinutes: caps.outboundMinutes, inboundMinutes: caps.inboundMinutes, outboundSms: caps.outboundSms, concurrentCalls: caps.concurrentCalls },
+      perLine: { outboundMinutes: caps.outboundMinutes, inboundMinutes: caps.inboundMinutes, messages: caps.messages, concurrentCalls: caps.concurrentCalls },
       pooled: {
         outboundMinutes: { used: usage.minutesOut, cap: caps.outboundMinutes * s + usage.bonusMinutesOut },
         inboundMinutes: { used: usage.minutesIn, cap: caps.inboundMinutes * s },
-        outboundSms: { used: usage.smsOut, cap: caps.outboundSms * s },
+        messages: { used: usage.smsOut + usage.smsIn, cap: caps.messages * s },
         concurrentCalls: { cap: caps.concurrentCalls * s },
       },
       byUser,

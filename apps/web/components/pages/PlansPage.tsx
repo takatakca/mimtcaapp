@@ -76,25 +76,41 @@ export function PlansPage({ lang }: { lang: Lang }) {
       },
     },
     {
+      label: fr ? "Numéro de téléphone canadien" : "Canadian phone number",
+      cell: (p) => (p.caps.hasNumber ? (fr ? "Inclus, attribué tout de suite" : "Included, assigned right away") : fr ? "Non (entre applications MIMT)" : "No (MIMT apps only)"),
+    },
+    {
       label: fr ? "Minutes sortantes/mois (Canada et É.-U.)" : "Outbound minutes/month (Canada & US)",
-      cell: (p) => num(p.caps.outboundMinutes, lang) + (p.perLine ? (fr ? " par ligne" : " per line") : ""),
+      cell: (p) =>
+        p.caps.hasNumber
+          ? num(p.caps.outboundMinutes, lang) + (p.perLine ? (fr ? " par ligne" : " per line") : "")
+          : fr
+            ? `${num(p.caps.onNetMinutes ?? 0, lang)} entre applications MIMT`
+            : `${num(p.caps.onNetMinutes ?? 0, lang)} between MIMT apps`,
     },
     {
       label: fr ? "Minutes entrantes/mois" : "Inbound minutes/month",
-      cell: (p) => num(p.caps.inboundMinutes, lang) + (p.perLine ? (fr ? " par ligne" : " per line") : ""),
+      cell: (p) => (p.caps.hasNumber ? num(p.caps.inboundMinutes, lang) + (p.perLine ? (fr ? " par ligne" : " per line") : "") : "—"),
     },
     {
-      label: fr ? "Textos sortants/mois" : "Outbound texts/month",
-      cell: (p) => num(p.caps.outboundSms, lang) + (p.perLine ? (fr ? " par ligne" : " per line") : ""),
+      label: fr ? "Textos/mois (envoyés et reçus)" : "Texts/month (sent and received)",
+      cell: (p) =>
+        p.caps.hasNumber
+          ? num(p.caps.messages, lang) + (p.perLine ? (fr ? " par ligne" : " per line") : "")
+          : fr
+            ? "Illimités entre applications MIMT"
+            : "Unlimited between MIMT apps",
     },
     { label: fr ? "Appels simultanés" : "Simultaneous calls", cell: (p) => num(p.caps.concurrentCalls, lang) },
     {
       label: fr ? "Numéro sans activité" : "Number when inactive",
       cell: (p) =>
-        p.caps.inactivityDays === null
+        !p.caps.hasNumber
+          ? "—"
+          : p.caps.inactivityDays === null
           ? fr
-            ? "Conservé"
-            : "Kept"
+            ? "Conservé tant que le forfait est payé"
+            : "Kept while the plan is paid"
           : fr
             ? `Récupéré après ${p.caps.inactivityDays} jours`
             : `Reclaimed after ${p.caps.inactivityDays} days`,

@@ -71,7 +71,7 @@ describe("PBX-01: seats change the Stripe quantity", () => {
     expect(sub.quantity).toBe(7);
     expect((await ctx.repo.pbx.getSeats(business.id)).seats).toBe(7);
     const usage = (await ctx.app.inject({ url: `/v1/business/${business.id}/usage`, headers: owner.auth })).json();
-    expect(usage).toMatchObject({ seats: 7, pooled: { outboundMinutes: { cap: 7000 } } });
+    expect(usage).toMatchObject({ seats: 7, pooled: { outboundMinutes: { cap: 2100 } } });
   });
 
   it("an admin removes lines; without a client key each request still gets its own idempotency key", async () => {
@@ -143,7 +143,7 @@ describe("PBX-01: Stripe webhook is the source of truth", () => {
     expect((await webhook(subEvent({ evt: "evt_s1", accountId, status: "active", quantity: 8 }))).statusCode).toBe(200);
     expect((await ctx.repo.pbx.getSeats(business.id)).seats).toBe(8);
     const usage = (await ctx.app.inject({ url: `/v1/business/${business.id}/usage`, headers: owner.auth })).json();
-    expect(usage).toMatchObject({ seats: 8, pooled: { outboundMinutes: { cap: 8000 }, concurrentCalls: { cap: 16 } } });
+    expect(usage).toMatchObject({ seats: 8, pooled: { outboundMinutes: { cap: 2400 }, concurrentCalls: { cap: 16 } } });
 
     // A late event of an older, canceled subscription never overwrites the live one.
     await webhook(subEvent({ evt: "evt_s2", type: "customer.subscription.deleted", accountId, sub: "sub_old", status: "canceled", quantity: 2 }));

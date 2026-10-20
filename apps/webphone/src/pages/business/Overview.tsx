@@ -13,10 +13,10 @@ import { usageLevel, usagePercent } from "../../lib/usage";
 import { useAsync } from "../../lib/useAsync";
 import { useBusiness } from "./shared";
 
-const POOL_LABEL: Record<"outboundMinutes" | "inboundMinutes" | "outboundSms", TKey> = {
+const POOL_LABEL: Record<"outboundMinutes" | "inboundMinutes" | "messages", TKey> = {
   outboundMinutes: "account.usageOutMin",
   inboundMinutes: "account.usageInMin",
-  outboundSms: "account.usageSms",
+  messages: "account.usageSms",
 };
 
 export function BusinessOverview() {
@@ -37,7 +37,7 @@ export function BusinessOverview() {
           {usage.data ? (
             <>
               <p className="muted small">{t("biz.usageHint", { seats: usage.data.seats })}</p>
-              {(["outboundMinutes", "inboundMinutes", "outboundSms"] as const).map((k) => {
+              {(["outboundMinutes", "inboundMinutes", "messages"] as const).map((k) => {
                 const { used, cap } = usage.data!.pooled[k];
                 const percent = usagePercent(used, cap);
                 return <UsageBar key={k} label={t(POOL_LABEL[k])} used={used} cap={cap} percent={percent} level={usageLevel(percent)} />;

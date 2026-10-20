@@ -1,5 +1,6 @@
 import { pathToFileURL } from "node:url";
-import { INACTIVITY_WARNING_DAYS, nextNumberState, PLANS, QUARANTINE_DAYS } from "@mimt/shared";
+import { INACTIVITY_WARNING_DAYS, nextNumberState, QUARANTINE_DAYS } from "@mimt/shared";
+import { planOf } from "../plansConfig.js";
 import type { TwilioGateway } from "../gateways/twilio.js";
 import { addDays, daysBetween } from "../lib/time.js";
 import type { PhoneNumber, Repository } from "../repo/types.js";
@@ -31,7 +32,7 @@ export async function runNumberLifecycle(input: {
     try {
       const account = n.telecomAccountId ? await repo.getAccount(n.telecomAccountId) : null;
       const plan = account ? (await getFeatures(repo, account.id)).plan : "free";
-      const inactivityDays = account ? PLANS[plan].caps.inactivityDays : 0;
+      const inactivityDays = account ? planOf(plan).caps.inactivityDays : 0;
 
       if (n.state === "active" && inactivityDays !== null && account) {
         const idle = daysBetween(n.lastActivityAt, now);

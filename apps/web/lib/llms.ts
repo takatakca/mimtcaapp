@@ -11,9 +11,13 @@ function planLine(code: PlanCode): string {
   const c = p.caps;
   const price = p.monthlyPriceCents === 0 ? "CAD 0 (free, with ads)" : `${cad(p.monthlyPriceCents)}${p.perLine ? " per line" : ""} per month`;
   const yearly = p.yearlyPriceCents ? ` or ${cad(p.yearlyPriceCents)} per year` : "";
-  const keep = c.inactivityDays === null ? "number kept when inactive" : `number reclaimed after ${c.inactivityDays} days without activity (warnings first)`;
   const name = p.name.fr === p.name.en ? p.name.fr : `${p.name.fr} / ${p.name.en}`;
-  return `- ${name}: ${price}${yearly}. ${c.outboundMinutes} outbound min, ${c.inboundMinutes} inbound min, ${c.outboundSms} outbound SMS per month${p.perLine ? " per line" : ""} (Canada and US); ${keep}.`;
+  if (!c.hasNumber) {
+    return `- ${name}: ${price}. No phone number: unlimited texts and ${c.onNetMinutes} minutes of calls per month between MIMT apps only.`;
+  }
+  const keep = c.inactivityDays === null ? "number kept while the plan is paid" : `number reclaimed after ${c.inactivityDays} days without activity (warnings first)`;
+  const per = p.perLine ? " per line" : "";
+  return `- ${name}: ${price}${yearly}. Canadian number included. ${c.outboundMinutes} outbound min, ${c.inboundMinutes} inbound min, ${c.messages} texts (sent and received) per month${per} (Canada and US); ${keep}.`;
 }
 
 function link(key: RouteKey, note: string): string {
@@ -54,7 +58,7 @@ ${(["business", "business_pro"] as PlanCode[]).map(planLine).join("\n")}
 - Smart reply suggestions for texts; never sent automatically.
 - "Likely spam" labels on calls and texts ("Spam probable"). Labels only: nothing is blocked, 9-1-1 callbacks always ring through.
 - AI receptionist for businesses: answers, gives hours and FAQ answers, transfers to a person or takes a message.
-- Monthly AI cost cap per account (Premium ${cad(AI_MONTHLY_BUDGET_CAD_CENTS.premium)}, Affaires ${cad(AI_MONTHLY_BUDGET_CAD_CENTS.business)}, Affaires Pro ${cad(AI_MONTHLY_BUDGET_CAD_CENTS.business_pro)}); calls, texts and voicemail keep working when it is reached. Not included on Gratuit or Verrouillage du numéro.
+- Monthly AI cost cap per account (Premium ${cad(AI_MONTHLY_BUDGET_CAD_CENTS.premium)}, Affaires ${cad(AI_MONTHLY_BUDGET_CAD_CENTS.business)}, Affaires Pro ${cad(AI_MONTHLY_BUDGET_CAD_CENTS.business_pro)}); calls, texts and voicemail keep working when it is reached. Not included on Gratuit or Essentiel.
 
 ## Pages
 
