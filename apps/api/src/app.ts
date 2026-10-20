@@ -7,6 +7,7 @@ import websocket from "@fastify/websocket";
 import type { AppDeps } from "./deps.js";
 import { HttpError } from "./lib/errors.js";
 import { loggerOptions } from "./logger.js";
+import { adminCostRoutes } from "./routes/adminCosts.js";
 import { aiRoutes } from "./routes/ai.js";
 import { authRoutes } from "./routes/auth.js";
 import { billingRoutes } from "./routes/billing.js";
@@ -98,6 +99,7 @@ export async function buildApp(deps: AppDeps) {
     aiReceptionistSocket,
     portInRoutes,
     meetingRoutes,
+    adminCostRoutes,
   ];
   for (const r of routes) await app.register(async (scope) => r(scope, deps));
   return app;

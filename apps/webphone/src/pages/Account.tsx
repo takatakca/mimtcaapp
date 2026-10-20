@@ -1,8 +1,9 @@
-import { AI_CONSENT_KIND, PLANS, formatCad, type AiStatusResponse, type E911NoticeResponse, type PaidPlanCode, type UserConsentKind } from "@mimt/shared";
+import { AI_CONSENT_KIND, PLANS, SUBSCRIPTION_ADD_ONS, adFreeFor, formatCad, type AiStatusResponse, type E911NoticeResponse, type PaidPlanCode, type UserConsentKind } from "@mimt/shared";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { api } from "../api/client";
 import { ApiClientError, toErrorKey } from "../api/errors";
+import { useAds } from "../ads/Ads";
 import { useSession } from "../auth/SessionProvider";
 import { Icon } from "../components/Icon";
 import { Badge, ErrorNote, Field, Loading, PageHeader, UsageBar } from "../components/ui";
@@ -52,6 +53,7 @@ export function Account() {
             {me.account.plan !== "free" ? <PortalButton /> : null}
           </div>
           {upgrades.length ? <p className="field__hint">{t("account.upgradeHint")}</p> : null}
+          {adFreeFor(me.account.plan, me.account.addOns) ? null : <NoAdsOffer />}
         </section>
         <section className="card" aria-labelledby="usage-h">
           <h2 id="usage-h" className="card__title">
@@ -124,6 +126,39 @@ function UpgradeButton({ plan }: { plan: PaidPlanCode }) {
       </button>
       <ErrorNote error={error} />
     </>
+  );
+}
+
+/** « Sans pub » add-on (Stripe Checkout). Target of every « Enlever les publicités » link (/compte#sans-pub). */
+function NoAdsOffer() {
+  const { t, lang } = useI18n();
+  const [error, setError] = useState<TKey | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (window.location.hash === "#sans-pub") document.getElementById("sans-pub")?.scrollIntoView?.({ block: "center" });
+  }, []);
+  return (
+    <div id="sans-pub" className="stack">
+      <button
+        type="button"
+        className="btn btn--ghost btn--sm"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            const { checkoutUrl } = await api.checkout({ addon: "no_ads", interval: "month", quantity: 1 });
+            window.location.assign(checkoutUrl);
+          } catch (e) {
+            setError(toErrorKey(e));
+            setBusy(false);
+          }
+        }}
+      >
+        {t("account.noAds", { price: formatCad(SUBSCRIPTION_ADD_ONS.no_ads.monthlyPriceCents, lang) })}
+      </button>
+      <p className="field__hint">{t("account.noAdsHint")}</p>
+      <ErrorNote error={error} />
+    </div>
   );
 }
 
@@ -254,12 +289,15 @@ export const AI_CONSENT_VERSION = "web-2026-10-ai-1";
 
 const CONSENTS: Array<{ kind: UserConsentKind; label: TKey; hint: TKey; version: string; anchor?: string }> = [
   { kind: "casl_marketing", label: "privacy.marketing", hint: "privacy.marketingHint", version: "web-2026-10" },
+  // Law 25: off by default; free-plan ads stay non-personalised (requestNonPersonalizedAds = 1) without it. src/ads/.
+  { kind: "ads_personalised", label: "privacy.adsPersonalised", hint: "privacy.adsPersonalisedHint", version: "web-2026-10-ads-1" },
   // Law 25 (s. 14 and 17): separate, specific consent; the wording names the processor and where the data goes.
   { kind: AI_CONSENT_KIND, label: "ai.consent.label", hint: "ai.consent.details", version: AI_CONSENT_VERSION, anchor: "ia" },
 ];
 
 function ConsentsSection() {
   const { t, lang } = useI18n();
+  const ads = useAds();
   const [state, setState] = useState<Partial<Record<UserConsentKind, boolean>>>({});
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<AiStatusResponse | null>(null);
@@ -272,7 +310,7 @@ function ConsentsSection() {
         if (!active) return;
         const choices: Partial<Record<UserConsentKind, boolean>> = {};
         for (const entry of consents) {
-          if (entry.kind === "casl_marketing" || entry.kind === AI_CONSENT_KIND) choices[entry.kind] = entry.granted;
+          if (entry.kind === "casl_marketing" || entry.kind === "ads_personalised" || entry.kind === AI_CONSENT_KIND) choices[entry.kind] = entry.granted;
         }
         setState((current) => ({ ...current, ...choices }));
       })
@@ -292,8 +330,11 @@ function ConsentsSection() {
   }, []);
   const toggle = async (kind: UserConsentKind, granted: boolean, version: string) => {
     setState((s) => ({ ...s, [kind]: granted }));
+    // Withdrawal applies at once, before the server answers (fail closed); a grant waits for the server.
+    if (kind === "ads_personalised" && !granted) ads?.setPersonalised(false);
     try {
       await api.setConsent({ kind, granted, version, source: "web" });
+      if (kind === "ads_personalised" && granted) ads?.setPersonalised(true);
       setMsg(kind === AI_CONSENT_KIND ? (granted ? "ai.consent.granted" : "ai.consent.withdrawn") : "privacy.saved");
     } catch (e) {
       setState((s) => ({ ...s, [kind]: !granted }));

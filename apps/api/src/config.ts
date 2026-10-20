@@ -114,6 +114,20 @@ const EnvSchema = z
     LIVEKIT_API_KEY: optional,
     /** Signs meeting tokens and verifies LiveKit webhooks. Never returned nor logged. */
     LIVEKIT_API_SECRET: optional,
+    /** Free-tier cost guard (services/freeTier.ts). New free numbers per UTC day; 0 = no new free numbers. */
+    FREE_NEW_NUMBERS_PER_DAY: z.coerce.number().int().min(0).max(100_000).default(10),
+    /** "false" refuses free-plan outbound PSTN calls and SMS (app-to-app and 9-1-1 stay allowed). */
+    FREE_OUTBOUND_PSTN_ENABLED: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((v) => v !== "false"),
+    /** Estimated Twilio spend of all free-plan accounts in the current UTC month; reached = free outbound PSTN/SMS paused. */
+    FREE_TIER_MONTHLY_BUDGET_CAD: z.coerce.number().min(0).default(150),
+    /** "false" refuses free-plan number claims (paid plans unaffected). */
+    FREE_SIGNUPS_ENABLED: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((v) => v !== "false"),
     DEVICE_ATTESTATION_REQUIRED: z
       .enum(["true", "false"])
       .optional()

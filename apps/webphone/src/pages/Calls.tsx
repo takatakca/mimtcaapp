@@ -2,6 +2,7 @@ import type { CallRecord } from "@mimt/shared";
 import { useState } from "react";
 import { api } from "../api/client";
 import { toErrorKey } from "../api/errors";
+import { AdSlot } from "../ads/Ads";
 import { Icon } from "../components/Icon";
 import { Badge, Empty, ErrorNote, Loading, PageHeader } from "../components/ui";
 import { useI18n } from "../i18n/I18nProvider";
@@ -83,6 +84,7 @@ export function Calls() {
           {t("common.loadMore")}
         </button>
       ) : null}
+      <AdSlot placement="banner" />
     </div>
   );
 }

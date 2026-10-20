@@ -17,6 +17,7 @@ import { getFeatures, HELD_STATES, outboundBlocked, setAccountStatus, usagePerio
 import { afterDialControls, inboundCallControls } from "../services/callControls.js";
 import { queueVoicemailEmail } from "../services/email.js";
 import { greetingPlayUrl } from "../services/greeting.js";
+import { FREE_OUTBOUND_PAUSED_TWIML, freeOutboundBlock } from "../services/freeTier.js";
 import { e911Ready } from "./e911.js";
 import { NOT_IN_SERVICE, sayBilingual, sendTwiml, twilioParams, VoiceResponse } from "./twiml.js";
 
@@ -48,6 +49,7 @@ const REFUSALS = {
     "Calls to Cuba use a second carrier that is not connected yet.",
   ],
   rate_limited: ["Trop d'appels en peu de temps. Réessayez plus tard.", "Too many calls in a short time. Please try again later."],
+  free_outbound_paused: [FREE_OUTBOUND_PAUSED_TWIML.fr, FREE_OUTBOUND_PAUSED_TWIML.en],
 } as const;
 type Refusal = keyof typeof REFUSALS;
 
@@ -181,6 +183,14 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
     const { plan, features } = await getFeatures(repo, account.id);
     // Free plan: international only with bought credit, and only to the short free-plan list (fraud/destinations.ts).
     const freePlan = plan === "free";
+    // Free-tier cost guard (services/freeTier.ts). 9-1-1 and app-to-app calls were handled above and never get here.
+    if (freePlan) {
+      const paused = await freeOutboundBlock(deps, now);
+      if (paused) {
+        await logFraud(account, paused, { to });
+        return sendTwiml(reply, refuse("free_outbound_paused"));
+      }
+    }
     const dest = checkVoiceDestination(to, { entitled: features.has("intl_calling"), creditCents: account.intlCreditCents }, { freePlan });
     if (!dest.ok) {
       if (dest.reason === "invalid_number") return sendTwiml(reply, refuse("invalid_number"));

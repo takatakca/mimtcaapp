@@ -398,6 +398,26 @@ export class PostgresRepository implements Repository {
     );
     return row ?? { telecomAccountId: accountId, period, minutesOut: 0, minutesIn: 0, smsOut: 0, bonusMinutesOut: 0, spendCad: 0, intlSpendCad: 0 };
   }
+  async freePlanUsage(period: string, now: Date) {
+    // Same rule as planFromSubscriptions/isLiveSubscription: a live paid plan takes the account out of the free tier.
+    const [row] = await this.sql<{ spendCad: number | string; smsOut: number | string }[]>`
+      select coalesce(sum(u.spend_cad), 0)::float8 as spend_cad, coalesce(sum(u.sms_out), 0)::int as sms_out
+      from usage_ledger u
+      where u.period = ${period}
+        and not exists (
+          select 1 from subscriptions s
+          where s.telecom_account_id = u.telecom_account_id
+            and s.kind = 'plan' and s.code <> 'free'
+            and s.status in ('active', 'trialing', 'past_due')
+            and not (s.source = 'manual' and s.current_period_end is not null and s.current_period_end <= ${now}))`;
+    return { spendCad: Number(row?.spendCad ?? 0), smsOut: Number(row?.smsOut ?? 0) };
+  }
+  async countFreeNumberClaimsSince(since: Date) {
+    const [row] = await this.sql<{ n: number }[]>`
+      select count(*)::int as n from audit_log
+      where action = 'number.claimed' and meta->>'plan' = 'free' and at >= ${since}`;
+    return row?.n ?? 0;
+  }
 
   // fraud
   async addFraudEvent(e: Omit<FraudEvent, "id" | "at">) {
@@ -456,9 +476,9 @@ export class PostgresRepository implements Repository {
   }
 
   async audit(e: AuditEntry) {
-    await this.sql`insert into audit_log (actor_user_id, action, target_type, target_id, ip, meta)
+    await this.sql`insert into audit_log (actor_user_id, action, target_type, target_id, ip, meta, at)
       values (${e.actorUserId}, ${e.action}, ${e.targetType ?? null}, ${e.targetId ?? null}, ${e.ip ?? null},
-              ${this.sql.json((e.meta ?? {}) as postgres.JSONValue)})`;
+              ${this.sql.json((e.meta ?? {}) as postgres.JSONValue)}, coalesce(${e.at ?? null}::timestamptz, now()))`;
   }
 
   async bindDevice(input: { platform: "ios" | "android"; deviceKey: string; userId: string; verifiedAt: Date }) {

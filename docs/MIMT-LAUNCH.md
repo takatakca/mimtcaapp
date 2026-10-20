@@ -39,6 +39,7 @@ Noms seulement. Les valeurs viennent de chaque fournisseur.
 | Internet et mobile | `PROVISIONING_PROVIDER`, `VIDEOTRON_*`, `CATALOG_ADMIN_USER_IDS` |
 | Cuba | `CUBA_CARRIER`, `CUBA_SIP_HOST` |
 | Surveillance | `SENTRY_DSN`, `BETTER_STACK_HEARTBEAT_URL`, `DAILY_SPEND_ALERT_CAD` |
+| Garde-fou du forfait gratuit (section 7 ter) | `FREE_NEW_NUMBERS_PER_DAY`, `FREE_TIER_MONTHLY_BUDGET_CAD`, `FREE_OUTBOUND_PSTN_ENABLED`, `FREE_SIGNUPS_ENABLED` (valeurs par défaut sûres) |
 
 - [ ] Le proxy Coolify doit laisser passer les WebSocket sur `/ws/ai/receptionist`.
 
@@ -88,6 +89,50 @@ Guide complet : [MIMT-VIDEO.md](MIMT-VIDEO.md). Sans ces étapes, la page Réuni
 - [ ] API Coolify : `LIVEKIT_URL=wss://rtc.mimt.ca`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` (secret), puis redéployer. Facultatif : fournisseur de courriel pour envoyer les invitations.
 - [ ] Tests réels : Premium à 2, Affaires avec un invité en salle d'attente, partage d'écran, cellulaire en LTE, réseau d'entreprise sans UDP.
 - [ ] Politique de confidentialité : aucun enregistrement, données conservées (titre, invitations, journal d'arrivées) et leur durée [À confirmer par MIMT].
+
+## 7 ter. Publicités et coûts
+
+Un utilisateur gratuit coûte environ 6 $ par mois chez Twilio (numéro 1,60 $, 9-1-1 1,04 $, minutes et textos; `docs/MIMT-STACK.md` §2). Les publicités rapportent environ 1 à 3 $ par utilisateur actif. Deux protections évitent de payer de sa poche : les **publicités** (Web : AdSense; mobile : AdMob) et le **garde-fou de coûts** de l'API.
+
+### Garde-fou de coûts (API, Coolify)
+
+Toutes facultatives; sans elles, les valeurs par défaut s'appliquent dès le déploiement de l'API.
+
+| Variable | Défaut | Recommandé au lancement | Effet |
+|---|---|---|---|
+| `FREE_NEW_NUMBERS_PER_DAY` | 10 | 5 à 10 | Nouveaux numéros gratuits par jour UTC. Au-delà : « Les numéros gratuits du jour sont tous attribués… » (409). `0` = aucun. |
+| `FREE_TIER_MONTHLY_BUDGET_CAD` | 150 | 150 | Dépense Twilio estimée de tous les comptes gratuits ce mois-ci (appels facturés + 0,023 $ par texto sortant). Atteinte : appels et textos sortants vers le réseau refusés pour le forfait gratuit jusqu'au 1er du mois. |
+| `FREE_OUTBOUND_PSTN_ENABLED` | `true` | `true` | `false` coupe tout de suite les appels et textos sortants du forfait gratuit. |
+| `FREE_SIGNUPS_ENABLED` | `true` | `true` | `false` arrête toute attribution de numéro gratuit (les forfaits payants continuent). |
+
+- Jamais touchés : le **9-1-1**, les appels et textos entre applications MIMT, les appels et textos entrants, les forfaits payants (Verrouillage, Premium, Affaires).
+- Le budget mensuel ne compte pas la location des numéros (1,60 $ + 9-1-1 1,04 $ par numéro et par mois) : c'est `FREE_NEW_NUMBERS_PER_DAY` qui la limite. Exemple : 10 par jour = jusqu'à 300 nouveaux numéros gratuits par mois, soit environ 790 $ par mois de numéros une fois tous attribués (les numéros inactifs 30 jours sont repris). Commencer à 5 et monter quand les revenus publicitaires sont mesurés.
+- Suivi : `GET https://api.mimt.ca/v1/admin/costs` (jeton d'un utilisateur listé dans `CATALOG_ADMIN_USER_IDS`) → `month`, `freeSpendCad`, `budgetCad`, `freeNumbersToday`, `capToday`.
+- Urgence (facture qui s'emballe) : `FREE_SIGNUPS_ENABLED=false` et `FREE_OUTBOUND_PSTN_ENABLED=false` dans Coolify, puis redéployer l'API. Le 9-1-1 reste permis.
+
+### Connexion par texto (Twilio Verify)
+
+- [ ] Console Twilio → Verify → Services → créer « MIMT » (canal SMS, langue française), copier le SID `VA…`.
+- [ ] Coolify (API) : `TWILIO_VERIFY_SERVICE_SID` = ce SID, puis redéployer. Sans lui, `app.mimt.ca/connexion/texto` et la connexion par texto de l'app répondent « non configuré » (503).
+
+### Publicités Web (Google AdSense, app.mimt.ca)
+
+Le code est prêt : les annonces ne s'affichent qu'au forfait gratuit et à Verrouillage du numéro (sans module « Sans pub »), en bas des listes Messages, Appels et Messagerie vocale et dans la barre latérale sur ordinateur. Jamais pendant un appel, ni sur Compte (9-1-1, facturation), Services (paiement), Réunions, Affaires ou la connexion. Non personnalisées par défaut (Loi 25) : personnalisées seulement si l'utilisateur active « Publicités personnalisées » dans Compte › Confidentialité. Chaque annonce porte « Publicité » et un lien « Enlever les publicités » vers le module Sans pub (3,99 $/mois). Sans identifiants AdSense, aucune annonce et aucun script Google.
+
+- [ ] Créer le compte AdSense avec le compte Google de MIMT (bénéficiaire = raison sociale, paiement en CAD, renseignements fiscaux).
+- [ ] AdSense → Sites → ajouter **mimt.ca** (le domaine racine; app.mimt.ca est couvert comme sous-domaine). Méthode de validation : **ads.txt**.
+- [ ] GitHub → Settings → Secrets and variables → Actions → **Variables** : `ADSENSE_CLIENT` = `ca-pub-…` (16 chiffres). Le prochain déploiement du site publie automatiquement `https://mimt.ca/ads.txt` (`google.com, pub-…, DIRECT, f08c47fec0942fa0`). Aucun ads.txt n'est publié sans cette variable, et aucun n'est mis sur app.mimt.ca : AdSense lit celui du domaine racine. (`ADSENSE_PUBLISHER_ID` peut remplacer `ADSENSE_CLIENT` pour ads.txt si besoin.)
+- [ ] Attendre l'approbation du site (quelques jours à quelques semaines). Risque à connaître : app.mimt.ca est derrière une connexion et marqué `noindex`; si AdSense refuse (« contenu insuffisant » ou « écran sans contenu d'éditeur »), configurer l'accès du robot d'exploration aux pages connectées (AdSense → Compte → Accès et autorisation → Accès du robot d'exploration) ou passer à Google Ad Manager.
+- [ ] AdSense → Annonces → Par bloc d'annonces → Annonces display : créer « MIMT Web bannière » (horizontal, adaptatif) et « MIMT Web barre latérale » (carré, adaptatif). Copier les `data-ad-slot`.
+- [ ] Variables GitHub : `ADSENSE_SLOT_BANNER` (obligatoire pour afficher des annonces) et `ADSENSE_SLOT_SIDEBAR` (facultative). Puis Actions → **Deploy** → `webphone` (et `website` si ads.txt n'est pas encore publié).
+- [ ] AdSense → Confidentialité et messages : activer le message pour l'EEE, le Royaume-Uni et la Suisse (CMP certifiée Google) ou y restreindre les annonces; garder les annonces non personnalisées par défaut au Québec.
+- [ ] Mettre à jour la politique de confidentialité (Google comme fournisseur publicitaire hors Québec, témoins, retrait) et l'EFVP Loi 25 pour Google.
+- [ ] Vérifier en direct avec un compte gratuit : `https://app.mimt.ca/messages` affiche « Publicité », aucune erreur CSP dans la console, rien sur `/compte` ni pendant un appel; un compte Premium n'en voit aucune.
+
+### Publicités mobiles (AdMob)
+
+- [ ] AdMob : créer les applications iOS et Android, une bannière et une unité **récompensée** (« Gagnez 10 minutes ») avec la vérification côté serveur vers `https://api.mimt.ca/webhooks/admob/ssv`.
+- [ ] EAS : `ADMOB_ANDROID_APP_ID`, `ADMOB_IOS_APP_ID`. **À faire dans le code avant la publication** : l'app utilise encore les identifiants de test de Google pour les blocs d'annonces (`apps/mobile/src/services/ads.ts`, `testUnitIds`); brancher les vrais identifiants de blocs (variables EAS) au moment de publier les applications.
 
 ## 8. Avant d'ouvrir au public
 

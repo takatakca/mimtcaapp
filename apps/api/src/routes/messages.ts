@@ -15,6 +15,7 @@ import { spamLabelOf } from "../ai/spam.js";
 import type { Message, TelecomAccount } from "../repo/types.js";
 import { getFeatures, HELD_STATES, outboundBlocked, setAccountStatus, usagePeriods } from "../services/accounts.js";
 import { claimUpload, mediaByMessage, mediaDto, signedMediaUrl } from "../services/media.js";
+import { FREE_OUTBOUND_PAUSED_MESSAGE, freeOutboundBlock } from "../services/freeTier.js";
 import type { MediaObject } from "../repo/mediaTypes.js";
 
 /** Twilio fetches outbound MMS media through GET /v1/media/:id; it may retry for a while. */
@@ -71,6 +72,13 @@ export async function messageRoutes(app: FastifyInstance, deps: AppDeps) {
 
     const { plan, features } = await getFeatures(repo, account.id);
     if ((body.mediaUrls?.length || body.mediaIds?.length) && !features.has("mms")) throw forbidden("mms_not_in_plan");
+    // Free-tier cost guard (services/freeTier.ts): texts to other MIMT numbers (app-to-app) stay allowed.
+    if (plan === "free") {
+      const target = await repo.getNumberByE164(to);
+      const appToApp = Boolean(target?.telecomAccountId && HELD_STATES.has(target.state));
+      const paused = appToApp ? null : await freeOutboundBlock(deps, now);
+      if (paused) throw forbidden(paused, FREE_OUTBOUND_PAUSED_MESSAGE);
+    }
     if (!deps.twilio) throw notConfigured("Messaging");
     if (body.mediaIds?.length && !deps.mediaFiles) throw notConfigured("Media storage");
 

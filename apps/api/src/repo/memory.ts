@@ -7,6 +7,7 @@ import { MemoryMediaRepository } from "./mediaMemory.js";
 import { MemoryReferralRepository } from "./referralsMemory.js";
 import { MemoryPortInRepository } from "./portInMemory.js";
 import { MemoryMeetingRepository } from "./meetingsMemory.js";
+import { planFromSubscriptions } from "../services/accounts.js";
 import type {
   AuditEntry,
   Call,
@@ -454,6 +455,22 @@ export class MemoryRepository implements Repository {
       : { telecomAccountId: accountId, period, minutesOut: 0, minutesIn: 0, smsOut: 0, bonusMinutesOut: 0, spendCad: 0, intlSpendCad: 0 };
   }
 
+  async freePlanUsage(period: string, now: Date) {
+    let spendCad = 0;
+    let smsOut = 0;
+    for (const u of this.usage.values()) {
+      if (u.period !== period) continue;
+      const subs = [...this.subscriptions.values()].filter((s) => s.telecomAccountId === u.telecomAccountId);
+      if (planFromSubscriptions(subs, now) !== "free") continue;
+      spendCad += u.spendCad;
+      smsOut += u.smsOut;
+    }
+    return { spendCad, smsOut };
+  }
+  async countFreeNumberClaimsSince(since: Date) {
+    return this.auditLog.filter((e) => e.action === "number.claimed" && e.meta?.plan === "free" && e.at >= since).length;
+  }
+
   // fraud
   async addFraudEvent(e: Omit<FraudEvent, "id" | "at">) {
     const row = { ...e, id: randomUUID(), at: new Date() };
@@ -533,7 +550,7 @@ export class MemoryRepository implements Repository {
   }
 
   async audit(entry: AuditEntry) {
-    this.auditLog.push({ ...entry, at: new Date() });
+    this.auditLog.push({ ...entry, at: entry.at ?? new Date() });
   }
 
   async bindDevice(input: { platform: "ios" | "android"; deviceKey: string; userId: string; verifiedAt: Date }) {

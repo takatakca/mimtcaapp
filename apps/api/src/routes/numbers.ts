@@ -7,6 +7,7 @@ import { conflict, forbidden, notConfigured } from "../lib/errors.js";
 import { classifyDestination } from "../lib/phone.js";
 import { parse } from "../lib/validate.js";
 import { getFeatures, HELD_STATES, outboundBlocked } from "../services/accounts.js";
+import { FREE_QUOTA_MESSAGE, freeNumberAvailable } from "../services/freeTier.js";
 import { e911Ready } from "./e911.js";
 
 const DEFAULT_AREA_CODES = ["514", "438", "450", "418", "819", "581", "579", "873"] as const satisfies readonly (typeof QUEBEC_AREA_CODES)[number][];
@@ -49,6 +50,8 @@ export async function numberRoutes(app: FastifyInstance, deps: AppDeps) {
     }
     const held = (await repo.listNumbersByAccount(account.id)).filter((n) => HELD_STATES.has(n.state));
     if (held.length >= 1 + extraNumbers) throw forbidden("number_limit_reached", "Your plan allows no more numbers");
+    // Free-tier cost guard (services/freeTier.ts): each free number costs MIMT about C$2.64/month before any ad revenue.
+    if (plan === "free" && !(await freeNumberAvailable(deps))) throw conflict("free_quota_reached", FREE_QUOTA_MESSAGE);
 
     const existing = await repo.getNumberByE164(e164);
     if (existing && existing.state !== "released") throw conflict("number_unavailable");
@@ -75,7 +78,8 @@ export async function numberRoutes(app: FastifyInstance, deps: AppDeps) {
     };
     const number = existing ? await repo.updateNumber(existing.id, fields) : await repo.createNumber({ e164, ...fields });
 
-    await repo.audit({ actorUserId: user.id, action: "number.claimed", targetType: "phone_number", targetId: number.id, ip: req.ip, meta: { e164 } });
+    // meta.plan + at feed the daily free-number count (repo.countFreeNumberClaimsSince).
+    await repo.audit({ actorUserId: user.id, action: "number.claimed", targetType: "phone_number", targetId: number.id, ip: req.ip, meta: { e164, plan }, at: now });
     await repo.enqueueOutbox("phone_number.assigned", {
       phone_number_id: number.id,
       e164,

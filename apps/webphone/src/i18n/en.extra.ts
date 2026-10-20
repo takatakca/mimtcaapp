@@ -241,4 +241,18 @@ export const enExtra: Record<keyof typeof frExtra, string> = {
   "settings.vm.upload": "Upload a greeting",
   "settings.vm.uploadButton": "Upload",
   "settings.vm.uploadHint": "MP3 or WAV file, {seconds} seconds at most.",
+
+  // Ads (free plan, src/ads/) and the free-plan cost guard
+  "ads.label": "Advertisement",
+  "ads.placeholder": "Ad space (demo): a Google ad appears here on the free plan.",
+  "ads.remove": "Remove ads",
+  "ads.rewardedApp": "Earn 10 minutes in the mobile app",
+  "privacy.adsPersonalised": "Personalised ads (free plan)",
+  "privacy.adsPersonalisedHint":
+    "Off by default: Google ads are not based on your profile. If you turn it on, Google, a provider located outside Quebec, may use cookies to personalise ads. You can withdraw at any time (Law 25).",
+  "account.noAds": "Ad-free, {price} per month",
+  "account.noAdsHint": "Removes ads from the app without changing your plan.",
+  "error.freeQuotaReached": "Today's free numbers are all taken. Come back tomorrow or choose Number Lock ($4.99) / Premium.",
+  "error.freeOutboundPaused":
+    "Calls and texts to the phone network are paused on the free plan until next month. Calls and texts between MIMT apps are still allowed. Upgrade to Number Lock ($4.99) or Premium to continue.",
 };

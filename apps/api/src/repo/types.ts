@@ -262,6 +262,8 @@ export interface AuditEntry {
   targetId?: string;
   ip?: string | null;
   meta?: Record<string, unknown>;
+  /** Defaults to the database clock. Set it when the time matters to a later count (free-tier claims). */
+  at?: Date;
 }
 
 type New<T, Optional extends keyof T = never> = Omit<T, "id" | "createdAt" | Optional> & Partial<Pick<T, Optional>>;
@@ -358,6 +360,13 @@ export interface Repository {
 
   addUsage(accountId: string, periods: string[], delta: UsageDelta): Promise<void>;
   getUsage(accountId: string, period: string): Promise<Usage>;
+  /**
+   * Free-tier cost guard: summed usage of every account WITHOUT a live paid plan (no active/trialing/past_due plan
+   * other than "free"; manual grants past their end do not count) for one period ("YYYY-MM").
+   */
+  freePlanUsage(period: string, now: Date): Promise<{ spendCad: number; smsOut: number }>;
+  /** Free-tier cost guard: audit rows "number.claimed" with meta.plan = "free" at or after `since`. */
+  countFreeNumberClaimsSince(since: Date): Promise<number>;
 
   addFraudEvent(e: Omit<FraudEvent, "id" | "at">): Promise<FraudEvent>;
   listFraudEvents(accountId: string): Promise<FraudEvent[]>;
