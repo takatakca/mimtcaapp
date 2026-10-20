@@ -4,6 +4,7 @@ import type { CatalogRepository } from "./catalog.js";
 import type { CallControlsRepository } from "./callControls.js";
 import type { MediaRepository } from "./mediaTypes.js";
 import type { ReferralRepository } from "./referrals.js";
+import type { NumberHoldRepository } from "./numberHolds.js";
 import type { PortInRepository } from "./portIn.js";
 import type { MeetingRepository } from "./meetings.js";
 
@@ -279,6 +280,8 @@ export interface Repository {
   readonly media: MediaRepository;
   /** Referral codes, referrals and payment fingerprints: src/repo/referrals.ts. */
   readonly referrals: ReferralRepository;
+  /** Number picker holds: src/repo/numberHolds.ts. */
+  readonly numberHolds: NumberHoldRepository;
   /** Number port-in (landline/VoIP into MIMT) storage: src/repo/portIn.ts. */
   readonly portIns: PortInRepository;
   /** Réunions MIMT (video meetings) storage: src/repo/meetings.ts. */

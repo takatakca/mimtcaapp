@@ -12,3 +12,4 @@ export * from "./addons.js";
 export * from "./rates.js";
 export * from "./portIn.js";
 export * from "./meetings.js";
+export * from "./numberSearch.js";

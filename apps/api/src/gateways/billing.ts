@@ -21,6 +21,8 @@ export interface BillingGateway {
     successUrl: string;
     cancelUrl: string;
     locale: "fr-CA" | "en-CA";
+    /** Session lifetime (Stripe accepts 30 min to 24 h). Used to match a number hold. */
+    expiresAt?: Date;
   }): Promise<{ id: string; url: string }>;
   createPortal(customerId: string, returnUrl: string): Promise<string>;
   /** Verifies the Stripe-Signature header against the raw body. Throws on mismatch. */
@@ -125,6 +127,7 @@ export class StripeGateway implements BillingGateway {
       ...(input.mode === "subscription" ? { subscription_data: { metadata: input.metadata } } : { payment_intent_data: { metadata: input.metadata } }),
       success_url: input.successUrl,
       cancel_url: input.cancelUrl,
+      ...(input.expiresAt ? { expires_at: Math.floor(input.expiresAt.getTime() / 1000) } : {}),
     });
     if (!session.url) throw new Error("Stripe returned no checkout URL");
     return { id: session.id, url: session.url };

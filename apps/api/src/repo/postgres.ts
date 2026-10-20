@@ -6,6 +6,7 @@ import { PostgresCatalogRepository } from "./catalogPostgres.js";
 import { PostgresCallControlsRepository } from "./callControlsPostgres.js";
 import { PostgresMediaRepository } from "./mediaPostgres.js";
 import { PostgresReferralRepository } from "./referralsPostgres.js";
+import { PostgresNumberHoldRepository } from "./numberHoldsPostgres.js";
 import { PostgresPortInRepository } from "./portInPostgres.js";
 import { PostgresMeetingRepository } from "./meetingsPostgres.js";
 import type {
@@ -78,6 +79,11 @@ export class PostgresRepository implements Repository {
   private referralRepo?: PostgresReferralRepository;
   get referrals(): PostgresReferralRepository {
     return (this.referralRepo ??= new PostgresReferralRepository(this.sql));
+  }
+
+  private numberHoldRepo?: PostgresNumberHoldRepository;
+  get numberHolds(): PostgresNumberHoldRepository {
+    return (this.numberHoldRepo ??= new PostgresNumberHoldRepository(this.sql));
   }
 
   constructor(databaseUrl: string, opts: { max?: number; sslCaPem?: string } = {}) {

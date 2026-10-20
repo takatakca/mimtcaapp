@@ -345,6 +345,8 @@ export interface CheckoutRequest {
   amountCents?: number;
   /** Friend's referral code, redeemed on the first checkout (same rules as POST /v1/referrals/redeem). */
   referralCode?: string;
+  /** Number picked in the live picker (POST /v1/public/numbers/holds): bought as soon as the payment clears. Plans only. */
+  numberHold?: { id: string; token: string };
 }
 export interface CheckoutResponse {
   /** Stripe Checkout URL to open in the browser. */
