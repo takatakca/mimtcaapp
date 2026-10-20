@@ -17,7 +17,7 @@ const NUMBERS = [
 beforeEach(async () => {
   clock = new Date("2026-10-20T12:00:00Z");
   twilio = fakeTwilio();
-  twilio.searchLocalNumbers.mockImplementation(async ({ areaCode }: { areaCode?: string }) => (areaCode === "514" ? NUMBERS : []));
+  twilio.searchLocalNumbers.mockImplementation((async ({ areaCode }: { areaCode?: string }) => (areaCode === "514" ? NUMBERS : [])) as never);
   ctx = await setup({ twilio, now: () => clock });
   billing = {
     createCustomer: vi.fn(async () => "cus_1"),
@@ -153,7 +153,7 @@ describe("live number picker: pay, then the number is provisioned", () => {
     };
     expect((await webhook(completed)).statusCode).toBe(200);
     expect(twilio.purchaseNumber).toHaveBeenCalledTimes(1);
-    expect(twilio.purchaseNumber.mock.calls[0]![0]).toMatchObject({ e164: "+15145550102", emergencyAddressSid: "ADtest" });
+    expect(twilio.purchaseNumber).toHaveBeenCalledWith(expect.objectContaining({ e164: "+15145550102", emergencyAddressSid: "ADtest" }));
     expect((await ctx.repo.getNumberByE164("+15145550102"))?.telecomAccountId).toBe(u.account.id);
     expect((await ctx.repo.numberHolds.get(h.id))?.status).toBe("converted");
 
