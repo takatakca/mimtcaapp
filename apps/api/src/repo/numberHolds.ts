@@ -1,4 +1,4 @@
-// Number picker holds (supabase/migrations/0011_number_holds.sql). See packages/shared/src/numberSearch.ts.
+// Number picker holds (supabase/migrations/0012_number_holds.sql). See packages/shared/src/numberSearch.ts.
 import type { NumberHoldStatus } from "@mimt/shared";
 
 export interface NumberHoldRow {

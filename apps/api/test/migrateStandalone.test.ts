@@ -35,7 +35,7 @@ describe("isolated self-hosted MIMT migration guard", () => {
     expect(MIGRATION_ORDER[0]).toBe("0001_init.sql");
     expect(MIGRATION_ORDER[9]).toBe("0009_port_in.sql");
     expect(MIGRATION_ORDER[10]).toBe("0010_meetings.sql");
-    expect(MIGRATION_ORDER[11]).toBe("0011_number_holds.sql");
+    expect(MIGRATION_ORDER[11]).toBe("0012_number_holds.sql");
   });
   it("lists every migration file in supabase/migrations", () => {
     const files = readdirSync(join(__dirname, "../../../supabase/migrations")).filter((f) => f.endsWith(".sql"));

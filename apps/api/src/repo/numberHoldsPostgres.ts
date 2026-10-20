@@ -6,7 +6,7 @@ type Sql = postgres.Sql<{}>;
 const COLS = "id, e164, token_hash, ip_hash, status, telecom_account_id, checkout_session_id, expires_at, created_at";
 const maybe = <T>(rows: readonly unknown[]): T | null => (rows[0] as T | undefined) ?? null;
 
-/** Number picker holds on Postgres (0011_number_holds.sql). Shares the connection pool of PostgresRepository. */
+/** Number picker holds on Postgres (0012_number_holds.sql). Shares the connection pool of PostgresRepository. */
 export class PostgresNumberHoldRepository implements NumberHoldRepository {
   constructor(private readonly sql: Sql) {}
 

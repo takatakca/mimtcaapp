@@ -3,7 +3,7 @@ import { MemoryRepository } from "../src/repo/memory.js";
 import { PostgresRepository } from "../src/repo/postgres.js";
 import type { Repository } from "../src/repo/types.js";
 
-// Same behaviour from the memory and Postgres number-hold stores (supabase/migrations/0011_number_holds.sql).
+// Same behaviour from the memory and Postgres number-hold stores (supabase/migrations/0012_number_holds.sql).
 // Postgres runs only with TEST_DATABASE_URL (a scratch database with every migration applied).
 const pgUrl = process.env.TEST_DATABASE_URL;
 
