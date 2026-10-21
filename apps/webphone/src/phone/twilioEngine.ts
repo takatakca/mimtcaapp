@@ -139,7 +139,9 @@ export class TwilioEngine implements PhoneEngine {
       return;
     }
     const from = call.parameters.From ?? null;
-    const peer = from?.startsWith("client:") ? from.slice("client:".length) : from;
+    // A call by MIMT handle carries the caller's @nom; never show the internal client id.
+    const handle = call.customParameters?.get("fromHandle") ?? null;
+    const peer = handle ?? (from?.startsWith("client:") ? null : from);
     this.call = call;
     this.store.set({ ...IDLE_CALL, status: "incoming", direction: "inbound", peer, error: null });
     call.on("cancel", () => this.end("ended"));

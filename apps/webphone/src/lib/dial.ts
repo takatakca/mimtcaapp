@@ -1,5 +1,5 @@
 // Dial pad and phone-number helpers (pure, unit-tested). Adapted from apps/mobile/src/lib/dial.ts.
-import { NANP_E164, isEmergencyNumber } from "@mimt/shared";
+import { NANP_E164, isEmergencyNumber, normalizeHandle } from "@mimt/shared";
 
 /** Keep only what a dial pad can type: digits, *, # and a single leading +. */
 export function normalizeDialInput(raw: string): string {
@@ -67,6 +67,8 @@ export type CallBlockReason = "invalid" | "e911_setup" | null;
  */
 export function callBlockReason(dialed: string, gate: CallGate | null | undefined): CallBlockReason {
   if (isEmergencyNumber(dialed)) return null;
+  // "@nom": app-to-app call by MIMT handle; no phone network, so no 9-1-1 address needed for it.
+  if (dialed.trim().startsWith("@")) return normalizeHandle(dialed) ? null : "invalid";
   if (!toDialable(dialed)) return "invalid";
   if (!gate || !gate.addressRegistered || !gate.noticeAccepted) return "e911_setup";
   return null;

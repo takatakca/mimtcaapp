@@ -58,3 +58,12 @@ describe("9-1-1 is never blocked", () => {
     expect(callBlockReason("12345", ready)).toBe("invalid");
   });
 });
+
+describe("calls by MIMT handle", () => {
+  it("allows @nom without a 9-1-1 address (app to app), refuses malformed handles", async () => {
+    const { callBlockReason } = await import("./dial");
+    expect(callBlockReason("@camille", null)).toBeNull();
+    expect(callBlockReason("@a", null)).toBe("invalid");
+    expect(callBlockReason("514 555 0123", null)).toBe("e911_setup");
+  });
+});
