@@ -3,6 +3,7 @@
 // builds of app.mimt.ca. Shapes come from @mimt/shared (the API contract); fixtures are fictional
 // (555-01xx numbers). Loaded lazily by client.ts, so it is not in the main bundle.
 import {
+  normalizeHandle,
   AI_CONSENT_KIND,
   AI_RECEPTIONIST_TERMS_VERSION,
   BUSINESS_TIMEZONE,
@@ -433,10 +434,14 @@ const SILENT_WAV = (() => {
 })();
 
 let state = initialState();
+/** Demo MIMT handle of the signed-in user (null until chosen) and the handles that exist in the demo. */
+let mockHandle: string | null = null;
+const DEMO_HANDLES = new Set(["@camille", "@cafe.lumiere", "@jules"]);
 
 /** Tests: start from fresh fixtures. */
 export function resetMockState(): void {
   state = initialState();
+  mockHandle = null;
   resetMeetingsMock();
 }
 
@@ -774,11 +779,29 @@ const routes: Route[] = [
   // Same order of checks as apps/api/src/routes/ai.ts: 503 → 403 consent → 429 budget.
   ["GET", /^\/v1\/conversations\/([^/]+)\/suggestions$/, () =>
     aiGate() ?? ok({ suggestions: ["Oui, avec plaisir!", "Je vous reviens d'ici la fin de la journée.", "Merci, bonne journée!"], language: "fr-CA" })],
+  ["GET", /^\/v1\/me\/handle$/, () => ok({ handle: mockHandle })],
+  ["PUT", /^\/v1\/me\/handle$/, ({ body }) => {
+    const h = normalizeHandle((body as { handle?: string }).handle);
+    if (!h) return fail(400, "invalid_handle");
+    if (mockHandle && mockHandle !== h) return fail(409, "handle_already_set");
+    if (DEMO_HANDLES.has(h)) return fail(409, "handle_taken");
+    mockHandle = h;
+    return ok({ handle: h });
+  }],
   ["POST", /^\/v1\/messages$/, ({ body }) => {
-    const b = body as { from: string; to: string; body: string };
+    const b = body as { from?: string; to: string; body: string };
+    if (b.to.startsWith("@")) {
+      if (!mockHandle) return fail(403, "handle_required");
+      const to = normalizeHandle(b.to);
+      if (!to || !DEMO_HANDLES.has(to)) return fail(404, "handle_not_found");
+      if (!b.body?.trim()) return fail(400, "validation_error", "empty body");
+      const m: MessageDto = { id: nextId("msg"), direction: "outbound", ourNumber: mockHandle, peer: to, body: b.body, status: "delivered", segments: 1, numMedia: 0, createdAt: new Date().toISOString() };
+      state.messages.push(m);
+      return created(m);
+    }
     if (!NANP_E164.test(b.to) || isEmergencyNumber(b.to)) return fail(400, "validation_error", "to must be NANP E.164");
     if (!b.body?.trim()) return fail(400, "validation_error", "empty body");
-    const m: MessageDto = { id: nextId("msg"), direction: "outbound", ourNumber: b.from, peer: b.to, body: b.body, status: "queued", segments: Math.ceil(b.body.length / 160), numMedia: 0, createdAt: new Date().toISOString() };
+    const m: MessageDto = { id: nextId("msg"), direction: "outbound", ourNumber: b.from ?? "", peer: b.to, body: b.body, status: "queued", segments: Math.ceil(b.body.length / 160), numMedia: 0, createdAt: new Date().toISOString() };
     state.messages.push(m);
     state.me = { ...state.me, usage: { ...state.me.usage, messages: state.me.usage.messages + m.segments } };
     return created(m);

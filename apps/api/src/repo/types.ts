@@ -5,6 +5,7 @@ import type { CallControlsRepository } from "./callControls.js";
 import type { MediaRepository } from "./mediaTypes.js";
 import type { ReferralRepository } from "./referrals.js";
 import type { NumberHoldRepository } from "./numberHolds.js";
+import type { HandleRepository } from "./handles.js";
 import type { PortInRepository } from "./portIn.js";
 import type { MeetingRepository } from "./meetings.js";
 
@@ -305,6 +306,8 @@ export interface Repository {
   readonly referrals: ReferralRepository;
   /** Number picker holds: src/repo/numberHolds.ts. */
   readonly numberHolds: NumberHoldRepository;
+  /** MIMT handles (@nom): src/repo/handles.ts. */
+  readonly handles: HandleRepository;
   /** Number port-in (landline/VoIP into MIMT) storage: src/repo/portIn.ts. */
   readonly portIns: PortInRepository;
   /** Réunions MIMT (video meetings) storage: src/repo/meetings.ts. */

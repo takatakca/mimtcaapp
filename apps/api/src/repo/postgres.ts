@@ -8,6 +8,7 @@ import { PostgresCallControlsRepository } from "./callControlsPostgres.js";
 import { PostgresMediaRepository } from "./mediaPostgres.js";
 import { PostgresReferralRepository } from "./referralsPostgres.js";
 import { PostgresNumberHoldRepository } from "./numberHoldsPostgres.js";
+import { PostgresHandleRepository } from "./handlesPostgres.js";
 import { PostgresPortInRepository } from "./portInPostgres.js";
 import { PostgresMeetingRepository } from "./meetingsPostgres.js";
 import type {
@@ -85,6 +86,11 @@ export class PostgresRepository implements Repository {
   private numberHoldRepo?: PostgresNumberHoldRepository;
   get numberHolds(): PostgresNumberHoldRepository {
     return (this.numberHoldRepo ??= new PostgresNumberHoldRepository(this.sql));
+  }
+
+  private handleRepo?: PostgresHandleRepository;
+  get handles(): PostgresHandleRepository {
+    return (this.handleRepo ??= new PostgresHandleRepository(this.sql));
   }
 
   constructor(databaseUrl: string, opts: { max?: number; sslCaPem?: string } = {}) {

@@ -70,6 +70,8 @@ export function Account() {
         </section>
       </div>
 
+      <HandleSection />
+
       <E911Section />
 
       <div className="grid grid--2">
@@ -175,6 +177,54 @@ function PortalButton() {
     >
       {t("account.billingPortal")}
     </button>
+  );
+}
+
+/** MIMT handle (@nom): free texts with other MIMT users, no phone number needed. Chosen once. */
+function HandleSection() {
+  const { t } = useI18n();
+  const current = useAsync(() => api.getHandle(), []);
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<TKey | null>(null);
+  const [busy, setBusy] = useState(false);
+  const handle = current.data?.handle ?? null;
+
+  const save = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api.setHandle(value.trim());
+      current.reload();
+    } catch (err) {
+      setError(toErrorKey(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="card" aria-labelledby="handle-h">
+      <h2 id="handle-h" className="card__title">
+        {t("handle.title")}
+      </h2>
+      <p>{t("handle.lead")}</p>
+      {current.loading ? null : handle ? (
+        <p>
+          {t("handle.yours")} <strong>{handle}</strong>
+        </p>
+      ) : (
+        <form className="stack" onSubmit={save}>
+          <Field id="handle-input" label={t("handle.label")} hint={t("handle.hint")}>
+            <input id="handle-input" className="input" autoComplete="off" maxLength={21} placeholder="@camille" value={value} onChange={(e) => setValue(e.target.value)} />
+          </Field>
+          <ErrorNote error={error} />
+          <button type="submit" className="btn btn--primary" disabled={busy || value.trim().length < 3}>
+            {t("handle.save")}
+          </button>
+        </form>
+      )}
+    </section>
   );
 }
 

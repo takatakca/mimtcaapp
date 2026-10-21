@@ -25,6 +25,7 @@ import { meRoutes } from "./routes/me.js";
 import { messageRoutes } from "./routes/messages.js";
 import { numberRoutes } from "./routes/numbers.js";
 import { numberPickerRoutes } from "./routes/numberPicker.js";
+import { handleRoutes } from "./routes/handles.js";
 import { portInRoutes } from "./routes/portIns.js";
 import { pushRoutes } from "./routes/push.js";
 import { rateRoutes } from "./routes/rates.js";
@@ -84,6 +85,7 @@ export async function buildApp(deps: AppDeps) {
     e911Routes,
     numberRoutes,
     numberPickerRoutes,
+    handleRoutes,
     voiceRoutes,
     callRoutes,
     voicemailRoutes,

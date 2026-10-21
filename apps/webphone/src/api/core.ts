@@ -22,6 +22,7 @@ import type {
   E911Address,
   E911AddressResponse,
   E911NoticeResponse,
+  HandleResponse,
   Locale,
   MeExportResponse,
   MeResponse,
@@ -90,6 +91,8 @@ export function coreEndpoints(request: HttpClient["request"]) {
     messages: (peer: string, cursor?: string) =>
       request<MessagesResponse>("GET", `/v1/conversations/${seg(peer)}/messages`, { query: { cursor, limit: 30 } }),
     sendMessage: (body: SendMessageRequest) => request<MessageDto>("POST", "/v1/messages", { body }),
+    getHandle: () => request<HandleResponse>("GET", "/v1/me/handle"),
+    setHandle: (handle: string) => request<HandleResponse>("PUT", "/v1/me/handle", { body: { handle } }),
     /** AI reply suggestions (needs the "ai_processing" consent). Never sent automatically. */
     suggestions: (peer: string) => request<ReplySuggestionsResponse>("GET", `/v1/conversations/${seg(peer)}/suggestions`),
     aiStatus: () => request<AiStatusResponse>("GET", "/v1/ai/status"),
