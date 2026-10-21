@@ -312,8 +312,12 @@ describe("catalog: number port-in and physical SIM", () => {
     });
     expect(port.statusCode, port.body).toBe(201);
     expect(port.json()).toMatchObject({ phoneE164: "+15145550142", status: "submitted", providerRef: expect.stringMatching(/^PORT-/) });
-    expect(port.body).not.toContain("123456789");
-    expect(port.body).not.toContain("4321");
+    // Random ids (uuid, provider ref, timestamps) can contain these digits by chance: check every other value.
+    const { id: _id, orderId: _o, telecomAccountId: _t, providerRef: _p, createdAt: _c, updatedAt: _u, dueAt: _d, ...rest } = port.json();
+    expect(port.json()).not.toHaveProperty("pin");
+    expect(port.json()).not.toHaveProperty("accountNumber");
+    expect(JSON.stringify(rest)).not.toContain("123456789");
+    expect(JSON.stringify(rest)).not.toContain("4321");
     const row = [...ctx.repo.catalog.portingRequests.values()][0]!;
     expect(row.accountNumberEncrypted).not.toContain("123456789");
     expect(JSON.stringify(ctx.sandbox.calls)).not.toContain("123456789");
