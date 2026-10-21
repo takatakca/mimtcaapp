@@ -1,5 +1,6 @@
 // Softphone context: one engine per signed-in session (Twilio WebRTC, or the demo engine with
 // VITE_MOCK_API=1), the floating panel state, and dial() with the 9-1-1 rule applied.
+import { normalizeHandle } from "@mimt/shared";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { api } from "../api/client";
 import { useSession } from "../auth/SessionProvider";
@@ -69,7 +70,7 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
     (input: string): CallBlockReason => {
       const reason = callBlockReason(input, me?.e911);
       if (reason) return reason;
-      const to = toDialable(input);
+      const to = input.trim().startsWith("@") ? normalizeHandle(input) : toDialable(input);
       if (!to || !engine) return "invalid";
       setPanelOpen(true);
       void engine.connect(to);

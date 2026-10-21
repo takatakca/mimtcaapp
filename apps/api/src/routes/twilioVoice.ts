@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { isEmergencyNumber } from "@mimt/shared";
+import { isEmergencyNumber, normalizeHandle } from "@mimt/shared";
 import type { AppDeps } from "../deps.js";
 import { checkInboundCaps, checkOnNetCaps, checkVoiceCaps, effectiveCaps, exceedsDailySpend } from "../fraud/caps.js";
 import { checkVoiceDestination } from "../fraud/destinations.js";
@@ -47,6 +47,8 @@ const REFUSALS = {
     "You have used your MIMT app-to-app calling minutes this month. Upgrade to Essential to keep calling.",
   ],
   too_many_calls: ["Vous avez déjà un appel en cours.", "You already have a call in progress."],
+  handle_unavailable: ["Cet utilisateur MIMT ne peut pas recevoir d'appel pour le moment.", "This MIMT user cannot take calls right now."],
+  handle_required: ["Choisissez d'abord votre identifiant MIMT dans l'application.", "Please choose your MIMT handle in the app first."],
   destination_blocked: ["Cette destination n'est pas permise avec votre forfait.", "This destination is not allowed on your plan."],
   intl_no_credit: ["Votre crédit international est insuffisant.", "Your international credit is too low."],
   cuba_unavailable: [
@@ -119,6 +121,50 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
     return vr;
   }
 
+  /**
+   * App-to-app call by handle. Same fair use as calls to a MIMT number (Twilio bills each app leg): the free
+   * plan's on-net pool, paid plans' outbound minutes. The callee's block list applies; the callee's app is told
+   * the caller's handle (custom parameter fromHandle), never their user id.
+   */
+  async function callByHandle(user: { id: string }, account: TelecomAccount, dialed: string, callSid: string | undefined) {
+    const now = deps.now();
+    if (outboundBlocked(account)) return refuse("account_restricted");
+    const mine = await repo.handles.forUser(user.id);
+    if (!mine) return refuse("handle_required");
+    const handle = normalizeHandle(dialed);
+    const target = handle ? await repo.handles.find(handle) : null;
+    if (!target || target.handle === mine.handle) return refuse("invalid_number");
+    const targetAccount = await repo.getAccount(target.telecomAccountId);
+    if (!targetAccount || targetAccount.status === "SUSPENDED" || targetAccount.status === "CLOSED") return refuse("handle_unavailable");
+    if (await repo.callControls.isBlocked(target.telecomAccountId, mine.handle)) return refuse("handle_unavailable");
+    const okMinute = await deps.rateLimiter.take(`call:m:${account.id}`, CALL_ATTEMPT_RULES.minute);
+    if (!okMinute || !(await deps.rateLimiter.take(`call:h:${account.id}`, CALL_ATTEMPT_RULES.hour))) {
+      await logFraud(account, "call_attempt_rate", { to: "handle" });
+      return refuse("rate_limited");
+    }
+    const { plan, trialing } = await getFeatures(repo, account.id);
+    const onNet = checkOnNetCaps({ caps: effectiveCaps(plan, account.riskTier, account.createdAt, now, trialing), usage: await repo.getUsage(account.id, monthPeriod(now)) });
+    if (!onNet.ok) return refuse("on_net_minutes_exhausted");
+    if (callSid) {
+      await repo.upsertCall({
+        twilioCallSid: callSid,
+        telecomAccountId: account.id,
+        userId: user.id,
+        direction: "outbound",
+        kind: "app",
+        fromNumber: mine.handle,
+        toNumber: target.handle,
+        status: "initiated",
+        startedAt: now,
+      });
+    }
+    const vr = new VoiceResponse();
+    const client = vr.dial({ answerOnBridge: true, timeout: RING_TIMEOUT_S, timeLimit: Math.min(onNet.remaining * 60, MAX_CALL_S) }).client();
+    client.identity(targetAccount.ownerUserId);
+    client.parameter({ name: "fromHandle", value: mine.handle });
+    return vr;
+  }
+
   // TwiML App voice URL: calls placed from the MIMT app (From=client:<userId>).
   app.post("/webhooks/twilio/voice/outbound", async (req, reply) => {
     const p = twilioParams(req);
@@ -134,6 +180,9 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
     // MIMT Affaires: extensions, business DIDs and calls on behalf of a business. Runs after the 9-1-1 path.
     const business = await pbxOutbound(deps, app.log, { user, consumerAccount: account, dialed, callSid: p.CallSid, callerId: p.CallerId });
     if (business) return sendTwiml(reply, business);
+
+    // "@nom": MIMT-to-MIMT call by handle, app to app, no phone number needed on either side.
+    if (dialed.trim().startsWith("@")) return sendTwiml(reply, await callByHandle(user, account, dialed, p.CallSid));
 
     const to = normalizeDialed(dialed);
     if (!to) return sendTwiml(reply, refuse("invalid_number"));
