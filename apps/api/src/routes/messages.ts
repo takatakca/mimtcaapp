@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { MMS_MAX_ATTACHMENTS, MMS_MAX_TOTAL_BYTES, type ConversationsResponse, type MessageDto, type MessageMediaDto, type MessagesResponse } from "@mimt/shared";
 import { z } from "zod";
 import type { AppDeps } from "../deps.js";
@@ -17,13 +17,18 @@ import { getFeatures, HELD_STATES, outboundBlocked, setAccountStatus, usagePerio
 import { claimUpload, mediaByMessage, mediaDto, signedMediaUrl } from "../services/media.js";
 import { FREE_OUTBOUND_PAUSED_MESSAGE, freeOutboundBlock } from "../services/freeTier.js";
 import type { MediaObject } from "../repo/mediaTypes.js";
+import { MIMT_HANDLE, normalizeHandle } from "@mimt/shared";
+
+/** Handle-to-handle texts: no carrier, no quota, but the same anti-abuse limits as texts. */
+const ONNET_RATE_RULES = SMS_RATE_RULES;
 
 /** Twilio fetches outbound MMS media through GET /v1/media/:id; it may retry for a while. */
 const OUTBOUND_MEDIA_URL_TTL_S = 2 * 3600;
 
 const SendBody = z
   .object({
-    from: z.string().regex(E164),
+    /** Our number. Omitted for a handle-to-handle text (to = "@nom"): the sender's own handle is used. */
+    from: z.string().regex(E164).optional(),
     to: z.string().min(3).max(32),
     body: z.string().max(1600),
     mediaUrls: z.array(z.url().startsWith("https://")).max(5).optional(),
@@ -56,8 +61,65 @@ export async function messageRoutes(app: FastifyInstance, deps: AppDeps) {
     throw new HttpError(status, code);
   }
 
+  /**
+   * MIMT-to-MIMT text by handle: stored for both people, never sent to the carrier, free and unlimited on every
+   * plan. Anti-abuse: rate limits, bulk identical bodies, the recipient's block list.
+   */
+  async function sendOnNet(req: FastifyRequest, body: z.infer<typeof SendBody>) {
+    const { user, account } = await loadContext(deps, req);
+    const now = deps.now();
+    if (outboundBlocked(account)) throw forbidden("account_restricted");
+    if (body.mediaIds?.length || body.mediaUrls?.length) throw badRequest("media_not_supported", "Les photos entre identifiants MIMT arrivent bientôt.");
+    const mine = await repo.handles.forUser(user.id);
+    if (!mine) throw forbidden("handle_required", "Choisissez d'abord votre identifiant MIMT.");
+    const toHandle = normalizeHandle(body.to);
+    if (!toHandle) throw badRequest("invalid_handle");
+    const target = await repo.handles.find(toHandle);
+    if (!target) throw new HttpError(404, "handle_not_found", "Aucun utilisateur MIMT avec cet identifiant.");
+    if (target.handle === mine.handle) throw badRequest("cannot_text_yourself");
+
+    for (const [window, rule] of Object.entries(ONNET_RATE_RULES)) {
+      if (!(await deps.rateLimiter.take(`onnet:${window}:${account.id}`, rule))) await block(account, `onnet_rate_${window}`, 429, "rate_limited", "hold");
+    }
+    const fingerprint = deps.cipher.fingerprint(body.body);
+    const sameBody = await repo.countFingerprintRecipientsSince(account.id, fingerprint, new Date(now.getTime() - BULK_IDENTICAL_WINDOW_MS));
+    if (sameBody >= BULK_IDENTICAL_RECIPIENTS) await block(account, "onnet_bulk_identical", 429, "bulk_identical_blocked");
+
+    const encrypted = deps.cipher.encrypt(body.body);
+    const message = await repo.createMessage({
+      twilioSid: null,
+      telecomAccountId: account.id,
+      direction: "outbound",
+      ourNumber: mine.handle,
+      peer: target.handle,
+      bodyEncrypted: encrypted,
+      bodyFingerprint: fingerprint,
+      status: "delivered",
+      segments: 1,
+      numMedia: 0,
+    });
+    // The recipient's block list applies (they never see it; the sender is not told).
+    if (!(await repo.callControls.isBlocked(target.telecomAccountId, mine.handle))) {
+      await repo.createMessage({
+        twilioSid: null,
+        telecomAccountId: target.telecomAccountId,
+        direction: "inbound",
+        ourNumber: target.handle,
+        peer: mine.handle,
+        bodyEncrypted: encrypted,
+        bodyFingerprint: fingerprint,
+        status: "received",
+        segments: 1,
+        numMedia: 0,
+      });
+    }
+    return message;
+  }
+
   app.post("/v1/messages", auth, async (req, reply) => {
     const body = parse(SendBody, req.body);
+    if (body.to.trim().startsWith("@")) return reply.code(201).send(messageDto(deps, await sendOnNet(req, body)));
+    if (!body.from) throw badRequest("from_required", "Choose the number to send from");
     const { account } = await loadContext(deps, req);
     const now = deps.now();
 
@@ -171,7 +233,7 @@ export async function messageRoutes(app: FastifyInstance, deps: AppDeps) {
   });
 
   app.get("/v1/conversations/:peer/messages", auth, async (req): Promise<MessagesResponse> => {
-    const { peer } = parse(z.object({ peer: z.string().regex(E164) }), req.params);
+    const { peer } = parse(z.object({ peer: z.string().refine((p) => E164.test(p) || MIMT_HANDLE.test(p), "phone number or @handle") }), req.params);
     const q = parse(z.object({ cursor: z.string().max(200).optional(), limit: z.coerce.number().int().min(1).max(100).default(50) }), req.query);
     const { account } = await loadContext(deps, req);
     const rows = await repo.listMessages(account.id, peer, { limit: q.limit + 1, ...(q.cursor ? { before: toBefore(decodeCursor(q.cursor)) } : {}) });

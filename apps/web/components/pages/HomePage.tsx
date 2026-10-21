@@ -47,7 +47,7 @@ export function HomePage({ lang }: { lang: Lang }) {
             <p className="hero-note">
               {t.heroNote.replace("{lock}", formatCad(PLANS.lock.monthlyPriceCents, lang))}{" "}
               <a href={APP_URL} rel="noopener">
-                {t.ctaWeb}
+                {t.heroLink}
               </a>
             </p>
           </div>
@@ -289,6 +289,7 @@ type Copy = {
   leadStrong: string;
   lead: string;
   ctaWeb: string;
+  heroLink: string;
   ticks: string[];
   heroNote: string;
   trustLabel: string;
@@ -324,8 +325,9 @@ const FR: Copy = {
   leadStrong: "Votre numéro canadien dans une app.",
   lead: "Appelez et textez par Wi‑Fi ou données, sur votre cellulaire comme sur votre ordinateur.",
   ctaWeb: "Ouvrir l'app Web",
+  heroLink: "commencer dans l'app Web",
   ticks: ["Vrai numéro canadien", "Transfert de numéro gratuit", "Français d'abord"],
-  heroNote: "Un numéro à vous dès {lock} par mois, payé d'avance et activé tout de suite. Déjà client?",
+  heroNote: "Un numéro à vous dès {lock} par mois, payé d'avance et activé tout de suite. Sans numéro, textez gratuitement les autres utilisateurs MIMT avec votre identifiant @nom :",
   trustLabel: "Nos engagements",
   trust: [
     { icon: "quebec", text: "Fait au Québec" },
@@ -393,8 +395,9 @@ const EN: Copy = {
   leadStrong: "Your Canadian number, in an app.",
   lead: "Call and text over Wi‑Fi or data, on your phone and on your computer.",
   ctaWeb: "Open the web app",
+  heroLink: "start in the web app",
   ticks: ["A real Canadian number", "Free number transfer", "French first, bilingual"],
-  heroNote: "A number of your own from {lock} a month, paid up front and active right away. Already a customer?",
+  heroNote: "A number of your own from {lock} a month, paid up front and active right away. Without a number, text other MIMT users for free with your @handle:",
   trustLabel: "Our commitments",
   trust: [
     { icon: "quebec", text: "Made in Québec" },

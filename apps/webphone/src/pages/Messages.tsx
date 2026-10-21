@@ -1,4 +1,5 @@
 import type { ConversationDto, MessageDto } from "@mimt/shared";
+import { isHandle, normalizeHandle } from "@mimt/shared";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../api/client";
@@ -101,13 +102,15 @@ function NewMessage({ onCancel, onSent }: { onCancel: () => void; onSent: (to: s
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const dest = toDialable(to);
+    // "@nom": another MIMT user, free and without a number. Otherwise a phone number, sent from ours.
+    const handle = to.trim().startsWith("@") ? normalizeHandle(to) : null;
+    const dest = handle ?? toDialable(to);
     if (!dest || dest === "911") return setError("messages.invalidTo");
-    if (!from) return setError("messages.noNumber");
+    if (!handle && !from) return setError("messages.noNumber");
     setBusy(true);
     setError(null);
     try {
-      await api.sendMessage({ from, to: dest, body: body.trim() });
+      await api.sendMessage(handle ? { to: handle, body: body.trim() } : { from, to: dest, body: body.trim() });
       onSent(dest);
     } catch (err) {
       setError(toErrorKey(err));
@@ -125,7 +128,7 @@ function NewMessage({ onCancel, onSent }: { onCancel: () => void; onSent: (to: s
       </header>
       <div className="stack pad">
         <label htmlFor="new-to">{t("messages.to")}</label>
-        <input id="new-to" className="input" type="tel" inputMode="tel" placeholder={t("messages.toPlaceholder")} value={to} onChange={(e) => setTo(e.target.value)} autoFocus />
+        <input id="new-to" className="input" type="text" autoComplete="off" placeholder={t("messages.toPlaceholder")} value={to} onChange={(e) => setTo(e.target.value)} autoFocus />
       </div>
       <div className="thread__spacer" />
       <ErrorNote error={error} />
@@ -220,10 +223,10 @@ function Thread({ peer, ourNumber, onSent }: { peer: string; ourNumber?: string;
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
-    if (!from || !body.trim()) return;
+    if ((!from && !isHandle(peer)) || !body.trim()) return;
     setBusy(true);
     try {
-      const m = await api.sendMessage({ from, to: peer, body: body.trim() });
+      const m = await api.sendMessage(isHandle(peer) ? { to: peer, body: body.trim() } : { from, to: peer, body: body.trim() });
       setMessages((prev) => [m, ...prev]);
       setBody("");
       setSuggestions([]);

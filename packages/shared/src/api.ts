@@ -260,7 +260,8 @@ export interface CallsResponse {
 
 /** POST /v1/messages → 201 MessageDto */
 export interface SendMessageRequest {
-  from: string;
+  /** Our number. Omit it to text another MIMT user by handle (to = "@nom"): free, no number needed. */
+  from?: string;
   to: string;
   body: string;
   /** https URLs, MMS plans only. */
