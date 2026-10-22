@@ -102,6 +102,9 @@ export interface PbxRepository {
   listRecordings(businessId: string, opts?: { userId?: string; limit?: number }): Promise<RecordingRow[]>;
   listExpiredRecordings(now: Date, limit: number): Promise<RecordingRow[]>;
   deleteRecording(id: string): Promise<boolean>;
+  /** Encrypted AI summary of a recorded call (migration 0016); removed with the recording. */
+  setCallSummary(recordingId: string, s: { summaryEncrypted: string; locale: "fr-CA" | "en-CA"; model: string | null }): Promise<void>;
+  getCallSummaries(recordingIds: string[]): Promise<Map<string, { summaryEncrypted: string; locale: "fr-CA" | "en-CA" }>>;
 
   /** Defaults to 1 seat when nothing is stored. */
   getSeats(businessId: string): Promise<BusinessSeats>;

@@ -2,9 +2,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { AI_LIMITS } from "@mimt/shared";
 import { z } from "zod";
-import type { AiGateway, AiOutcome, ClassifySmsInput, HelpAnswer, HelpAnswerInput, ReceptionistStepInput, ReceptionistStepResult, ReplySuggestions, SmsClassification, SuggestRepliesInput, TokenUsage, VoicemailSummary, VoicemailSummaryInput } from "./gateway.js";
+import type { AiGateway, AiOutcome, CallSummaryInput, CallSummaryOutput, ClassifySmsInput, HelpAnswer, HelpAnswerInput, ReceptionistStepInput, ReceptionistStepResult, ReplySuggestions, SmsClassification, SuggestRepliesInput, TokenUsage, VoicemailSummary, VoicemailSummaryInput } from "./gateway.js";
 import { HELP_SYSTEM } from "./helpKnowledge.js";
-import { RECEPTIONIST_SYSTEM, RECEPTIONIST_TOOLS, SMS_SPAM_SYSTEM, SUGGESTIONS_SYSTEM, VOICEMAIL_SYSTEM } from "./prompts.js";
+import { CALL_SUMMARY_SYSTEM, RECEPTIONIST_SYSTEM, RECEPTIONIST_TOOLS, SMS_SPAM_SYSTEM, SUGGESTIONS_SYSTEM, VOICEMAIL_SYSTEM } from "./prompts.js";
 
 type Effort = "low" | "medium";
 
@@ -20,6 +20,11 @@ const VoicemailSchema = z.object({
   urgency: z.enum(["low", "normal", "high"]),
   callbackSuggested: z.boolean(),
   spamLikelihood: z.number().min(0).max(1),
+});
+
+const CallSummarySchema = z.object({
+  summary: z.string(),
+  actionItems: z.array(z.string()),
 });
 
 const SuggestionsSchema = z.object({
@@ -54,6 +59,13 @@ export class ClaudeGateway implements AiGateway {
       `Target language: ${input.locale}\nCaller number: ${input.callerNumber ?? "unknown"}\n` +
       `<transcript>\n${input.transcript.slice(0, AI_LIMITS.voicemailMaxChars)}\n</transcript>`;
     return this.structured(VoicemailSchema, VOICEMAIL_SYSTEM, user, "medium", 4000);
+  }
+
+  async summarizeCall(input: CallSummaryInput): Promise<AiOutcome<CallSummaryOutput>> {
+    const user = `Target language: ${input.locale}\n<transcript>\n${input.transcript.slice(0, AI_LIMITS.callSummaryMaxChars)}\n</transcript>`;
+    const out = await this.structured(CallSummarySchema, CALL_SUMMARY_SYSTEM, user, "medium", 4000);
+    if (!out.ok) return out;
+    return { ...out, value: { summary: out.value.summary.trim(), actionItems: out.value.actionItems.map((a) => a.trim()).filter(Boolean).slice(0, 5) } };
   }
 
   async suggestReplies(input: SuggestRepliesInput): Promise<AiOutcome<ReplySuggestions>> {

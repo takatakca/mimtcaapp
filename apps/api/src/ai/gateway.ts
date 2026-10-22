@@ -8,6 +8,7 @@ import type { Direction, Locale, SpamVerdict, Urgency } from "@mimt/shared";
 export interface AiGateway {
   /** Structured voicemail summary in `locale` (effort "medium"). */
   summarizeVoicemail(input: VoicemailSummaryInput): Promise<AiOutcome<VoicemailSummary>>;
+  summarizeCall(input: CallSummaryInput): Promise<AiOutcome<CallSummaryOutput>>;
   /** Three short reply suggestions (effort "low"). */
   suggestReplies(input: SuggestRepliesInput): Promise<AiOutcome<ReplySuggestions>>;
   /** Spam/scam/ok label for an ambiguous inbound SMS (effort "low"). */
@@ -50,6 +51,16 @@ export interface VoicemailSummaryInput {
   transcript: string;
   locale: Locale;
   callerNumber: string | null;
+}
+
+export interface CallSummaryInput {
+  transcript: string;
+  locale: Locale;
+}
+
+export interface CallSummaryOutput {
+  summary: string;
+  actionItems: string[];
 }
 
 export interface VoicemailSummary {

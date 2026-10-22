@@ -258,10 +258,23 @@ export class MemoryPbxRepository implements PbxRepository {
       .slice(0, opts.limit ?? 200)
       .map(clone);
   }
+  readonly callSummaries = new Map<string, { summaryEncrypted: string; locale: "fr-CA" | "en-CA"; model: string | null }>();
+  async setCallSummary(recordingId: string, s: { summaryEncrypted: string; locale: "fr-CA" | "en-CA"; model: string | null }) {
+    if (this.recordings.has(recordingId)) this.callSummaries.set(recordingId, { ...s });
+  }
+  async getCallSummaries(recordingIds: string[]) {
+    const out = new Map<string, { summaryEncrypted: string; locale: "fr-CA" | "en-CA" }>();
+    for (const id of recordingIds) {
+      const s = this.callSummaries.get(id);
+      if (s) out.set(id, { summaryEncrypted: s.summaryEncrypted, locale: s.locale });
+    }
+    return out;
+  }
   async listExpiredRecordings(now: Date, limit: number) {
     return [...this.recordings.values()].filter((r) => r.deleteAfter <= now).slice(0, limit).map(clone);
   }
   async deleteRecording(id: string) {
+    this.callSummaries.delete(id);
     return this.recordings.delete(id);
   }
 
