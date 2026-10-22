@@ -40,8 +40,8 @@ export function ConsentBanner({ lang }: { lang: Lang }) {
     <div className="consent" role="dialog" aria-live="polite" aria-label={fr ? "Témoins publicitaires" : "Advertising cookies"}>
       <p>
         {fr
-          ? "Ce site affiche des annonces Google. Acceptez-vous les témoins qui personnalisent ces annonces? Si vous refusez, vous verrez des annonces non personnalisées."
-          : "This site shows Google ads. Do you accept cookies that personalise those ads? If you refuse, you will see non-personalised ads."}{" "}
+          ? "Ce site affiche des annonces Google et mesure son audience. Acceptez-vous les témoins de mesure et de publicité personnalisée? Si vous refusez, rien de personnel n'est enregistré et les annonces sont non personnalisées."
+          : "This site shows Google ads and measures its audience. Do you accept measurement and personalised-advertising cookies? If you refuse, nothing personal is stored and ads are non-personalised."}{" "}
         <a href={href(lang, "privacy", "temoins")}>{fr ? "En savoir plus" : "Learn more"}</a>
       </p>
       <div className="consent__actions">

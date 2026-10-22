@@ -85,6 +85,10 @@ jobs:
         env:
           NEXT_PUBLIC_FORMS_ENDPOINT: ${{ vars.FORMS_ENDPOINT }}
           NEXT_PUBLIC_API_URL: ${{ vars.API_URL || 'https://api.mimt.ca' }}
+          # Google Analytics 4 / Google Ads (public ids; unset = tag off). docs/MIMT-ADS-TRACKING.md
+          NEXT_PUBLIC_GA4_ID: ${{ vars.GA4_ID }}
+          NEXT_PUBLIC_GADS_ID: ${{ vars.GADS_ID }}
+          NEXT_PUBLIC_GADS_HOLD_LABEL: ${{ vars.GADS_HOLD_LABEL }}
           # AdSense ads.txt on the root domain (covers app.mimt.ca). Unset: no ads.txt. docs/MIMT-LAUNCH.md « Publicités et coûts ».
           NEXT_PUBLIC_ADSENSE_PUBLISHER_ID: ${{ vars.ADSENSE_PUBLISHER_ID || vars.ADSENSE_CLIENT }}
       - name: Embed CI-validated revision in public static release manifest
