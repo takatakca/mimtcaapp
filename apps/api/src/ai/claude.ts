@@ -2,19 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { AI_LIMITS } from "@mimt/shared";
 import { z } from "zod";
-import type {
-  AiGateway,
-  AiOutcome,
-  ClassifySmsInput,
-  ReceptionistStepInput,
-  ReceptionistStepResult,
-  ReplySuggestions,
-  SmsClassification,
-  SuggestRepliesInput,
-  TokenUsage,
-  VoicemailSummary,
-  VoicemailSummaryInput,
-} from "./gateway.js";
+import type { AiGateway, AiOutcome, ClassifySmsInput, HelpAnswer, HelpAnswerInput, ReceptionistStepInput, ReceptionistStepResult, ReplySuggestions, SmsClassification, SuggestRepliesInput, TokenUsage, VoicemailSummary, VoicemailSummaryInput } from "./gateway.js";
+import { HELP_SYSTEM } from "./helpKnowledge.js";
 import { RECEPTIONIST_SYSTEM, RECEPTIONIST_TOOLS, SMS_SPAM_SYSTEM, SUGGESTIONS_SYSTEM, VOICEMAIL_SYSTEM } from "./prompts.js";
 
 type Effort = "low" | "medium";
@@ -36,6 +25,11 @@ const VoicemailSchema = z.object({
 const SuggestionsSchema = z.object({
   language: z.string(),
   suggestions: z.array(z.string()),
+});
+
+const HelpSchema = z.object({
+  answer: z.string(),
+  needsHuman: z.boolean(),
 });
 
 const SmsSchema = z.object({
@@ -68,6 +62,12 @@ export class ClaudeGateway implements AiGateway {
     const out = await this.structured(SuggestionsSchema, SUGGESTIONS_SYSTEM, user, "low", 2000);
     if (!out.ok) return out;
     return { ...out, value: { language: out.value.language, suggestions: out.value.suggestions.map((s) => s.trim()).filter(Boolean).slice(0, 3) } };
+  }
+
+  helpAnswer(input: HelpAnswerInput): Promise<AiOutcome<HelpAnswer>> {
+    const turns = input.messages.map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.text.replace(/\s+/g, " ").slice(0, 1500)}`);
+    const user = `User locale: ${input.locale}\n<facts>\n${input.knowledge}\n</facts>\n<conversation>\n${turns.join("\n")}\n</conversation>`;
+    return this.structured(HelpSchema, HELP_SYSTEM, user, "low", 1500);
   }
 
   classifySms(input: ClassifySmsInput): Promise<AiOutcome<SmsClassification>> {

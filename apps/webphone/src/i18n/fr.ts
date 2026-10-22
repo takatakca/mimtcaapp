@@ -287,6 +287,7 @@ export const fr = {
   "messages.empty": "Aucune conversation. Envoyez votre premier texto!",
   "messages.invalidTo": "Entrez un numéro à 10 chiffres ou un identifiant MIMT (@nom).",
   "messages.needHandle": "Choisissez d'abord votre identifiant MIMT dans Compte pour texter gratuitement d'autres utilisateurs MIMT.",
+  "nav.help": "Aide",
   "handle.title": "Mon identifiant MIMT",
   "handle.lead": "Avec un identifiant (@nom), les autres utilisateurs MIMT vous textent gratuitement, même sans numéro de téléphone.",
   "handle.label": "Identifiant",

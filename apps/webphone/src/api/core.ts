@@ -23,6 +23,8 @@ import type {
   E911AddressResponse,
   E911NoticeResponse,
   HandleResponse,
+  HelpChatRequest,
+  HelpChatResponse,
   Locale,
   MeExportResponse,
   MeResponse,
@@ -96,6 +98,7 @@ export function coreEndpoints(request: HttpClient["request"]) {
     /** AI reply suggestions (needs the "ai_processing" consent). Never sent automatically. */
     suggestions: (peer: string) => request<ReplySuggestionsResponse>("GET", `/v1/conversations/${seg(peer)}/suggestions`),
     aiStatus: () => request<AiStatusResponse>("GET", "/v1/ai/status"),
+    help: (body: HelpChatRequest) => request<HelpChatResponse>("POST", "/v1/ai/help", { body }),
 
     // Media (MMS photos, voicemail greeting): signed upload URL, then PUT the bytes (media.ts).
     createUpload: (body: CreateMediaUploadRequest) => request<CreateMediaUploadResponse>("POST", "/v1/media/uploads", { body }),

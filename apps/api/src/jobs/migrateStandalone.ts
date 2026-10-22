@@ -24,6 +24,7 @@ export const MIGRATION_ORDER = [
   "0011_usage_messages.sql",
   "0012_number_holds.sql",
   "0013_user_handles.sql",
+  "0015_ai_help.sql",
 ] as const;
 
 export function assertPrivateMimtDatabase(databaseUrl: string, confirmation: string | undefined, nodeEnv: string | undefined) {

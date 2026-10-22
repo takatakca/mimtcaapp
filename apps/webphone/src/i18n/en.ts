@@ -284,6 +284,7 @@ export const en: Record<TKey, string> = {
   "messages.empty": "No conversations yet. Send your first text!",
   "messages.invalidTo": "Enter a 10-digit number or a MIMT handle (@name).",
   "messages.needHandle": "Pick your MIMT handle in Account first to text other MIMT users for free.",
+  "nav.help": "Help",
   "handle.title": "My MIMT handle",
   "handle.lead": "With a handle (@name), other MIMT users text you for free, even without a phone number.",
   "handle.label": "Handle",

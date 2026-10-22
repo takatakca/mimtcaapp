@@ -25,6 +25,7 @@ const MAIN: NavItem[] = [
 ];
 
 const MEETINGS: NavItem = { to: "/reunions", label: "nav.meetings", icon: "video" };
+const HELP: NavItem = { to: "/aide", label: "nav.help", icon: "chat" };
 
 const SERVICES: NavItem[] = [
   { to: "/services/offres", label: "nav.offers", icon: "offers" },
@@ -62,6 +63,7 @@ export function Shell() {
               <SideLink key={i.to} item={i} />
             ))}
             {showMeetings ? <SideLink item={MEETINGS} /> : null}
+            <SideLink item={HELP} />
             <p className="side__section">{t("nav.services")}</p>
             {SERVICES.map((i) => (
               <SideLink key={i.to} item={i} />
