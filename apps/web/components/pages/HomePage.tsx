@@ -8,6 +8,7 @@ import { Offers } from "@/components/Offers";
 import { Icon, type IconName } from "@/components/Visuals";
 import { PlanCard } from "@/components/PlanCard";
 import { faqItems } from "@/lib/faq";
+import { heroWithoutNumber } from "@/lib/hero";
 import { CONSUMER_PLANS, PLANS, formatCad } from "@/lib/plans-view";
 import { faqPageLd, serviceLd, softwareApplicationLd } from "@/lib/seo";
 import { APP_URL, href, type Lang } from "@/lib/site";
@@ -44,7 +45,7 @@ export function HomePage({ lang }: { lang: Lang }) {
               <span className="h1-line">{t.h1c}</span>
             </h1>
             <p className="lead home-hero__lead">
-              <strong>{t.leadStrong}</strong> {t.lead}
+              <strong>{t.leadStrong}</strong> {heroWithoutNumber(lang, PLANS.free.caps.onNetMinutes ?? 0)} {t.lead}
             </p>
             <NumberPicker lang={lang} plan="lock" />
             <ul className="hero-ticks">
@@ -337,11 +338,11 @@ const FR: Copy = {
   h1b: "dès {lock} par mois.",
   h1c: "Activé dès le paiement.",
   leadStrong: "Appels et textos sur votre cellulaire et votre ordinateur.",
-  lead: "Par Wi‑Fi ou données, ici comme en voyage. Choisissez votre numéro ci-dessous : il est réservé 10 minutes pour vous.",
+  lead: "Avec un numéro, par Wi‑Fi ou données, ici comme en voyage. Choisissez-le ci-dessous : il est réservé 10 minutes pour vous.",
   ctaWeb: "Ouvrir l'app Web",
   heroLink: "commencer dans l'app Web",
   ticks: ["Vrai numéro canadien", "Transfert de numéro gratuit", "Français d'abord"],
-  heroNote: "Un numéro à vous dès {lock} par mois, payé d'avance et activé tout de suite. Sans numéro, textez gratuitement les autres utilisateurs MIMT avec votre identifiant @nom :",
+  heroNote: "Un numéro à vous dès {lock} par mois, payé d'avance et activé tout de suite :",
   trustLabel: "Nos engagements",
   trust: [
     { icon: "quebec", text: "Fait au Québec" },
@@ -409,11 +410,11 @@ const EN: Copy = {
   h1b: "from {lock} a month.",
   h1c: "Active as soon as you pay.",
   leadStrong: "Calls and texts on your phone and your computer.",
-  lead: "Over Wi‑Fi or data, at home or abroad. Pick your number below: it is held for you for 10 minutes.",
+  lead: "With a number, over Wi‑Fi or data, at home or abroad. Pick it below: it is held for you for 10 minutes.",
   ctaWeb: "Open the web app",
   heroLink: "start in the web app",
   ticks: ["A real Canadian number", "Free number transfer", "French first, bilingual"],
-  heroNote: "A number of your own from {lock} a month, paid up front and active right away. Without a number, text other MIMT users for free with your @handle:",
+  heroNote: "A number of your own from {lock} a month, paid up front and active right away:",
   trustLabel: "Our commitments",
   trust: [
     { icon: "quebec", text: "Made in Québec" },

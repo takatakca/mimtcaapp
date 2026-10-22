@@ -1,5 +1,15 @@
 # MIMT — Relève du développeur principal
 
+## Relève — 22 octobre 2026 (cursor, héros et appel entrant)
+
+- **Fait (code, pas encore en production) :** le héros de mimt.ca, en français et en anglais, dit qu'on peut texter gratuitement les autres utilisateurs MIMT avec @nom sans numéro, et les appeler entre applications. Le plafond affiché est `PLANS.free.caps.onNetMinutes` (120 sur le forfait Gratuit). Les appels ne sont pas décrits comme illimités.
+- **Fait (code) :** Web Push quand l'application sonne vraiment — appel par @nom, appel vers un numéro MIMT, ou appel du réseau téléphonique. Titre « Appel entrant » / « Incoming call ». L'écran verrouillé ne reçoit qu'un @nom ou un E.164 (jamais un identifiant utilisateur ni le texte d'un message). Le tap ouvre `/appels`. Le push expire en 60 secondes (`INCOMING_CALL_TTL_S`). Aucune notification sur refus, blocage, renvoi ou messagerie vocale.
+- **Fichiers :** `apps/web/lib/hero.ts`, `apps/web/components/pages/HomePage.tsx`, `apps/api/src/services/webPush.ts`, `apps/api/src/routes/twilioVoice.ts`, `apps/webphone/public/sw.js`.
+- **Vérifié localement :** tests API `incomingCallPush`, `webPush`, `voice`, `handleCalls`, `callControls`; tests site `site.test.ts`; typecheck web, webphone et API. Pas de secret lu. Pas d'appel 9-1-1 réel.
+- **Déploiement :** le site vitrine part tout seul après une CI verte sur `main`. L'API et `app.mimt.ca` (le service worker qui ferme la notification) ne partent pas tout seuls. Portée Deploy à lancer pour que le site, l'app et l'API suivent le même commit : **`all`**.
+- **PR :** [#40](https://github.com/takatakca/mimtcaapp/pull/40), commit `6677e3e2389756dc4e615e8a926efa8a3d2d779a` sur `cursor/hero-incoming-call-push-2e59`.
+- **Prochaine action exacte :** fusionner #40 quand les checks sont verts, puis lancer Actions → Deploy → portée `all` (chemins FTPS `./`). Ensuite comparer `https://mimt.ca/mimt-release.json` et `https://app.mimt.ca/mimt-release.json` au SHA fusionné, et `https://api.mimt.ca/healthz`. Cela ne certifie pas la téléphonie.
+
 ## Relève — 20 octobre 2026, sprint de lancement (claude, session 01GtWamF)
 
 - **Fait et en ligne :** PR #17 (AdSense) : `mimt.ca/ads.txt` = `google.com, pub-4518068873401341, DIRECT, f08c47fec0942fa0`; balise AdSense sur chaque page avec Consent Mode v2 refusé par défaut (Loi 25), bannière Accepter/Refuser + « Gérer les témoins »; page À propos; politique de confidentialité (témoins Google). PR #18 : modèle de marge `packages/shared/src/unitEconomics.ts` + `docs/MIMT-UNIT-ECONOMICS.md`. PR #20 (fork) : nouveaux forfaits (Essentiel 12,99 = code `lock`, Premium 29,99, Affaires 34,99, Pro 44,99), API refuse de démarrer si un forfait perd de l'argent, migration `0011_usage_messages.sql`.

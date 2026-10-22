@@ -289,7 +289,7 @@ export const fr = {
   "messages.needHandle": "Choisissez d'abord votre identifiant MIMT dans Compte pour texter gratuitement d'autres utilisateurs MIMT.",
   "nav.help": "Aide",
   "push.title": "Notifications",
-  "push.lead": "Soyez avisé d'un nouveau texto ou message vocal, même quand l'onglet est fermé. Le contenu n'apparaît jamais dans la notification.",
+  "push.lead": "Soyez avisé d'un appel entrant, d'un nouveau texto ou d'un message vocal, même quand l'onglet est fermé. Un appel montre seulement un @nom ou un numéro, jamais le texte d'un message.",
   "push.denied": "Les notifications sont bloquées pour app.mimt.ca dans votre navigateur. Autorisez-les dans les réglages du site.",
   "push.on": "Activer les notifications",
   "push.off": "Désactiver les notifications",

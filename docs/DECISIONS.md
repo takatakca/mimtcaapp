@@ -14,6 +14,7 @@ Dernière consolidation : 2026-10-14. Une proposition non validée n'est pas une
 | 2026-10 | **9-1-1 n'est jamais bloqué par les limites de forfait, solde ou suspension.** | Les avis, adresses, partenaires d'urgence et tests réels suivent leur procédure et autorisations; jamais de faux appel d'urgence. |
 | 2026-10 | Twilio pour Voice/SMS et intégration TAKATAK; Stripe pour la facturation selon le périmètre défini dans le code. | Activer en production seulement lorsque clés, webhooks, responsabilités contractuelles et conformité sont prouvés. |
 | 2026-10 | Vidéotron ou autre revendeur nécessite un accord et une API officielle. | Conserver l'adaptateur sandbox inactif côté production jusqu'à entente et validation. |
+| 2026-10-22 | **Écran verrouillé d'un appel entrant :** titre « Appel entrant » / « Incoming call », corps limité à un @nom ou un numéro E.164, ouverture de `/appels`, expiration 60 secondes. Pas de notification si l'appel est refusé, bloqué, renvoyé ou envoyé en messagerie. Le héros de mimt.ca dit les textos gratuits avec @nom et le plafond d'appels entre applications du forfait Gratuit (`PLANS.free.caps.onNetMinutes`, 120), sans appeler ces appels illimités. | Un écran verrouillé n'est pas un lieu privé (Loi 25). Le plafond vient du forfait, pas d'une phrase marketing. |
 
 ## Décisions non prises ou restant à documenter
 

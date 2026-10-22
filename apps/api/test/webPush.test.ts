@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MessageCipher } from "../src/lib/crypto.js";
 import { MemoryRepository } from "../src/repo/memory.js";
-import { pushPayload, vapidKeys, WebPushNotifier } from "../src/services/webPush.js";
+import { INCOMING_CALL_TTL_S, lockScreenCaller, pushPayload, vapidKeys, WebPushNotifier } from "../src/services/webPush.js";
 import { makeUser, setup, type Ctx } from "./helpers.js";
 
 const SUB = { endpoint: "https://fcm.googleapis.com/fcm/send/abc123", keys: { p256dh: "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM", auth: "tBHItJI5svbpez7KI4CCXg" } };
@@ -23,21 +23,52 @@ describe("Web Push service", () => {
     expect(JSON.stringify(p)).not.toContain("secret");
   });
 
+  it("incoming call: French or English title, /appels, 60s, and only an @handle or E.164 on the lock screen", () => {
+    const userId = "11111111-2222-4333-8444-555555555555";
+    expect(INCOMING_CALL_TTL_S).toBe(60);
+    expect(lockScreenCaller("@camille")).toBe("@camille");
+    expect(lockScreenCaller("+15145550100")).toBe("+15145550100");
+    expect(lockScreenCaller(userId)).toBeNull();
+    expect(lockScreenCaller(`client:${userId}`)).toBeNull();
+    expect(lockScreenCaller("secret message")).toBeNull();
+
+    const fr = pushPayload("incoming_call", { from: "@jules", text: "ne pas afficher", userId }, "fr-CA")!;
+    expect(fr).toEqual({ title: "Appel entrant", body: "@jules", url: "/appels", tag: "call", ttl: 60 });
+    const en = pushPayload("incoming_call", { from: "+15145550199" }, "en-CA")!;
+    expect(en).toEqual({ title: "Incoming call", body: "+15145550199", url: "/appels", tag: "call", ttl: 60 });
+    const hidden = pushPayload("incoming_call", { from: `client:${userId}`, text: "transcript" }, "fr-CA")!;
+    expect(hidden.body).toBe("");
+    expect(JSON.stringify(hidden)).not.toContain(userId);
+    expect(JSON.stringify(hidden)).not.toContain("transcript");
+  });
+
   it("sends to every subscription of the user and drops the ones the push service says are gone", async () => {
     const repo = new MemoryRepository();
     const cipher = new MessageCipher(MessageCipher.generateKey());
     const user = await repo.createUser({ globalUserId: null, locale: "en-CA", displayName: null });
     await repo.webPush.upsert({ userId: user.id, endpoint: SUB.endpoint, ...SUB.keys });
     await repo.webPush.upsert({ userId: user.id, endpoint: "https://updates.push.services.mozilla.com/gone", ...SUB.keys });
-    const send = vi.fn(async (s: { endpoint: string }, _payload: string) => {
+    const send = vi.fn(async (s: { endpoint: string }, _payload: string, _opts?: { TTL?: number }) => {
       if (s.endpoint.endsWith("/gone")) throw Object.assign(new Error("gone"), { statusCode: 410 });
     });
     const log = { info: vi.fn(), warn: vi.fn() };
     await new WebPushNotifier({ repo, cipher, log }, send as never).notify(user.id, "message_received", { from: "+15145550199" });
     expect(send).toHaveBeenCalledTimes(2);
     expect(JSON.parse(send.mock.calls[0]![1])).toMatchObject({ title: "New text", body: "From +15145550199" });
+    expect(send.mock.calls[0]![2]).toMatchObject({ TTL: 3600 });
     expect((await repo.webPush.listForUser(user.id)).map((s) => s.endpoint)).toEqual([SUB.endpoint]);
     expect(JSON.stringify(log.info.mock.calls)).not.toContain("5145550199");
+
+    send.mockClear();
+    await new WebPushNotifier({ repo, cipher, log }, send as never).notify(user.id, "incoming_call", {
+      from: "@camille",
+      text: "secret",
+    });
+    const sent = JSON.parse(send.mock.calls[0]![1]) as { body: string; ttl: number };
+    expect(sent).toMatchObject({ title: "Incoming call", body: "@camille", url: "/appels", ttl: 60 });
+    expect(send.mock.calls[0]![2]).toMatchObject({ TTL: 60 });
+    expect(JSON.stringify(sent)).not.toContain("secret");
+    expect(JSON.stringify(sent)).not.toContain(user.id);
   });
 });
 
