@@ -10,7 +10,7 @@ type AdsWindow = Window & { gtag?: (...args: unknown[]) => void; adsbygoogle?: {
 
 /** Tells Google about a choice: Consent Mode v2 update plus AdSense's non-personalised flag. */
 export function applyConsent(choice: ConsentChoice, w: AdsWindow = window): void {
-  w.gtag?.("consent", "update", { ad_storage: choice, ad_user_data: choice, ad_personalization: choice });
+  w.gtag?.("consent", "update", { ad_storage: choice, ad_user_data: choice, ad_personalization: choice, analytics_storage: choice });
   w.adsbygoogle = w.adsbygoogle || ([] as unknown as { requestNonPersonalizedAds?: number });
   w.adsbygoogle.requestNonPersonalizedAds = choice === "granted" ? 0 : 1;
 }

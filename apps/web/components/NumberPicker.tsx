@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { formatNanp, NUMBER_HOLD_MINUTES, type NumberHoldResponse, type PublicNumber, type PublicNumberSearchResponse } from "@mimt/shared";
 import { API_URL, APP_URL, type Lang } from "@/lib/site";
+import { trackNumberHeld } from "@/lib/tags";
 
 const CHIPS = ["514", "438", "450", "418", "819", "Toronto"];
 
@@ -94,6 +95,7 @@ export function NumberPicker({ lang, plan = "lock", id = "numero" }: { lang: Lan
         return;
       }
       setHold(body as NumberHoldResponse);
+      trackNumberHeld();
     } catch {
       setState({ kind: "error", message: errorText(undefined, fr) });
     } finally {

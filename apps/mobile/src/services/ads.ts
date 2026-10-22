@@ -10,7 +10,7 @@ import { getTrackingPermissionsAsync, requestTrackingPermissionsAsync } from "ex
 import { Platform } from "react-native";
 import type * as GoogleAds from "react-native-google-mobile-ads";
 
-type AdsSdk = typeof GoogleAds;
+export type AdsSdk = typeof GoogleAds;
 
 const PERSONALISED_KEY = "mimt.consent.ads_personalised";
 
@@ -94,6 +94,22 @@ export function adRequestOptions(userId?: string): {
 
 export function testUnitIds(ads: AdsSdk): { banner: string; rewarded: string } {
   return { banner: ads.TestIds.ADAPTIVE_BANNER, rewarded: ads.TestIds.REWARDED };
+}
+
+type UnitConfig = { banner: string | null; rewarded: string | null };
+const AD_UNIT = /^ca-app-pub-\d{16}\/\d{10}$/;
+
+/**
+ * Real ad units from app config (extra.admobUnits, set at build time) for this platform; any missing or malformed id
+ * falls back to Google's test unit, so ads switch on by themselves once the owner adds the ids.
+ */
+export function unitIds(ads: AdsSdk, platform: string, configured: Partial<Record<string, UnitConfig>> | undefined): { banner: string; rewarded: string } {
+  const test = testUnitIds(ads);
+  const mine = configured?.[platform];
+  return {
+    banner: mine?.banner && AD_UNIT.test(mine.banner) ? mine.banner : test.banner,
+    rewarded: mine?.rewarded && AD_UNIT.test(mine.rewarded) ? mine.rewarded : test.rewarded,
+  };
 }
 
 /** Google's privacy options form (required entry point when UMP says so). */
