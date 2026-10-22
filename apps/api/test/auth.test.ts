@@ -122,9 +122,16 @@ describe("MIMT sessions", () => {
 });
 
 describe("OTP fallback", () => {
-  it("answers 503 when Twilio Verify is not configured", async () => {
+  it("answers 503 when Twilio Verify is turned off", async () => {
+    await ctx.app.close();
+    ctx = await setup({ config: { TWILIO_VERIFY_SERVICE_SID: "off" } });
     const res = await ctx.app.inject({ method: "POST", url: "/v1/auth/otp/start", payload: { phone: "+15145550123" } });
     expect(res.statusCode).toBe(503);
+  });
+
+  it("uses the owner's Verify service « MIMT » by default", async () => {
+    expect(ctx.deps.config.TWILIO_VERIFY_SERVICE_SID).toBe("VAc17f03b98d76d6f0183445ab09458afc");
+    expect((await ctx.app.inject({ method: "POST", url: "/v1/auth/otp/start", payload: { phone: "+15145550123" } })).statusCode).toBe(202);
   });
 
   it("creates a phone-only user after a verified code", async () => {

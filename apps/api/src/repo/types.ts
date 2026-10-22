@@ -316,6 +316,8 @@ export interface Repository {
   /** Réunions MIMT (video meetings) storage: src/repo/meetings.ts. */
   readonly meetings: MeetingRepository;
   ping(): Promise<void>;
+  /** Names of applied migrations (Postgres only; absent in memory). Lets /readyz report schema drift. */
+  appliedMigrations?(): Promise<string[]>;
   close(): Promise<void>;
 
   createUser(u: New<User, "authUserId" | "email" | "phoneE164" | "phoneVerifiedAt" | "deviceVerifiedAt" | "deletionScheduledAt" | "status">): Promise<User>;

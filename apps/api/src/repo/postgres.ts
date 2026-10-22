@@ -117,6 +117,14 @@ export class PostgresRepository implements Repository {
     });
   }
 
+  async appliedMigrations() {
+    try {
+      return (await this.sql<{ name: string }[]>`select name from mimt_schema_migrations`).map((r) => r.name);
+    } catch {
+      return [];
+    }
+  }
+
   async ping() {
     await this.sql`select 1`;
   }
