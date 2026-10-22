@@ -1,5 +1,5 @@
 import { featureLabel, capLines, price, yearly, type Plan } from "@/lib/plans-view";
-import { href, type Lang } from "@/lib/site";
+import { APP_URL, href, type Lang } from "@/lib/site";
 
 const BLURB: Record<string, { fr: string; en: string }> = {
   free: { fr: "Entre applications MIMT, avec publicités.", en: "Between MIMT apps, with ads." },
@@ -42,9 +42,19 @@ export function PlanCard({ plan, lang, highlight, compact }: { plan: Plan; lang:
       </ul>
       <a
         className={`btn ${highlight ? "btn--primary" : "btn--outline"} plan__cta`}
-        href={isBiz ? href(lang, "business", "demo") : href(lang, "home", fr ? "liste-attente" : "waitlist")}
+        href={isBiz ? href(lang, "business", "numero") : plan.code === "free" ? APP_URL : href(lang, "home", "numero")}
       >
-        {isBiz ? (fr ? "Demander une démo" : "Request a demo") : fr ? "Obtenir l'accès anticipé" : "Get early access"}
+        {isBiz
+          ? fr
+            ? "Réserver mon numéro d'affaires"
+            : "Reserve my business number"
+          : plan.code === "free"
+            ? fr
+              ? "Commencer gratuitement"
+              : "Start for free"
+            : fr
+              ? "Obtenir mon numéro"
+              : "Get my number"}
       </a>
     </article>
   );

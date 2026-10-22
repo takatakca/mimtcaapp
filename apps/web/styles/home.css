@@ -814,7 +814,7 @@ html[data-scrolled] .wordmark__name {
 }
 @media (min-width: 900px) {
   .how {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 26px;
   }
   .how::before {
@@ -1805,4 +1805,19 @@ html[data-sheet] .mobile-cta {
   text-align: center;
   font-size: 0.78rem;
   color: var(--silver);
+}
+
+/* Launch offer banner on the home page (true facts only). */
+.offer-banner {
+  margin: 0;
+  padding: 9px var(--gutter);
+  text-align: center;
+  font-size: 0.9rem;
+  background: var(--brand);
+  color: var(--white);
+}
+.offer-banner a {
+  color: var(--white);
+  font-weight: 700;
+  text-decoration: underline;
 }
