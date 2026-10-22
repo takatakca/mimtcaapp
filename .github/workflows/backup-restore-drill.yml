@@ -1,0 +1,86 @@
+name: Backup restore drill
+
+# Proves MIMT Postgres backups can be restored (docs/MIMT-BACKUPS.md). Restores into a throwaway Postgres 17
+# and checks schema + data (scripts/db/restore-drill.sh).
+#  1. Self-test (always): a synthetic dump with every migration, so the drill itself never rots.
+#  2. Real backup (weekly / manual): only when the secret MIMT_BACKUP_URL (HTTPS link to the latest dump,
+#     e.g. a presigned R2/B2 URL) exists. Optional MIMT_BACKUP_AGE_IDENTITY for age-encrypted dumps made by
+#     scripts/db/backup-mimt.sh. Without the secret: a warning annotation, not a failure.
+on:
+  schedule:
+    - cron: "17 7 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - scripts/db/restore-drill.sh
+      - scripts/db/drill-fixture.sh
+      - .github/workflows/backup-restore-drill.yml
+      - supabase/migrations/**
+
+permissions:
+  contents: read
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: drill
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DRILL_DATABASE_URL: postgresql://postgres:drill@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      # Postgres 17 client tools (they restore dumps from any older server) run from the official image.
+      - name: Self-test on a synthetic dump with every migration
+        run: |
+          set -euo pipefail
+          tools() { docker run --rm --network host -e DRILL_DATABASE_URL -v "$PWD:/repo" -w /repo postgres:17 bash "$@"; }
+          tools scripts/db/drill-fixture.sh /repo/fixture.dump
+          tools scripts/db/restore-drill.sh /repo/fixture.dump
+          rm -f fixture.dump
+      - name: Restore the latest real backup
+        if: github.event_name != 'pull_request'
+        env:
+          MIMT_BACKUP_URL: ${{ secrets.MIMT_BACKUP_URL }}
+          MIMT_BACKUP_AGE_IDENTITY: ${{ secrets.MIMT_BACKUP_AGE_IDENTITY }}
+          # Preferred: a READ-ONLY key on the backup bucket, so the drill always takes the newest dump.
+          MIMT_BACKUP_S3_BUCKET: ${{ secrets.MIMT_BACKUP_S3_BUCKET }}
+          MIMT_BACKUP_S3_PREFIX: ${{ secrets.MIMT_BACKUP_S3_PREFIX }}
+          AWS_ENDPOINT_URL: ${{ secrets.MIMT_BACKUP_S3_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.MIMT_BACKUP_S3_READONLY_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.MIMT_BACKUP_S3_READONLY_SECRET }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          set -euo pipefail
+          umask 077
+          if [[ -n "${MIMT_BACKUP_S3_BUCKET:-}" ]]; then
+            prefix="${MIMT_BACKUP_S3_PREFIX:-}"
+            latest="$(aws s3api list-objects-v2 --bucket "$MIMT_BACKUP_S3_BUCKET" ${prefix:+--prefix "$prefix"} \
+              --query 'sort_by(Contents, &LastModified)[-1].[Key,LastModified]' --output text)"
+            key="${latest%%$'\t'*}"
+            [[ -n "$key" && "$key" != "None" ]] || { echo "::error title=No backup found::The bucket has no backup under '${prefix}'."; exit 1; }
+            echo "latest backup: $latest"
+            age_days=$(( ( $(date +%s) - $(date -d "${latest##*$'\t'}" +%s) ) / 86400 ))
+            (( age_days <= 2 )) || { echo "::error title=Backup too old::Newest backup is ${age_days} days old: daily backups have stopped."; exit 1; }
+            aws s3 cp --only-show-errors "s3://$MIMT_BACKUP_S3_BUCKET/$key" backup.dump
+          elif [[ -n "${MIMT_BACKUP_URL:-}" ]]; then
+            curl -fsSL --retry 3 -o backup.dump "$MIMT_BACKUP_URL"
+          else
+            echo "::warning title=No backup to drill::Neither MIMT_BACKUP_S3_BUCKET nor MIMT_BACKUP_URL is set, so no real backup was restored (only the self-test ran). See docs/MIMT-BACKUPS.md."
+            exit 0
+          fi
+          identity=""
+          if [[ -n "${MIMT_BACKUP_AGE_IDENTITY:-}" ]]; then
+            printf '%s\n' "$MIMT_BACKUP_AGE_IDENTITY" > age-identity.txt
+            identity=/repo/age-identity.txt
+          fi
+          docker run --rm --network host -e DRILL_DATABASE_URL -e MIMT_BACKUP_AGE_IDENTITY_FILE="$identity" -v "$PWD:/repo" -w /repo postgres:17 \
+            bash -c 'if [ -n "$MIMT_BACKUP_AGE_IDENTITY_FILE" ]; then apt-get update -qq && apt-get install -y -qq age >/dev/null; else unset MIMT_BACKUP_AGE_IDENTITY_FILE; fi; scripts/db/restore-drill.sh /repo/backup.dump'
+          rm -f backup.dump age-identity.txt
