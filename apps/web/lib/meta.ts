@@ -138,6 +138,38 @@ export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; descripti
     fr: { title: "À propos de MIMT", description: "Qui est derrière MIMT : une entreprise québécoise de GROUPE TAKATAK qui offre numéros canadiens, appels et textos par Internet." },
     en: { title: "About MIMT", description: "Who is behind MIMT: a Québec company of GROUPE TAKATAK offering Canadian numbers, calls and texts over the internet." },
   },
+  cityMontreal: {
+    fr: { title: "Numéro virtuel Montréal (514, 438)", description: "Un numéro de Montréal (514, 438, 263) dans une app : appels et textos par Wi‑Fi ou données, sur cellulaire et ordinateur. Réservez-le en ligne." },
+    en: { title: "Virtual number in Montréal (514, 438)", description: "A Montréal number (514, 438, 263) in an app: calls and texts over Wi‑Fi or data, on your phone and computer. Reserve it online." },
+  },
+  cityQuebec: {
+    fr: { title: "Numéro virtuel à Québec (418, 581)", description: "Un numéro local de Québec (418, 581, 367) dans une app : appels et textos par Wi‑Fi ou données. Fait au Québec, en français d'abord." },
+    en: { title: "Virtual number in Québec City (418, 581)", description: "A local Québec City number (418, 581, 367) in an app: calls and texts over Wi‑Fi or data. Made in Québec, French first." },
+  },
+  cityLaval: {
+    fr: { title: "Numéro virtuel à Laval (450, 579)", description: "Un numéro local de Laval et de la couronne (450, 579, 354) dans une app : appels et textos par Wi‑Fi ou données mobiles." },
+    en: { title: "Virtual number in Laval (450, 579)", description: "A local Laval and Greater Montréal number (450, 579, 354) in an app: calls and texts over Wi‑Fi or mobile data." },
+  },
+  cityGatineau: {
+    fr: { title: "Numéro virtuel à Gatineau (819, 873)", description: "Un numéro local de Gatineau et de l'Outaouais (819, 873, 468) dans une app : appels et textos par Wi‑Fi ou données." },
+    en: { title: "Virtual number in Gatineau (819, 873)", description: "A local Gatineau and Outaouais number (819, 873, 468) in an app: calls and texts over Wi‑Fi or data." },
+  },
+  cityToronto: {
+    fr: { title: "Numéro virtuel à Toronto (416, 437)", description: "Un numéro local de Toronto (416, 647, 437) dans une app canadienne : appels et textos par Wi‑Fi ou données, en français et en anglais." },
+    en: { title: "Virtual number in Toronto (416, 437)", description: "A local Toronto number (416, 647, 437) in a Canadian app: calls and texts over Wi‑Fi or data, in English and French." },
+  },
+  useVirtual: {
+    fr: { title: "Numéro de téléphone virtuel canadien", description: "Un vrai numéro canadien dans une app, sans carte SIM : appels et textos par Wi‑Fi ou données, transfert de numéro sans frais MIMT." },
+    en: { title: "Canadian virtual phone number", description: "A real Canadian number in an app, no SIM card: calls and texts over Wi‑Fi or data, number transfer with no MIMT fee." },
+  },
+  useSecond: {
+    fr: { title: "Deuxième numéro sur votre cellulaire", description: "Ajoutez un deuxième numéro canadien à votre cellulaire : travail, revente en ligne ou rencontres, sans changer de forfait ni de téléphone." },
+    en: { title: "Second phone number on your mobile", description: "Add a second Canadian number to your mobile for work, online selling or dating, without changing plan or phone." },
+  },
+  useVoip: {
+    fr: { title: "Téléphonie IP d'affaires au Québec", description: "Système téléphonique VoIP pour entreprises du Québec : postes, accueil bilingue, groupes de sonnerie, jours fériés du Québec. Par ligne, sans appareil." },
+    en: { title: "Business VoIP phone system in Québec", description: "VoIP phone system for Québec businesses: extensions, bilingual greeting, ring groups, Québec holidays. Per line, no hardware." },
+  },
 };
 
 /** Next.js metadata (canonical, hreflang fr-CA/en-CA, Open Graph, Twitter) for one page. */

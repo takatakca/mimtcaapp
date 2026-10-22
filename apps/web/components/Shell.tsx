@@ -93,6 +93,7 @@ function Footer({ lang }: { lang: Lang }) {
   const year = new Date().getFullYear();
   const cols: { title: string; keys: RouteKey[] }[] = [
     { title: fr ? "Produits" : "Products", keys: ["home", "business", "ai", "webapp", "plans", "compare", "soon"] },
+    { title: fr ? "Numéros" : "Numbers", keys: ["useVirtual", "useSecond", "useVoip", "cityMontreal", "cityQuebec", "cityLaval", "cityGatineau", "cityToronto"] },
     { title: fr ? "Soutien" : "Support", keys: ["about", "help", "contact", "complaints"] },
     { title: fr ? "Légal" : "Legal", keys: ["e911", "privacy", "terms", "accessibility"] },
   ];
