@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { api } from "../api/client";
 import { ApiClientError } from "../api/errors";
 import { useSession } from "../auth/session";
 import { useI18n } from "../i18n";
-import { adRequestOptions, adsEnabledFor, initAds, loadAdsSdk, testUnitIds } from "../services/ads";
+import { adRequestOptions, adsEnabledFor, initAds, loadAdsSdk, unitIds, type AdsSdk } from "../services/ads";
+
+const units = (ads: AdsSdk) => unitIds(ads, Platform.OS, (Constants.expoConfig?.extra as { admobUnits?: Parameters<typeof unitIds>[2] } | undefined)?.admobUnits);
+import Constants from "expo-constants";
 import { spacing } from "../theme";
 import { Body, Button, Notice } from "./ui";
 
@@ -32,7 +35,7 @@ export function AdBanner() {
   return (
     <View style={{ alignItems: "center", marginVertical: spacing.sm }}>
       <BannerAd
-        unitId={testUnitIds(ads).banner}
+        unitId={units(ads).banner}
         size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
         requestOptions={adRequestOptions()}
       />
@@ -56,7 +59,7 @@ export function RewardButton() {
     const ads = loadAdsSdk();
     if (!ready || !ads) return;
     const { RewardedAd, RewardedAdEventType, AdEventType } = ads;
-    unitRef.current = testUnitIds(ads).rewarded;
+    unitRef.current = units(ads).rewarded;
     const ad = RewardedAd.createForAdRequest(unitRef.current, adRequestOptions(userId));
     adRef.current = ad;
     const offs = [

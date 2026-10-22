@@ -1,0 +1,29 @@
+name: Uptime (mimt.ca, app, API)
+
+# Every 10 minutes: scripts/monitor/uptime.sh checks the site (with ads.txt), the web app and the API
+# (healthz + readyz with the database). 3 attempts 20 s apart per service. A real outage opens one issue
+# « Panne: <service> » labelled incident; recovery comments and closes it. GitHub notifies the repo owner.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check services and open/close incident issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: scripts/monitor/uptime.sh

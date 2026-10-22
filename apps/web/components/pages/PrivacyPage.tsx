@@ -264,7 +264,11 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
                   .
                 </li>
               </ul>
-              <p>Nous n&apos;utilisons aucun autre outil de suivi ni de mesure d&apos;audience sur ce site.</p>
+              <p>
+                Mesure d&apos;audience : si vous l&apos;acceptez dans la même bannière, Google Analytics 4 et la mesure de
+                conversion de Google Ads enregistrent des témoins pour compter les visites et les réservations de numéro. Sans
+                votre accord, aucun témoin de mesure n&apos;est déposé. Nous n&apos;utilisons aucun autre outil de suivi.
+              </p>
             </>
           ) : (
             <>
@@ -316,7 +320,11 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
                   .
                 </li>
               </ul>
-              <p>We use no other tracking or audience measurement tools on this site.</p>
+              <p>
+                Audience measurement: if you accept in the same banner, Google Analytics 4 and Google Ads conversion measurement set
+                cookies to count visits and number holds. Without your agreement, no measurement cookie is set. We use no other
+                tracking tools.
+              </p>
             </>
           )}
           <p className="fineprint">

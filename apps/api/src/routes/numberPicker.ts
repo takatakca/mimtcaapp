@@ -1,7 +1,9 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import {
+  AREA_CODE_FALLBACKS,
   CANADIAN_AREA_CODES,
+  fallbackMessage,
   NANP_E164,
   NUMBER_HOLD_MINUTES,
   NUMBER_SEARCH_CACHE_SECONDS,
@@ -90,21 +92,45 @@ export async function numberPickerRoutes(app: FastifyInstance, deps: AppDeps) {
     if (!resolved) throw badRequest("unknown_place", "Entrez un indicatif canadien (ex. 514) ou une ville.");
     if (!deps.twilio) throw notConfigured("Number search");
 
-    const numbers: PublicNumber[] = [];
+    // Asked area codes first; if they are all sold out, the closest neighbours (AREA_CODE_FALLBACKS), said plainly.
+    const tried = new Set<string>();
     let failures = 0;
-    for (const code of resolved.areaCodes) {
-      if (numbers.length >= RESULTS) break;
-      try {
-        numbers.push(...(await stillFree(await searchAreaCode(code))));
-      } catch (err) {
-        // One area code failing at the carrier must not hide the others; the cause goes to the logs.
-        failures++;
-        req.log.warn({ err, areaCode: code }, "Carrier number search failed");
+    let carrierCode: string | number | undefined;
+    async function collect(codes: readonly string[]): Promise<PublicNumber[]> {
+      const out: PublicNumber[] = [];
+      for (const code of codes) {
+        if (out.length >= RESULTS || tried.has(code)) continue;
+        tried.add(code);
+        try {
+          out.push(...(await stillFree(await searchAreaCode(code))));
+        } catch (err) {
+          // One area code failing at the carrier must not hide the others; the cause goes to the logs.
+          failures++;
+          carrierCode ??= (err as { code?: string | number; status?: number }).code ?? (err as { status?: number }).status;
+          req.log.warn({ err, areaCode: code }, "Carrier number search failed");
+        }
+      }
+      return out;
+    }
+    let numbers = await collect(resolved.areaCodes);
+    let fallback: PublicNumberSearchResponse["fallback"];
+    if (!numbers.length) {
+      const asked = resolved.areaCodes[0]!;
+      for (const next of AREA_CODE_FALLBACKS[asked] ?? []) {
+        const found = await collect([next]);
+        if (found.length) {
+          numbers = found;
+          fallback = { from: asked, to: next, message: { fr: fallbackMessage(asked, next, "fr"), en: fallbackMessage(asked, next, "en") } };
+          break;
+        }
       }
     }
-    if (failures === resolved.areaCodes.length) throw new HttpError(503, "carrier_unavailable", "La recherche de numéros ne répond pas. Réessayez dans un instant.");
+    if (!numbers.length && failures === tried.size) {
+      // The carrier's error code (public, e.g. 20003 auth, 20404 not found) helps diagnose without logs access.
+      throw new HttpError(503, "carrier_unavailable", `La recherche de numéros ne répond pas. Réessayez dans un instant.${carrierCode ? ` (code ${carrierCode})` : ""}`);
+    }
     reply.header("Cache-Control", "no-store");
-    return { label: resolved.label, areaCodes: resolved.areaCodes, numbers: numbers.slice(0, RESULTS) };
+    return { label: resolved.label, areaCodes: resolved.areaCodes, numbers: numbers.slice(0, RESULTS), ...(fallback ? { fallback } : {}) };
   });
 
   app.post("/v1/public/numbers/holds", async (req, reply) => {

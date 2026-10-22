@@ -14,6 +14,7 @@ import { formatPhone } from "../lib/dial";
 import { usageRows } from "../lib/usage";
 
 import { useAsync } from "../lib/useAsync";
+import { disableWebPush, enableWebPush, webPushState, type PushState } from "../lib/webPush";
 
 const USAGE_LABEL: Record<"outboundMinutes" | "inboundMinutes" | "messages", TKey> = {
   outboundMinutes: "account.usageOutMin",
@@ -71,6 +72,8 @@ export function Account() {
       </div>
 
       <HandleSection />
+
+      <PushSection />
 
       <E911Section />
 
@@ -177,6 +180,41 @@ function PortalButton() {
     >
       {t("account.billingPortal")}
     </button>
+  );
+}
+
+/** Browser notifications for new texts and voicemails (Web Push). */
+function PushSection() {
+  const { t } = useI18n();
+  const [state, setState] = useState<PushState | "busy">("off");
+  useEffect(() => {
+    void webPushState().then(setState);
+  }, []);
+  if (state === "unsupported") return null;
+  const toggle = async () => {
+    const was = state;
+    setState("busy");
+    try {
+      if (was === "on") {
+        await disableWebPush();
+        setState("off");
+      } else setState((await enableWebPush()) ? "on" : await webPushState());
+    } catch {
+      setState(await webPushState());
+    }
+  };
+  return (
+    <section className="card" aria-labelledby="push-h">
+      <h2 id="push-h" className="card__title">
+        {t("push.title")}
+      </h2>
+      <p>{state === "denied" ? t("push.denied") : t("push.lead")}</p>
+      {state === "denied" ? null : (
+        <button type="button" className={`btn ${state === "on" ? "btn--ghost" : "btn--primary"}`} disabled={state === "busy"} onClick={() => void toggle()}>
+          {state === "on" ? t("push.off") : t("push.on")}
+        </button>
+      )}
+    </section>
   );
 }
 

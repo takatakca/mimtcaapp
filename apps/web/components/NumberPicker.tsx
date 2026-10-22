@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { formatNanp, NUMBER_HOLD_MINUTES, type NumberHoldResponse, type PublicNumber, type PublicNumberSearchResponse } from "@mimt/shared";
 import { API_URL, APP_URL, type Lang } from "@/lib/site";
+import { trackNumberHeld } from "@/lib/tags";
 
 const CHIPS = ["514", "438", "450", "418", "819", "Toronto"];
 
@@ -94,6 +95,7 @@ export function NumberPicker({ lang, plan = "lock", id = "numero" }: { lang: Lan
         return;
       }
       setHold(body as NumberHoldResponse);
+      trackNumberHeld();
     } catch {
       setState({ kind: "error", message: errorText(undefined, fr) });
     } finally {
@@ -199,10 +201,11 @@ export function NumberPicker({ lang, plan = "lock", id = "numero" }: { lang: Lan
         {state.kind === "results" ? (
           state.data.numbers.length ? (
             <>
+              {state.data.fallback ? <p className="picker__status picker__status--note">{state.data.fallback.message[lang]}</p> : null}
               <p className="picker__status">
                 {fr
-                  ? `${state.data.numbers.length} numéros libres maintenant · ${state.data.label.fr}`
-                  : `${state.data.numbers.length} numbers free right now · ${state.data.label.en}`}
+                  ? `${state.data.numbers.length} numéros libres maintenant · ${state.data.fallback ? state.data.fallback.to : state.data.label.fr}`
+                  : `${state.data.numbers.length} numbers free right now · ${state.data.fallback ? state.data.fallback.to : state.data.label.en}`}
               </p>
               <ul className="picker__list">
                 {state.data.numbers.map((n) => (

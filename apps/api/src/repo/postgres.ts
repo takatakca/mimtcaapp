@@ -9,6 +9,7 @@ import { PostgresMediaRepository } from "./mediaPostgres.js";
 import { PostgresReferralRepository } from "./referralsPostgres.js";
 import { PostgresNumberHoldRepository } from "./numberHoldsPostgres.js";
 import { PostgresHandleRepository } from "./handlesPostgres.js";
+import { PostgresWebPushRepository } from "./webPushPostgres.js";
 import { PostgresPortInRepository } from "./portInPostgres.js";
 import { PostgresMeetingRepository } from "./meetingsPostgres.js";
 import type {
@@ -93,6 +94,11 @@ export class PostgresRepository implements Repository {
     return (this.handleRepo ??= new PostgresHandleRepository(this.sql));
   }
 
+  private webPushRepo?: PostgresWebPushRepository;
+  get webPush(): PostgresWebPushRepository {
+    return (this.webPushRepo ??= new PostgresWebPushRepository(this.sql));
+  }
+
   constructor(databaseUrl: string, opts: { max?: number; sslCaPem?: string } = {}) {
     const tls = resolvePostgresTls(databaseUrl, opts.sslCaPem);
     this.tlsCaSource = tls.caSource;
@@ -109,6 +115,14 @@ export class PostgresRepository implements Repository {
       },
       onnotice: () => {},
     });
+  }
+
+  async appliedMigrations() {
+    try {
+      return (await this.sql<{ name: string }[]>`select name from mimt_schema_migrations`).map((r) => r.name);
+    } catch {
+      return [];
+    }
   }
 
   async ping() {

@@ -6,6 +6,7 @@ import type { MediaRepository } from "./mediaTypes.js";
 import type { ReferralRepository } from "./referrals.js";
 import type { NumberHoldRepository } from "./numberHolds.js";
 import type { HandleRepository } from "./handles.js";
+import type { WebPushRepository } from "./webPush.js";
 import type { PortInRepository } from "./portIn.js";
 import type { MeetingRepository } from "./meetings.js";
 
@@ -308,11 +309,15 @@ export interface Repository {
   readonly numberHolds: NumberHoldRepository;
   /** MIMT handles (@nom): src/repo/handles.ts. */
   readonly handles: HandleRepository;
+  /** Web Push subscriptions and server keys: src/repo/webPush.ts. */
+  readonly webPush: WebPushRepository;
   /** Number port-in (landline/VoIP into MIMT) storage: src/repo/portIn.ts. */
   readonly portIns: PortInRepository;
   /** Réunions MIMT (video meetings) storage: src/repo/meetings.ts. */
   readonly meetings: MeetingRepository;
   ping(): Promise<void>;
+  /** Names of applied migrations (Postgres only; absent in memory). Lets /readyz report schema drift. */
+  appliedMigrations?(): Promise<string[]>;
   close(): Promise<void>;
 
   createUser(u: New<User, "authUserId" | "email" | "phoneE164" | "phoneVerifiedAt" | "deviceVerifiedAt" | "deletionScheduledAt" | "status">): Promise<User>;

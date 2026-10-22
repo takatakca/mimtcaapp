@@ -29,6 +29,14 @@ export const ROUTES = {
   accessibility: { fr: "/accessibilite/", en: "/en/accessibility/" },
   contact: { fr: "/contact/", en: "/en/contact/" },
   about: { fr: "/a-propos/", en: "/en/about/" },
+  cityMontreal: { fr: "/numero-virtuel-montreal/", en: "/en/virtual-number-montreal/" },
+  cityQuebec: { fr: "/numero-virtuel-quebec/", en: "/en/virtual-number-quebec-city/" },
+  cityLaval: { fr: "/numero-virtuel-laval/", en: "/en/virtual-number-laval/" },
+  cityGatineau: { fr: "/numero-virtuel-gatineau/", en: "/en/virtual-number-gatineau/" },
+  cityToronto: { fr: "/numero-virtuel-toronto/", en: "/en/virtual-number-toronto/" },
+  useVirtual: { fr: "/numero-virtuel/", en: "/en/virtual-phone-number/" },
+  useSecond: { fr: "/deuxieme-numero/", en: "/en/second-phone-number/" },
+  useVoip: { fr: "/telephonie-ip-affaires/", en: "/en/business-voip/" },
 } as const;
 
 export type RouteKey = keyof typeof ROUTES;
@@ -53,6 +61,14 @@ export const LABELS: Record<RouteKey, { fr: string; en: string }> = {
   accessibility: { fr: "Accessibilité", en: "Accessibility" },
   contact: { fr: "Contact", en: "Contact" },
   about: { fr: "À propos", en: "About" },
+  cityMontreal: { fr: "Montréal", en: "Montréal" },
+  cityQuebec: { fr: "Québec", en: "Québec City" },
+  cityLaval: { fr: "Laval", en: "Laval" },
+  cityGatineau: { fr: "Gatineau", en: "Gatineau" },
+  cityToronto: { fr: "Toronto", en: "Toronto" },
+  useVirtual: { fr: "Numéro virtuel", en: "Virtual number" },
+  useSecond: { fr: "Deuxième numéro", en: "Second number" },
+  useVoip: { fr: "Téléphonie IP d'affaires", en: "Business VoIP" },
 };
 
 export const MAIN_NAV: RouteKey[] = ["plans", "business", "ai", "soon", "help", "contact"];

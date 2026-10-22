@@ -63,7 +63,9 @@ export async function twilioSmsWebhooks(app: FastifyInstance, deps: AppDeps) {
     if (message.numMedia > 0) {
       await ingestInboundMedia(deps, req.log, message, p).catch((err: unknown) => req.log.error({ err }, "inbound MMS ingest failed"));
     }
-    // TODO: push notification to the owner's devices.
+    // Push to the owner's browsers/devices: sender only, never the text (services/webPush.ts). Never fails the webhook.
+    const owner = await repo.getAccount(accountId);
+    if (owner) void deps.notifier.notify(owner.ownerUserId, "message_received", { from: p.From }).catch(() => undefined);
     return sendTwiml(reply, empty);
   });
 

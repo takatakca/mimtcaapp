@@ -9,7 +9,9 @@ export type NotificationTemplate =
   /** A caller left a message with the AI receptionist. */
   | "ai_receptionist_message"
   /** data.months, data.plan: a referral earned a free month. */
-  | "referral_reward";
+  | "referral_reward"
+  /** data.from: number or @handle of the sender. Never the text itself. */
+  | "message_received";
 
 /** Push/email delivery. A placeholder is NOT delivery; never log notification payloads. */
 export interface Notifier {
