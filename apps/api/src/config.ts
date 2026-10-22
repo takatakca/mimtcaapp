@@ -126,6 +126,8 @@ const EnvSchema = z
     /** Signs meeting tokens and verifies LiveKit webhooks. Never returned nor logged. */
     LIVEKIT_API_SECRET: optional,
     /** Free-tier cost guard (services/freeTier.ts). New free numbers per UTC day; 0 = no new free numbers. */
+    /** Number recycling applies only to numbers created on or after this date; older numbers are never touched. */
+    NUMBER_LIFECYCLE_FROM: z.coerce.date().default(new Date("2026-10-23T00:00:00Z")),
     FREE_NEW_NUMBERS_PER_DAY: z.coerce.number().int().min(0).max(100_000).default(5),
     /** Free-tier cost guard: numbers held (active/locked/grace) by accounts without a live paid plan; 0 = no new free numbers. */
     FREE_ACTIVE_NUMBERS_MAX: z.coerce.number().int().min(0).max(1_000_000).default(50),
