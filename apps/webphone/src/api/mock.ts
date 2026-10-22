@@ -396,6 +396,11 @@ function initialState(): State {
         deleteAfter: new Date(Date.now() + 90 * 86_400_000).toISOString(),
         audioUrl: SILENT_WAV,
         audioUrlExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+        summary: {
+          text: "Une cliente demande une soumission pour l'entretien de sa thermopompe. Elle est disponible les matins de semaine.",
+          actionItems: ["Envoyer la soumission par courriel", "Proposer une visite un matin de semaine"],
+          locale: "fr-CA",
+        },
       },
     ],
     services: [],
