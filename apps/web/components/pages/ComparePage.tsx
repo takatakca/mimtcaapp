@@ -1,6 +1,7 @@
 import { PageHero, Shell } from "@/components/Shell";
 import { INACTIVITY_WARNING_DAYS, PLANS, QUARANTINE_DAYS, formatCad } from "@mimt/shared";
 import { href, type Lang } from "@/lib/site";
+import rivalData from "@/content/rivals.json";
 
 type Row = { topic: string; mimt: string; typical: string };
 
@@ -101,14 +102,12 @@ export function ComparePage({ lang }: { lang: Lang }) {
   const notYet = fr
     ? [
         "Appels illimités sur le forfait gratuit : non, le forfait gratuit garde une limite pour couvrir les coûts et prévenir la fraude.",
-        "Transfert de votre numéro actuel vers MIMT : prévu, pas confirmé pour le lancement.",
         "Messagerie vocale par courriel, appels conférence et textos de groupe : prévus après le lancement.",
         "Textos internationaux : pas offerts pour le moment.",
         "Internet et cellulaire : bientôt seulement.",
       ]
     : [
         "Unlimited calling on the free plan: no, the free plan keeps a limit to cover costs and prevent fraud.",
-        "Porting your current number to MIMT: planned, not confirmed for launch.",
         "Voicemail to email, conference calls and group texts: planned after launch.",
         "International texts: not offered for now.",
         "Internet and mobile: coming soon only.",
@@ -152,8 +151,43 @@ export function ComparePage({ lang }: { lang: Lang }) {
           </div>
           <p className="fineprint">
             {fr
-              ? "MIMT n'est pas encore offert; les prix sont proposés pour le lancement, avant taxes. Les offres des autres applications changent souvent : vérifiez-les sur leur site."
-              : "MIMT is not available yet; prices are proposed for launch, before taxes. Other apps' offers change often: check them on their own sites."}
+              ? "Prix MIMT avant taxes. Les offres des autres applications changent souvent : vérifiez-les sur leur site."
+              : "MIMT prices before taxes. Other apps' offers change often: check them on their own sites."}
+          </p>
+        </div>
+      </section>
+      <section className="section" aria-labelledby="cmp-named">
+        <div className="container prose">
+          <h2 id="cmp-named">{rivalData.title[lang]}</h2>
+          <p>
+            {fr
+              ? `Seulement ce que ces entreprises écrivent elles-mêmes sur leur site, avec le lien. Vérifié le ${rivalData.checked}.`
+              : `Only what these companies state on their own sites, with the link. Checked on ${rivalData.checked}.`}
+          </p>
+          {rivalData.rivals.map((r) => (
+            <div key={r.name}>
+              <h3>{r.name}</h3>
+              <ul>
+                {r.facts.map((f) => (
+                  <li key={f.source + f.en}>
+                    {f[lang]}{" "}
+                    <a href={f.source} rel="nofollow noopener" target="_blank">
+                      source
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <p>
+            {fr
+              ? "Chez MIMT, le numéro reste à vous tant que le forfait est payé, même sans activité, et aucune option n'est nécessaire pour le garder."
+              : "With MIMT, your number stays yours as long as the plan is paid, even when inactive, and no add-on is needed to keep it."}
+          </p>
+          <p>
+            <a className="btn btn--primary" href={href(lang, "home", "numero")}>
+              {fr ? "Obtenir mon numéro" : "Get my number"}
+            </a>
           </p>
         </div>
       </section>
@@ -166,7 +200,7 @@ export function ComparePage({ lang }: { lang: Lang }) {
             ))}
           </ul>
           <p>
-            <a className="btn btn--primary" href={href(lang, "plans")}>
+            <a className="btn" href={href(lang, "plans")}>
               {fr ? "Voir les forfaits" : "See plans"}
             </a>
           </p>

@@ -138,10 +138,10 @@ export function PlansPage({ lang }: { lang: Lang }) {
       <section className="section" aria-labelledby="mobile-plans">
         <div className="container">
           <div className="notice notice--info" role="note">
-            <strong>{fr ? "Prix proposés pour le lancement." : "Proposed launch prices."}</strong>{" "}
+            <strong>{fr ? "Prix de lancement, avant taxes." : "Launch prices, before taxes."}</strong>{" "}
             {fr
-              ? "MIMT n'est pas encore offert. Les prix et les limites peuvent changer d'ici le lancement; nous les confirmerons avant toute inscription payante."
-              : "MIMT is not available yet. Prices and limits may change before launch; we'll confirm them before any paid sign-up."}
+              ? "Le prix affiché est celui que vous payez chaque mois, sans contrat; le numéro est activé dès le paiement."
+              : "The price shown is what you pay each month, no contract; your number is activated as soon as payment goes through."}
           </div>
           <h2 id="mobile-plans">MIMT Mobile</h2>
           <div className="grid grid--3">

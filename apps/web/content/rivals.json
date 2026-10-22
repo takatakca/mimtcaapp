@@ -1,0 +1,51 @@
+{
+  "checked": "2026-10-22",
+  "title": {
+    "fr": "Ce que publient TextNow et Fongo",
+    "en": "What TextNow and Fongo publish"
+  },
+  "rivals": [
+    {
+      "name": "TextNow",
+      "facts": [
+        {
+          "fr": "Numéro gratuit : TextNow le retire d'un compte s'il ne sert pas pendant un certain temps, pour le donner à quelqu'un d'autre.",
+          "en": "Free number: TextNow removes it from an account when it goes unused for a while, to give it to someone else.",
+          "source": "https://www.textnow.com/blog/flexible-add-ons-from-textnow-explained"
+        },
+        {
+          "fr": "Pour garder le numéro sans activité, il faut l'option payante « Lock In Number » ou l'abonnement Ad Free+.",
+          "en": "To keep the number without activity you need the paid Lock In Number upgrade or the Ad Free+ subscription.",
+          "source": "https://help.textnow.com/hc/en-us/articles/360043106673-Help-My-Phone-Number-was-recycled-how-can-I-get-it-back"
+        },
+        {
+          "fr": "Les codes de vérification d'autres services ne sont pris en charge qu'avec Lock In Number.",
+          "en": "Verification codes from other services are supported with Lock In Number.",
+          "source": "https://help.textnow.com/hc/en-us/articles/1500003971461-How-can-I-lock-in-my-number"
+        }
+      ],
+      "domain": "textnow.com"
+    },
+    {
+      "name": "Fongo",
+      "facts": [
+        {
+          "fr": "Fongo Mobile : appels et textos gratuits, options payantes en plus.",
+          "en": "Fongo Mobile: free calls and texts, with paid add-ons.",
+          "source": "https://www.fongo.com/"
+        },
+        {
+          "fr": "Fongo Home Phone : 4,95 $ par mois, transfert de numéro possible.",
+          "en": "Fongo Home Phone: $4.95 per month, number transfer available.",
+          "source": "https://www.fongo.com/"
+        },
+        {
+          "fr": "Fongo Works (affaires) : version de base gratuite; la version Pro, dès 10 $ par mois, retire les publicités audio et visuelles.",
+          "en": "Fongo Works (business): free basic version; Pro, from $10 per month, removes audio and visual ads.",
+          "source": "https://www.fongo.com/"
+        }
+      ],
+      "domain": "fongo.com"
+    }
+  ]
+}
