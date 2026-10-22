@@ -3,6 +3,7 @@ import { migrateStandaloneDatabase } from "./jobs/migrateStandalone.js";
 import { createDeps, createLogger } from "./bootstrap.js";
 import { loadConfig } from "./config.js";
 import { runDailyCostReport } from "./jobs/dailyCost.js";
+import { runNumberLifecycle } from "./jobs/numberLifecycle.js";
 import { pingHeartbeat } from "./monitoring/report.js";
 import { deliverOutbox } from "./services/outbox.js";
 import { deliverEmails } from "./services/email.js";
@@ -63,6 +64,19 @@ const mediaRetentionTimer = setInterval(() => {
 }, 60 * 60 * 1000);
 mediaRetentionTimer.unref();
 
+// Free-number recycling (30 idle days, reminders on days 20 and 27, 7-day grace, 90-day quarantine).
+// First run 10 minutes after start, then daily; NUMBER_LIFECYCLE=off pauses it.
+const lifecycle = () => {
+  if (process.env.NUMBER_LIFECYCLE === "off") return;
+  runNumberLifecycle({ repo: deps.repo, twilio: deps.twilio, notifier: deps.notifier, log: app.log })
+    .then((res) => app.log.info({ warned: res.warned, transitions: res.transitions.length, errors: res.errors }, "number lifecycle done"))
+    .catch((err) => app.log.error({ err }, "number lifecycle failed"));
+};
+const lifecycleFirst = setTimeout(lifecycle, 10 * 60 * 1000);
+lifecycleFirst.unref();
+const lifecycleTimer = setInterval(lifecycle, 24 * 60 * 60 * 1000);
+lifecycleTimer.unref();
+
 async function shutdown(signal: string) {
   app.log.info({ signal }, "shutting down");
   clearInterval(outboxTimer);
@@ -70,6 +84,8 @@ async function shutdown(signal: string) {
   clearInterval(costTimer);
   clearInterval(emailTimer);
   clearInterval(mediaRetentionTimer);
+  clearTimeout(lifecycleFirst);
+  clearInterval(lifecycleTimer);
   await app.close();
   await deps.repo.close();
   process.exit(0);

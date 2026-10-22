@@ -1,5 +1,5 @@
 import { pathToFileURL } from "node:url";
-import { INACTIVITY_WARNING_DAYS, nextNumberState, QUARANTINE_DAYS } from "@mimt/shared";
+import { GRACE_DAYS, INACTIVITY_WARNING_DAYS, nextNumberState, QUARANTINE_DAYS } from "@mimt/shared";
 import { planOf } from "../plansConfig.js";
 import type { TwilioGateway } from "../gateways/twilio.js";
 import { addDays, daysBetween } from "../lib/time.js";
@@ -54,6 +54,16 @@ export async function runNumberLifecycle(input: {
 
       const next = nextNumberState({ state: n.state, lastActivityAt: n.lastActivityAt, inactivityDays, stateChangedAt: n.stateChangedAt, now });
       if (!next) continue;
+
+      // Never reclaim without the two reminders: a number already idle past the limit (first run, missed runs)
+      // gets one missing reminder per run, so grace starts at the earliest two runs after the first reminder.
+      const missing = INACTIVITY_WARNING_DAYS.find((d) => !n.warningsSent.includes(d));
+      if (n.state === "active" && next === "grace" && account && missing !== undefined) {
+        await notifier.notify(account.ownerUserId, "number_inactivity_warning", { e164: n.e164, daysLeft: GRACE_DAYS });
+        await repo.updateNumber(n.id, { warningsSent: [...n.warningsSent, missing] });
+        result.warned++;
+        continue;
+      }
 
       if (next === "released") {
         if (n.twilioSid && twilio) await twilio.releaseNumber(n.twilioSid);

@@ -58,8 +58,19 @@ describe("number lifecycle job", () => {
 
   it("returns a number to active when the user comes back during grace", async () => {
     const w = await world();
+    await w.run(20);
+    await w.run(27);
     await w.run(30);
     await w.repo.updateNumber(w.number.id, { lastActivityAt: at(32) });
     expect((await w.run(33)).transitions[0]?.to).toBe("active");
+  });
+
+  it("sends both reminders before reclaiming a number found already idle past the limit", async () => {
+    const w = await world();
+    expect((await w.run(45)).transitions).toEqual([]);
+    expect((await w.run(46)).transitions).toEqual([]);
+    expect(w.notifier.notify).toHaveBeenCalledTimes(2);
+    expect(w.notifier.notify).toHaveBeenLastCalledWith(expect.any(String), "number_inactivity_warning", { e164: "+15145550100", daysLeft: 7 });
+    expect((await w.run(47)).transitions[0]?.to).toBe("grace");
   });
 });
