@@ -31,14 +31,15 @@ describe("isolated self-hosted MIMT migration guard", () => {
     )).not.toThrow();
   });
   it("retains explicit deterministic migration order", () => {
-    expect(MIGRATION_ORDER).toHaveLength(15);
+    expect(MIGRATION_ORDER).toHaveLength(16);
     expect(MIGRATION_ORDER[0]).toBe("0001_init.sql");
     expect(MIGRATION_ORDER[9]).toBe("0009_port_in.sql");
     expect(MIGRATION_ORDER[10]).toBe("0010_meetings.sql");
     expect(MIGRATION_ORDER[11]).toBe("0011_usage_messages.sql");
     expect(MIGRATION_ORDER[12]).toBe("0012_number_holds.sql");
     expect(MIGRATION_ORDER[13]).toBe("0013_user_handles.sql");
-    expect(MIGRATION_ORDER[14]).toBe("0015_ai_help.sql");
+    expect(MIGRATION_ORDER[14]).toBe("0014_web_push.sql");
+    expect(MIGRATION_ORDER[15]).toBe("0015_ai_help.sql");
   });
   it("lists every migration file in supabase/migrations", () => {
     const files = readdirSync(join(__dirname, "../../../supabase/migrations")).filter((f) => f.endsWith(".sql"));

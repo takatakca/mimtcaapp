@@ -112,6 +112,7 @@ export async function messageRoutes(app: FastifyInstance, deps: AppDeps) {
         segments: 1,
         numMedia: 0,
       });
+      void deps.notifier.notify(target.userId, "message_received", { from: mine.handle }).catch(() => undefined);
     }
     return message;
   }
