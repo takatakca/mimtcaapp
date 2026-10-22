@@ -22,6 +22,17 @@ if (process.env.MIMT_STANDALONE_BOOTSTRAP_ONCE === "YES_STARTUP_MIGRATE") {
     config.DATABASE_SSL_CA_PEM,
   );
   log.info("Dedicated MIMT database schema verified; one-time startup bootstrap complete");
+} else if (config.NODE_ENV === "production" && config.DATABASE_URL && process.env.MIMT_AUTO_MIGRATE !== "off") {
+  // Pending migrations are applied at every start (each in its own transaction, checksum-tracked, applied once).
+  // The URL guard in assertPrivateMimtDatabase still refuses anything but the dedicated private MIMT database.
+  // Without this, new migrations were never applied in production (0011–0013 were missing for days).
+  // A failure is logged and the API starts on the current schema; /readyz then reports schema "outdated".
+  try {
+    await migrateStandaloneDatabase(config.DATABASE_URL, "YES_MY_PRIVATE_MIMT_DATABASE", config.NODE_ENV, config.DATABASE_SSL_CA_PEM);
+    log.info("Database schema up to date (automatic startup migration)");
+  } catch (err) {
+    log.error({ err: { message: (err as Error).message } }, "Automatic startup migration failed; starting on the current schema");
+  }
 }
 const deps = createDeps(config, log);
 const app = await buildApp(deps);
