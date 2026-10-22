@@ -75,6 +75,7 @@ export const enExtra: Record<keyof typeof frExtra, string> = {
   "rec.intro": "Call recordings under the business's policy. Members only see their own calls. They are deleted automatically at the end of the retention period.",
   "rec.empty": "No recordings.",
   "rec.expired": "Playback links expire after 15 minutes.",
+  "rec.summary": "AI summary",
   "rec.refresh": "Refresh links",
   "rec.onDemand": "On demand",
   "rec.automatic": "Automatic",

@@ -5,6 +5,8 @@
 
 import type { FastifyInstance } from "fastify";
 import {
+  type HelpChatRequest,
+  type HelpChatResponse,
   AI_CONSENT_KIND,
   AI_LIMITS,
   AI_RECEPTIONIST_TERMS_VERSION,
@@ -16,6 +18,10 @@ import { z } from "zod";
 import type { AppDeps } from "../deps.js";
 import { loadContext, requireUser } from "../auth/guard.js";
 import { aiBudget, hasAiConsent, recordAiUsage, requireAi, type AiServices } from "../ai/service.js";
+import { helpKnowledge } from "../ai/helpKnowledge.js";
+
+/** In-app help assistant fair use, per account (every plan). */
+const HELP_QUESTIONS_PER_MONTH = 30;
 import type { ReceptionistConfig } from "../ai/store.js";
 import { badRequest, conflict, forbidden, HttpError, notConfigured } from "../lib/errors.js";
 import { E164 } from "../lib/phone.js";
@@ -93,6 +99,36 @@ export async function aiRoutes(app: FastifyInstance, deps: AppDeps) {
     }
     const b = await aiBudget(deps, ai, account.id);
     return { configured: Boolean(ai.gateway), consent, plan: b.plan, monthlyBudgetCadCents: b.budgetCadCents, usedCadCents: b.usedCadCents, period: b.period };
+  });
+
+  // In-app help assistant: MIMT facts only (ai/helpKnowledge.ts), no account data is sent, same consent and budget
+  // as every AI feature. Rate limited per user.
+  app.post("/v1/ai/help", { ...auth, config: { rateLimit: { max: 20, timeWindow: "1 hour" } } }, async (req): Promise<HelpChatResponse> => {
+    const body = parse(
+      z.object({
+        messages: z
+          .array(z.object({ role: z.enum(["user", "assistant"]), text: z.string().trim().min(1).max(1500) }))
+          .min(1)
+          .max(12)
+          .refine((m) => m[m.length - 1]!.role === "user", "The last turn must be the user's question"),
+      }),
+      req.body,
+    ) satisfies HelpChatRequest;
+    const { user, account } = await loadContext(deps, req);
+    const { ai, gateway } = requireAi(deps);
+    if (!(await hasAiConsent(repo, user.id))) throw consentRequired();
+    // Customer help is for every plan (Gratuit included), so it has its own fair-use quota instead of the plan's
+    // AI budget: HELP_QUESTIONS_PER_MONTH per account over a rolling 30 days.
+    if (!(await deps.rateLimiter.take(`ai:help:${account.id}`, { capacity: HELP_QUESTIONS_PER_MONTH, windowSeconds: 30 * 86_400 }))) {
+      throw new HttpError(429, "help_quota_reached", user.locale === "fr-CA" ? "Vous avez posé beaucoup de questions ce mois-ci. Écrivez-nous à info@mimt.ca." : "You asked many questions this month. Please write to info@mimt.ca.");
+    }
+    const out = await gateway.helpAnswer({ locale: user.locale, knowledge: helpKnowledge(deps.config.plans, user.locale), messages: body.messages });
+    await recordAiUsage(deps, ai, account.id, "help_assistant", out.usage);
+    const fr = user.locale === "fr-CA";
+    if (!out.ok) {
+      return { answer: fr ? "Je ne peux pas répondre à cette question. Écrivez-nous à info@mimt.ca." : "I can't answer that. Please write to info@mimt.ca.", needsHuman: true };
+    }
+    return { answer: out.value.answer.slice(0, 1200), needsHuman: out.value.needsHuman };
   });
 
   // Smart replies: never sent automatically; the user picks and edits.

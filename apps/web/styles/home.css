@@ -814,7 +814,7 @@ html[data-scrolled] .wordmark__name {
 }
 @media (min-width: 900px) {
   .how {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 26px;
   }
   .how::before {
@@ -1805,4 +1805,40 @@ html[data-sheet] .mobile-cta {
   text-align: center;
   font-size: 0.78rem;
   color: var(--silver);
+}
+
+/* Launch offer banner on the home page (true facts only). */
+.offer-banner {
+  margin: 0;
+  padding: 9px var(--gutter);
+  text-align: center;
+  font-size: 0.9rem;
+  background: var(--brand);
+  color: var(--white);
+}
+.offer-banner a {
+  color: var(--white);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.picker__status--note {
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+/* Local and use-case landing pages (components/pages/LandingPage). */
+.landing__cta {
+  margin: 8px 0 28px;
+}
+.landing__links {
+  margin-top: 24px;
+  font-size: 0.95rem;
+}
+
+/* Footer gets a fifth column (Numéros / Numbers) for the landing pages. */
+@media (min-width: 900px) {
+  .site-footer__grid {
+    grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr;
+  }
 }

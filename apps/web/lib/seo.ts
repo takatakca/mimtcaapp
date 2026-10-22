@@ -1,5 +1,6 @@
 // schema.org JSON-LD builders. Every fact comes from the repo: prices from @mimt/shared, contact from site.ts.
-// No LocalBusiness: the repo has no street address for MIMT (only "Montréal, Québec"), so none is invented.
+// No LocalBusiness: the repo has no street address for MIMT (only "Montréal, Québec"), so none is invented
+// (scripts/verify-out.mjs enforces it). Local pages target their city with Service.areaServed instead.
 
 import { PLANS, type PlanCode } from "@mimt/shared";
 import { APP_URL, CONTACT_EMAIL, LABELS, ROUTES, SITE_URL, type Lang, type RouteKey } from "./site.ts";
@@ -185,6 +186,23 @@ export function softwareApplicationLd(lang: Lang): JsonLdObject {
       ? "Un numéro de téléphone canadien dans une app : appels et textos par Wi‑Fi ou données, messagerie vocale, transfert de numéro sans frais MIMT."
       : "A Canadian phone number in an app: calls and texts over Wi‑Fi or data, voicemail, number transfer with no MIMT fee.",
     publisher: { "@id": ORG_ID },
+    offers: codes.map((c) => planOfferLd(c, lang)),
+  };
+}
+
+/** Service node for a landing page: the product the page sells, with its offers and where it is served. */
+export function landingServiceLd(lang: Lang, key: RouteKey, opts: { name: string; description: string; business: boolean; city?: string }): JsonLdObject {
+  const codes: PlanCode[] = opts.business ? ["business", "business_pro"] : ["lock", "premium"];
+  return {
+    "@type": "Service",
+    "@id": `${abs(ROUTES[key][lang])}#service`,
+    name: opts.name,
+    description: opts.description,
+    serviceType: opts.business ? (lang === "fr" ? "Téléphonie IP d'affaires" : "Business VoIP") : lang === "fr" ? "Numéro de téléphone virtuel" : "Virtual phone number",
+    provider: { "@id": ORG_ID },
+    areaServed: opts.city ? { "@type": "City", name: opts.city } : { "@type": "Country", name: "Canada" },
+    availableLanguage: ["fr-CA", "en-CA"],
+    url: abs(ROUTES[key][lang]),
     offers: codes.map((c) => planOfferLd(c, lang)),
   };
 }

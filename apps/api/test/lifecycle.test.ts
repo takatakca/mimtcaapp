@@ -21,7 +21,7 @@ async function world(plan?: "lock") {
   });
   const notifier = { notify: vi.fn(async () => {}) };
   const twilio = fakeTwilio();
-  const run = (day: number) => runNumberLifecycle({ repo, twilio, notifier, now: at(day) });
+  const run = (day: number) => runNumberLifecycle({ repo, twilio, notifier, now: at(day), since: new Date(0) });
   return { repo, number, notifier, twilio, run };
 }
 
@@ -58,8 +58,31 @@ describe("number lifecycle job", () => {
 
   it("returns a number to active when the user comes back during grace", async () => {
     const w = await world();
+    await w.run(20);
+    await w.run(27);
     await w.run(30);
     await w.repo.updateNumber(w.number.id, { lastActivityAt: at(32) });
     expect((await w.run(33)).transitions[0]?.to).toBe("active");
+  });
+
+  it("sends both reminders before reclaiming a number found already idle past the limit", async () => {
+    const w = await world();
+    expect((await w.run(45)).transitions).toEqual([]);
+    expect((await w.run(46)).transitions).toEqual([]);
+    expect(w.notifier.notify).toHaveBeenCalledTimes(2);
+    expect(w.notifier.notify).toHaveBeenLastCalledWith(expect.any(String), "number_inactivity_warning", { e164: "+15145550100", daysLeft: 7 });
+    expect((await w.run(47)).transitions[0]?.to).toBe("grace");
+  });
+
+  it("never touches a number that existed before recycling was switched on", async () => {
+    const w = await world();
+    const since = new Date(Date.now() + DAY);
+    for (const day of [20, 27, 30, 45, 200]) {
+      const res = await runNumberLifecycle({ repo: w.repo, twilio: w.twilio, notifier: w.notifier, now: at(day), since });
+      expect(res.transitions).toEqual([]);
+    }
+    expect(w.notifier.notify).not.toHaveBeenCalled();
+    expect(w.twilio.releaseNumber).not.toHaveBeenCalled();
+    expect((await w.repo.getNumber(w.number.id))?.state).toBe("active");
   });
 });

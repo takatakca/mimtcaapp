@@ -3,6 +3,7 @@ import { migrateStandaloneDatabase } from "./jobs/migrateStandalone.js";
 import { createDeps, createLogger } from "./bootstrap.js";
 import { loadConfig } from "./config.js";
 import { runDailyCostReport } from "./jobs/dailyCost.js";
+import { runNumberLifecycle } from "./jobs/numberLifecycle.js";
 import { pingHeartbeat } from "./monitoring/report.js";
 import { deliverOutbox } from "./services/outbox.js";
 import { deliverEmails } from "./services/email.js";
@@ -22,6 +23,17 @@ if (process.env.MIMT_STANDALONE_BOOTSTRAP_ONCE === "YES_STARTUP_MIGRATE") {
     config.DATABASE_SSL_CA_PEM,
   );
   log.info("Dedicated MIMT database schema verified; one-time startup bootstrap complete");
+} else if (config.NODE_ENV === "production" && config.DATABASE_URL && process.env.MIMT_AUTO_MIGRATE !== "off") {
+  // Pending migrations are applied at every start (each in its own transaction, checksum-tracked, applied once).
+  // The URL guard in assertPrivateMimtDatabase still refuses anything but the dedicated private MIMT database.
+  // Without this, new migrations were never applied in production (0011–0013 were missing for days).
+  // A failure is logged and the API starts on the current schema; /readyz then reports schema "outdated".
+  try {
+    await migrateStandaloneDatabase(config.DATABASE_URL, "YES_MY_PRIVATE_MIMT_DATABASE", config.NODE_ENV, config.DATABASE_SSL_CA_PEM);
+    log.info("Database schema up to date (automatic startup migration)");
+  } catch (err) {
+    log.error({ err: { message: (err as Error).message } }, "Automatic startup migration failed; starting on the current schema");
+  }
 }
 const deps = createDeps(config, log);
 const app = await buildApp(deps);
@@ -52,6 +64,20 @@ const mediaRetentionTimer = setInterval(() => {
 }, 60 * 60 * 1000);
 mediaRetentionTimer.unref();
 
+// Free-number recycling (30 idle days, reminders on days 20 and 27, 7-day grace, 90-day quarantine).
+// Only numbers bought from NUMBER_LIFECYCLE_FROM on; older numbers are never touched.
+// First run 10 minutes after start, then daily; NUMBER_LIFECYCLE=off pauses it.
+const lifecycle = () => {
+  if (process.env.NUMBER_LIFECYCLE === "off") return;
+  runNumberLifecycle({ repo: deps.repo, twilio: deps.twilio, notifier: deps.notifier, since: config.NUMBER_LIFECYCLE_FROM, log: app.log })
+    .then((res) => app.log.info({ warned: res.warned, transitions: res.transitions.length, errors: res.errors }, "number lifecycle done"))
+    .catch((err) => app.log.error({ err }, "number lifecycle failed"));
+};
+const lifecycleFirst = setTimeout(lifecycle, 10 * 60 * 1000);
+lifecycleFirst.unref();
+const lifecycleTimer = setInterval(lifecycle, 24 * 60 * 60 * 1000);
+lifecycleTimer.unref();
+
 async function shutdown(signal: string) {
   app.log.info({ signal }, "shutting down");
   clearInterval(outboxTimer);
@@ -59,6 +85,8 @@ async function shutdown(signal: string) {
   clearInterval(costTimer);
   clearInterval(emailTimer);
   clearInterval(mediaRetentionTimer);
+  clearTimeout(lifecycleFirst);
+  clearInterval(lifecycleTimer);
   await app.close();
   await deps.repo.close();
   process.exit(0);

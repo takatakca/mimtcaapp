@@ -66,6 +66,22 @@ export async function authRoutes(app: FastifyInstance, deps: AppDeps) {
     return reply.code(204).send();
   });
 
+  /**
+   * Twilio Verify errors as clear answers. The public Twilio code is kept in the message: it is not a secret and it
+   * is the only way to tell "wrong phone number" from "service misconfigured" without log access.
+   */
+  function verifyError(err: unknown, phase: "start" | "check", log: { warn: (o: object, m: string) => void }): HttpError {
+    const code = (err as { code?: number }).code;
+    if (code === 60200 || code === 21211 || code === 60205 || code === 21614) {
+      return new HttpError(400, "invalid_phone", "Ce numéro ne peut pas recevoir de texto. Vérifiez-le ou utilisez un cellulaire.");
+    }
+    if (code === 60203 || code === 60212) return new HttpError(429, "rate_limited", "Trop de codes demandés. Réessayez dans 10 minutes.");
+    if (code === 60410 || code === 60605) return new HttpError(403, "phone_blocked", "Ce numéro ne peut pas recevoir de code pour le moment.");
+    if (phase === "check" && code === 20404) return unauthorized("Invalid code");
+    log.warn({ err }, "Twilio Verify failed");
+    return new HttpError(503, "verify_unavailable", `La connexion par texto est momentanément indisponible.${code ? ` (code ${code})` : ""}`);
+  }
+
   // Fallback login (no TAKATAK account) through Twilio Verify.
   const verify = () => {
     if (!deps.twilio || !deps.config.TWILIO_VERIFY_SERVICE_SID) throw notConfigured("Phone verification");
@@ -79,7 +95,11 @@ export async function authRoutes(app: FastifyInstance, deps: AppDeps) {
       throw new HttpError(429, "rate_limited", "Too many codes requested for this number");
     }
     const locale = String(req.headers["accept-language"] ?? "fr");
-    await twilio.startVerification(phone, locale);
+    try {
+      await twilio.startVerification(phone, locale);
+    } catch (err) {
+      throw verifyError(err, "start", req.log);
+    }
     const res: OtpStartResponse = { status: "pending" };
     return reply.code(202).send(res);
   });
@@ -90,7 +110,13 @@ export async function authRoutes(app: FastifyInstance, deps: AppDeps) {
     if (!(await deps.rateLimiter.take(`otp-check:${phone}`, { capacity: 5, windowSeconds: 600 }))) {
       throw new HttpError(429, "rate_limited", "Too many attempts");
     }
-    if (!(await twilio.checkVerification(phone, code))) throw unauthorized("Invalid code");
+    let approved: boolean;
+    try {
+      approved = await twilio.checkVerification(phone, code);
+    } catch (err) {
+      throw verifyError(err, "check", req.log);
+    }
+    if (!approved) throw unauthorized("Invalid code");
     const now = deps.now();
     let user = await repo.findUserByPhone(phone);
     if (!user) {

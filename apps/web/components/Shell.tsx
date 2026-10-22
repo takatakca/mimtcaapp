@@ -64,8 +64,8 @@ function Header({ lang, page }: { lang: Lang; page: RouteKey }) {
         </nav>
         <div className="site-header__actions">
           <LangSwitch lang={lang} page={page} />
-          <a className="btn btn--primary btn--sm hide-sm" href={href(lang, "webapp")} data-download="">
-            {fr ? "Télécharger l'app" : "Get the app"}
+          <a className="btn btn--primary btn--sm hide-sm" href={href(lang, "home", "numero")}>
+            {fr ? "Obtenir mon numéro" : "Get my number"}
           </a>
           <details className="nav-mobile">
             <summary aria-label={fr ? "Menu" : "Menu"}>
@@ -93,6 +93,7 @@ function Footer({ lang }: { lang: Lang }) {
   const year = new Date().getFullYear();
   const cols: { title: string; keys: RouteKey[] }[] = [
     { title: fr ? "Produits" : "Products", keys: ["home", "business", "ai", "webapp", "plans", "compare", "soon"] },
+    { title: fr ? "Numéros" : "Numbers", keys: ["useVirtual", "useSecond", "useVoip", "cityMontreal", "cityQuebec", "cityLaval", "cityGatineau", "cityToronto"] },
     { title: fr ? "Soutien" : "Support", keys: ["about", "help", "contact", "complaints"] },
     { title: fr ? "Légal" : "Legal", keys: ["e911", "privacy", "terms", "accessibility"] },
   ];
@@ -213,11 +214,11 @@ function MobileCtaBar({ lang }: { lang: Lang }) {
   const fr = lang === "fr";
   return (
     <div className="mobile-cta" role="complementary" aria-label={fr ? "Actions rapides" : "Quick actions"}>
-      <a className="btn btn--primary btn--sm" href={APP_URL} rel="noopener">
-        {fr ? "Essayer l'app Web" : "Try the web app"}
+      <a className="btn btn--primary btn--sm" href={href(lang, "home", "numero")}>
+        {fr ? "Obtenir mon numéro" : "Get my number"}
       </a>
-      <a className="btn btn--outline-light btn--sm" href={href(lang, "webapp")} data-download="">
-        {fr ? "Télécharger" : "Download"}
+      <a className="btn btn--outline-light btn--sm" href={APP_URL} rel="noopener">
+        {fr ? "App Web" : "Web app"}
       </a>
     </div>
   );

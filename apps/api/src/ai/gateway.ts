@@ -8,10 +8,13 @@ import type { Direction, Locale, SpamVerdict, Urgency } from "@mimt/shared";
 export interface AiGateway {
   /** Structured voicemail summary in `locale` (effort "medium"). */
   summarizeVoicemail(input: VoicemailSummaryInput): Promise<AiOutcome<VoicemailSummary>>;
+  summarizeCall(input: CallSummaryInput): Promise<AiOutcome<CallSummaryOutput>>;
   /** Three short reply suggestions (effort "low"). */
   suggestReplies(input: SuggestRepliesInput): Promise<AiOutcome<ReplySuggestions>>;
   /** Spam/scam/ok label for an ambiguous inbound SMS (effort "low"). */
   classifySms(input: ClassifySmsInput): Promise<AiOutcome<SmsClassification>>;
+  /** In-app help assistant: answers from the MIMT knowledge base only (effort "low"). */
+  helpAnswer(input: HelpAnswerInput): Promise<AiOutcome<HelpAnswer>>;
   /** One streamed model round trip of the AI receptionist (effort "medium"). Text deltas go to onText. */
   receptionistStep(input: ReceptionistStepInput, onText: (delta: string) => void): Promise<ReceptionistStepResult>;
 }
@@ -31,10 +34,33 @@ export type AiOutcome<T> =
   | { ok: true; value: T; usage: TokenUsage }
   | { ok: false; reason: AiFailure; usage: TokenUsage; refusalCategory?: string | null };
 
+export interface HelpAnswerInput {
+  locale: Locale;
+  /** MIMT facts (ai/helpKnowledge.ts). */
+  knowledge: string;
+  /** Oldest first; the last turn is the user's question. */
+  messages: Array<{ role: "user" | "assistant"; text: string }>;
+}
+
+export interface HelpAnswer {
+  answer: string;
+  needsHuman: boolean;
+}
+
 export interface VoicemailSummaryInput {
   transcript: string;
   locale: Locale;
   callerNumber: string | null;
+}
+
+export interface CallSummaryInput {
+  transcript: string;
+  locale: Locale;
+}
+
+export interface CallSummaryOutput {
+  summary: string;
+  actionItems: string[];
 }
 
 export interface VoicemailSummary {

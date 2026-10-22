@@ -1,6 +1,10 @@
 # MIMT — État vérifié du projet
 
-Dernière revue : **2026-10-16**. Source de vérité : branche `main` de `takatakca/mimtcaapp`, `AGENTS.md`, `WORKLOG.md`, `docs/MIMT-LAUNCH.md`, GitHub Actions. Ce document distingue **code présent**, **tests CI** et **service réel opérationnel**.
+Dernière revue : **2026-10-22**. Source de vérité : branche `main` de `takatakca/mimtcaapp`, `AGENTS.md`, `WORKLOG.md`, `docs/MIMT-LAUNCH.md`, GitHub Actions. Ce document distingue **code présent**, **tests CI** et **service réel opérationnel**.
+
+## 22 octobre 2026 — héros et notification d'appel
+
+PR #40 est sur `main` (`804956d7c0201c85be68025c1c8d780eb014caaf`) : le héros dit les textos @nom et les 120 minutes d'appels entre applications, et le Web Push « Appel entrant » part quand l'app sonne. **Le commit sur `main` n'est pas une publication.** `mimt.ca` se met à jour après la CI de ce commit. `app.mimt.ca` et `api.mimt.ca` attendent un Deploy manuel, portée `all`. Aucun de ces changements ne lance les appels, les textos ou le 9-1-1.
 
 ## Produits et propriétaires
 

@@ -75,6 +75,46 @@ describe("live number picker: public search", () => {
     expect((await search("418")).json().error).toBe("carrier_unavailable");
   });
 
+  it("offers 438 de Montréal when 514 is sold out, and says so", async () => {
+    twilio.searchLocalNumbers.mockImplementation((async ({ areaCode }: { areaCode?: string }) =>
+      areaCode === "438" ? [{ e164: "+14385550123", locality: "Montréal", region: "QC" }] : []) as never);
+    const res = (await search("514", "198.51.100.70")).json();
+    expect(res.numbers.map((n: { e164: string }) => n.e164)).toEqual(["+14385550123"]);
+    expect(res.fallback).toEqual({
+      from: "514",
+      to: "438",
+      message: { fr: "Indicatif 514 épuisé — voici des 438 de Montréal.", en: "Area code 514 is sold out — here are 438 numbers from Montréal." },
+    });
+  });
+
+  it("walks the neighbours in order: 418 sold out → 581", async () => {
+    twilio.searchLocalNumbers.mockImplementation((async ({ areaCode }: { areaCode?: string }) =>
+      areaCode === "581" ? [{ e164: "+15815550123", locality: "Québec", region: "QC" }] : []) as never);
+    const res = (await search("418", "198.51.100.71")).json();
+    expect(res.fallback).toMatchObject({ from: "418", to: "581" });
+    expect(res.fallback.message.fr).toBe("Indicatif 418 épuisé — voici des 581 de Québec.");
+  });
+
+  it("no fallback when the asked code has numbers", async () => {
+    const res = (await search("514", "198.51.100.72")).json();
+    expect(res.fallback).toBeUndefined();
+    expect(res.numbers.length).toBeGreaterThan(0);
+  });
+
+  it("a carrier error on the asked code still falls back, and an all-failed search tells the carrier code", async () => {
+    twilio.searchLocalNumbers.mockImplementation((async ({ areaCode }: { areaCode?: string }) => {
+      if (areaCode === "416") throw Object.assign(new Error("boom"), { code: 20404 });
+      return areaCode === "437" ? [{ e164: "+14375550123", locality: "Toronto", region: "ON" }] : [];
+    }) as never);
+    expect((await search("416", "198.51.100.73")).json().fallback).toMatchObject({ from: "416", to: "437" });
+    twilio.searchLocalNumbers.mockImplementation((async () => {
+      throw Object.assign(new Error("auth"), { code: 20003 });
+    }) as never);
+    const down = (await search("613", "198.51.100.74")).json();
+    expect(down.error).toBe("carrier_unavailable");
+    expect(down.message).toContain("code 20003");
+  });
+
   it("rejects places that are not Canadian", async () => {
     expect((await search("212")).json().error).toBe("unknown_place");
     expect((await search("Paris")).json().error).toBe("unknown_place");

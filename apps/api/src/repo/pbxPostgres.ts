@@ -457,6 +457,20 @@ export class PostgresPbxRepository implements PbxRepository {
   async deleteRecording(id: string) {
     return (await this.sql`delete from recordings where id = ${id} returning id`).length > 0;
   }
+  async setCallSummary(recordingId: string, s: { summaryEncrypted: string; locale: "fr-CA" | "en-CA"; model: string | null }) {
+    await this.sql`
+      insert into call_summaries (recording_id, summary_encrypted, locale, model)
+      values (${recordingId}, ${s.summaryEncrypted}, ${s.locale}, ${s.model})
+      on conflict (recording_id) do update set summary_encrypted = excluded.summary_encrypted, locale = excluded.locale, model = excluded.model`;
+  }
+  async getCallSummaries(recordingIds: string[]) {
+    const out = new Map<string, { summaryEncrypted: string; locale: "fr-CA" | "en-CA" }>();
+    if (!recordingIds.length) return out;
+    const rows = await this.sql<{ recordingId: string; summaryEncrypted: string; locale: "fr-CA" | "en-CA" }[]>`
+      select recording_id, summary_encrypted, locale from call_summaries where recording_id in ${this.sql(recordingIds)}`;
+    for (const r of rows) out.set(r.recordingId, { summaryEncrypted: r.summaryEncrypted, locale: r.locale });
+    return out;
+  }
 
   // seats
   async getSeats(businessId: string): Promise<BusinessSeats> {

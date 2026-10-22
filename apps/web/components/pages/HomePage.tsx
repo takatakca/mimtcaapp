@@ -8,6 +8,7 @@ import { Offers } from "@/components/Offers";
 import { Icon, type IconName } from "@/components/Visuals";
 import { PlanCard } from "@/components/PlanCard";
 import { faqItems } from "@/lib/faq";
+import { heroWithoutNumber } from "@/lib/hero";
 import { CONSUMER_PLANS, PLANS, formatCad } from "@/lib/plans-view";
 import { faqPageLd, serviceLd, softwareApplicationLd } from "@/lib/seo";
 import { APP_URL, href, type Lang } from "@/lib/site";
@@ -23,6 +24,12 @@ export function HomePage({ lang }: { lang: Lang }) {
 
   return (
     <Shell lang={lang} page="home" ld={[softwareApplicationLd(lang), serviceLd(lang, "mobile"), serviceLd(lang, "business"), faqPageLd(lang, faq, "home")]}>
+      {/* ---------- Offer banner (true facts only) ---------- */}
+      <p className="offer-banner">
+        <strong>{t.offerStrong}</strong> {t.offer}{" "}
+        <a href="#numero">{t.offerLink}</a>
+      </p>
+
       {/* ---------- Hero ---------- */}
       <section className="home-hero" aria-labelledby="hero-title">
         <div className="hero-glow" aria-hidden="true" />
@@ -33,10 +40,12 @@ export function HomePage({ lang }: { lang: Lang }) {
               <span className="pill pill--soft">{t.pillQc}</span>
             </p>
             <h1 id="hero-title">
-              <span className="h1-line">{t.h1a}</span> <span className="h1-line text-gradient">{t.h1b}</span> <span className="h1-line">{t.h1c}</span>
+              <span className="h1-line">{t.h1a}</span>{" "}
+              <span className="h1-line text-gradient">{t.h1b.replace("{lock}", formatCad(PLANS.lock.monthlyPriceCents, lang))}</span>{" "}
+              <span className="h1-line">{t.h1c}</span>
             </h1>
             <p className="lead home-hero__lead">
-              <strong>{t.leadStrong}</strong> {t.lead}
+              <strong>{t.leadStrong}</strong> {heroWithoutNumber(lang, PLANS.free.caps.onNetMinutes ?? 0)} {t.lead}
             </p>
             <NumberPicker lang={lang} plan="lock" />
             <ul className="hero-ticks">
@@ -72,15 +81,28 @@ export function HomePage({ lang }: { lang: Lang }) {
         </ul>
       </section>
 
-      {/* ---------- Features carousel ---------- */}
-      <section className="section section--features" aria-labelledby="features-title">
+      {/* ---------- Plans ---------- */}
+      <section className="section section--tint" id={fr ? "forfaits" : "plans"} aria-labelledby="plans-title">
         <div className="container">
-          <div className="section-head" data-reveal="">
-            <p className="kicker">MIMT Mobile</p>
-            <h2 id="features-title">{t.featuresTitle}</h2>
-            <p className="section-lead">{t.featuresLead}</p>
+          <div className="section-head section-head--center" data-reveal="">
+            <p className="kicker">{fr ? "Forfaits" : "Plans"}</p>
+            <h2 id="plans-title">{t.plansTitle}</h2>
+            <p className="section-lead">{t.plansLead}</p>
           </div>
-          <FeatureCarousel lang={lang} label={t.featuresTitle} slides={slides} />
+          <div className="grid grid--3 plans-grid">
+            {CONSUMER_PLANS.map((code) => (
+              <PlanCard key={code} plan={PLANS[code]} lang={lang} highlight={code === "lock"} compact />
+            ))}
+          </div>
+          <p className="fineprint fineprint--center">
+            {t.taxNote}{" "}
+            <strong>
+              {fr ? "Le 9-1-1 par Internet a des limites : " : "9-1-1 over the internet has limits: "}
+              <a href={href(lang, "e911")}>{fr ? "à lire avant d'utiliser MIMT" : "read before using MIMT"}</a>.
+            </strong>{" "}
+            <a href={href(lang, "plans")}>{fr ? "Comparer tous les forfaits" : "Compare all plans"}</a>
+          </p>
+          <Offers lang={lang} />
         </div>
       </section>
 
@@ -108,28 +130,15 @@ export function HomePage({ lang }: { lang: Lang }) {
         </div>
       </section>
 
-      {/* ---------- Plans ---------- */}
-      <section className="section section--tint" id={fr ? "forfaits" : "plans"} aria-labelledby="plans-title">
+      {/* ---------- Features carousel ---------- */}
+      <section className="section section--features" aria-labelledby="features-title">
         <div className="container">
-          <div className="section-head section-head--center" data-reveal="">
-            <p className="kicker">{fr ? "Forfaits" : "Plans"}</p>
-            <h2 id="plans-title">{t.plansTitle}</h2>
-            <p className="section-lead">{t.plansLead}</p>
+          <div className="section-head" data-reveal="">
+            <p className="kicker">MIMT Mobile</p>
+            <h2 id="features-title">{t.featuresTitle}</h2>
+            <p className="section-lead">{t.featuresLead}</p>
           </div>
-          <div className="grid grid--3 plans-grid">
-            {CONSUMER_PLANS.map((code) => (
-              <PlanCard key={code} plan={PLANS[code]} lang={lang} highlight={code === "premium"} compact />
-            ))}
-          </div>
-          <p className="fineprint fineprint--center">
-            {t.taxNote}{" "}
-            <strong>
-              {fr ? "Le 9-1-1 par Internet a des limites : " : "9-1-1 over the internet has limits: "}
-              <a href={href(lang, "e911")}>{fr ? "à lire avant d'utiliser MIMT" : "read before using MIMT"}</a>.
-            </strong>{" "}
-            <a href={href(lang, "plans")}>{fr ? "Comparer tous les forfaits" : "Compare all plans"}</a>
-          </p>
-          <Offers lang={lang} />
+          <FeatureCarousel lang={lang} label={t.featuresTitle} slides={slides} />
         </div>
       </section>
 
@@ -283,6 +292,9 @@ export function HomePage({ lang }: { lang: Lang }) {
 
 type Copy = {
   pillQc: string;
+  offerStrong: string;
+  offer: string;
+  offerLink: string;
   h1a: string;
   h1b: string;
   h1c: string;
@@ -319,15 +331,18 @@ type Copy = {
 
 const FR: Copy = {
   pillQc: "Fait au Québec",
-  h1a: "Votre numéro.",
-  h1b: "Partout.",
-  h1c: "Sans frais cachés.",
-  leadStrong: "Votre numéro canadien dans une app.",
-  lead: "Appelez et textez par Wi‑Fi ou données, sur votre cellulaire comme sur votre ordinateur.",
+  offerStrong: "Lancement :",
+  offer: "transfert de votre numéro gratuit, aucuns frais d'activation.",
+  offerLink: "Choisir mon numéro",
+  h1a: "Un vrai numéro canadien",
+  h1b: "dès {lock} par mois.",
+  h1c: "Activé dès le paiement.",
+  leadStrong: "Appels et textos sur votre cellulaire et votre ordinateur.",
+  lead: "Avec un numéro, par Wi‑Fi ou données, ici comme en voyage. Choisissez-le ci-dessous : il est réservé 10 minutes pour vous.",
   ctaWeb: "Ouvrir l'app Web",
   heroLink: "commencer dans l'app Web",
   ticks: ["Vrai numéro canadien", "Transfert de numéro gratuit", "Français d'abord"],
-  heroNote: "Un numéro à vous dès {lock} par mois, payé d'avance et activé tout de suite. Sans numéro, textez gratuitement les autres utilisateurs MIMT avec votre identifiant @nom :",
+  heroNote: "Un numéro à vous dès {lock} par mois, payé d'avance et activé tout de suite :",
   trustLabel: "Nos engagements",
   trust: [
     { icon: "quebec", text: "Fait au Québec" },
@@ -350,14 +365,13 @@ const FR: Copy = {
     { icon: "lock", tone: "deep", title: "Numéro verrouillé", text: "Votre numéro reste à vous tant que le forfait est payé, même quand vous l'utilisez peu." },
     { icon: "sos", tone: "blue", title: "9-1-1 avec votre adresse", text: "Adresse enregistrée avant le premier appel. Le 9-1-1 n'est jamais bloqué par votre forfait.", link: { href: href(lang, "e911"), label: "Lire les limites" } },
   ],
-  howTitle: "Prêt en trois étapes",
+  howTitle: "Votre numéro en deux étapes",
   steps: [
-    { icon: "desk", title: "Ouvrez l'app", text: "Dans le navigateur à app.mimt.ca, ou sur iPhone et Android dès leur sortie." },
-    { icon: "number", title: "Choisissez votre numéro", text: "Un numéro canadien neuf, ou transférez le vôtre sans frais. Ajoutez votre adresse pour le 9-1-1." },
-    { icon: "phone", title: "Appelez et textez", text: "Par Wi‑Fi ou données, ici comme en voyage. Votre numéro vous suit partout." },
+    { icon: "number", title: "Choisissez votre numéro", text: "Tapez un indicatif ou une ville, cliquez sur le numéro qui vous plaît : il est réservé 10 minutes." },
+    { icon: "phone", title: "Payez, c'est actif", text: "Compte créé en une minute, adresse 9-1-1, paiement sécurisé par Stripe. Le numéro s'active dès le paiement." },
   ],
-  plansTitle: "Commencez gratuitement. Montez d'un cran quand vous voulez.",
-  plansLead: "Prix proposés pour le lancement. Chaque limite est écrite noir sur blanc, sans petits caractères cachés.",
+  plansTitle: "Des prix clairs, sans contrat",
+  plansLead: "Chaque limite est écrite noir sur blanc. Annulez quand vous voulez depuis votre compte.",
   taxNote: "Prix en dollars canadiens, taxes en sus (TPS/TVQ) et taxe municipale 9-1-1 du Québec.",
   bizTitle: "Un standard téléphonique complet. Sans matériel. Sans technicien.",
   bizLead: "Une ligne par employé, sur cellulaire et ordinateur. Un accueil bilingue qui fait pro dès la première sonnerie, et un portail simple pour tout gérer.",
@@ -389,15 +403,18 @@ const FR: Copy = {
 
 const EN: Copy = {
   pillQc: "Made in Québec",
-  h1a: "Your number.",
-  h1b: "Anywhere.",
-  h1c: "No hidden fees.",
-  leadStrong: "Your Canadian number, in an app.",
-  lead: "Call and text over Wi‑Fi or data, on your phone and on your computer.",
+  offerStrong: "Launch:",
+  offer: "free number transfer, no activation fee.",
+  offerLink: "Pick my number",
+  h1a: "A real Canadian number",
+  h1b: "from {lock} a month.",
+  h1c: "Active as soon as you pay.",
+  leadStrong: "Calls and texts on your phone and your computer.",
+  lead: "With a number, over Wi‑Fi or data, at home or abroad. Pick it below: it is held for you for 10 minutes.",
   ctaWeb: "Open the web app",
   heroLink: "start in the web app",
   ticks: ["A real Canadian number", "Free number transfer", "French first, bilingual"],
-  heroNote: "A number of your own from {lock} a month, paid up front and active right away. Without a number, text other MIMT users for free with your @handle:",
+  heroNote: "A number of your own from {lock} a month, paid up front and active right away:",
   trustLabel: "Our commitments",
   trust: [
     { icon: "quebec", text: "Made in Québec" },
@@ -420,14 +437,13 @@ const EN: Copy = {
     { icon: "lock", tone: "deep", title: "Locked number", text: "Your number stays yours as long as the plan is paid, even when you rarely use it." },
     { icon: "sos", tone: "blue", title: "9-1-1 with your address", text: "Address registered before your first call. 9-1-1 is never blocked by your plan.", link: { href: href(lang, "e911"), label: "Read the limits" } },
   ],
-  howTitle: "Ready in three steps",
+  howTitle: "Your number in two steps",
   steps: [
-    { icon: "desk", title: "Open the app", text: "In your browser at app.mimt.ca, or on iPhone and Android as soon as they're out." },
-    { icon: "number", title: "Pick your number", text: "A new Canadian number, or transfer yours at no charge. Add your address for 9-1-1." },
-    { icon: "phone", title: "Call and text", text: "Over Wi‑Fi or data, at home or on the road. Your number follows you." },
+    { icon: "number", title: "Pick your number", text: "Type an area code or a city and click the number you like: it is held for 10 minutes." },
+    { icon: "phone", title: "Pay, it's live", text: "Account in a minute, 9-1-1 address, secure payment by Stripe. The number turns on as soon as you pay." },
   ],
-  plansTitle: "Start free. Step up whenever you want.",
-  plansLead: "Proposed launch prices. Every limit is written down, no hidden fine print.",
+  plansTitle: "Clear prices, no contract",
+  plansLead: "Every limit is written down. Cancel any time from your account.",
   taxNote: "Prices in Canadian dollars, taxes extra (GST/QST) and the Québec 9-1-1 municipal tax.",
   bizTitle: "A complete phone system. No hardware. No technician.",
   bizLead: "One line per employee, on mobile and desktop. A bilingual greeting that sounds professional from the first ring, and a simple portal to run it all.",

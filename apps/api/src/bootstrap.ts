@@ -16,7 +16,7 @@ import { MessageCipher } from "./lib/crypto.js";
 import { REDACT_PATHS } from "./logger.js";
 import { MemoryRepository } from "./repo/memory.js";
 import { PostgresRepository } from "./repo/postgres.js";
-import { LogNotifier } from "./services/notifier.js";
+import { WebPushNotifier } from "./services/webPush.js";
 import { createEmailSender } from "./services/email.js";
 import { createVideoGateway } from "./video/gateway.js";
 
@@ -77,6 +77,7 @@ export function createDeps(config: Config, log: Logger): AppDeps {
   const video = createVideoGateway(config);
   if (!video) log.warn("LIVEKIT_URL/LIVEKIT_API_KEY/LIVEKIT_API_SECRET not set: video meetings answer 503");
 
+  const cipher = new MessageCipher(cipherKey);
   return {
     config,
     repo,
@@ -89,9 +90,9 @@ export function createDeps(config: Config, log: Logger): AppDeps {
     email: createEmailSender(config, log),
     deviceVerifier: createDeviceVerifier(config),
     admobKeys: admobKeyLoader(config.ADMOB_SSV_KEYS_URL),
-    cipher: new MessageCipher(cipherKey),
+    cipher,
     rateLimiter: new InMemoryRateLimiter(),
-    notifier: new LogNotifier(log),
+    notifier: new WebPushNotifier({ repo, cipher, log }),
     now: () => new Date(),
     provisioning,
     porting,

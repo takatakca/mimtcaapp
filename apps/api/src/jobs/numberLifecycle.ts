@@ -1,5 +1,5 @@
 import { pathToFileURL } from "node:url";
-import { INACTIVITY_WARNING_DAYS, nextNumberState, QUARANTINE_DAYS } from "@mimt/shared";
+import { GRACE_DAYS, INACTIVITY_WARNING_DAYS, nextNumberState, QUARANTINE_DAYS } from "@mimt/shared";
 import { planOf } from "../plansConfig.js";
 import type { TwilioGateway } from "../gateways/twilio.js";
 import { addDays, daysBetween } from "../lib/time.js";
@@ -22,6 +22,8 @@ export async function runNumberLifecycle(input: {
   twilio: TwilioGateway | null;
   notifier: Notifier;
   now?: Date;
+  /** Numbers created before this date are never touched (no reminder, no reclaim, no release at Twilio). */
+  since: Date;
   log?: { error: (obj: object, msg: string) => void };
 }): Promise<LifecycleResult> {
   const { repo, twilio, notifier } = input;
@@ -29,6 +31,8 @@ export async function runNumberLifecycle(input: {
   const result: LifecycleResult = { warned: 0, transitions: [], errors: 0 };
 
   for (const n of await repo.listNumbersInStates(["active", "grace", "quarantine"])) {
+    // Owner rule: numbers that already existed when recycling was switched on are never touched.
+    if (n.createdAt < input.since) continue;
     try {
       const account = n.telecomAccountId ? await repo.getAccount(n.telecomAccountId) : null;
       const plan = account ? (await getFeatures(repo, account.id)).plan : "free";
@@ -54,6 +58,16 @@ export async function runNumberLifecycle(input: {
 
       const next = nextNumberState({ state: n.state, lastActivityAt: n.lastActivityAt, inactivityDays, stateChangedAt: n.stateChangedAt, now });
       if (!next) continue;
+
+      // Never reclaim without the two reminders: a number already idle past the limit (first run, missed runs)
+      // gets one missing reminder per run, so grace starts at the earliest two runs after the first reminder.
+      const missing = INACTIVITY_WARNING_DAYS.find((d) => !n.warningsSent.includes(d));
+      if (n.state === "active" && next === "grace" && account && missing !== undefined) {
+        await notifier.notify(account.ownerUserId, "number_inactivity_warning", { e164: n.e164, daysLeft: GRACE_DAYS });
+        await repo.updateNumber(n.id, { warningsSent: [...n.warningsSent, missing] });
+        result.warned++;
+        continue;
+      }
 
       if (next === "released") {
         if (n.twilioSid && twilio) await twilio.releaseNumber(n.twilioSid);
@@ -83,7 +97,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const config = loadConfig();
   const log = createLogger(config);
   const deps = createDeps(config, log);
-  const res = await runNumberLifecycle({ repo: deps.repo, twilio: deps.twilio, notifier: deps.notifier, log });
+  const res = await runNumberLifecycle({ repo: deps.repo, twilio: deps.twilio, notifier: deps.notifier, since: config.NUMBER_LIFECYCLE_FROM, log });
   log.info(res, "number lifecycle done");
   await deps.repo.close();
 }

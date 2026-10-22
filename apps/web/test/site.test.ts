@@ -15,6 +15,7 @@ import {
   scrolledEnough,
   type KeyValueStore,
 } from "../lib/download-prompt.ts";
+import { heroWithoutNumber } from "../lib/hero.ts";
 import { capLines, num, price, yearly } from "../lib/plans-view.ts";
 import { softwareApplicationLd, faqPageLd } from "../lib/seo.ts";
 import { faqItems } from "../lib/faq.ts";
@@ -139,11 +140,40 @@ function siteSource(): { file: string; text: string }[] {
   }));
 }
 
+test("home hero: free @nom texts, and the Free plan app-to-app minute cap — calls are not unlimited", () => {
+  for (const lang of ["fr", "en"] as const) {
+    const text = heroWithoutNumber(lang, PLANS.free.caps.onNetMinutes ?? 0);
+    assert.ok(text.includes("@nom"), lang);
+    assert.ok(text.includes(num(PLANS.free.caps.onNetMinutes ?? 0, lang)), lang);
+    assert.equal(PLANS.free.caps.onNetMinutes, 120);
+    assert.doesNotMatch(text, /illimit|unlimited/i);
+  }
+  assert.match(heroWithoutNumber("fr", 120), /textez gratuitement/);
+  assert.match(heroWithoutNumber("fr", 120), /appelez-les entre applications/);
+  assert.match(heroWithoutNumber("en", 120), /text other MIMT users for free/);
+  assert.match(heroWithoutNumber("en", 120), /call them between apps/);
+  const home = readFileSync(join(web, "components", "pages", "HomePage.tsx"), "utf8");
+  assert.match(home, /heroWithoutNumber\(lang, PLANS\.free\.caps\.onNetMinutes/);
+});
+
 test("copy has no false urgency or invented popularity", () => {
   const banned = /plus que \d|plus que quelques|dernière chance|compte à rebours|offre se termine|places limitées|only \d+ left|last chance|countdown|hurry|le plus populaire|most popular|\bmeilleur au canada\b/i;
   for (const { file, text } of siteSource()) assert.ok(!banned.test(text), `${file}: ${text.match(banned)?.[0]}`);
 });
 
-test("no competitor names in the site source (the comparison page stays generic)", () => {
+test("competitor facts are sourced from the competitor's own site and dated", () => {
+  const data = JSON.parse(readFileSync(join(web, "content", "rivals.json"), "utf8"));
+  assert.match(data.checked, /^\d{4}-\d{2}-\d{2}$/);
+  for (const r of data.rivals) {
+    assert.ok(r.facts.length > 0, r.name);
+    for (const f of r.facts) {
+      assert.ok(f.fr && f.en, r.name);
+      const host = new URL(f.source).hostname;
+      assert.ok(host === r.domain || host.endsWith(`.${r.domain}`), `${r.name}: ${f.source}`);
+    }
+  }
+});
+
+test("no competitor names in the site source (named facts live only in content/rivals.json)", () => {
   for (const { file, text } of siteSource()) assert.ok(!/textnow|fongo|\bfizz\b|magicjack|ooma/i.test(text), file);
 });

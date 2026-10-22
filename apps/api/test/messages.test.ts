@@ -73,6 +73,35 @@ describe("sending SMS", () => {
   });
 });
 
+describe("texts between MIMT numbers", () => {
+  it("delivers through the database, never the carrier, with no quota used", async () => {
+    const a = await makeUser(ctx, { number: "+15145550100" });
+    const b = await makeUser(ctx, { number: "+15145550101" });
+    const res = await send(a.auth, { from: "+15145550100", to: "514-555-0101", body: "Allo de MIMT" });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toMatchObject({ peer: "+15145550101", status: "delivered", direction: "outbound" });
+    expect(ctx.twilio!.sendMessage).not.toHaveBeenCalled();
+    const inbound = ctx.repo.messages.find((m) => m.direction === "inbound");
+    expect(inbound).toMatchObject({ telecomAccountId: b.account.id, ourNumber: "+15145550101", peer: "+15145550100", twilioSid: null });
+    expect((await ctx.repo.getUsage(a.account.id, monthPeriod(new Date()))).smsOut).toBe(0);
+  });
+
+  it("respects the recipient's block list without telling the sender", async () => {
+    const a = await makeUser(ctx, { number: "+15145550100" });
+    const b = await makeUser(ctx, { number: "+15145550101" });
+    await ctx.repo.callControls.addBlock({ telecomAccountId: b.account.id, e164: "+15145550100", label: null });
+    expect((await send(a.auth, { from: "+15145550100", to: "+15145550101", body: "x" })).statusCode).toBe(201);
+    expect(ctx.repo.messages.filter((m) => m.direction === "inbound")).toHaveLength(0);
+  });
+
+  it("still sends media to a MIMT number through the carrier", async () => {
+    const a = await makeUser(ctx, { number: "+15145550100" });
+    await makeUser(ctx, { number: "+15145550101" });
+    await send(a.auth, { from: "+15145550100", to: "+15145550101", body: "photo", mediaUrls: ["https://example.com/a.jpg"] });
+    expect(ctx.repo.messages.filter((m) => m.direction === "inbound")).toHaveLength(0);
+  });
+});
+
 describe("opt-out keywords", () => {
   for (const keyword of ["STOP", "arrêt", "ARRET", "Unsubscribe", "désabonner"]) {
     it(`honours "${keyword}" for that (number, sender) pair`, async () => {

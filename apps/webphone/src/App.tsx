@@ -14,6 +14,7 @@ import { CallSettings } from "./pages/CallSettings";
 import { Calls } from "./pages/Calls";
 import { Messages } from "./pages/Messages";
 import { NotFound } from "./pages/NotFound";
+import { HelpAssistant } from "./pages/HelpAssistant";
 import { NumberCheckout } from "./pages/NumberCheckout";
 import { BillingResult } from "./pages/BillingResult";
 import { OtpSignIn } from "./pages/OtpSignIn";
@@ -95,6 +96,7 @@ export function AppRoutes() {
         <Route path="messagerie" element={<Voicemail />} />
         <Route path="compte" element={<Account />} />
         <Route path="compte/appels" element={<CallSettings />} />
+        <Route path="aide" element={<HelpAssistant />} />
         <Route path="billing/success" element={<BillingResult outcome="success" />} />
         <Route path="billing/cancel" element={<BillingResult outcome="cancel" />} />
         <Route path="services" element={<Navigate to="/services/offres" replace />} />

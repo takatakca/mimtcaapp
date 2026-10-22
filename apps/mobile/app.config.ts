@@ -105,5 +105,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   experiments: { typedRoutes: false },
   extra: {
     eas: env.EAS_PROJECT_ID ? { projectId: env.EAS_PROJECT_ID } : undefined,
+    // Real AdMob ad units (public ids). Unset: Google's test units, so a build never shows fake-revenue ads.
+    admobUnits: {
+      ios: { banner: env.ADMOB_IOS_BANNER_UNIT_ID ?? null, rewarded: env.ADMOB_IOS_REWARDED_UNIT_ID ?? null },
+      android: { banner: env.ADMOB_ANDROID_BANNER_UNIT_ID ?? null, rewarded: env.ADMOB_ANDROID_REWARDED_UNIT_ID ?? null },
+    },
   },
 });

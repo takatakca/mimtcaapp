@@ -428,9 +428,17 @@ export interface BusinessCallsResponse {
 }
 
 /** GET /v1/business/:id/recordings (each with a 15-min signed `audioUrl`). */
+/** AI summary of a recorded business call (Affaires Pro, with the owner's AI consent). */
+export interface CallSummary {
+  text: string;
+  /** Follow-ups promised or asked for during the call; may be empty. */
+  actionItems: string[];
+  locale: "fr-CA" | "en-CA";
+}
 export interface BusinessRecordingDto extends BusinessRecording {
   audioUrl: string;
   audioUrlExpiresAt: string;
+  summary: CallSummary | null;
 }
 export interface BusinessRecordingsResponse {
   recordings: BusinessRecordingDto[];

@@ -46,9 +46,9 @@ export function faqItems(lang: Lang): FaqItem[] {
         {
           id: "quand",
           topic: "general",
-          q: "Quand MIMT sera-t-il offert?",
-          a: "MIMT est en préparation et n'est pas encore offert au public. Aucune date n'est annoncée. Inscrivez-vous à la liste d'attente pour être avisé.",
-          link: { route: "home", hash: "liste-attente", label: "Rejoindre la liste d'attente" },
+          q: "MIMT est-il offert maintenant?",
+          a: "Oui. Choisissez votre numéro sur mimt.ca, payez votre forfait et le numéro est activé dès le paiement.",
+          link: { route: "home", hash: "numero", label: "Obtenir mon numéro" },
         },
         {
           id: "taxes",
@@ -191,9 +191,9 @@ export function faqItems(lang: Lang): FaqItem[] {
         {
           id: "quand",
           topic: "general",
-          q: "When will MIMT be available?",
-          a: "MIMT is in preparation and not yet available to the public. No date is announced. Join the waitlist to hear first.",
-          link: { route: "home", hash: "waitlist", label: "Join the waitlist" },
+          q: "Is MIMT available now?",
+          a: "Yes. Pick your number on mimt.ca, pay for your plan and the number is activated as soon as payment goes through.",
+          link: { route: "home", hash: "numero", label: "Get my number" },
         },
         {
           id: "taxes",

@@ -42,3 +42,14 @@ describe("personalised ad consent is fail-closed", () => {
     expect(adRequestOptions().requestNonPersonalizedAdsOnly).toBe(true);
   });
 });
+
+describe("AdMob unit ids", () => {
+  const sdk = { TestIds: { ADAPTIVE_BANNER: "test-banner", REWARDED: "test-rewarded" } } as never;
+  it("uses the owner's real units for the platform when valid, test units otherwise", async () => {
+    const { unitIds } = await import("./ads");
+    const cfg = { ios: { banner: "ca-app-pub-1234567890123456/1234567890", rewarded: "oops" }, android: { banner: null, rewarded: null } };
+    expect(unitIds(sdk, "ios", cfg)).toEqual({ banner: "ca-app-pub-1234567890123456/1234567890", rewarded: "test-rewarded" });
+    expect(unitIds(sdk, "android", cfg)).toEqual({ banner: "test-banner", rewarded: "test-rewarded" });
+    expect(unitIds(sdk, "ios", undefined)).toEqual({ banner: "test-banner", rewarded: "test-rewarded" });
+  });
+});

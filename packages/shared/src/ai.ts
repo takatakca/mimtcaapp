@@ -15,7 +15,18 @@ export const AI_CONSENT_KIND = "ai_processing" as const;
 /** Version of the AI receptionist terms a business owner accepts (PUT .../ai-receptionist with accept: true). */
 export const AI_RECEPTIONIST_TERMS_VERSION = "2026-10-fr-draft-1";
 
-export type AiFeature = "voicemail_summary" | "sms_suggestions" | "spam_classification" | "receptionist";
+export type AiFeature = "voicemail_summary" | "sms_suggestions" | "spam_classification" | "receptionist" | "help_assistant" | "call_summary";
+
+/** POST /v1/ai/help — the in-app help assistant (answers about MIMT only, from a curated knowledge base). */
+export interface HelpChatRequest {
+  /** Oldest first, at most 12 turns; the last one is the user's question. */
+  messages: Array<{ role: "user" | "assistant"; text: string }>;
+}
+export interface HelpChatResponse {
+  answer: string;
+  /** True when the assistant could not answer and the user should write to a person (info@mimt.ca). */
+  needsHuman: boolean;
+}
 
 // ------------------------------------------------------------------------------------------ voicemail
 
@@ -142,4 +153,6 @@ export const AI_LIMITS = {
   suggestionsContextMessages: 10,
   /** Characters of voicemail transcript sent to the model. */
   voicemailMaxChars: 6000,
+  /** About 30 minutes of conversation. */
+  callSummaryMaxChars: 30000,
 } as const;

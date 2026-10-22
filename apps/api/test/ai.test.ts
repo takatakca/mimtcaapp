@@ -7,6 +7,7 @@ import { scoreCall } from "../src/ai/spam.js";
 import type { MemoryAiStore } from "../src/ai/store.js";
 import { monthPeriod } from "../src/lib/time.js";
 import { handleRelaySocket, parseHandoff, type RelaySocket } from "../src/routes/twilioAi.js";
+import { summarizeBusinessCall } from "../src/ai/callSummary.js";
 import { makeUser, setup, twilioPost, type Ctx } from "./helpers.js";
 import { makeBusiness, subscribe } from "./pbxFixtures.js";
 
@@ -27,6 +28,16 @@ function fakeGateway() {
     })),
     classifySms: vi.fn<AiGateway["classifySms"]>(async () => ({ ok: true as const, value: { verdict: "scam" as const, reason: "fausse livraison" }, usage: usage() })),
     receptionistStep: vi.fn<AiGateway["receptionistStep"]>(),
+    summarizeCall: vi.fn<AiGateway["summarizeCall"]>(async () => ({
+      ok: true as const,
+      value: { summary: "Le client veut une soumission pour une thermopompe.", actionItems: ["Envoyer la soumission jeudi"] },
+      usage: usage(),
+    })),
+    helpAnswer: vi.fn<AiGateway["helpAnswer"]>(async () => ({
+      ok: true as const,
+      value: { answer: "Essentiel coûte 12,99 $ par mois avant taxes.", needsHuman: false },
+      usage: usage(),
+    })),
   } satisfies AiGateway;
 }
 
@@ -406,3 +417,91 @@ describe("AI receptionist", () => {
     expect(gw.receptionistStep).not.toHaveBeenCalled();
   });
 });
+
+describe("in-app help assistant", () => {
+  const ask = (auth: Record<string, string>, text: string) => ctx.app.inject({ method: "POST", url: "/v1/ai/help", headers: auth, payload: { messages: [{ role: "user", text }] } });
+
+  it("needs the AI consent like every AI feature", async () => {
+    const u = await makeUser(ctx);
+    expect((await ask(u.auth, "Combien coûte Essentiel?")).json().error).toBe("ai_consent_required");
+    expect(gw.helpAnswer).not.toHaveBeenCalled();
+  });
+
+  it("answers from the MIMT facts with the real prices, and meters the usage", async () => {
+    const u = await makeUser(ctx);
+    await consent(u.token);
+    const res = await ask(u.auth, "Combien coûte Essentiel?");
+    expect(res.json()).toEqual({ answer: "Essentiel coûte 12,99 $ par mois avant taxes.", needsHuman: false });
+    const input = gw.helpAnswer.mock.calls[0]![0];
+    expect(input.knowledge).toContain("12,99");
+    expect(input.knowledge).toContain("info@mimt.ca");
+    expect(input.messages).toEqual([{ role: "user", text: "Combien coûte Essentiel?" }]);
+    expect(JSON.stringify(input)).not.toContain(u.user.id);
+  });
+
+  it("hands over to a person when the model refuses", async () => {
+    const u = await makeUser(ctx);
+    await consent(u.token);
+    gw.helpAnswer.mockResolvedValueOnce({ ok: false, reason: "refusal", usage: usage() });
+    expect((await ask(u.auth, "?")).json()).toMatchObject({ needsHuman: true });
+  });
+
+  it("works on the free plan (own quota, not the plan's AI budget) and stops after the monthly quota", async () => {
+    const u = await makeUser(ctx);
+    await consent(u.token);
+    let last = 0;
+    for (let i = 0; i < 31; i++) last = (await ask(u.auth, `Question ${i}`)).statusCode;
+    expect(last).toBe(429);
+  });
+
+  it("refuses a conversation that does not end with the user's question", async () => {
+    const u = await makeUser(ctx);
+    const res = await ctx.app.inject({ method: "POST", url: "/v1/ai/help", headers: u.auth, payload: { messages: [{ role: "assistant", text: "Bonjour" }] } });
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+describe("Affaires: AI call summaries", () => {
+  async function recordedCall(plan: PlanCode = "business_pro") {
+    const b = await makeBusiness(ctx, { plan });
+    const recording = await ctx.repo.pbx.createRecording({
+      businessId: b.business.id, callSid: "CA9", recordingSid: "RE9", recordingUrl: null, extensionId: null, userId: null,
+      source: "all", fromNumber: "+14185550199", toNumber: b.didNumber.e164, durationS: 120, retentionDays: 90, deleteAfter: new Date(NOW.getTime() + 90 * 86_400_000),
+    });
+    const transcriber = {
+      start: vi.fn(async () => "GT9"),
+      result: vi.fn(async () => ({ status: "completed" as const, text: "Bonjour, je voudrais une soumission pour une thermopompe." })),
+      remove: vi.fn(async () => {}),
+    };
+    ctx.deps.twilio = Object.assign(ctx.deps.twilio!, { intelligence: transcriber });
+    return { ...b, recording, transcriber };
+  }
+  const noSleep = async () => {};
+
+  it("stores an encrypted French summary with action items and lists it with the recording", async () => {
+    const b = await recordedCall();
+    await consent(b.owner.token);
+    expect(await summarizeBusinessCall(ctx.deps, b.business, b.recording, noSleep)).toBe("done");
+    expect(b.transcriber.start).toHaveBeenCalledWith({ language: "fr", recordingSid: "RE9", customerKey: "RE9" });
+    expect(b.transcriber.remove).toHaveBeenCalledWith("GT9");
+    const stored = (ctx.repo.pbx as unknown as { callSummaries: Map<string, { summaryEncrypted: string }> }).callSummaries.get(b.recording.id)!;
+    expect(stored.summaryEncrypted).not.toContain("thermopompe");
+    const res = await ctx.app.inject({ method: "GET", url: `/v1/business/${b.business.id}/recordings`, headers: b.owner.auth });
+    expect(res.json().recordings[0].summary).toEqual({
+      text: "Le client veut une soumission pour une thermopompe.",
+      actionItems: ["Envoyer la soumission jeudi"],
+      locale: "fr-CA",
+    });
+  });
+
+  it("sends nothing to the AI without the owner's consent or without Affaires Pro", async () => {
+    const b = await recordedCall();
+    expect(await summarizeBusinessCall(ctx.deps, b.business, b.recording, noSleep)).toBe("no_consent");
+    const basic = await recordedCall("business");
+    await consent(basic.owner.token);
+    expect(await summarizeBusinessCall(ctx.deps, basic.business, basic.recording, noSleep)).toBe("not_entitled");
+    expect(gw.summarizeCall).not.toHaveBeenCalled();
+    expect(b.transcriber.start).not.toHaveBeenCalled();
+  });
+});
+

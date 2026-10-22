@@ -23,6 +23,8 @@ import type {
   E911AddressResponse,
   E911NoticeResponse,
   HandleResponse,
+  HelpChatRequest,
+  HelpChatResponse,
   Locale,
   MeExportResponse,
   MeResponse,
@@ -92,10 +94,14 @@ export function coreEndpoints(request: HttpClient["request"]) {
       request<MessagesResponse>("GET", `/v1/conversations/${seg(peer)}/messages`, { query: { cursor, limit: 30 } }),
     sendMessage: (body: SendMessageRequest) => request<MessageDto>("POST", "/v1/messages", { body }),
     getHandle: () => request<HandleResponse>("GET", "/v1/me/handle"),
+    webPushKey: () => request<{ publicKey: string }>("GET", "/v1/push/web/key", { auth: false }),
+    webPushSubscribe: (body: { endpoint: string; keys: { p256dh: string; auth: string } }) => request<void>("POST", "/v1/push/web/subscribe", { body }),
+    webPushUnsubscribe: (endpoint: string) => request<void>("POST", "/v1/push/web/unsubscribe", { body: { endpoint } }),
     setHandle: (handle: string) => request<HandleResponse>("PUT", "/v1/me/handle", { body: { handle } }),
     /** AI reply suggestions (needs the "ai_processing" consent). Never sent automatically. */
     suggestions: (peer: string) => request<ReplySuggestionsResponse>("GET", `/v1/conversations/${seg(peer)}/suggestions`),
     aiStatus: () => request<AiStatusResponse>("GET", "/v1/ai/status"),
+    help: (body: HelpChatRequest) => request<HelpChatResponse>("POST", "/v1/ai/help", { body }),
 
     // Media (MMS photos, voicemail greeting): signed upload URL, then PUT the bytes (media.ts).
     createUpload: (body: CreateMediaUploadRequest) => request<CreateMediaUploadResponse>("POST", "/v1/media/uploads", { body }),
