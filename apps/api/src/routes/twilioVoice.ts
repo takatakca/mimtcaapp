@@ -73,6 +73,18 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
   const { repo, config } = deps;
   const base = config.PUBLIC_BASE_URL.replace(/\/$/, "");
 
+  /**
+   * Web Push only when an app is about to ring. `from` must be an @handle or an E.164 number;
+   * pushPayload drops anything else (user id, client identity, message text). Never throws.
+   */
+  async function notifyRing(userId: string, from: string | null) {
+    try {
+      await deps.notifier.notify(userId, "incoming_call", from ? { from } : {});
+    } catch (err) {
+      app.log.warn({ err: err instanceof Error ? err.name : "error" }, "incoming call push failed");
+    }
+  }
+
   async function callerNumberFor(accountId: string, requested?: string): Promise<PhoneNumber | null> {
     const numbers = (await repo.listNumbersByAccount(accountId)).filter((n) => HELD_STATES.has(n.state));
     return numbers.find((n) => n.e164 === requested) ?? numbers[0] ?? null;
@@ -163,6 +175,7 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
     const client = vr.dial({ answerOnBridge: true, timeout: RING_TIMEOUT_S, timeLimit: Math.min(onNet.remaining * 60, MAX_CALL_S) }).client();
     client.identity(targetAccount.ownerUserId);
     client.parameter({ name: "fromHandle", value: mine.handle });
+    await notifyRing(targetAccount.ownerUserId, mine.handle);
     return vr;
   }
 
@@ -223,6 +236,8 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
           timeLimit: Math.min(onNet.remaining * 60, MAX_CALL_S),
           ...(caller ? { callerId: caller.e164 } : {}),
         }).client(targetAccount.ownerUserId);
+        const shown = caller?.e164 ?? (await repo.handles.forUser(user.id))?.handle ?? null;
+        await notifyRing(targetAccount.ownerUserId, shown);
         return sendTwiml(reply, vr);
       }
     }
@@ -345,6 +360,7 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
       action: `${base}/webhooks/twilio/voice/dial-result?n=${number.id}`,
       method: "POST",
     }).client(account.ownerUserId);
+    await notifyRing(account.ownerUserId, p.From ?? null);
     return sendTwiml(reply, vr);
   });
 

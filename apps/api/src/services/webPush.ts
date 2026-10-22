@@ -1,8 +1,12 @@
 import webpush from "web-push";
-import type { Locale } from "@mimt/shared";
+import { MIMT_HANDLE, type Locale } from "@mimt/shared";
 import type { MessageCipher } from "../lib/crypto.js";
+import { E164 } from "../lib/phone.js";
 import type { Repository } from "../repo/types.js";
 import type { NotificationTemplate, Notifier } from "./notifier.js";
+
+/** How long an incoming-call push may be delivered, and how long the lock screen should keep it. */
+export const INCOMING_CALL_TTL_S = 60;
 
 /**
  * Web Push for app.mimt.ca. The VAPID key pair is created on first use and kept ENCRYPTED in server_keys
@@ -32,6 +36,20 @@ export interface PushPayload {
   /** Path in app.mimt.ca to open on tap. */
   url: string;
   tag: string;
+  /** Seconds until the push service drops it. The service worker closes the notification after the same delay. */
+  ttl?: number;
+}
+
+/**
+ * What a lock screen may show for a caller: an @handle or an E.164 number.
+ * A user id, a Twilio client identity, or any other text is dropped.
+ */
+export function lockScreenCaller(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const v = raw.trim();
+  if (MIMT_HANDLE.test(v)) return v;
+  if (E164.test(v)) return v;
+  return null;
 }
 
 /** What a notification says, French first. Never the text of a message or a voicemail. */
@@ -52,6 +70,16 @@ export function pushPayload(template: NotificationTemplate, data: Record<string,
       return { title: fr ? "Message du réceptionniste IA" : "AI receptionist message", body: fr ? "Un appelant a laissé un message." : "A caller left a message.", url: "/messagerie", tag: "ai" };
     case "number_inactivity_warning":
       return { title: fr ? "Votre numéro MIMT" : "Your MIMT number", body: fr ? "Utilisez-le bientôt pour le garder." : "Use it soon to keep it.", url: "/compte", tag: "number" };
+    case "incoming_call": {
+      const who = lockScreenCaller(data.from);
+      return {
+        title: fr ? "Appel entrant" : "Incoming call",
+        body: who ?? "",
+        url: "/appels",
+        tag: "call",
+        ttl: INCOMING_CALL_TTL_S,
+      };
+    }
     default:
       return null;
   }
@@ -74,7 +102,11 @@ export class WebPushNotifier implements Notifier {
     const payload = pushPayload(template, data, user?.locale ?? "fr-CA");
     if (!payload) return;
     const vapid = await vapidKeys(repo, cipher);
-    const opts: webpush.RequestOptions = { vapidDetails: { subject: SUBJECT, publicKey: vapid.publicKey, privateKey: vapid.privateKey }, TTL: 3600, urgency: "high" };
+    const opts: webpush.RequestOptions = {
+      vapidDetails: { subject: SUBJECT, publicKey: vapid.publicKey, privateKey: vapid.privateKey },
+      TTL: payload.ttl ?? 3600,
+      urgency: "high",
+    };
     await Promise.all(
       subs.map(async (s) => {
         try {

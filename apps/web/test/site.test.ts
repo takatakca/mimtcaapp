@@ -15,6 +15,7 @@ import {
   scrolledEnough,
   type KeyValueStore,
 } from "../lib/download-prompt.ts";
+import { heroWithoutNumber } from "../lib/hero.ts";
 import { capLines, num, price, yearly } from "../lib/plans-view.ts";
 import { softwareApplicationLd, faqPageLd } from "../lib/seo.ts";
 import { faqItems } from "../lib/faq.ts";
@@ -138,6 +139,22 @@ function siteSource(): { file: string; text: string }[] {
       .replace(/^\s*\/\/.*$/gm, ""),
   }));
 }
+
+test("home hero: free @nom texts, and the Free plan app-to-app minute cap — calls are not unlimited", () => {
+  for (const lang of ["fr", "en"] as const) {
+    const text = heroWithoutNumber(lang, PLANS.free.caps.onNetMinutes ?? 0);
+    assert.ok(text.includes("@nom"), lang);
+    assert.ok(text.includes(num(PLANS.free.caps.onNetMinutes ?? 0, lang)), lang);
+    assert.equal(PLANS.free.caps.onNetMinutes, 120);
+    assert.doesNotMatch(text, /illimit|unlimited/i);
+  }
+  assert.match(heroWithoutNumber("fr", 120), /textez gratuitement/);
+  assert.match(heroWithoutNumber("fr", 120), /appelez-les entre applications/);
+  assert.match(heroWithoutNumber("en", 120), /text other MIMT users for free/);
+  assert.match(heroWithoutNumber("en", 120), /call them between apps/);
+  const home = readFileSync(join(web, "components", "pages", "HomePage.tsx"), "utf8");
+  assert.match(home, /heroWithoutNumber\(lang, PLANS\.free\.caps\.onNetMinutes/);
+});
 
 test("copy has no false urgency or invented popularity", () => {
   const banned = /plus que \d|plus que quelques|dernière chance|compte à rebours|offre se termine|places limitées|only \d+ left|last chance|countdown|hurry|le plus populaire|most popular|\bmeilleur au canada\b/i;

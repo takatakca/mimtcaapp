@@ -4,6 +4,8 @@ Date de tri : 2026-10-14. Trier par dépendances; statut `done`, `next`, `blocke
 
 | ID | Priorité | Statut | Tâche et critère d'acceptation |
 | --- | --- | --- | --- |
+| WEB-02 | P1 | code prêt; publication après CI sur main | Accueil mimt.ca (fr+en) : sans numéro, textos gratuits avec @nom et appels entre applications limités à `PLANS.free.caps.onNetMinutes` (120). Ne pas écrire que ces appels sont illimités. Critère : `apps/web/lib/hero.ts` branché dans le héros, test `site.test.ts`. |
+| PUSH-02 | P1 | code prêt; déploiement manuel API + app | Web Push quand l'app sonne vraiment (par @nom, vers un numéro MIMT, ou depuis le réseau). Titre « Appel entrant » / « Incoming call », écran verrouillé = @nom ou E.164 seulement, ouvre `/appels`, expire en 60 s. Pas de notification sur refus, blocage, renvoi ou messagerie. Critère : `apps/api/test/incomingCallPush.test.ts`. |
 | DEP-01 | P0 | done (code) | Ignorer l'ancien commit lors d'une publication auto; comparer SHA CI à `main` avant FTP. Voir `.github/workflows/auto-deploy-website.yml`. |
 | DEP-02 | P0 | done (code) | Ajouter `mimt-release.json` et exiger que le SHA téléchargé soit égal au commit publié, en auto et manuel. Constater ensuite CI et déploiement réels. |
 | DEP-03 | P0 | done (code) | Isoler les prérequis de secrets des portées `website` / `webphone` / `api` dans `deploy.yml`. |

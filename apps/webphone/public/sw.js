@@ -63,7 +63,8 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-// Web Push (new text, voicemail…): the API sends only a title, a short body and the path to open.
+// Web Push (incoming call, new text, voicemail…): the API sends a title, a short body and the path to open.
+// An incoming call also sends ttl (60). The lock screen then shows only what the API put in the body.
 self.addEventListener("push", (event) => {
   let data = {};
   try {
@@ -72,14 +73,27 @@ self.addEventListener("push", (event) => {
     data = {};
   }
   const title = typeof data.title === "string" ? data.title : "MIMT";
+  const tag = typeof data.tag === "string" ? data.tag : undefined;
+  const url = typeof data.url === "string" && data.url.startsWith("/") ? data.url : "/messages";
+  // Incoming calls set ttl (60). Ignore anything longer so a bad payload cannot keep this worker alive.
+  const ttl = typeof data.ttl === "number" && data.ttl > 0 && data.ttl <= 120 ? data.ttl : 0;
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body: typeof data.body === "string" ? data.body : "",
-      tag: typeof data.tag === "string" ? data.tag : undefined,
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
-      data: { url: typeof data.url === "string" && data.url.startsWith("/") ? data.url : "/messages" },
-    }),
+    self.registration
+      .showNotification(title, {
+        body: typeof data.body === "string" ? data.body : "",
+        tag,
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        data: { url },
+      })
+      .then(() => {
+        if (!ttl || !tag) return undefined;
+        return new Promise((resolve) => setTimeout(resolve, ttl * 1000)).then(() =>
+          self.registration.getNotifications({ tag }).then((notes) => {
+            for (const n of notes) n.close();
+          }),
+        );
+      }),
   );
 });
 

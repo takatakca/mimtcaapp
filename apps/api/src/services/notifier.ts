@@ -11,7 +11,9 @@ export type NotificationTemplate =
   /** data.months, data.plan: a referral earned a free month. */
   | "referral_reward"
   /** data.from: number or @handle of the sender. Never the text itself. */
-  | "message_received";
+  | "message_received"
+  /** The app is ringing. data.from: @handle or E.164 only. Never a user id or message text. */
+  | "incoming_call";
 
 /** Push/email delivery. A placeholder is NOT delivery; never log notification payloads. */
 export interface Notifier {

@@ -75,6 +75,18 @@ describe("app.mimt.ca .htaccess", () => {
   });
 });
 
+describe("service worker incoming-call notification", () => {
+  const sw = readFileSync(new URL("../public/sw.js", import.meta.url), "utf8");
+
+  it("opens the path from the push and drops the notification after its ttl", () => {
+    expect(sw).toContain('data.url.startsWith("/") ? data.url : "/messages"');
+    expect(sw).toContain("data.ttl <= 120");
+    expect(sw).toContain("ttl * 1000");
+    expect(sw).toContain("getNotifications({ tag })");
+    expect(sw).toContain("n.close()");
+  });
+});
+
 describe("mimt-release.json commit", () => {
   it("uses GITHUB_SHA in GitHub Actions", () => {
     expect(releaseCommit({ GITHUB_SHA: " 0123456789abcdef0123456789abcdef01234567 " })).toBe("0123456789abcdef0123456789abcdef01234567");
