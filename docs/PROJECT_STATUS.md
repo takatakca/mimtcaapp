@@ -4,7 +4,7 @@ Dernière revue : **2026-10-22**. Source de vérité : branche `main` de `takata
 
 ## 22 octobre 2026 — héros et notification d'appel
 
-Le code (branche `cursor/hero-incoming-call-push-2e59`, pas encore `main` au moment de l'écriture) ajoute le texte du héros sur les textos @nom et les 120 minutes d'appels entre applications, et le Web Push « Appel entrant » quand l'app sonne. **Présence dans le dépôt n'est pas une publication.** `mimt.ca` se met à jour après CI sur `main`. `app.mimt.ca` et `api.mimt.ca` attendent un Deploy manuel, portée `all` pour les trois ensemble. Aucun de ces changements ne lance les appels, les textos ou le 9-1-1.
+PR #40 est sur `main` (`804956d7c0201c85be68025c1c8d780eb014caaf`) : le héros dit les textos @nom et les 120 minutes d'appels entre applications, et le Web Push « Appel entrant » part quand l'app sonne. **Le commit sur `main` n'est pas une publication.** `mimt.ca` se met à jour après la CI de ce commit. `app.mimt.ca` et `api.mimt.ca` attendent un Deploy manuel, portée `all`. Aucun de ces changements ne lance les appels, les textos ou le 9-1-1.
 
 ## Produits et propriétaires
 
