@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { summarizeBusinessCall } from "../ai/callSummary.js";
 import { z } from "zod";
 import type { AppDeps } from "../deps.js";
 import { addDays } from "../lib/time.js";
@@ -136,7 +137,7 @@ export async function twilioPbxWebhooks(app: FastifyInstance, deps: AppDeps) {
     const ext = q.data.x ? await repo.pbx.getExtension(q.data.x) : null;
     const now = deps.now();
     const retentionDays = business.recordingPolicy.retentionDays;
-    await repo.pbx.createRecording({
+    const recording = await repo.pbx.createRecording({
       businessId: business.id,
       callSid: p.CallSid,
       recordingSid: p.RecordingSid,
@@ -150,6 +151,8 @@ export async function twilioPbxWebhooks(app: FastifyInstance, deps: AppDeps) {
       retentionDays,
       deleteAfter: addDays(now, retentionDays),
     });
+    // AI summary (Affaires Pro + owner's AI consent; checked inside). Transcription can take a minute or two.
+    if (deps.ai?.gateway) deps.ai.background("call:summary", () => summarizeBusinessCall(deps, business, recording));
     return reply.code(204).send();
   });
 }

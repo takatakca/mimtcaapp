@@ -81,6 +81,7 @@ export const frExtra = {
   "rec.intro": "Enregistrements des appels selon la politique de l'entreprise. Les membres voient seulement leurs propres appels. Ils sont supprimés automatiquement à la fin de la période de conservation.",
   "rec.empty": "Aucun enregistrement.",
   "rec.expired": "Les liens d'écoute expirent après 15 minutes.",
+  "rec.summary": "Résumé IA",
   "rec.refresh": "Actualiser les liens",
   "rec.onDemand": "Sur demande",
   "rec.automatic": "Automatique",

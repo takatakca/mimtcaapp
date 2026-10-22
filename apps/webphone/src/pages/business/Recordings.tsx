@@ -67,6 +67,20 @@ export function Recordings() {
                 </p>
               </div>
             </div>
+            {r.summary ? (
+              <div className="vm__ai">
+                <p className="small">
+                  <Badge tone="muted">{t("rec.summary")}</Badge> {r.summary.text}
+                </p>
+                {r.summary.actionItems.length ? (
+                  <ul className="small">
+                    {r.summary.actionItems.map((a) => (
+                      <li key={a}>{a}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
             {linkExpired(r, now) ? null : (
               <audio className="vm__audio" controls preload="none" src={r.audioUrl} aria-label={t("rec.play", { from: phone(r.fromNumber) })} />
             )}

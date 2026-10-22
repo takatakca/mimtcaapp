@@ -3,6 +3,7 @@
 // Routing logic itself lives in src/pbx/ (router.ts is pure and unit-tested).
 
 import { planOf } from "../plansConfig.js";
+import { callSummaryDto } from "../ai/callSummary.js";
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import {
@@ -585,6 +586,7 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
   app.get("/v1/business/:id/recordings", auth, async (req): Promise<BusinessRecordingsResponse> => {
     const ctx = await businessAccess(deps, req);
     const rows = await pbx.listRecordings(ctx.business.id, { limit: 100, ...(isAdmin(ctx.member) ? {} : { userId: ctx.user.id }) });
+    const summaries = await pbx.getCallSummaries(rows.map((r) => r.id));
     const recordings = await Promise.all(
       rows.map(async (r): Promise<BusinessRecordingDto> => {
         const signed = await deps.sessions.signMedia(recordingResource(r.id), RECORDING_URL_TTL_S);
@@ -601,6 +603,7 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
           deleteAfter: r.deleteAfter.toISOString(),
           audioUrl: `${base}/v1/business/${ctx.business.id}/recordings/${r.id}/audio?token=${encodeURIComponent(signed.token)}`,
           audioUrlExpiresAt: signed.expiresAt.toISOString(),
+          summary: callSummaryDto(deps, summaries.get(r.id)),
         };
       }),
     );
