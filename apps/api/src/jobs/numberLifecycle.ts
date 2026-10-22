@@ -22,6 +22,8 @@ export async function runNumberLifecycle(input: {
   twilio: TwilioGateway | null;
   notifier: Notifier;
   now?: Date;
+  /** Numbers created before this date are never touched (no reminder, no reclaim, no release at Twilio). */
+  since: Date;
   log?: { error: (obj: object, msg: string) => void };
 }): Promise<LifecycleResult> {
   const { repo, twilio, notifier } = input;
@@ -29,6 +31,8 @@ export async function runNumberLifecycle(input: {
   const result: LifecycleResult = { warned: 0, transitions: [], errors: 0 };
 
   for (const n of await repo.listNumbersInStates(["active", "grace", "quarantine"])) {
+    // Owner rule: numbers that already existed when recycling was switched on are never touched.
+    if (n.createdAt < input.since) continue;
     try {
       const account = n.telecomAccountId ? await repo.getAccount(n.telecomAccountId) : null;
       const plan = account ? (await getFeatures(repo, account.id)).plan : "free";
@@ -93,7 +97,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const config = loadConfig();
   const log = createLogger(config);
   const deps = createDeps(config, log);
-  const res = await runNumberLifecycle({ repo: deps.repo, twilio: deps.twilio, notifier: deps.notifier, log });
+  const res = await runNumberLifecycle({ repo: deps.repo, twilio: deps.twilio, notifier: deps.notifier, since: config.NUMBER_LIFECYCLE_FROM, log });
   log.info(res, "number lifecycle done");
   await deps.repo.close();
 }

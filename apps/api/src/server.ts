@@ -65,10 +65,11 @@ const mediaRetentionTimer = setInterval(() => {
 mediaRetentionTimer.unref();
 
 // Free-number recycling (30 idle days, reminders on days 20 and 27, 7-day grace, 90-day quarantine).
+// Only numbers bought from NUMBER_LIFECYCLE_FROM on; older numbers are never touched.
 // First run 10 minutes after start, then daily; NUMBER_LIFECYCLE=off pauses it.
 const lifecycle = () => {
   if (process.env.NUMBER_LIFECYCLE === "off") return;
-  runNumberLifecycle({ repo: deps.repo, twilio: deps.twilio, notifier: deps.notifier, log: app.log })
+  runNumberLifecycle({ repo: deps.repo, twilio: deps.twilio, notifier: deps.notifier, since: config.NUMBER_LIFECYCLE_FROM, log: app.log })
     .then((res) => app.log.info({ warned: res.warned, transitions: res.transitions.length, errors: res.errors }, "number lifecycle done"))
     .catch((err) => app.log.error({ err }, "number lifecycle failed"));
 };
