@@ -7,7 +7,8 @@
 - **Fichiers :** `apps/web/lib/hero.ts`, `apps/web/components/pages/HomePage.tsx`, `apps/api/src/services/webPush.ts`, `apps/api/src/routes/twilioVoice.ts`, `apps/webphone/public/sw.js`.
 - **Vérifié localement :** tests API `incomingCallPush`, `webPush`, `voice`, `handleCalls`, `callControls`; tests site `site.test.ts`; typecheck web, webphone et API. Pas de secret lu. Pas d'appel 9-1-1 réel.
 - **Déploiement :** le site vitrine part tout seul après une CI verte sur `main`. L'API et `app.mimt.ca` (le service worker qui ferme la notification) ne partent pas tout seuls. Portée Deploy à lancer pour que le site, l'app et l'API suivent le même commit : **`all`**.
-- **Prochaine action exacte :** fusionner la PR quand les checks sont verts, puis lancer Actions → Deploy → portée `all` (chemins FTPS `./`). Ensuite comparer `https://mimt.ca/mimt-release.json` et `https://app.mimt.ca/mimt-release.json` au SHA fusionné, et `https://api.mimt.ca/healthz`. Cela ne certifie pas la téléphonie.
+- **PR :** [#40](https://github.com/takatakca/mimtcaapp/pull/40), commit `6677e3e2389756dc4e615e8a926efa8a3d2d779a` sur `cursor/hero-incoming-call-push-2e59`.
+- **Prochaine action exacte :** fusionner #40 quand les checks sont verts, puis lancer Actions → Deploy → portée `all` (chemins FTPS `./`). Ensuite comparer `https://mimt.ca/mimt-release.json` et `https://app.mimt.ca/mimt-release.json` au SHA fusionné, et `https://api.mimt.ca/healthz`. Cela ne certifie pas la téléphonie.
 
 ## Relève — 20 octobre 2026, sprint de lancement (claude, session 01GtWamF)
 
