@@ -72,6 +72,14 @@ ${link("soon", "Internet and mobile service: coming soon, waitlist only.")}
 ${link("help", "Frequently asked questions.")}
 ${link("contact", "Contact form.")}
 ${link("about", "Who runs MIMT.")}
+${link("useVirtual", "What a Canadian virtual phone number is and how MIMT provides one.")}
+${link("useSecond", "A second number on the same mobile phone.")}
+${link("useVoip", "Business VoIP for Québec companies (MIMT Affaires).")}
+${link("cityMontreal", "Local Montréal numbers (514, 438, 263).")}
+${link("cityQuebec", "Local Québec City numbers (418, 581, 367).")}
+${link("cityLaval", "Local Laval and Greater Montréal numbers (450, 579, 354).")}
+${link("cityGatineau", "Local Gatineau and Outaouais numbers (819, 873, 468).")}
+${link("cityToronto", "Local Toronto numbers (416, 647, 437).")}
 
 ## Legal
 

@@ -1806,3 +1806,19 @@ html[data-sheet] .mobile-cta {
   font-size: 0.78rem;
   color: var(--silver);
 }
+
+/* Local and use-case landing pages (components/pages/LandingPage). */
+.landing__cta {
+  margin: 8px 0 28px;
+}
+.landing__links {
+  margin-top: 24px;
+  font-size: 0.95rem;
+}
+
+/* Footer gets a fifth column (Numéros / Numbers) for the landing pages. */
+@media (min-width: 900px) {
+  .site-footer__grid {
+    grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr;
+  }
+}
