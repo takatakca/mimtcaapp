@@ -1806,6 +1806,10 @@ html[data-sheet] .mobile-cta {
   font-size: 0.78rem;
   color: var(--silver);
 }
+.picker__status--note {
+  color: var(--cyan);
+  font-weight: 600;
+}
 
 /* Local and use-case landing pages (components/pages/LandingPage). */
 .landing__cta {

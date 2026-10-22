@@ -103,6 +103,66 @@ export function resolveNumberQuery(raw: string): ResolvedNumberQuery | null {
   return hit ? { areaCodes: [...hit[1].areaCodes], label: hit[1].label } : null;
 }
 
+/**
+ * When an area code is sold out at the carrier, the picker offers these instead, in order (same city or the
+ * closest region first). Owner's console check 2026-10-22: 514, 263, 418, 416, 647 sold out; 438, 450, 581 in stock.
+ */
+export const AREA_CODE_FALLBACKS: Readonly<Record<string, readonly string[]>> = {
+  "514": ["438", "450", "579", "354"],
+  "263": ["438", "450", "579"],
+  "438": ["514", "450", "579"],
+  "450": ["579", "354", "438"],
+  "579": ["450", "354", "438"],
+  "354": ["450", "579", "438"],
+  "418": ["581", "367"],
+  "367": ["581", "418"],
+  "581": ["418", "367"],
+  "819": ["873", "468"],
+  "873": ["819", "468"],
+  "468": ["819", "873"],
+  "416": ["437", "647", "365", "289"],
+  "647": ["437", "416", "365", "289"],
+  "437": ["416", "647", "365", "289"],
+  "942": ["437", "647", "365"],
+  "905": ["289", "365", "742"],
+  "289": ["365", "905", "742"],
+  "365": ["289", "905", "742"],
+  "613": ["343", "753"],
+  "343": ["613", "753"],
+  "604": ["778", "236", "672"],
+  "778": ["236", "604", "672"],
+  "403": ["587", "825", "368"],
+  "780": ["587", "825"],
+  "587": ["825", "403", "780"],
+  "519": ["226", "548", "382"],
+  "705": ["249", "683"],
+  "204": ["431", "584"],
+  "306": ["639", "474"],
+  "902": ["782"],
+  "506": ["428"],
+  "709": ["879"],
+};
+
+/** Where an area code is used, for the fallback message (« voici des 438 de Montréal »). */
+export const AREA_CODE_PLACE: Readonly<Record<string, { fr: string; en: string }>> = {
+  "514": { fr: "Montréal", en: "Montréal" }, "438": { fr: "Montréal", en: "Montréal" }, "263": { fr: "Montréal", en: "Montréal" },
+  "450": { fr: "la couronne de Montréal", en: "Greater Montréal" }, "579": { fr: "la couronne de Montréal", en: "Greater Montréal" }, "354": { fr: "la couronne de Montréal", en: "Greater Montréal" },
+  "418": { fr: "Québec", en: "Québec City" }, "581": { fr: "Québec", en: "Québec City" }, "367": { fr: "Québec", en: "Québec City" },
+  "819": { fr: "l'Outaouais, l'Estrie et la Mauricie", en: "Outaouais, Estrie and Mauricie" }, "873": { fr: "l'Outaouais, l'Estrie et la Mauricie", en: "Outaouais, Estrie and Mauricie" }, "468": { fr: "l'Outaouais, l'Estrie et la Mauricie", en: "Outaouais, Estrie and Mauricie" },
+  "416": { fr: "Toronto", en: "Toronto" }, "647": { fr: "Toronto", en: "Toronto" }, "437": { fr: "Toronto", en: "Toronto" }, "942": { fr: "Toronto", en: "Toronto" },
+  "905": { fr: "la région de Toronto", en: "the Greater Toronto Area" }, "289": { fr: "la région de Toronto", en: "the Greater Toronto Area" }, "365": { fr: "la région de Toronto", en: "the Greater Toronto Area" },
+  "613": { fr: "Ottawa", en: "Ottawa" }, "343": { fr: "Ottawa", en: "Ottawa" },
+  "604": { fr: "Vancouver", en: "Vancouver" }, "778": { fr: "la Colombie-Britannique", en: "British Columbia" }, "236": { fr: "la Colombie-Britannique", en: "British Columbia" },
+  "403": { fr: "Calgary", en: "Calgary" }, "780": { fr: "Edmonton", en: "Edmonton" }, "587": { fr: "l'Alberta", en: "Alberta" }, "825": { fr: "l'Alberta", en: "Alberta" },
+};
+
+/** « Indicatif 514 épuisé — voici des 438 de Montréal. » */
+export function fallbackMessage(from: string, to: string, lang: "fr" | "en" = "fr"): string {
+  const place = AREA_CODE_PLACE[to];
+  if (lang === "fr") return `Indicatif ${from} épuisé — voici des ${to}${place ? ` de ${place.fr}` : ""}.`;
+  return `Area code ${from} is sold out — here are ${to} numbers${place ? ` from ${place.en}` : ""}.`;
+}
+
 export interface PublicNumber {
   e164: string;
   locality: string | null;
@@ -114,6 +174,8 @@ export interface PublicNumberSearchResponse {
   areaCodes: string[];
   /** Real numbers the carrier offers right now, minus those MIMT holds or assigns. */
   numbers: PublicNumber[];
+  /** Set when the asked area code was sold out and neighbours were offered instead. */
+  fallback?: { from: string; to: string; message: { fr: string; en: string } };
 }
 
 export type NumberHoldStatus = "held" | "checkout" | "converted" | "expired" | "released" | "failed";
