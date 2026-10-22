@@ -12,6 +12,7 @@ import type { Call, PhoneNumber, TelecomAccount } from "../repo/types.js";
 import { recordingAccountSid } from "../gateways/twilio.js";
 import { scoreInboundCall } from "../ai/spam.js";
 import { processVoicemailTranscript } from "../ai/voicemail.js";
+import { transcribeVoicemail, transcriptLanguage, usesIntelligence } from "../services/voicemailTranscription.js";
 import { pbxInbound, pbxOutbound } from "../pbx/engine.js";
 import { getFeatures, HELD_STATES, outboundBlocked, setAccountStatus, usagePeriods } from "../services/accounts.js";
 import { planOf } from "../plansConfig.js";
@@ -372,7 +373,9 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
       recordingStatusCallback: `${base}/webhooks/twilio/voice/recording?n=${number.id}`,
       recordingStatusCallbackMethod: "POST",
       recordingStatusCallbackEvent: ["completed"],
-      ...(features.has("vm_transcription") ? { transcribe: true, transcribeCallback: `${base}/webhooks/twilio/voice/transcription` } : {}),
+      ...(features.has("vm_transcription") && deps.config.VOICEMAIL_TRANSCRIPTION !== "off" && !usesIntelligence(deps)
+        ? { transcribe: true, transcribeCallback: `${base}/webhooks/twilio/voice/transcription` }
+        : {}),
     });
     return vr;
   }
@@ -477,7 +480,17 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
         const audioPath = `${number.telecomAccountId}/${p.RecordingSid}.mp3`;
         await deps.media.put(audioPath, audio.body, audio.contentType);
         await repo.updateVoicemailByRecordingSid(p.RecordingSid, { audioPath });
-        await deps.twilio.deleteRecording({ recordingSid: p.RecordingSid, ...(accountSid ? { accountSid } : {}) });
+        const twilio = deps.twilio;
+        const recordingSid = p.RecordingSid;
+        const deleteRecording = () => twilio.deleteRecording({ recordingSid, ...(accountSid ? { accountSid } : {}) });
+        const account = await repo.getAccount(number.telecomAccountId);
+        const owner = account ? await repo.getUser(account.ownerUserId) : null;
+        if (usesIntelligence(deps) && (await getFeatures(repo, number.telecomAccountId)).features.has("vm_transcription")) {
+          // French or English transcript; the Twilio recording is deleted once it is done (inside).
+          void transcribeVoicemail(deps, { recordingSid, language: transcriptLanguage(owner?.locale), deleteRecording }, req.log);
+        } else {
+          await deleteRecording();
+        }
       } catch (err) {
         req.log.error({ err, voicemailId: vm.id }, "voicemail copy to private storage failed");
       }
@@ -486,7 +499,7 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
     return reply.code(204).send();
   });
 
-  // Twilio's built-in transcription (English only; a French engine is a TODO).
+  // Twilio's built-in transcription (English only), used when VOICEMAIL_TRANSCRIPTION=builtin.
   app.post("/webhooks/twilio/voice/transcription", async (req, reply) => {
     const p = twilioParams(req);
     if (p.RecordingSid && p.TranscriptionStatus === "completed") {
