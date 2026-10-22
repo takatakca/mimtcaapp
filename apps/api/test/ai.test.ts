@@ -27,6 +27,11 @@ function fakeGateway() {
     })),
     classifySms: vi.fn<AiGateway["classifySms"]>(async () => ({ ok: true as const, value: { verdict: "scam" as const, reason: "fausse livraison" }, usage: usage() })),
     receptionistStep: vi.fn<AiGateway["receptionistStep"]>(),
+    helpAnswer: vi.fn<AiGateway["helpAnswer"]>(async () => ({
+      ok: true as const,
+      value: { answer: "Essentiel coûte 12,99 $ par mois avant taxes.", needsHuman: false },
+      usage: usage(),
+    })),
   } satisfies AiGateway;
 }
 
@@ -404,5 +409,48 @@ describe("AI receptionist", () => {
     expect(JSON.parse(await first)).toMatchObject({ type: "end" });
     ws.terminate();
     expect(gw.receptionistStep).not.toHaveBeenCalled();
+  });
+});
+
+describe("in-app help assistant", () => {
+  const ask = (auth: Record<string, string>, text: string) => ctx.app.inject({ method: "POST", url: "/v1/ai/help", headers: auth, payload: { messages: [{ role: "user", text }] } });
+
+  it("needs the AI consent like every AI feature", async () => {
+    const u = await makeUser(ctx);
+    expect((await ask(u.auth, "Combien coûte Essentiel?")).json().error).toBe("ai_consent_required");
+    expect(gw.helpAnswer).not.toHaveBeenCalled();
+  });
+
+  it("answers from the MIMT facts with the real prices, and meters the usage", async () => {
+    const u = await makeUser(ctx);
+    await consent(u.token);
+    const res = await ask(u.auth, "Combien coûte Essentiel?");
+    expect(res.json()).toEqual({ answer: "Essentiel coûte 12,99 $ par mois avant taxes.", needsHuman: false });
+    const input = gw.helpAnswer.mock.calls[0]![0];
+    expect(input.knowledge).toContain("12,99");
+    expect(input.knowledge).toContain("info@mimt.ca");
+    expect(input.messages).toEqual([{ role: "user", text: "Combien coûte Essentiel?" }]);
+    expect(JSON.stringify(input)).not.toContain(u.user.id);
+  });
+
+  it("hands over to a person when the model refuses", async () => {
+    const u = await makeUser(ctx);
+    await consent(u.token);
+    gw.helpAnswer.mockResolvedValueOnce({ ok: false, reason: "refusal", usage: usage() });
+    expect((await ask(u.auth, "?")).json()).toMatchObject({ needsHuman: true });
+  });
+
+  it("works on the free plan (own quota, not the plan's AI budget) and stops after the monthly quota", async () => {
+    const u = await makeUser(ctx);
+    await consent(u.token);
+    let last = 0;
+    for (let i = 0; i < 31; i++) last = (await ask(u.auth, `Question ${i}`)).statusCode;
+    expect(last).toBe(429);
+  });
+
+  it("refuses a conversation that does not end with the user's question", async () => {
+    const u = await makeUser(ctx);
+    const res = await ctx.app.inject({ method: "POST", url: "/v1/ai/help", headers: u.auth, payload: { messages: [{ role: "assistant", text: "Bonjour" }] } });
+    expect(res.statusCode).toBe(400);
   });
 });

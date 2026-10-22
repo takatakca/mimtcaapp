@@ -1707,3 +1707,42 @@ a.list__row:hover,
   font-size: 0.85rem;
   opacity: 0.8;
 }
+
+/* /aide: help assistant (pages/HelpAssistant.tsx). */
+.help__log {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+.help__msg {
+  padding: 10px 12px;
+  border-radius: 12px;
+  max-width: 85%;
+  line-height: 1.45;
+}
+.help__msg--bot {
+  background: var(--surface-2, #102552);
+  justify-self: start;
+}
+.help__msg--me {
+  background: var(--electric, #1f8bff);
+  color: #fff;
+  justify-self: end;
+}
+.help__human {
+  display: block;
+  margin-top: 6px;
+  font-weight: 600;
+}
+.help__form {
+  display: flex;
+  gap: 8px;
+}
+.help__form .input {
+  flex: 1;
+  min-width: 0;
+}

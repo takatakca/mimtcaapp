@@ -287,6 +287,7 @@ export const fr = {
   "messages.empty": "Aucune conversation. Envoyez votre premier texto!",
   "messages.invalidTo": "Entrez un numéro à 10 chiffres ou un identifiant MIMT (@nom).",
   "messages.needHandle": "Choisissez d'abord votre identifiant MIMT dans Compte pour texter gratuitement d'autres utilisateurs MIMT.",
+  "nav.help": "Aide",
   "push.title": "Notifications",
   "push.lead": "Soyez avisé d'un nouveau texto ou message vocal, même quand l'onglet est fermé. Le contenu n'apparaît jamais dans la notification.",
   "push.denied": "Les notifications sont bloquées pour app.mimt.ca dans votre navigateur. Autorisez-les dans les réglages du site.",

@@ -806,6 +806,15 @@ const routes: Route[] = [
     state.me = { ...state.me, usage: { ...state.me.usage, messages: state.me.usage.messages + m.segments } };
     return created(m);
   }],
+  ["POST", /^\/v1\/ai\/help$/, ({ body }) => {
+    const msgs = (body as { messages?: Array<{ role: string; text: string }> }).messages ?? [];
+    const q = (msgs[msgs.length - 1]?.text ?? "").toLowerCase();
+    if (!state.consents[AI_CONSENT_KIND]) return fail(403, "ai_consent_required");
+    const answer = q.includes("transf")
+      ? "Dans l'app : Services › Transférer un numéro. C'est gratuit; il faut le numéro de compte et le NIP de votre fournisseur actuel."
+      : "Mode démo : posez une question sur les forfaits, le transfert de numéro ou le 9-1-1.";
+    return ok({ answer, needsHuman: false });
+  }],
   ["GET", /^\/v1\/ai\/status$/, () =>
     ok({ configured: state.aiConfigured, consent: Boolean(state.consents[AI_CONSENT_KIND]), plan: state.me.account.plan, monthlyBudgetCadCents: 1000, usedCadCents: 37, period: new Date().toISOString().slice(0, 7) })],
 

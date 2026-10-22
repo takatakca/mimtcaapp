@@ -284,6 +284,7 @@ export const en: Record<TKey, string> = {
   "messages.empty": "No conversations yet. Send your first text!",
   "messages.invalidTo": "Enter a 10-digit number or a MIMT handle (@name).",
   "messages.needHandle": "Pick your MIMT handle in Account first to text other MIMT users for free.",
+  "nav.help": "Help",
   "push.title": "Notifications",
   "push.lead": "Get notified of a new text or voicemail, even with the tab closed. The content never shows in the notification.",
   "push.denied": "Notifications are blocked for app.mimt.ca in your browser. Allow them in the site settings.",
