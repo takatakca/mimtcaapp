@@ -7,6 +7,7 @@ import { MemoryMediaRepository } from "./mediaMemory.js";
 import { MemoryReferralRepository } from "./referralsMemory.js";
 import { MemoryNumberHoldRepository } from "./numberHoldsMemory.js";
 import { MemoryHandleRepository } from "./handlesMemory.js";
+import { MemoryWebPushRepository } from "./webPushMemory.js";
 import { MemoryPortInRepository } from "./portInMemory.js";
 import { MemoryMeetingRepository } from "./meetingsMemory.js";
 import { planFromSubscriptions } from "../services/accounts.js";
@@ -70,6 +71,7 @@ export class MemoryRepository implements Repository {
   readonly referrals = new MemoryReferralRepository(() => this.devices);
   readonly numberHolds = new MemoryNumberHoldRepository();
   readonly handles = new MemoryHandleRepository();
+  readonly webPush = new MemoryWebPushRepository();
 
   async ping() {}
   async close() {}
