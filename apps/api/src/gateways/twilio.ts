@@ -19,6 +19,16 @@ export interface EmergencyAddressInput {
 }
 
 /** Everything MIMT asks of Twilio, behind one interface so tests can mock it. */
+export type TranscriptLanguage = "fr" | "en";
+
+export interface VoicemailTranscriber {
+  /** Starts a transcript of a Twilio recording; returns the transcript SID. */
+  start(input: { language: TranscriptLanguage; recordingSid: string; customerKey: string }): Promise<string>;
+  /** "pending" until done; the text joins every sentence in order. */
+  result(transcriptSid: string): Promise<{ status: "pending" | "completed" | "failed"; text: string | null }>;
+  remove(transcriptSid: string): Promise<void>;
+}
+
 export interface TwilioGateway {
   createVoiceToken(identity: string, platform: Platform, ttlSeconds: number): { token: string; expiresAt: Date };
   searchLocalNumbers(input: { areaCode?: string; limit: number }): Promise<AvailableNumber[]>;
@@ -31,6 +41,8 @@ export interface TwilioGateway {
   checkVerification(phone: string, code: string): Promise<boolean>;
   /** Downloads a recording (mp3) server-side, so Twilio credentials never reach the client. */
   fetchRecording(input: { recordingSid: string; accountSid?: string }): Promise<{ contentType: string; body: Buffer }>;
+  /** Conversation Intelligence post-call transcription (one service per language; voicemail only). */
+  intelligence?: VoicemailTranscriber;
   deleteRecording(input: { recordingSid: string; accountSid?: string }): Promise<void>;
   /** Starts or stops recording a live call (MIMT Affaires on-demand recording). Optional: absent → 503. */
   updateCallRecording?(input: { callSid: string; action: "start" | "stop"; statusCallback: string }): Promise<void>;
@@ -68,7 +80,10 @@ export class TwilioRestGateway implements TwilioGateway {
     const { TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET } = config;
     if (!TWILIO_ACCOUNT_SID || !TWILIO_API_KEY_SID || !TWILIO_API_KEY_SECRET) throw new Error("Twilio is not configured");
     this.client = twilio(TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, { accountSid: TWILIO_ACCOUNT_SID, autoRetry: true, maxRetries: 2 });
+    if (config.VOICEMAIL_TRANSCRIPTION === "intelligence") this.intelligence = new IntelligenceTranscriber(this.client);
   }
+
+  readonly intelligence?: VoicemailTranscriber;
 
   createVoiceToken(identity: string, platform: Platform, ttlSeconds: number) {
     const c = this.config;
@@ -237,3 +252,65 @@ export function validateTwilioSignature(authToken: string, signature: string | u
 
 export const expectedTwilioSignature = (authToken: string, url: string, params: Record<string, unknown>) =>
   twilio.getExpectedTwilioSignature(authToken, url, params);
+
+/**
+ * Voicemail transcription in French or English with Conversation Intelligence. A service holds one language
+ * (French is fr-FR: Twilio has no fr-CA), so MIMT keeps one per language, found by unique name or created on
+ * first use with auto-transcribe and data logging off. Recordings and transcripts are deleted once read.
+ */
+class IntelligenceTranscriber implements VoicemailTranscriber {
+  private readonly services = new Map<TranscriptLanguage, Promise<string>>();
+
+  constructor(private readonly client: twilio.Twilio) {}
+
+  private service(language: TranscriptLanguage): Promise<string> {
+    let sid = this.services.get(language);
+    if (!sid) {
+      sid = this.findOrCreate(language);
+      sid.catch(() => this.services.delete(language));
+      this.services.set(language, sid);
+    }
+    return sid;
+  }
+
+  private async findOrCreate(language: TranscriptLanguage) {
+    const uniqueName = `mimt-voicemail-${language}`;
+    const existing = (await this.client.intelligence.v2.services.list({ limit: 100 })).find((s) => s.uniqueName === uniqueName);
+    if (existing) return existing.sid;
+    const created = await this.client.intelligence.v2.services.create({
+      uniqueName,
+      friendlyName: `MIMT messagerie vocale (${language})`,
+      languageCode: language === "fr" ? "fr-FR" : "en-US",
+      autoTranscribe: false,
+      dataLogging: false,
+    });
+    return created.sid;
+  }
+
+  async start(input: { language: TranscriptLanguage; recordingSid: string; customerKey: string }) {
+    const serviceSid = await this.service(input.language);
+    const t = await this.client.intelligence.v2.transcripts.create({
+      serviceSid,
+      channel: { media_properties: { source_sid: input.recordingSid } },
+      customerKey: input.customerKey,
+    });
+    return t.sid;
+  }
+
+  async result(transcriptSid: string): Promise<{ status: "pending" | "completed" | "failed"; text: string | null }> {
+    const t = await this.client.intelligence.v2.transcripts(transcriptSid).fetch();
+    if (t.status === "failed" || t.status === "canceled" || t.status === "error") return { status: "failed", text: null };
+    if (t.status !== "completed") return { status: "pending", text: null };
+    const sentences = await this.client.intelligence.v2.transcripts(transcriptSid).sentences.list({ limit: 1000 });
+    const text = sentences
+      .sort((a, b) => a.sentenceIndex - b.sentenceIndex)
+      .map((x) => x.transcript.trim())
+      .filter(Boolean)
+      .join(" ");
+    return { status: "completed", text: text || null };
+  }
+
+  async remove(transcriptSid: string) {
+    await this.client.intelligence.v2.transcripts(transcriptSid).remove();
+  }
+}
