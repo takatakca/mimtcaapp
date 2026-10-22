@@ -117,6 +117,53 @@ export async function messageRoutes(app: FastifyInstance, deps: AppDeps) {
     return message;
   }
 
+  /**
+   * Number-to-number text where the recipient's number is held by MIMT: stored for both people, never sent to the
+   * carrier, no message quota. Same anti-abuse limits as on-net handle texts; the recipient's block list applies.
+   */
+  async function deliverOnNetNumber(account: TelecomAccount, from: { id: string; e164: string }, toAccountId: string, to: string, text: string) {
+    const now = deps.now();
+    for (const [window, rule] of Object.entries(ONNET_RATE_RULES)) {
+      if (!(await deps.rateLimiter.take(`onnet:${window}:${account.id}`, rule))) await block(account, `onnet_rate_${window}`, 429, "rate_limited", "hold");
+    }
+    const fingerprint = deps.cipher.fingerprint(text);
+    const sameBody = await repo.countFingerprintRecipientsSince(account.id, fingerprint, new Date(now.getTime() - BULK_IDENTICAL_WINDOW_MS));
+    if (sameBody >= BULK_IDENTICAL_RECIPIENTS) await block(account, "onnet_bulk_identical", 429, "bulk_identical_blocked");
+
+    const encrypted = deps.cipher.encrypt(text);
+    const segments = smsSegments(text);
+    const message = await repo.createMessage({
+      twilioSid: null,
+      telecomAccountId: account.id,
+      direction: "outbound",
+      ourNumber: from.e164,
+      peer: to,
+      bodyEncrypted: encrypted,
+      bodyFingerprint: fingerprint,
+      status: "delivered",
+      segments,
+      numMedia: 0,
+    });
+    await repo.updateNumber(from.id, { lastActivityAt: now });
+    if (!(await repo.callControls.isBlocked(toAccountId, from.e164))) {
+      await repo.createMessage({
+        twilioSid: null,
+        telecomAccountId: toAccountId,
+        direction: "inbound",
+        ourNumber: to,
+        peer: from.e164,
+        bodyEncrypted: encrypted,
+        bodyFingerprint: fingerprint,
+        status: "received",
+        segments,
+        numMedia: 0,
+      });
+      const owner = await repo.getAccount(toAccountId);
+      if (owner) void deps.notifier.notify(owner.ownerUserId, "message_received", { from: from.e164 }).catch(() => undefined);
+    }
+    return message;
+  }
+
   app.post("/v1/messages", auth, async (req, reply) => {
     const body = parse(SendBody, req.body);
     if (body.to.trim().startsWith("@")) return reply.code(201).send(messageDto(deps, await sendOnNet(req, body)));
@@ -135,10 +182,14 @@ export async function messageRoutes(app: FastifyInstance, deps: AppDeps) {
 
     const { plan, features, trialing } = await getFeatures(repo, account.id);
     if ((body.mediaUrls?.length || body.mediaIds?.length) && !features.has("mms")) throw forbidden("mms_not_in_plan");
+    const target = await repo.getNumberByE164(to);
+    const appToApp = Boolean(target?.telecomAccountId && HELD_STATES.has(target.state) && target.id !== from.id);
+    // Text to another MIMT number: delivered through the database, never through the carrier (free, no quota).
+    if (appToApp && target?.telecomAccountId && !body.mediaUrls?.length && !body.mediaIds?.length) {
+      return reply.code(201).send(messageDto(deps, await deliverOnNetNumber(account, from, target.telecomAccountId, to, body.body)));
+    }
     // Free-tier cost guard (services/freeTier.ts): texts to other MIMT numbers (app-to-app) stay allowed.
     if (plan === "free") {
-      const target = await repo.getNumberByE164(to);
-      const appToApp = Boolean(target?.telecomAccountId && HELD_STATES.has(target.state));
       const paused = appToApp ? null : await freeOutboundBlock(deps, now);
       if (paused) throw forbidden(paused, FREE_OUTBOUND_PAUSED_MESSAGE);
     }
