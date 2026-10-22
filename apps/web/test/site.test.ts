@@ -144,6 +144,19 @@ test("copy has no false urgency or invented popularity", () => {
   for (const { file, text } of siteSource()) assert.ok(!banned.test(text), `${file}: ${text.match(banned)?.[0]}`);
 });
 
-test("no competitor names in the site source (the comparison page stays generic)", () => {
+test("competitor facts are sourced from the competitor's own site and dated", () => {
+  const data = JSON.parse(readFileSync(join(web, "content", "rivals.json"), "utf8"));
+  assert.match(data.checked, /^\d{4}-\d{2}-\d{2}$/);
+  for (const r of data.rivals) {
+    assert.ok(r.facts.length > 0, r.name);
+    for (const f of r.facts) {
+      assert.ok(f.fr && f.en, r.name);
+      const host = new URL(f.source).hostname;
+      assert.ok(host === r.domain || host.endsWith(`.${r.domain}`), `${r.name}: ${f.source}`);
+    }
+  }
+});
+
+test("no competitor names in the site source (named facts live only in content/rivals.json)", () => {
   for (const { file, text } of siteSource()) assert.ok(!/textnow|fongo|\bfizz\b|magicjack|ooma/i.test(text), file);
 });

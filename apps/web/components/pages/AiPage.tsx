@@ -78,8 +78,8 @@ export function AiPage({ lang }: { lang: Lang }) {
           <h2 id="ai-features">{fr ? "Ce que fait l'IA de MIMT" : "What MIMT's AI does"}</h2>
           <p className="section-lead">
             {fr
-              ? "MIMT n'est pas encore offert : ces fonctions sont prévues au lancement. L'IA est fournie par Claude, un modèle de l'entreprise Anthropic."
-              : "MIMT is not available yet: these features are planned at launch. The AI is provided by Claude, a model from the company Anthropic."}
+              ? "Les fonctions d'IA sont facultatives et demandent votre consentement. L'IA est fournie par Claude, un modèle de l'entreprise Anthropic."
+              : "AI features are optional and need your consent. The AI is provided by Claude, a model from the company Anthropic."}
           </p>
           <ul className="grid grid--2 features">
             {FEATURES.map((f) => (
