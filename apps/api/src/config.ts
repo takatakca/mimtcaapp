@@ -3,6 +3,12 @@ import { isSipHost } from "./lib/cuba.js";
 import { plansFromEnv, type PlanTable } from "./plansConfig.js";
 
 const optional = z.string().min(1).optional();
+
+/**
+ * Twilio Verify service « MIMT » (SMS sign-in codes), created by the owner on 2026-10-22. A service SID is an
+ * identifier, not a secret. TWILIO_VERIFY_SERVICE_SID overrides it; "off" turns SMS sign-in off.
+ */
+export const DEFAULT_VERIFY_SERVICE_SID = "VAc17f03b98d76d6f0183445ab09458afc";
 const csv = (fallback: string[]) =>
   z
     .string()
@@ -32,7 +38,11 @@ const EnvSchema = z
     TWILIO_PUSH_CREDENTIAL_SID_IOS: optional,
     TWILIO_PUSH_CREDENTIAL_SID_ANDROID: optional,
     TWILIO_MESSAGING_SERVICE_SID: optional,
-    TWILIO_VERIFY_SERVICE_SID: optional,
+    TWILIO_VERIFY_SERVICE_SID: z
+      .string()
+      .min(1)
+      .optional()
+      .transform((v) => (v === "off" ? undefined : (v ?? DEFAULT_VERIFY_SERVICE_SID))),
     /** Emergency-enabled company number used as caller ID for 9-1-1 when the user has no number yet. */
     EMERGENCY_FALLBACK_CALLER_ID: optional,
     /** Number port-in through the Twilio Porting API. Off until porting is enabled on the Twilio account. */
