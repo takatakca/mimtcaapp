@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { formatNanp, NUMBER_HOLD_MINUTES, type NumberHoldResponse, type PublicNumber, type PublicNumberSearchResponse } from "@mimt/shared";
+import { formatCad, formatNanp, NUMBER_HOLD_MINUTES, PLANS, type NumberHoldResponse, type PublicNumber, type PublicNumberSearchResponse } from "@mimt/shared";
 import { API_URL, APP_URL, type Lang } from "@/lib/site";
 import { trackNumberHeld } from "@/lib/tags";
 
@@ -36,7 +36,7 @@ function errorText(code: string | undefined, fr: boolean): string {
 
 /**
  * Live number picker: type an area code or a city, see real numbers from the carrier, pick one and it is held
- * for NUMBER_HOLD_MINUTES (real countdown). Then sign up and pay in the app. Nothing here is invented: the count
+ * for NUMBER_HOLD_MINUTES (real holdring). Then sign up and pay in the app. Nothing here is invented: the count
  * is what the search returned, the timer is the server's expiry.
  */
 export function NumberPicker({ lang, plan = "lock", id = "numero" }: { lang: Lang; plan?: "lock" | "premium" | "business"; id?: string }) {
@@ -72,7 +72,7 @@ export function NumberPicker({ lang, plan = "lock", id = "numero" }: { lang: Lan
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
-  // Real countdown to the server's expiry.
+  // Real holdring to the server's expiry.
   useEffect(() => {
     if (!hold) return;
     const tick = () => setLeft(Math.max(0, Math.round((Date.parse(hold.expiresAt) - Date.now()) / 1000)));
@@ -126,19 +126,49 @@ export function NumberPicker({ lang, plan = "lock", id = "numero" }: { lang: Lan
           </>
         ) : (
           <>
-            <p className="picker__eyebrow">{fr ? "Réservé pour vous" : "Held for you"}</p>
-            <p className="picker__number">{formatNanp(hold.e164, lang)}</p>
-            <p className="picker__timer">
-              {fr ? "Personne d'autre chez MIMT ne peut le prendre pendant " : "No one else at MIMT can take it for "}
-              <strong>
+            <ol className="picker__steps" aria-label={fr ? "Étapes" : "Steps"}>
+              <li className="is-done">{fr ? "Réservé" : "Held"}</li>
+              <li>{fr ? "Compte" : "Account"}</li>
+              <li>9-1-1</li>
+              <li>{fr ? "Paiement" : "Payment"}</li>
+            </ol>
+            <div className="picker__heldcard">
+              <div>
+                <p className="picker__eyebrow">{fr ? "Réservé pour vous" : "Held for you"}</p>
+                <p className="picker__number">{formatNanp(hold.e164, lang)}</p>
+              </div>
+              <div
+                className="holdring"
+                style={{ "--left": String(left / (NUMBER_HOLD_MINUTES * 60)) } as React.CSSProperties}
+                role="timer"
+                aria-label={fr ? `Réservé encore ${mm} minutes ${ss} secondes` : `Held for ${mm} more minutes ${ss} seconds`}
+              >
+                <svg viewBox="0 0 44 44" aria-hidden="true">
+                  <circle className="holdring__track" cx="22" cy="22" r="19" />
+                  <circle className="holdring__bar" cx="22" cy="22" r="19" pathLength="100" />
+                </svg>
                 <time dateTime={`PT${mm}M${ss}S`}>
                   {mm}:{ss}
                 </time>
-              </strong>
-              .
+              </div>
+            </div>
+            <p className="picker__timer">
+              {fr ? "Personne d'autre chez MIMT ne peut le prendre pendant ce temps." : "No one else at MIMT can take it in the meantime."}
             </p>
-            <a className="btn btn--primary btn--lg" href={appHandoffUrl(hold, plan)}>
-              {fr ? "Créer mon compte et payer" : "Create my account and pay"}
+            <ul className="picker__includes">
+              <li>
+                <strong>
+                  {formatCad(PLANS[plan === "business" ? "business" : plan].monthlyPriceCents, lang)}
+                  {plan === "business" ? (fr ? " / ligne / mois" : " / line / month") : fr ? " / mois" : " / month"}
+                </strong>{" "}
+                {fr ? "avant taxes, sans contrat" : "before tax, no contract"}
+              </li>
+              <li>{fr ? "Activé dès le paiement, sur cellulaire et ordinateur" : "Live as soon as you pay, on phone and computer"}</li>
+              <li>{fr ? "Annulable en tout temps depuis votre compte" : "Cancel any time from your account"}</li>
+            </ul>
+            <a className="btn btn--primary btn--lg btn--block picker__go" href={appHandoffUrl(hold, plan)}>
+              {fr ? "Continuer : créer mon compte" : "Continue: create my account"}
+              <span aria-hidden="true"> →</span>
             </a>
             <button type="button" className="link-button picker__release" onClick={release}>
               {fr ? "Choisir un autre numéro" : "Pick another number"}
@@ -208,8 +238,8 @@ export function NumberPicker({ lang, plan = "lock", id = "numero" }: { lang: Lan
                   : `${state.data.numbers.length} numbers free right now · ${state.data.fallback ? state.data.fallback.to : state.data.label.en}`}
               </p>
               <ul className="picker__list">
-                {state.data.numbers.map((n) => (
-                  <li key={n.e164}>
+                {state.data.numbers.map((n, i) => (
+                  <li key={n.e164} style={{ "--i": String(i) } as React.CSSProperties}>
                     <button type="button" className="picker__item" disabled={busy !== null} onClick={() => void pick(n)}>
                       <span className="picker__digits">{formatNanp(n.e164, lang)}</span>
                       <span className="picker__place">{n.locality ?? n.region ?? ""}</span>

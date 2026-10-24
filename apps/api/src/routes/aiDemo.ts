@@ -37,6 +37,9 @@ const busy = () => new HttpError(429, "demo_busy", "La démo est très demandée
 export async function aiDemoRoutes(app: FastifyInstance, deps: AppDeps) {
   const ipOf = (req: FastifyRequest) => req.ip || "unknown";
 
+  /** Lets mimt.ca show the demo only when it can answer (AI key set, demo on). */
+  app.get("/v1/public/ai-demo/status", async () => ({ available: deps.config.AI_DEMO !== "off" && Boolean(deps.ai?.gateway) }));
+
   app.post("/v1/public/ai-demo", async (req): Promise<AiDemoResponse> => {
     if (deps.config.AI_DEMO === "off") throw notConfigured("AI demo");
     const gateway = deps.ai?.gateway;
