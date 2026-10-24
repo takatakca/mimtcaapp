@@ -6,7 +6,6 @@ import { tagBootstrap, tagIds } from "./tags.ts";
 import "../styles/globals.css";
 import "../styles/phase2.css";
 import "../styles/home.css";
-import "../styles/human.css";
 
 export const viewport: Viewport = {
   themeColor: "#060D1F",
