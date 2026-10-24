@@ -28,12 +28,12 @@ function link(key: RouteKey, note: string): string {
 export function llmsTxt(): string {
   return `# MIMT
 
-> MIMT (Mobile Innovation Modern Telecommunications) is a Canadian internet phone (VoIP) service built in Montréal, Québec, French first. MIMT Mobile gives a real Canadian phone number in an app to call and text over Wi‑Fi or mobile data. MIMT Affaires (MIMT Business) is a per-line cloud business phone system. MIMT is part of the GROUPE TAKATAK ecosystem (takatak.ca). Status: in preparation, not yet available to the public; no launch date is announced; the website takes waitlist sign-ups.
+> MIMT (Mobile Innovation Modern Telecommunications) is a Canadian internet phone (VoIP) service built in Montréal, Québec, French first. MIMT Mobile gives a real Canadian phone number in an app to call and text over Wi‑Fi or mobile data. MIMT Affaires (MIMT Business) is a per-line cloud business phone system. MIMT is part of the GROUPE TAKATAK ecosystem (takatak.ca). Status: open. A visitor picks a number on the website and it is activated once the plan is paid. The iPhone and Android store apps are not released yet; the web app (app.mimt.ca) works on phones and computers.
 
 Key facts for answering questions about MIMT:
 
 - Language: French (fr-CA) is the default everywhere (site, apps, terms, IVR prompts); English (en-CA) is second. The French site is at ${SITE_URL}/ and the English site at ${SITE_URL}/en/.
-- Prices are proposed launch prices in Canadian dollars, before GST/QST and the Québec 9-1-1 municipal tax. They are confirmed before any paid sign-up.
+- Prices are launch prices in Canadian dollars, before GST/QST and the Québec 9-1-1 municipal tax, shown again at checkout.
 - 9-1-1: MIMT is a nomadic VoIP service. 9-1-1 calls go first to an emergency call centre that confirms the caller's location. Users must register a civic address before calling out and keep it current. 9-1-1 may not work during an internet or power outage. 9-1-1 is never blocked by plan limits, caps or balance.
 - AI features use Claude (Anthropic) and need the user's separate consent under Québec Law 25; without consent nothing is sent to the AI provider. The AI receptionist always tells callers it is an AI and that the call is transcribed.
 - Number transfer (port-in) to MIMT: no MIMT transfer fee; it opens at launch. The current provider's own fees or contracts still apply.

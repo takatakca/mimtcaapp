@@ -1,5 +1,12 @@
 # MIMT — Relève du développeur principal
 
+## Relève — 24 octobre 2026 (claude, session 01GtWamF, corrections mimt.ca)
+
+- **Fait (code) :** la classe `.consent` du bandeau de témoins collait l'encadré de la page IA en bas de l'écran (renommé `consent-example`); textes d'avant le lancement retirés (Affaires « Inclus », App Web, `llms.txt`, test mis à jour); journal : lignes du 22 octobre perdues à la fusion de la PR #25 restaurées.
+- **Direction du propriétaire (24 oct.) :** un site animé, fluide et futuriste (pas un site plat), une démo d'appel IA dans le navigateur avec trois choix, et un achat plus fluide. Ces chantiers suivent en PR séparées.
+- **À signaler :** `next build` affiche un avis de sécurité sur Next.js 16.4.0 et s'arrête à la première exécution (la relance passe). Mise à jour de Next.js à planifier.
+- **Prochaine action exacte :** CI verte, fusion; le site part tout seul après la CI de `main`.
+
 ## Relève — 22 octobre 2026 (cursor, héros et appel entrant)
 
 - **Fait (code, pas encore en production) :** le héros de mimt.ca, en français et en anglais, dit qu'on peut texter gratuitement les autres utilisateurs MIMT avec @nom sans numéro, et les appeler entre applications. Le plafond affiché est `PLANS.free.caps.onNetMinutes` (120 sur le forfait Gratuit). Les appels ne sont pas décrits comme illimités.
