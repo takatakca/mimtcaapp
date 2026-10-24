@@ -177,3 +177,12 @@ test("competitor facts are sourced from the competitor's own site and dated", ()
 test("no competitor names in the site source (named facts live only in content/rivals.json)", () => {
   for (const { file, text } of siteSource()) assert.ok(!/textnow|fongo|\bfizz\b|magicjack|ooma/i.test(text), file);
 });
+
+test("the AI call demo says the businesses are fictional and who processes the voice and text", () => {
+  const demo = readFileSync(join(web, "components", "AiDemo.tsx"), "utf8");
+  assert.match(demo, /commerces fictifs/);
+  assert.match(demo, /Anthropic/);
+  assert.match(demo, /Google ou d'Apple/);
+  const privacy = readFileSync(join(web, "components", "pages", "PrivacyPage.tsx"), "utf8");
+  assert.match(privacy, /Appelez notre IA/);
+});

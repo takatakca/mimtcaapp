@@ -32,7 +32,7 @@ ErrorDocument 404 /404.html
   Header always set X-Content-Type-Options "nosniff"
   Header always set X-Frame-Options "SAMEORIGIN"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
-  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+  Header always set Permissions-Policy "camera=(), microphone=(self), geolocation=(), payment=(), usb=(), interest-cohort=()"
   # CSP choices (static export, no server to add nonces):
   # - script-src 'unsafe-inline': Next.js inlines its RSC payload (self.__next_f.push…) and bootstrap
   #   scripts in every page; their hashes change with every build and every page, so hashes in a

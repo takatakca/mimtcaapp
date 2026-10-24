@@ -10,6 +10,7 @@ import { loggerOptions } from "./logger.js";
 import { setActivePlans } from "./plansConfig.js";
 import { adminCostRoutes } from "./routes/adminCosts.js";
 import { aiRoutes } from "./routes/ai.js";
+import { aiDemoRoutes } from "./routes/aiDemo.js";
 import { authRoutes } from "./routes/auth.js";
 import { billingRoutes } from "./routes/billing.js";
 import { businessRoutes } from "./routes/business.js";
@@ -103,6 +104,7 @@ export async function buildApp(deps: AppDeps) {
     twilioWebhooks,
     businessRoutes,
     aiRoutes,
+    aiDemoRoutes,
     aiReceptionistSocket,
     portInRoutes,
     meetingRoutes,
