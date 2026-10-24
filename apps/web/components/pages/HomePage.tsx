@@ -2,10 +2,9 @@ import { Shell } from "@/components/Shell";
 import { LeadForm } from "@/components/LeadForm";
 import { NumberPicker } from "@/components/NumberPicker";
 import { FaqList } from "@/components/FaqList";
-import { FeatureCarousel, type Slide } from "@/components/FeatureCarousel";
 import { HeroArt, Skyline } from "@/components/HeroArt";
 import { Offers } from "@/components/Offers";
-import { Icon, type IconName } from "@/components/Visuals";
+import type { IconName } from "@/components/Visuals";
 import { PlanCard } from "@/components/PlanCard";
 import { faqItems } from "@/lib/faq";
 import { heroWithoutNumber } from "@/lib/hero";
@@ -65,17 +64,13 @@ export function HomePage({ lang }: { lang: Lang }) {
         <Skyline />
       </section>
 
-      {/* ---------- Trust strip ---------- */}
+      {/* ---------- Plain facts strip ---------- */}
       <section className="trust" aria-label={t.trustLabel}>
         <ul className="container trust__list">
           {t.trust.map((x) => (
-            <li key={x.text}>
-              <Icon name={x.icon} />
-              <span>{x.text}</span>
-            </li>
+            <li key={x.text}>{x.text}</li>
           ))}
           <li>
-            <Icon name="sos" />
             <a href={href(lang, "e911")}>{t.trust911}</a>
           </li>
         </ul>
@@ -84,8 +79,7 @@ export function HomePage({ lang }: { lang: Lang }) {
       {/* ---------- Plans ---------- */}
       <section className="section section--tint" id={fr ? "forfaits" : "plans"} aria-labelledby="plans-title">
         <div className="container">
-          <div className="section-head section-head--center" data-reveal="">
-            <p className="kicker">{fr ? "Forfaits" : "Plans"}</p>
+          <div className="section-head">
             <h2 id="plans-title">{t.plansTitle}</h2>
             <p className="section-lead">{t.plansLead}</p>
           </div>
@@ -94,7 +88,7 @@ export function HomePage({ lang }: { lang: Lang }) {
               <PlanCard key={code} plan={PLANS[code]} lang={lang} highlight={code === "lock"} compact />
             ))}
           </div>
-          <p className="fineprint fineprint--center">
+          <p className="fineprint">
             {t.taxNote}{" "}
             <strong>
               {fr ? "Le 9-1-1 par Internet a des limites : " : "9-1-1 over the internet has limits: "}
@@ -109,19 +103,12 @@ export function HomePage({ lang }: { lang: Lang }) {
       {/* ---------- How it works ---------- */}
       <section className="section" aria-labelledby="how-title">
         <div className="container">
-          <div className="section-head section-head--center" data-reveal="">
-            <p className="kicker">{fr ? "Comment ça marche" : "How it works"}</p>
+          <div className="section-head">
             <h2 id="how-title">{t.howTitle}</h2>
           </div>
-          <ol className="how">
-            {t.steps.map((s, i) => (
-              <li key={s.title} className="how__step" data-reveal="" style={{ transitionDelay: `${i * 120}ms` }}>
-                <span className="how__num" aria-hidden="true">
-                  {i + 1}
-                </span>
-                <span className="how__icon">
-                  <Icon name={s.icon} />
-                </span>
+          <ol className="steps">
+            {t.steps.map((s) => (
+              <li key={s.title}>
                 <h3>{s.title}</h3>
                 <p>{s.text}</p>
               </li>
@@ -130,24 +117,37 @@ export function HomePage({ lang }: { lang: Lang }) {
         </div>
       </section>
 
-      {/* ---------- Features carousel ---------- */}
-      <section className="section section--features" aria-labelledby="features-title">
+      {/* ---------- What you get: a plain list, like a printed leaflet ---------- */}
+      <section className="section section--tint" aria-labelledby="features-title">
         <div className="container">
-          <div className="section-head" data-reveal="">
-            <p className="kicker">MIMT Mobile</p>
+          <div className="section-head">
             <h2 id="features-title">{t.featuresTitle}</h2>
             <p className="section-lead">{t.featuresLead}</p>
           </div>
-          <FeatureCarousel lang={lang} label={t.featuresTitle} slides={slides} />
+          <ul className="facts">
+            {slides.map((f) => (
+              <li key={f.title}>
+                <h3>{f.title}</h3>
+                <p>
+                  {f.text}
+                  {f.link ? (
+                    <>
+                      {" "}
+                      <a href={f.link.href}>{f.link.label}</a>
+                    </>
+                  ) : null}
+                </p>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
       {/* ---------- MIMT Affaires ---------- */}
-      <section className="section section--dark biz" aria-labelledby="biz-title">
-        <div className="hero-glow hero-glow--soft" aria-hidden="true" />
-        <div className="container biz__inner">
-          <div className="biz__copy" data-reveal="">
-            <p className="kicker kicker--light">MIMT {fr ? "Affaires" : "Business"}</p>
+      <section className="section biz-plain" aria-labelledby="biz-title">
+        <div className="container biz-plain__inner">
+          <div className="biz-plain__copy">
+            <p className="label">MIMT {fr ? "Affaires" : "Business"}</p>
             <h2 id="biz-title">{t.bizTitle}</h2>
             <p className="lead">{t.bizLead}</p>
             <p className="price-line">
@@ -156,29 +156,25 @@ export function HomePage({ lang }: { lang: Lang }) {
               {fr ? " par ligne par mois" : " per line per month"}
               <span className="price-line__note">{fr ? " · avant taxes" : " · before tax"}</span>
             </p>
-            <p className="launch-badge">
-              <span className="launch-badge__tag">{fr ? "Offre de lancement" : "Launch offer"}</span>
-              {fr ? "Mise en service gratuite" : "Free setup"}
-              <small>{fr ? "Offre de lancement; conditions à venir." : "Launch offer; terms to come."}</small>
+            <p className="note-line">
+              <strong>{fr ? "Offre de lancement : mise en service gratuite." : "Launch offer: free setup."}</strong>{" "}
+              {fr ? "Conditions à venir." : "Terms to come."}
             </p>
             <div className="cta-row">
               <a className="btn btn--primary" href={href(lang, "business", "demo")}>
                 {fr ? "Demander une démo" : "Request a demo"}
               </a>
-              <a className="btn btn--ghost" href={href(lang, "business")}>
+              <a className="btn btn--outline" href={href(lang, "business")}>
                 {fr ? "Découvrir MIMT Affaires" : "Explore MIMT Business"}
               </a>
             </div>
           </div>
-          <ul className="biz__grid">
-            {t.biz.map((b, i) => (
-              <li key={b.title} className={`biz-card${b.soon ? " biz-card--soon" : ""}`} data-reveal="" data-tilt="" style={{ transitionDelay: `${(i % 4) * 80}ms` }}>
-                <span className="biz-card__icon">
-                  <Icon name={b.icon} />
-                </span>
+          <ul className="rows">
+            {t.biz.map((b) => (
+              <li key={b.title}>
                 <h3>
                   {b.title}
-                  {b.soon ? <span className="soon-badge">{fr ? "Bientôt" : "Soon"}</span> : null}
+                  {b.soon ? <span className="soon-word"> · {fr ? "bientôt" : "soon"}</span> : null}
                 </h3>
                 <p>{b.text}</p>
               </li>
@@ -190,17 +186,13 @@ export function HomePage({ lang }: { lang: Lang }) {
       {/* ---------- AI ---------- */}
       <section className="section" aria-labelledby="ai-title">
         <div className="container">
-          <div className="section-head" data-reveal="">
-            <p className="kicker">{fr ? "Intelligence artificielle" : "Artificial intelligence"}</p>
+          <div className="section-head">
             <h2 id="ai-title">{t.aiTitle}</h2>
             <p className="section-lead">{t.aiLead}</p>
           </div>
-          <ul className="grid grid--4 features">
-            {t.ai.map((f, i) => (
-              <li key={f.title} className="card feature feature--lift" data-reveal="" data-tilt="" style={{ transitionDelay: `${i * 90}ms` }}>
-                <span className="feature__icon">
-                  <Icon name={f.icon} />
-                </span>
+          <ul className="facts facts--2">
+            {t.ai.map((f) => (
+              <li key={f.title}>
                 <h3>{f.title}</h3>
                 <p>{f.text}</p>
               </li>
@@ -217,8 +209,7 @@ export function HomePage({ lang }: { lang: Lang }) {
       {/* ---------- Web app band ---------- */}
       <section className="section section--tint webband" aria-labelledby="web-title">
         <div className="container webband__inner">
-          <div data-reveal="">
-            <p className="kicker">{fr ? "App Web" : "Web app"}</p>
+          <div>
             <h2 id="web-title">{t.webTitle}</h2>
             <p className="section-lead">{t.webLead}</p>
             <div className="cta-row">
@@ -230,7 +221,7 @@ export function HomePage({ lang }: { lang: Lang }) {
               </a>
             </div>
           </div>
-          <figure className="device device--desktop" data-reveal="">
+          <figure className="device device--desktop">
             <img
               src="/screens/app-desktop-messages.webp"
               width={1440}
@@ -244,13 +235,12 @@ export function HomePage({ lang }: { lang: Lang }) {
 
       {/* ---------- FAQ ---------- */}
       <section className="section" aria-labelledby="faq-title">
-        <div className="container container--narrow">
-          <div className="section-head section-head--center" data-reveal="">
-            <p className="kicker">{fr ? "Questions fréquentes" : "FAQ"}</p>
+        <div className="container">
+          <div className="section-head">
             <h2 id="faq-title">{t.faqTitle}</h2>
           </div>
           <FaqList lang={lang} items={faq} />
-          <p className="fineprint fineprint--center">
+          <p className="fineprint">
             <a href={href(lang, "help")}>{fr ? "Toutes les questions" : "All questions"}</a>
           </p>
         </div>
@@ -258,10 +248,8 @@ export function HomePage({ lang }: { lang: Lang }) {
 
       {/* ---------- Final CTA + waitlist ---------- */}
       <section className="section final-cta" id={fr ? "liste-attente" : "waitlist"} aria-labelledby="wl-title">
-        <div className="hero-glow" aria-hidden="true" />
         <div className="container final-cta__inner">
-          <div data-reveal="">
-            <p className="kicker kicker--light">{fr ? "Commencer" : "Get started"}</p>
+          <div>
             <h2 id="wl-title">{t.wlTitle}</h2>
             <p className="lead">{t.wlLead}</p>
             <div className="cta-row">
@@ -276,7 +264,7 @@ export function HomePage({ lang }: { lang: Lang }) {
               </a>
             </p>
           </div>
-          <div className="card form-card" id="liste-attente-form" data-reveal="">
+          <div className="card form-card" id="liste-attente-form">
             <h3 className="form-card__title">{fr ? "Apps iPhone et Android : soyez avisé à leur sortie" : "iPhone and Android apps: get notified when they ship"}</h3>
             <LeadForm kind="waitlist" lang={lang} submitLabel={fr ? "M'aviser" : "Notify me"} />
             <p className="fineprint">
@@ -289,6 +277,9 @@ export function HomePage({ lang }: { lang: Lang }) {
     </Shell>
   );
 }
+
+/** One line of the « Ce que vous avez » list (icon and tone kept in the data, not drawn). */
+type Slide = { icon?: IconName; tone?: string; title: string; text: string; link?: { href: string; label: string } };
 
 type Copy = {
   pillQc: string;
@@ -351,8 +342,8 @@ const FR: Copy = {
     { icon: "shield", text: "IA seulement avec votre accord" },
   ],
   trust911: "9-1-1 : connaître les limites",
-  featuresTitle: "Tout ce qu'un téléphone devrait faire. Dans une app.",
-  featuresLead: "Glissez, cliquez ou utilisez les flèches du clavier.",
+  featuresTitle: "Ce que vous avez avec MIMT",
+  featuresLead: "Selon le forfait choisi. Le détail de chaque limite est dans les forfaits.",
   slides: (lang) => [
     { icon: "number", tone: "blue", title: "Un vrai numéro canadien", text: "Choisissez votre indicatif. Gardez votre cellulaire actuel et ajoutez un deuxième numéro, pour le travail ou la vie perso.", link: { href: href(lang, "plans"), label: "Voir les forfaits" } },
     { icon: "wifi", tone: "cyan", title: "Appels et textos par Wi‑Fi", text: "Ici comme en voyage : appelez et textez au Canada et aux États-Unis, par Wi‑Fi ou données, selon votre forfait." },
@@ -373,7 +364,7 @@ const FR: Copy = {
   plansTitle: "Des prix clairs, sans contrat",
   plansLead: "Chaque limite est écrite noir sur blanc. Annulez quand vous voulez depuis votre compte.",
   taxNote: "Prix en dollars canadiens, taxes en sus (TPS/TVQ) et taxe municipale 9-1-1 du Québec.",
-  bizTitle: "Un standard téléphonique complet. Sans matériel. Sans technicien.",
+  bizTitle: "Le téléphone de votre entreprise, sans matériel à installer",
   bizLead: "Une ligne par employé, sur cellulaire et ordinateur. Un accueil bilingue qui fait pro dès la première sonnerie, et un portail simple pour tout gérer.",
   biz: [
     { icon: "team", title: "Postes et numéros directs", text: "Chaque employé a son poste, son numéro et sa messagerie." },
@@ -395,7 +386,7 @@ const FR: Copy = {
   ],
   webTitle: "Votre numéro, aussi sur l'ordinateur",
   webLead: "Avec l'app Web app.mimt.ca, appelez, textez et écoutez vos messages dans le navigateur, avec le même compte. Installable sur iPhone et Android en deux touches.",
-  faqTitle: "Vos questions, nos réponses courtes",
+  faqTitle: "Questions fréquentes",
   wlTitle: "Votre numéro, partout, dès aujourd'hui",
   wlLead: "Créez votre compte dans l'app Web en une minute, avec votre compte TAKATAK ou un code par texto.",
   qcText: "Conçu à Montréal, en français d'abord. MIMT fait partie de l'écosystème GROUPE TAKATAK.",
@@ -423,8 +414,8 @@ const EN: Copy = {
     { icon: "shield", text: "AI only with your consent" },
   ],
   trust911: "9-1-1: know the limits",
-  featuresTitle: "Everything a phone should do. In one app.",
-  featuresLead: "Swipe, click or use your keyboard arrows.",
+  featuresTitle: "What you get with MIMT",
+  featuresLead: "Depending on your plan. Every limit is spelled out on the plans page.",
   slides: (lang) => [
     { icon: "number", tone: "blue", title: "A real Canadian number", text: "Pick your area code. Keep your current phone and add a second number, for work or personal life.", link: { href: href(lang, "plans"), label: "See plans" } },
     { icon: "wifi", tone: "cyan", title: "Calls and texts over Wi‑Fi", text: "At home or travelling: call and text across Canada and the US, over Wi‑Fi or data, within your plan." },
@@ -445,7 +436,7 @@ const EN: Copy = {
   plansTitle: "Clear prices, no contract",
   plansLead: "Every limit is written down. Cancel any time from your account.",
   taxNote: "Prices in Canadian dollars, taxes extra (GST/QST) and the Québec 9-1-1 municipal tax.",
-  bizTitle: "A complete phone system. No hardware. No technician.",
+  bizTitle: "Your business phone, with no hardware to install",
   bizLead: "One line per employee, on mobile and desktop. A bilingual greeting that sounds professional from the first ring, and a simple portal to run it all.",
   biz: [
     { icon: "team", title: "Extensions and direct numbers", text: "Every employee gets an extension, a number and voicemail." },
@@ -467,7 +458,7 @@ const EN: Copy = {
   ],
   webTitle: "Your number, on your computer too",
   webLead: "With the web app app.mimt.ca, call, text and play voicemail in your browser, with the same account. Installs on iPhone and Android in two taps.",
-  faqTitle: "Your questions, short answers",
+  faqTitle: "Common questions",
   wlTitle: "Your number, anywhere, starting today",
   wlLead: "Create your account in the web app in a minute, with your TAKATAK account or a code by text.",
   qcText: "Built in Montréal, French first. MIMT is part of the GROUPE TAKATAK ecosystem.",

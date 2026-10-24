@@ -81,5 +81,6 @@ test("llms.txt summarises MIMT with real prices and links to every page", () => 
   for (const k of KEYS) assert.ok(txt.includes(SITE_URL + ROUTES[k].fr), k);
   assert.match(txt, /9-1-1/);
   assert.match(txt, /consent/);
-  assert.match(txt, /not yet available/);
+  assert.match(txt, /Status: open/);
+  assert.match(txt, /store apps are not released yet/);
 });

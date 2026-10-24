@@ -124,7 +124,7 @@ export function AiPage({ lang }: { lang: Lang }) {
               <a href={href(lang, "privacy", "ia")}>{fr ? "Lire la section IA de la politique de confidentialité" : "Read the AI section of the privacy policy"}</a>
             </p>
           </div>
-          <div className="card consent">
+          <div className="card consent-example">
             <h3>{fr ? "Réceptionniste IA : ce que l'appelant entend" : "AI receptionist: what the caller hears"}</h3>
             <p className="quote" lang="fr-CA">
               « Bonjour! Vous parlez à l&apos;assistant virtuel de Votre Entreprise, un agent d&apos;intelligence artificielle. La conversation est transcrite pour traiter votre demande. »

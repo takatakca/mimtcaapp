@@ -1,5 +1,14 @@
 # MIMT — Relève du développeur principal
 
+## Relève — 24 octobre 2026 (claude, session 01GtWamF, allure « humaine » de mimt.ca)
+
+- **Fait (code) :** demande du propriétaire « beaucoup plus proche de l'œil humain ». Le héros et son téléphone restent. Sous le héros et sur toutes les pages : plus de halos, de cartes en dégradé, de tuiles à icônes ni de carrousel; boutons et cartes à plat, titres alignés à gauche, listes à filets, aucune animation d'apparition. Feuille `apps/web/styles/human.css` chargée en dernier.
+- **Corrigé :** la classe `.consent` du bandeau de témoins collait l'encadré de la page IA en bas de l'écran (renommé `consent-example`); textes d'avant le lancement retirés (Affaires, App Web, `llms.txt`); journal : lignes du 22 octobre perdues à la fusion de la PR #25 restaurées.
+- **Fichiers :** `apps/web/components/pages/{HomePage,BusinessPage,WebAppPage,AiPage}.tsx`, `apps/web/styles/human.css`, `apps/web/lib/{root-layout,llms}.ts(x)`, `apps/web/test/seo.test.ts`; carrousel supprimé (`components/FeatureCarousel.tsx`, `lib/carousel.ts`, `test/carousel.test.ts`).
+- **Vérifié localement :** typecheck web, 34 tests, build + verify-out (46 pages), captures ordinateur et téléphone des pages accueil, forfaits, Affaires, IA, App Web, Bientôt, Comparer.
+- **À signaler :** `next build` affiche un avis de sécurité sur Next.js 16.4.0 et s'arrête à la première exécution (la relance passe). Mise à jour de Next.js à planifier.
+- **Prochaine action exacte :** CI verte, fusion; le site part tout seul après la CI de `main`; comparer `https://mimt.ca/mimt-release.json` au SHA fusionné.
+
 ## Relève — 22 octobre 2026 (cursor, héros et appel entrant)
 
 - **Fait (code, pas encore en production) :** le héros de mimt.ca, en français et en anglais, dit qu'on peut texter gratuitement les autres utilisateurs MIMT avec @nom sans numéro, et les appeler entre applications. Le plafond affiché est `PLANS.free.caps.onNetMinutes` (120 sur le forfait Gratuit). Les appels ne sont pas décrits comme illimités.

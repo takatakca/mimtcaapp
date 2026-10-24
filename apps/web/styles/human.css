@@ -1,0 +1,395 @@
+/* Human pass (owner, 2026-10-24: « beaucoup plus proche de l'œil humain »). Loaded last.
+   The home hero and its phone stay as they are; everything else reads like a printed leaflet:
+   flat colours from docs/BRAND.md, thin rules instead of glows, left-aligned headings, no motion. */
+
+/* ---------- Motion: content is simply there ---------- */
+.js [data-reveal] {
+  opacity: 1;
+  translate: none;
+  transition: none;
+}
+[data-tilt] {
+  transform: none !important;
+}
+.btn--shine::after,
+.ripple {
+  display: none;
+}
+.btn:active {
+  transform: none;
+}
+
+/* ---------- Type: calmer headings ---------- */
+h2 {
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+}
+h3 {
+  font-size: 1.05rem;
+}
+.section-head,
+.section-head--center {
+  text-align: left;
+  margin-left: 0;
+  margin-right: 0;
+  max-width: 46rem;
+}
+.section-head--center .section-lead {
+  margin-left: 0;
+  margin-right: 0;
+}
+.kicker,
+.label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--brand);
+  margin-bottom: 0.4rem;
+}
+.kicker--light {
+  color: var(--silver);
+}
+.fineprint--center {
+  text-align: left;
+}
+
+/* ---------- Buttons: plain, solid ---------- */
+.btn {
+  border-radius: 8px;
+}
+.btn--primary,
+.btn--primary:hover {
+  background: var(--brand);
+  box-shadow: none;
+  transform: none;
+}
+.btn--primary:hover {
+  background: var(--brand-hover);
+}
+.btn--outline:hover,
+.btn--ghost:hover,
+.btn--outline-light:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ---------- Sections and cards: flat, thin rules ---------- */
+.section {
+  padding: 48px 0;
+}
+@media (min-width: 900px) {
+  .section {
+    padding: 72px 0;
+  }
+}
+.section--tint {
+  background: var(--white);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.page-hero::before,
+.section--dark::before,
+.hero::before {
+  background: none;
+}
+.section--dark .hero-glow,
+.final-cta .hero-glow,
+.page-hero .hero-glow {
+  display: none;
+}
+.card {
+  border-radius: 10px;
+  box-shadow: none;
+  border: 1px solid var(--line);
+}
+.card:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+/* ---------- Plans ---------- */
+.plan,
+.plan:hover {
+  box-shadow: none;
+  transform: none;
+}
+.plan--highlight {
+  border: 2px solid var(--brand);
+  box-shadow: none;
+}
+.plan__flag {
+  border-radius: 4px;
+  box-shadow: none;
+  background: var(--brand);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-size: 0.8rem;
+}
+
+/* ---------- Free offers: two short notes, not glowing tiles ---------- */
+.offers {
+  gap: 16px;
+}
+.offer,
+.offer--launch {
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--brand);
+  border-radius: 6px;
+  box-shadow: none;
+}
+.offer::before,
+.offer::after,
+.offer--launch::before,
+.offer--launch::after {
+  display: none;
+}
+.offer {
+  grid-template-columns: 1fr;
+  padding: 18px 20px;
+}
+.offer__icon {
+  display: none;
+}
+.offer h3,
+.offer p,
+.offer a {
+  color: var(--ink);
+}
+.offer a {
+  color: var(--brand);
+}
+.offer__small {
+  color: var(--ink-2);
+}
+.offer__tag {
+  background: none;
+  color: var(--brand);
+  padding: 0;
+  border: 0;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 0.85rem;
+}
+
+/* ---------- Facts strip under the hero: plain words ---------- */
+.trust {
+  background: var(--navy);
+  border-top: 1px solid rgba(184, 196, 211, 0.18);
+}
+.trust__list {
+  gap: 6px 22px;
+}
+.trust__list li {
+  font-weight: 500;
+}
+.trust__list svg {
+  display: none;
+}
+
+/* ---------- Two steps ---------- */
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 24px;
+  counter-reset: step;
+}
+.steps li {
+  counter-increment: step;
+  border-top: 2px solid var(--ink);
+  padding-top: 14px;
+}
+.steps li::before {
+  content: counter(step);
+  display: block;
+  font-family: var(--font-h);
+  font-weight: 700;
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--brand);
+  margin-bottom: 10px;
+}
+.steps p {
+  margin: 0;
+  color: var(--ink-2);
+  max-width: 42ch;
+}
+@media (min-width: 720px) {
+  .steps {
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+  }
+}
+
+/* ---------- Plain lists (what you get, AI, business) ---------- */
+.facts,
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.facts {
+  display: grid;
+  gap: 0 40px;
+}
+.facts li,
+.rows li {
+  border-top: 1px solid var(--line);
+  padding: 16px 0 18px;
+}
+.facts h3,
+.rows h3 {
+  margin: 0 0 4px;
+}
+.facts p,
+.rows p {
+  margin: 0;
+  color: var(--ink-2);
+  max-width: 52ch;
+}
+@media (min-width: 720px) {
+  .facts {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (min-width: 1040px) {
+  .facts:not(.facts--2) {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+.soon-word {
+  font-weight: 500;
+  color: var(--ink-2);
+  font-size: 0.9em;
+}
+
+/* ---------- Business on white, not a dark glow panel ---------- */
+.biz-plain__inner {
+  display: grid;
+  gap: 32px;
+}
+.biz-plain .lead {
+  color: var(--ink-2);
+}
+.biz-plain .price-line {
+  color: var(--ink);
+}
+.biz-plain .price-line strong {
+  color: var(--ink);
+}
+.faq {
+  max-width: 46rem;
+}
+.biz-plain .price-line__note {
+  color: var(--ink-2);
+}
+.note-line {
+  color: var(--ink-2);
+  border-left: 3px solid var(--brand);
+  padding-left: 12px;
+  margin: 16px 0 20px;
+}
+.note-line strong {
+  color: var(--ink);
+}
+@media (min-width: 960px) {
+  .biz-plain__inner {
+    grid-template-columns: 1fr 1.1fr;
+    gap: 56px;
+    align-items: start;
+  }
+}
+
+/* ---------- Screenshot frame ---------- */
+.device--desktop {
+  border-radius: 8px;
+  box-shadow: 0 1px 0 rgba(6, 13, 31, 0.04);
+  border: 1px solid var(--line);
+}
+
+/* ---------- Closing band: flat navy ---------- */
+.final-cta {
+  background: var(--navy);
+}
+.final-cta::before {
+  background: none;
+}
+
+/* ---------- Other pages: page heroes without light effects ---------- */
+.page-hero {
+  background: var(--navy);
+}
+.pill,
+.pill--soft {
+  border-radius: 4px;
+  letter-spacing: 0;
+}
+
+/* ---------- Icon-tile grids on every page become plain ruled lists ---------- */
+.grid.features {
+  gap: 0 40px;
+}
+.features .feature,
+.features .feature:hover {
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: none;
+  padding: 16px 0 18px;
+  transform: none;
+}
+.feature__icon {
+  display: none;
+}
+.feature h3 {
+  margin: 0 0 4px;
+}
+.feature p {
+  color: var(--ink-2);
+}
+.status {
+  background: none;
+  border: 0;
+  padding: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--brand);
+}
+.status--planned {
+  color: var(--ink-2);
+}
+
+/* ---------- Voice-menu example: a printed list, not dark buttons ---------- */
+.callflow li {
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.callflow p {
+  color: var(--ink-2);
+}
+.callflow strong {
+  color: var(--ink);
+}
+.callflow .key {
+  border-radius: 4px;
+}
+
+/* ---------- Text columns line up with the page edge (no centred narrow column) ---------- */
+.container.prose,
+.container.container--narrow {
+  max-width: 1180px;
+}
+.container.prose > *,
+.container.container--narrow > * {
+  max-width: 820px;
+}
