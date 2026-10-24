@@ -102,7 +102,7 @@ const HOLIDAY_EN: Record<string, string> = {
 };
 
 function statusLabel(s: Status, fr: boolean) {
-  if (s === "launch") return fr ? "Au lancement" : "At launch";
+  if (s === "launch") return fr ? "Inclus" : "Included";
   return fr ? "Prévu ensuite" : "Planned";
 }
 
@@ -167,8 +167,8 @@ export function BusinessPage({ lang }: { lang: Lang }) {
           <h2 id="biz-features">{fr ? "Ce qui est inclus" : "What's included"}</h2>
           <p className="section-lead">
             {fr
-              ? "MIMT Affaires n'est pas encore offert. Voici ce qui est prévu au lancement, et ce qui viendra ensuite : nous n'annonçons que ce qui est construit."
-              : "MIMT Business is not available yet. Here is what is planned at launch, and what comes after: we only announce what is built."}
+              ? "Ce qui est inclus aujourd'hui, et ce qui viendra ensuite. Nous n'annonçons que ce qui est construit."
+              : "What is included today, and what comes next. We only announce what is built."}
           </p>
           <ul className="grid grid--3 features">
             {FEATURES.map((f) => (

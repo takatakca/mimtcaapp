@@ -42,10 +42,10 @@ export function WebAppPage({ lang }: { lang: Lang }) {
         <div className="container">
           <div className="notice notice--info" role="note">
             {fr
-              ? "L'app Web est en préparation, comme le reste du service. Elle ouvrira avec le lancement de MIMT; la connexion demande un compte MIMT actif."
-              : "The web app is in preparation, like the rest of the service. It opens with the MIMT launch; signing in needs an active MIMT account."}
+              ? "Connectez-vous avec votre compte TAKATAK ou avec un code reçu par texto. Le compte est le même que dans l'app mobile."
+              : "Sign in with your TAKATAK account or with a code sent by text. It is the same account as in the mobile app."}
           </div>
-          <h2 id="webapp-what">{fr ? "Ce que vous pourrez faire" : "What you'll be able to do"}</h2>
+          <h2 id="webapp-what">{fr ? "Ce que vous pouvez faire" : "What you can do"}</h2>
           <ul className="grid grid--4 features">
             {ITEMS.map((it) => (
               <li className="card feature" key={it.en[0]}>
@@ -61,8 +61,8 @@ export function WebAppPage({ lang }: { lang: Lang }) {
             <a className="btn btn--primary btn--lg" href={APP_URL} rel="noopener">
               {fr ? "Ouvrir app.mimt.ca" : "Open app.mimt.ca"}
             </a>
-            <a className="btn btn--outline btn--lg" href={href(lang, "home", fr ? "liste-attente" : "waitlist")}>
-              {fr ? "Rejoindre la liste d'attente" : "Join the waitlist"}
+            <a className="btn btn--outline btn--lg" href={href(lang, "plans")}>
+              {fr ? "Voir les forfaits" : "See plans"}
             </a>
           </div>
         </div>
