@@ -81,9 +81,9 @@ Captures : elles doivent montrer **l'app Android réelle**. Ce conteneur n'a pas
 
 ## 2. Paiements
 
-- **Dans l'app Android** : les forfaits et options numériques (Essentiel, Premium, Affaires, « Sans pub », crédits) passent par **Google Play Billing** (chantier de l'agent « mobile-iap »). Déclaration Play Console › Monétiser : produits d'abonnement `ca.mimt.app.*`.
+- **Dans l'app Android** : Essentiel, Premium et « Sans pub » passent par **Google Play Billing** (`expo-iap`, PR #51). Affaires et le crédit international ne sont pas vendus dans l'app. Produits, compte de service et notifications RTDN : `docs/store/app-store.md` §9.
 - **Sur mimt.ca et app.mimt.ca (Web)** : le paiement Stripe du site reste tel quel. Ce n'est pas l'app Play.
-- **Bloquant à lever avant la production** : aujourd'hui l'onglet Compte de l'app (`apps/mobile/app/(tabs)/account.tsx`) ouvre encore le paiement Stripe dans le navigateur (`api.checkout`, `checkoutAddOn`, `checkoutIntlCredit`, avec des `TODO(store-billing)`). Le build Play ne doit **ni ouvrir ni lier** une page de paiement Stripe pour des biens numériques (politique Paiements de Google Play). C'est le code d'achat de l'agent « mobile-iap »; ce PR n'y touche pas. Le test interne peut servir pendant ce temps; la production non.
+- **Réglé (PR #51)** : l'app n'ouvre plus aucun paiement Stripe; un test échoue si du code de paiement Web ou un texte qui renvoie au site pour acheter revient dans l'app.
 
 ## 3. Contenu de l'application (Play Console › Règles et programmes › Contenu de l'application)
 
@@ -179,7 +179,7 @@ Google Play exige depuis le 31 août 2026 que les nouvelles apps et les mises à
 - Ne jamais écrire « remplace votre ligne fixe » ou « 9-1-1 comme un téléphone ordinaire ».
 
 ## 6. Avant la production (liste)
-1. Paiement in-app Google Play à la place des liens Stripe dans l'app (mobile-iap).
+1. ~~Paiement in-app Google Play à la place des liens Stripe dans l'app~~ : fait (PR #51); créer les 6 abonnements dans la Play Console.
 2. Suppression réelle des données après 30 jours (API) et page publique de suppression du compte.
 3. Compte d'examen pour Google.
 4. Captures depuis l'app Android réelle.
