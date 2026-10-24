@@ -2,6 +2,7 @@ import { PageHero, Shell } from "@/components/Shell";
 import { LeadForm } from "@/components/LeadForm";
 import { AiDemo } from "@/components/AiDemo";
 import { NumberPicker } from "@/components/NumberPicker";
+import { FiveMinutes } from "@/components/FiveMinutes";
 import { PlanCard } from "@/components/PlanCard";
 import { Offers } from "@/components/Offers";
 import { FaqList } from "@/components/FaqList";
@@ -132,6 +133,8 @@ export function BusinessPage({ lang }: { lang: Lang }) {
             : `Extensions, bilingual greeting, ring groups, hours and Québec holidays, AI receptionist. From ${formatCad(biz.monthlyPriceCents, lang)} per line per month, no hardware to buy.`
         }
       />
+
+      <FiveMinutes lang={lang} />
 
       <section className="section section--tint" id="numero" aria-labelledby="biz-number">
         <div className="container picker-band">
