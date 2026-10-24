@@ -549,8 +549,10 @@ describe("public AI phone demo", () => {
     expect((await demo({ scenario: "support", messages: [] })).statusCode).toBe(503);
   });
 
-  it("answers 503 without an AI key", async () => {
+  it("answers 503 without an AI key, and its status says so", async () => {
+    expect((await ctx.app.inject({ method: "GET", url: "/v1/public/ai-demo/status" })).json()).toEqual({ available: true });
     await withAi(null);
+    expect((await ctx.app.inject({ method: "GET", url: "/v1/public/ai-demo/status" })).json()).toEqual({ available: false });
     expect((await demo({ scenario: "restaurant", messages: [] })).statusCode).toBe(503);
   });
 });

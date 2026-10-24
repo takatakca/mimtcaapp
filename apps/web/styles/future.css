@@ -814,3 +814,28 @@ html:not(.js) .section-head h2::after {
     animation: none !important;
   }
 }
+
+/* Demo not available yet (no AI key on the API): cards dimmed, a live-demo offer on top. */
+.aidemo__soon {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 24px;
+  margin-bottom: 16px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  border: 1px solid rgba(41, 195, 255, 0.35);
+  background: rgba(16, 37, 82, 0.7);
+  backdrop-filter: blur(10px);
+}
+.aidemo__soon p {
+  margin: 0;
+  max-width: 60ch;
+  color: var(--white);
+}
+.aidemo__picks--off {
+  opacity: 0.45;
+  filter: saturate(0.6);
+  pointer-events: none;
+}

@@ -78,7 +78,18 @@ export function AiDemo({ lang }: { lang: Lang }) {
   const msgsRef = useRef<AiDemoMessage[]>([]);
   const logRef = useRef<HTMLOListElement | null>(null);
 
+  const [available, setAvailable] = useState<boolean | null>(null);
   useEffect(() => setCanListen(Boolean(recognitionCtor())), []);
+  useEffect(() => {
+    let off = false;
+    fetch(`${API_URL}/v1/public/ai-demo/status`)
+      .then((r) => (r.ok ? (r.json() as Promise<{ available: boolean }>) : { available: false }))
+      .then((s) => !off && setAvailable(s.available))
+      .catch(() => !off && setAvailable(false));
+    return () => {
+      off = true;
+    };
+  }, []);
   useEffect(() => {
     if (phase === "pick" || phase === "ended" || phase === "error") return;
     const t = window.setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -233,13 +244,25 @@ export function AiDemo({ lang }: { lang: Lang }) {
 
   return (
     <div className={`aidemo${active ? " aidemo--active" : ""}`}>
+      {available === false && !active ? (
+        <div className="aidemo__soon">
+          <p>
+            {fr
+              ? "La démo en libre-service ouvre très bientôt. En attendant, on vous la fait en direct, sur votre propre scénario."
+              : "The self-serve demo opens very soon. Meanwhile, we'll run it live for you, on your own scenario."}
+          </p>
+          <a className="btn btn--primary" href={href(lang, "business", "demo")}>
+            {fr ? "Demander une démo en direct" : "Request a live demo"}
+          </a>
+        </div>
+      ) : null}
       {!active ? (
-        <ul className="aidemo__picks">
+        <ul className={`aidemo__picks${available === false ? " aidemo__picks--off" : ""}`} aria-hidden={available === false ? true : undefined}>
           {(Object.keys(SCENARIOS) as AiDemoScenario[]).map((s) => {
             const [name, what, tryThis] = SCENARIOS[s][lang];
             return (
               <li key={s}>
-                <button type="button" className="aidemo__pick" onClick={() => void call(s)}>
+                <button type="button" className="aidemo__pick" onClick={() => void call(s)} disabled={available === false} tabIndex={available === false ? -1 : undefined}>
                   <span className="aidemo__glyph" aria-hidden="true">
                     <Icon name={SCENARIOS[s].icon} />
                   </span>
