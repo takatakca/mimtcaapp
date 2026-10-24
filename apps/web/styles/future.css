@@ -656,3 +656,161 @@ html:not(.js) .section-head h2::after {
     display: none;
   }
 }
+
+/* ======================================================================
+   Number picker: cascade, held card with a holdring ring, steps
+   ====================================================================== */
+.picker__list li {
+  animation: cascade 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+@keyframes cascade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+    filter: blur(4px);
+  }
+}
+.picker__item {
+  transition:
+    transform 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+.picker__item:hover:not(:disabled) {
+  transform: translateX(4px);
+  border-color: rgba(41, 195, 255, 0.6);
+  box-shadow: 0 0 0 1px rgba(41, 195, 255, 0.25), 0 10px 30px rgba(31, 139, 255, 0.2);
+}
+.btn--block {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+.picker--held {
+  animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.picker__steps {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  counter-reset: st;
+  font-size: 0.75rem;
+  color: var(--silver);
+}
+.picker__steps li {
+  counter-increment: st;
+  position: relative;
+  padding-top: 10px;
+  border-top: 3px solid rgba(184, 196, 211, 0.22);
+}
+.picker__steps li::before {
+  content: counter(st) ". ";
+}
+.picker__steps .is-done {
+  color: var(--cyan);
+  border-top-color: var(--cyan);
+  box-shadow: 0 -6px 14px -8px rgba(41, 195, 255, 0.9);
+}
+.picker__steps .is-done::before {
+  content: "✓ ";
+}
+.picker__heldcard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(41, 195, 255, 0.4);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(41, 195, 255, 0.18), transparent 55%),
+    linear-gradient(150deg, rgba(16, 37, 82, 0.9), rgba(6, 13, 31, 0.95));
+  box-shadow: 0 0 40px rgba(31, 139, 255, 0.25) inset, 0 18px 40px rgba(0, 0, 0, 0.3);
+}
+.picker__heldcard .picker__number {
+  margin: 2px 0 0;
+  white-space: nowrap;
+  font-size: clamp(1.45rem, 6.4vw, 2.3rem);
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 24px rgba(41, 195, 255, 0.45);
+}
+.holdring {
+  --left: 1;
+  border-radius: 50%;
+  box-shadow: 0 0 22px rgba(41, 195, 255, 0.35);
+  position: relative;
+  flex: none;
+  width: 74px;
+  height: 74px;
+  display: grid;
+  place-items: center;
+}
+.holdring svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+.holdring__track,
+.holdring__bar {
+  fill: none;
+  stroke-width: 3.5;
+}
+.holdring__track {
+  stroke: rgba(184, 196, 211, 0.2);
+}
+.holdring__bar {
+  stroke: var(--cyan);
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: calc(100 - var(--left) * 100);
+  transition: stroke-dashoffset 1s linear;
+}
+.holdring time {
+  font-family: var(--font-h);
+  font-weight: 800;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--white);
+}
+.picker__includes {
+  list-style: none;
+  margin: 12px 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  color: var(--silver);
+  font-size: 0.92rem;
+}
+.picker__includes li {
+  display: flex;
+  gap: 8px;
+}
+.picker__includes li::before {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+  border-radius: 50%;
+  background:
+    center / 10px no-repeat
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23060d1f' d='M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z'/%3E%3C/svg%3E"),
+    var(--cyan);
+}
+.picker__includes strong {
+  color: var(--white);
+}
+.picker__go {
+  margin-top: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .picker__list li,
+  .picker--held {
+    animation: none !important;
+  }
+}

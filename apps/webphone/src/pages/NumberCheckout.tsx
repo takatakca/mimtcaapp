@@ -96,10 +96,35 @@ export function NumberCheckout() {
     );
   } else {
     const number = formatNanp(info.data.e164, lang);
+    const step = status !== "signedIn" ? 1 : !me?.e911.addressRegistered || !me.e911.noticeAccepted ? 2 : 3;
+    const labels = fr ? ["Compte", "Adresse 9-1-1", "Forfait et paiement"] : ["Account", "9-1-1 address", "Plan and payment"];
     body = (
       <>
-        <p className="hold-card__eyebrow">{fr ? "Réservé pour vous" : "Held for you"}</p>
-        <h1 className="hold-card__number">{number}</h1>
+        <ol className="checkout-steps" aria-label={fr ? "Étapes" : "Steps"}>
+          {labels.map((l, i) => (
+            <li key={l} className={i + 1 < step ? "is-done" : i + 1 === step ? "is-now" : ""} aria-current={i + 1 === step ? "step" : undefined}>
+              <span className="checkout-steps__dot" aria-hidden="true">
+                {i + 1 < step ? "✓" : i + 1}
+              </span>
+              <span className="checkout-steps__label">{l}</span>
+            </li>
+          ))}
+        </ol>
+        <div className="hold-card__chip">
+          <div>
+            <p className="hold-card__eyebrow">{fr ? "Réservé pour vous" : "Held for you"}</p>
+            <h1 className="hold-card__number">{number}</h1>
+          </div>
+          <div className="hold-ring" style={{ "--left": String(Math.min(1, left / 600)) } as React.CSSProperties} aria-hidden="true">
+            <svg viewBox="0 0 44 44">
+              <circle className="hold-ring__track" cx="22" cy="22" r="19" />
+              <circle className="hold-ring__bar" cx="22" cy="22" r="19" pathLength="100" />
+            </svg>
+            <span>
+              {mm}:{ss}
+            </span>
+          </div>
+        </div>
         <p className="auth__lead">
           {fr ? "Personne d'autre chez MIMT ne peut le prendre pendant " : "No one else at MIMT can take it for "}
           <strong>
@@ -147,9 +172,24 @@ export function NumberCheckout() {
                 </label>
               ))}
             </fieldset>
-            <button type="button" className="btn btn--primary btn--block btn--lg" disabled={busy} onClick={() => void pay()}>
-              {fr ? `Payer et activer ${number}` : `Pay and activate ${number}`}
+            <div className="checkout-total">
+              <span>{fr ? "Aujourd'hui" : "Today"}</span>
+              <strong>
+                {formatCad(PLANS[plan].monthlyPriceCents, lang)}
+                <small>{fr ? " + taxes" : " + tax"}</small>
+              </strong>
+            </div>
+            <button type="button" className="btn btn--primary btn--block btn--lg checkout-pay" disabled={busy} onClick={() => void pay()}>
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <path fill="currentColor" d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8-2a3 3 0 0 1 6 0v2H9V7Zm4 9.73V18h-2v-1.27a2 2 0 1 1 2 0Z" />
+              </svg>
+              {busy ? (fr ? "Ouverture du paiement…" : "Opening payment…") : fr ? `Payer et activer ${number}` : `Pay and activate ${number}`}
             </button>
+            <ul className="checkout-trust">
+              <li>{fr ? "Paiement Stripe sécurisé" : "Secure Stripe payment"}</li>
+              <li>{fr ? "Sans contrat" : "No contract"}</li>
+              <li>{fr ? "Annulable en tout temps" : "Cancel any time"}</li>
+            </ul>
             <p className="field__hint">{fr ? "Paiement sécurisé par Stripe. Taxes (TPS, TVQ, 9-1-1) en sus." : "Secure payment by Stripe. Taxes (GST, QST, 9-1-1) extra."}</p>
             <ErrorNote error={error} />
           </>
