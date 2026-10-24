@@ -15,3 +15,4 @@ export * from "./meetings.js";
 export * from "./numberSearch.js";
 export * from "./unitEconomics.js";
 export * from "./handles.js";
+export * from "./aiDemo.js";

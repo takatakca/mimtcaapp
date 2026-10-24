@@ -2,6 +2,7 @@ import { Shell } from "@/components/Shell";
 import { LeadForm } from "@/components/LeadForm";
 import { NumberPicker } from "@/components/NumberPicker";
 import { FaqList } from "@/components/FaqList";
+import { AiDemo } from "@/components/AiDemo";
 import { FeatureCarousel, type Slide } from "@/components/FeatureCarousel";
 import { HeroArt, Skyline } from "@/components/HeroArt";
 import { Offers } from "@/components/Offers";
@@ -103,6 +104,22 @@ export function HomePage({ lang }: { lang: Lang }) {
             <a href={href(lang, "plans")}>{fr ? "Comparer tous les forfaits" : "Compare all plans"}</a>
           </p>
           <Offers lang={lang} />
+        </div>
+      </section>
+
+      {/* ---------- Live AI call demo ---------- */}
+      <section className="section section--dark ai-demo-band" id={fr ? "essai-ia" : "try-ai"} aria-labelledby="aidemo-title">
+        <div className="aurora" aria-hidden="true" />
+        <div className="techgrid" aria-hidden="true" />
+        <div className="container">
+          <p className="kicker kicker--light live-dot">{fr ? "Essai en direct" : "Live demo"}</p>
+          <h2 id="aidemo-title">{fr ? "Appelez notre IA. Là, maintenant." : "Call our AI. Right now."}</h2>
+          <p className="lead">
+            {fr
+              ? "Choisissez un commerce et parlez comme au téléphone. L'IA répond, prend la commande ou le rendez-vous, puis envoie le résumé à l'entreprise. Pour la vôtre, on le bâtit sur mesure."
+              : "Pick a business and talk like on the phone. The AI answers, takes the order or the booking, then sends the summary to the business. For yours, we build it to measure."}
+          </p>
+          <AiDemo lang={lang} />
         </div>
       </section>
 

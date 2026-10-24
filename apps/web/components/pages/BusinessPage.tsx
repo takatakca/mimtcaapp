@@ -1,5 +1,6 @@
 import { PageHero, Shell } from "@/components/Shell";
 import { LeadForm } from "@/components/LeadForm";
+import { AiDemo } from "@/components/AiDemo";
 import { NumberPicker } from "@/components/NumberPicker";
 import { PlanCard } from "@/components/PlanCard";
 import { Offers } from "@/components/Offers";
@@ -143,6 +144,21 @@ export function BusinessPage({ lang }: { lang: Lang }) {
             </p>
           </div>
           <NumberPicker lang={lang} plan="business" id="numero-affaires" />
+        </div>
+      </section>
+
+      <section className="section section--dark ai-demo-band" id={fr ? "essai-ia" : "try-ai"} aria-labelledby="biz-aidemo">
+        <div className="aurora" aria-hidden="true" />
+        <div className="techgrid" aria-hidden="true" />
+        <div className="container">
+          <p className="kicker kicker--light live-dot">{fr ? "Réceptionniste IA, en direct" : "AI receptionist, live"}</p>
+          <h2 id="biz-aidemo">{fr ? "Écoutez-la répondre à vos clients" : "Hear it answer your customers"}</h2>
+          <p className="lead">
+            {fr
+              ? "Trois commerces fictifs, trois situations réelles. Ensuite, on la forme sur votre menu, vos heures et vos réponses."
+              : "Three fictional businesses, three real situations. Then we train it on your menu, your hours and your answers."}
+          </p>
+          <AiDemo lang={lang} />
         </div>
       </section>
 

@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { AI_LIMITS } from "@mimt/shared";
 import { z } from "zod";
-import type { AiGateway, AiOutcome, CallSummaryInput, CallSummaryOutput, ClassifySmsInput, HelpAnswer, HelpAnswerInput, ReceptionistStepInput, ReceptionistStepResult, ReplySuggestions, SmsClassification, SuggestRepliesInput, TokenUsage, VoicemailSummary, VoicemailSummaryInput } from "./gateway.js";
+import type { AiGateway, AiOutcome, CallSummaryInput, CallSummaryOutput, ClassifySmsInput, DemoTurn, DemoTurnInput, HelpAnswer, HelpAnswerInput, ReceptionistStepInput, ReceptionistStepResult, ReplySuggestions, SmsClassification, SuggestRepliesInput, TokenUsage, VoicemailSummary, VoicemailSummaryInput } from "./gateway.js";
 import { HELP_SYSTEM } from "./helpKnowledge.js";
 import { CALL_SUMMARY_SYSTEM, RECEPTIONIST_SYSTEM, RECEPTIONIST_TOOLS, SMS_SPAM_SYSTEM, SUGGESTIONS_SYSTEM, VOICEMAIL_SYSTEM } from "./prompts.js";
 
@@ -30,6 +30,12 @@ const CallSummarySchema = z.object({
 const SuggestionsSchema = z.object({
   language: z.string(),
   suggestions: z.array(z.string()),
+});
+
+const DemoSchema = z.object({
+  reply: z.string(),
+  done: z.boolean(),
+  ticket: z.object({ title: z.string(), lines: z.array(z.string()) }).nullable(),
 });
 
 const HelpSchema = z.object({
@@ -80,6 +86,22 @@ export class ClaudeGateway implements AiGateway {
     const turns = input.messages.map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.text.replace(/\s+/g, " ").slice(0, 1500)}`);
     const user = `User locale: ${input.locale}\n<facts>\n${input.knowledge}\n</facts>\n<conversation>\n${turns.join("\n")}\n</conversation>`;
     return this.structured(HelpSchema, HELP_SYSTEM, user, "low", 1500);
+  }
+
+  async demoTurn(input: DemoTurnInput): Promise<AiOutcome<DemoTurn>> {
+    const turns = input.messages.map((m) => `${m.role === "caller" ? "Caller" : "Agent"}: ${m.text.replace(/\s+/g, " ").slice(0, 600)}`);
+    const user = `Site language: ${input.locale}\n<transcript>\n${turns.join("\n") || "(the call just started)"}\n</transcript>`;
+    const out = await this.structured(DemoSchema, input.system, user, "low", 1500);
+    if (!out.ok) return out;
+    const t = out.value.ticket;
+    return {
+      ...out,
+      value: {
+        reply: out.value.reply.trim().slice(0, 500),
+        done: out.value.done,
+        ticket: out.value.done && t ? { title: t.title.trim().slice(0, 80), lines: t.lines.map((l) => l.trim().slice(0, 120)).filter(Boolean).slice(0, 8) } : null,
+      },
+    };
   }
 
   classifySms(input: ClassifySmsInput): Promise<AiOutcome<SmsClassification>> {

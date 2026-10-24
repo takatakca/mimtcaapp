@@ -94,6 +94,10 @@ const EnvSchema = z
     /** Claude (AI features). Optional: when unset every AI feature answers 503 not_configured. */
     ANTHROPIC_API_KEY: optional,
     ANTHROPIC_MODEL: z.string().min(1).default("claude-opus-5-5"),
+    /** Public AI phone demo on mimt.ca (routes/aiDemo.ts): "off" switches it off. */
+    AI_DEMO: z.enum(["on", "off"]).default("on"),
+    /** Global cap on demo AI turns per rolling day (cost guard). */
+    AI_DEMO_DAILY_TURNS: z.coerce.number().int().min(0).max(100_000).default(1500),
     /** Public wss:// URL of the AI receptionist WebSocket. Default: PUBLIC_BASE_URL with wss + /ws/ai/receptionist. */
     AI_RECEPTIONIST_WS_URL: z.url().optional(),
     SENTRY_DSN: optional,

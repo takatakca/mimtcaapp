@@ -15,6 +15,8 @@ export interface AiGateway {
   classifySms(input: ClassifySmsInput): Promise<AiOutcome<SmsClassification>>;
   /** In-app help assistant: answers from the MIMT knowledge base only (effort "low"). */
   helpAnswer(input: HelpAnswerInput): Promise<AiOutcome<HelpAnswer>>;
+  /** One turn of the public AI phone demo (effort "low": it is spoken back right away). */
+  demoTurn(input: DemoTurnInput): Promise<AiOutcome<DemoTurn>>;
   /** One streamed model round trip of the AI receptionist (effort "medium"). Text deltas go to onText. */
   receptionistStep(input: ReceptionistStepInput, onText: (delta: string) => void): Promise<ReceptionistStepResult>;
 }
@@ -33,6 +35,20 @@ export type AiFailure = "refusal" | "max_tokens" | "invalid_output";
 export type AiOutcome<T> =
   | { ok: true; value: T; usage: TokenUsage }
   | { ok: false; reason: AiFailure; usage: TokenUsage; refusalCategory?: string | null };
+
+export interface DemoTurnInput {
+  /** Frozen scenario prompt (ai/demo.ts). */
+  system: string;
+  locale: Locale;
+  /** Oldest first; empty for the greeting. */
+  messages: Array<{ role: "caller" | "agent"; text: string }>;
+}
+
+export interface DemoTurn {
+  reply: string;
+  done: boolean;
+  ticket: { title: string; lines: string[] } | null;
+}
 
 export interface HelpAnswerInput {
   locale: Locale;

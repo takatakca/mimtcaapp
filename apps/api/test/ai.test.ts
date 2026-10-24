@@ -28,6 +28,14 @@ function fakeGateway() {
     })),
     classifySms: vi.fn<AiGateway["classifySms"]>(async () => ({ ok: true as const, value: { verdict: "scam" as const, reason: "fausse livraison" }, usage: usage() })),
     receptionistStep: vi.fn<AiGateway["receptionistStep"]>(),
+    demoTurn: vi.fn<AiGateway["demoTurn"]>(async (input) => ({
+      ok: true as const,
+      value:
+        input.messages.length === 0
+          ? { reply: "Bonjour! Ici l'assistant IA du Casse-croûte Comète. Qu'est-ce que je vous sers?", done: false, ticket: null }
+          : { reply: "Parfait, c'est noté. Bonne soirée!", done: true, ticket: { title: "Commande pour Alex", lines: ["1 poutine classique 11,50 $", "Total avant taxes : 11,50 $"] } },
+      usage: usage(),
+    })),
     summarizeCall: vi.fn<AiGateway["summarizeCall"]>(async () => ({
       ok: true as const,
       value: { summary: "Le client veut une soumission pour une thermopompe.", actionItems: ["Envoyer la soumission jeudi"] },
@@ -502,6 +510,48 @@ describe("Affaires: AI call summaries", () => {
     expect(await summarizeBusinessCall(ctx.deps, basic.business, basic.recording, noSleep)).toBe("not_entitled");
     expect(gw.summarizeCall).not.toHaveBeenCalled();
     expect(b.transcriber.start).not.toHaveBeenCalled();
+  });
+});
+
+describe("public AI phone demo", () => {
+  const demo = (payload: object, ip = "203.0.113.7") =>
+    ctx.app.inject({ method: "POST", url: "/v1/public/ai-demo", payload, remoteAddress: ip });
+
+  it("answers the greeting, then closes with the ticket the business would receive, without sign-in", async () => {
+    const hello = await demo({ scenario: "restaurant", locale: "fr-CA", messages: [] });
+    expect(hello.statusCode).toBe(200);
+    expect(hello.json()).toMatchObject({ done: false, ticket: null });
+    const end = await demo({
+      scenario: "restaurant",
+      locale: "fr-CA",
+      messages: [
+        { role: "agent", text: hello.json().reply },
+        { role: "caller", text: "Une poutine classique pour emporter, au nom d'Alex. Merci!" },
+      ],
+    });
+    expect(end.json()).toMatchObject({ done: true, ticket: { title: "Commande pour Alex" } });
+    expect(gw.demoTurn.mock.calls[0]![0].system).toContain("Casse-croûte Comète");
+  });
+
+  it("uses the prompt of the chosen business and rejects unknown scenarios and long messages", async () => {
+    await demo({ scenario: "booking", messages: [] });
+    expect(gw.demoTurn.mock.calls[0]![0].system).toContain("Salon Aurore");
+    expect((await demo({ scenario: "casino", messages: [] })).statusCode).toBe(400);
+    const long = await demo({ scenario: "support", messages: [{ role: "caller", text: "x".repeat(500) }] });
+    expect(long.json().error).toBe("message_too_long");
+  });
+
+  it("limits calls per visitor and can be switched off", async () => {
+    let last = 200;
+    for (let i = 0; i < 13; i++) last = (await demo({ scenario: "support", messages: [] }, "198.51.100.9")).statusCode;
+    expect(last).toBe(429);
+    ctx.deps.config.AI_DEMO = "off";
+    expect((await demo({ scenario: "support", messages: [] })).statusCode).toBe(503);
+  });
+
+  it("answers 503 without an AI key", async () => {
+    await withAi(null);
+    expect((await demo({ scenario: "restaurant", messages: [] })).statusCode).toBe(503);
   });
 });
 

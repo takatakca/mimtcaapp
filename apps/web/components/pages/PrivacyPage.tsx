@@ -122,6 +122,14 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
                 réceptionniste IA. Les numéros de carte de paiement dictés pendant l&apos;appel sont masqués avant tout envoi.
               </p>
 
+              <p>
+                <strong>Démo « Appelez notre IA » (mimt.ca).</strong> Sans compte, vous pouvez parler à une IA qui joue un
+                commerce fictif. Votre voix est transformée en texte par votre navigateur (Chrome, Edge ou Safari peuvent utiliser
+                le service de Google ou d&apos;Apple pour cela); seul le texte est envoyé à MIMT, puis à Claude (Anthropic) pour
+                répondre. MIMT ne conserve pas la conversation : seuls des nombres de jetons sont journalisés, sans le texte. Une
+                empreinte non réversible de votre adresse IP sert uniquement à limiter les abus.
+              </p>
+
               <h2 id="enregistrement">Enregistrement des appels (MIMT Affaires)</h2>
               <p>
                 Une entreprise abonnée à Affaires Pro peut enregistrer ses appels avec l&apos;extérieur. Un message avise toujours
@@ -180,6 +188,14 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
                 <strong>AI receptionist (MIMT Business).</strong> When a business turns it on, the virtual agent says it is an AI at
                 the start of the call and that the conversation is transcribed. The conversation is processed by the AI provider on
                 behalf of the business, which first accepts the AI receptionist terms. Payment card numbers spoken during the call are masked before anything is sent.
+              </p>
+
+              <p>
+                <strong>“Call our AI” demo (mimt.ca).</strong> Without an account, you can talk to an AI playing a fictional
+                business. Your browser turns your voice into text (Chrome, Edge or Safari may use Google&apos;s or Apple&apos;s
+                service for this); only the text is sent to MIMT, then to Claude (Anthropic) to answer. MIMT does not keep the
+                conversation: only token counts are logged, never the text. A non-reversible fingerprint of your IP address is
+                used only to limit abuse.
               </p>
 
               <h2 id="enregistrement">Call recording (MIMT Business)</h2>
