@@ -1,5 +1,10 @@
 # MIMT — Décisions approuvées et contraintes
 
+## Demande d'exécution du 24 octobre 2026
+
+Le propriétaire a demandé de réaliser les six actions d'activation (IA, téléphone réel, magasins, CRTC, mesure/pub, sauvegardes) et d'indiquer les accès manquants. Cette demande autorise le travail de préparation et de configuration correspondant; elle ne constitue pas une preuve de conformité, de livraison des tests ou d'approbation des magasins. Les tests d'urgence suivent leur protocole et la lettre CRTC reste soumise aux faits vérifiés et à la revue du juriste. Aucun changement de prix, fournisseur ou règle de coûts n'a été décidé lors de cette intervention. Dossier de suivi : `MIMT-ACTIVATION.md`.
+
+
 Dernière consolidation : 2026-10-14. Une proposition non validée n'est pas une décision. Ne pas modifier prix, coûts récurrents, opérateurs ou garanties réglementaires sans approbation explicite.
 
 | Date | Décision | Raison / conséquence |
