@@ -294,6 +294,13 @@ export interface AuditEntry {
 
 type New<T, Optional extends keyof T = never> = Omit<T, "id" | "createdAt" | Optional> & Partial<Pick<T, Optional>>;
 
+/** Files an account purge left outside the database: storage objects, Twilio media and voicemail recordings. */
+export interface PurgeResult {
+  mediaPaths: string[];
+  twilioMediaUrls: string[];
+  recordingSids: string[];
+}
+
 export interface Repository {
   /** MIMT Affaires (business PBX) storage: src/repo/pbxTypes.ts. */
   readonly pbx: PbxRepository;
@@ -325,6 +332,15 @@ export interface Repository {
   findUserByGlobalId(globalUserId: string): Promise<User | null>;
   findUserByPhone(e164: string): Promise<User | null>;
   updateUser(id: string, patch: Partial<Omit<User, "id" | "createdAt">>): Promise<User>;
+  /** Users whose deletion request is due (status pending_deletion, deletionScheduledAt ≤ now), oldest first. */
+  listUsersDueForDeletion(now: Date, limit: number): Promise<User[]>;
+  /**
+   * Account deletion (jobs/accountDeletion.ts): deletes the user's personal data in one transaction and anonymises
+   * the user row (status "deleted"). Keeps only what the law requires: subscriptions and usage (billing), call
+   * records, 9-1-1 notice acceptances, audit and fraud logs, the closed account row and MIMT's own phone numbers.
+   * Returns the files left to delete outside the database.
+   */
+  purgeUserData(userId: string, accountId: string | null): Promise<PurgeResult>;
 
   createRefreshToken(t: New<RefreshToken, "revokedAt">): Promise<RefreshToken>;
   findRefreshToken(tokenHash: string): Promise<RefreshToken | null>;

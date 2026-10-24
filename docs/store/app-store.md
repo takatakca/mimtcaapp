@@ -225,11 +225,19 @@ pas à un client Premium).
   ATT). Les domaines de suivi sont déclarés par le manifeste du SDK Google Mobile Ads lui-même (les recopier ici
   bloquerait aussi les annonces non personnalisées quand ATT est refusé). Avant chaque envoi : Xcode › Archive ›
   « Generate Privacy Report » et vérifier que GoogleMobileAds y figure.
-- **Suppression du compte (5.1.1(v))** : Compte › « Supprimer mon compte » → confirmation → `DELETE /v1/me` (compte
-  fermé, numéros en quarantaine, sessions et jetons de notification révoqués) → déconnexion. Si l'abonnement est
-  facturé par le magasin, l'app rappelle de l'annuler aussi avec « Gérer l'abonnement ». **À faire côté serveur** :
-  la tâche qui efface définitivement les données après 30 jours n'existe pas encore (TODO dans
-  `apps/api/src/routes/me.ts`), ni l'annulation automatique d'un abonnement Stripe à la suppression.
+- **Suppression du compte (5.1.1(v))** : Compte › « Supprimer mon compte » → confirmation → `DELETE /v1/me` : compte
+  fermé tout de suite (plus d'accès à l'API, sessions et jetons de notification révoqués, numéros en quarantaine,
+  abonnements Web Stripe annulés) → déconnexion. Si l'abonnement est facturé par le magasin, l'app rappelle de
+  l'annuler avec « Gérer l'abonnement » (MIMT ne peut pas annuler un abonnement Apple). **30 jours plus tard**, la
+  tâche quotidienne `apps/api/src/jobs/accountDeletion.ts` efface définitivement textos, MMS, messages vocaux
+  (stockage et Twilio), adresse 9-1-1, @nom, données d'IA, consentements, appareils, parrainages, réunions, et le
+  nom, courriel et numéro de l'utilisateur. Gardés (loi) : abonnements et factures, registres d'appels, acceptations
+  de l'avis 9-1-1, journaux d'audit et de fraude. Les numéros retournent au fournisseur par le cycle de vie
+  (quarantaine puis libération; jamais les numéros antérieurs à `NUMBER_LIFECYCLE_FROM`). `ACCOUNT_DELETION=off`
+  met la tâche en pause.
+- **Lien public de suppression (exigé par Google, utile pour Apple)** : `https://mimt.ca/confidentialite/#suppression`
+  (anglais : `https://mimt.ca/en/privacy/#delete-account`) : étapes dans l'app, courriel `info@mimt.ca` objet
+  « Suppression de compte », délai de 30 jours, ce qui est gardé.
 - **Connexion (4.8)** : compte TAKATAK (système de compte de l'entreprise) ou code par texto. Aucune connexion par un
   réseau social dans l'application : « Se connecter avec Apple » n'est pas exigé. **À vérifier** : si la page de
   connexion takatak.ca propose « Continuer avec Google » ou un autre réseau social, Apple exigera aussi une option

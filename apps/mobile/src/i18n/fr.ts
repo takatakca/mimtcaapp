@@ -229,7 +229,7 @@ export const fr = {
   "account.exportStarted": "Votre export est prêt. Choisissez où l'enregistrer ou l'envoyer.",
   "account.delete": "Supprimer mon compte",
   "account.deleteConfirm":
-    "Votre compte, votre numéro, vos textos et vos messages vocaux seront supprimés. Cette action est définitive. Continuer?",
+    "Votre compte sera fermé tout de suite. Dans 30 jours, vos textos, messages vocaux, adresse 9-1-1 et renseignements personnels seront supprimés définitivement; seuls les registres exigés par la loi (facturation, appels, 9-1-1) sont gardés. Continuer?",
   "account.deleted": "Votre compte a été supprimé.",
   "account.complaints": "Plaintes : CPRST (Commission des plaintes relatives aux services de télécom-télévision)",
   "account.complaintsHint": "Si nous ne réglons pas votre plainte, la CPRST peut vous aider gratuitement.",

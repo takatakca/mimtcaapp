@@ -32,6 +32,7 @@ import type {
   TelecomAccount,
   Usage,
   UsageDelta,
+  PurgeResult,
   User,
   Voicemail,
 } from "./types.js";
@@ -147,6 +148,61 @@ export class PostgresRepository implements Repository {
   }
   async updateUser(id: string, patch: Partial<User>) {
     return one<User>(await this.sql`update users set ${this.sql(defined(patch))} where id = ${id} returning *`);
+  }
+  async listUsersDueForDeletion(now: Date, limit: number) {
+    return (await this.sql`select * from users where status = 'pending_deletion' and deletion_scheduled_at <= ${now}
+      order by deletion_scheduled_at limit ${limit}`) as unknown as User[];
+  }
+  async purgeUserData(userId: string, accountId: string | null): Promise<PurgeResult> {
+    return this.sql.begin(async (tx) => {
+      const result: PurgeResult = { mediaPaths: [], twilioMediaUrls: [], recordingSids: [] };
+      if (accountId) {
+        await tx`delete from voicemail_settings where telecom_account_id = ${accountId}`;
+        const media = (await tx`delete from media_objects where telecom_account_id = ${accountId} returning path, twilio_url`) as unknown as Array<{
+          path: string | null;
+          twilioUrl: string | null;
+        }>;
+        for (const m of media) {
+          if (m.path) result.mediaPaths.push(m.path);
+          if (m.twilioUrl) result.twilioMediaUrls.push(m.twilioUrl);
+        }
+        const voicemails = (await tx`delete from voicemails where telecom_account_id = ${accountId} returning recording_sid, audio_path`) as unknown as Array<{
+          recordingSid: string;
+          audioPath: string | null;
+        }>;
+        for (const v of voicemails) {
+          result.recordingSids.push(v.recordingSid);
+          if (v.audioPath) result.mediaPaths.push(v.audioPath);
+        }
+        await tx`delete from messages where telecom_account_id = ${accountId}`;
+        await tx`delete from e911_addresses where telecom_account_id = ${accountId}`;
+        await tx`delete from blocked_numbers where telecom_account_id = ${accountId}`;
+        await tx`delete from call_settings where telecom_account_id = ${accountId}`;
+        await tx`delete from spam_scores where telecom_account_id = ${accountId}`;
+        await tx`delete from ai_usage where telecom_account_id = ${accountId}`;
+        await tx`delete from ai_receptionist_messages where telecom_account_id = ${accountId}`;
+        await tx`delete from ai_receptionist_configs where telecom_account_id = ${accountId}`;
+        await tx`delete from port_in_requests where telecom_account_id = ${accountId}`;
+        await tx`delete from number_holds where telecom_account_id = ${accountId}`;
+        await tx`delete from payment_fingerprints where telecom_account_id = ${accountId}`;
+        await tx`delete from entitlements where telecom_account_id = ${accountId}`;
+      }
+      await tx`delete from refresh_tokens where user_id = ${userId}`;
+      await tx`delete from push_tokens where user_id = ${userId}`;
+      await tx`delete from web_push_subscriptions where user_id = ${userId}`;
+      await tx`delete from attested_devices where user_id = ${userId}`;
+      await tx`delete from user_handles where user_id = ${userId}`;
+      await tx`delete from consents where user_id = ${userId}`;
+      await tx`delete from email_outbox where user_id = ${userId}`;
+      await tx`delete from ad_rewards where user_id = ${userId}`;
+      await tx`delete from referrals where referrer_user_id = ${userId} or referee_user_id = ${userId}`;
+      await tx`delete from referral_codes where user_id = ${userId}`;
+      await tx`delete from meeting_invites where user_id = ${userId}`;
+      await tx`delete from meetings where host_user_id = ${userId}`;
+      await tx`update users set global_user_id = null, auth_user_id = null, display_name = null, email = null, phone_e164 = null,
+        phone_verified_at = null, device_verified_at = null, status = 'deleted', updated_at = now() where id = ${userId}`;
+      return result;
+    }) as Promise<PurgeResult>;
   }
 
   // refresh tokens

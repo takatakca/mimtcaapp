@@ -113,9 +113,8 @@ Résultat attendu : tout public avec mention « Interactions entre utilisateurs 
 
 ### Suppression du compte
 - **Dans l'app** : Compte › « Supprimer mon compte » (`DELETE /v1/me`).
-- **Sans l'app** (lien exigé par Google) : `https://app.mimt.ca/compte` (connexion, puis « Supprimer mon compte »), ou un courriel à `info@mimt.ca` (« Vos droits », politique de confidentialité). Mieux : une page publique qui explique ces étapes sur mimt.ca (à créer, ex. `/supprimer-mon-compte`), donnée comme URL à Google.
-- Ce qui se passe (code actuel, `apps/api/src/routes/me.ts`) : compte fermé tout de suite, connexions et jetons de notification révoqués, numéros mis en quarantaine, suppression prévue après **30 jours**. Registres d'appels et de facturation gardés selon la loi.
-- **Bloquant à lever** : la tâche qui supprime vraiment les données après 30 jours n'existe pas encore (`TODO` dans `me.ts`, avec l'annulation de l'abonnement). Il faut la livrer avant de déclarer à Google que les données sont supprimées.
+- **Sans l'app** (lien exigé par Google) : `https://mimt.ca/confidentialite/#suppression` (section publique « Supprimer votre compte » : étapes, courriel `info@mimt.ca` objet « Suppression de compte », délai, ce qui est gardé). Aussi possible dans app.mimt.ca › Compte.
+- Ce qui se passe : compte fermé tout de suite (`DELETE /v1/me` : connexions et jetons révoqués, numéros en quarantaine, abonnements Web annulés), puis suppression définitive des données personnelles après **30 jours** par la tâche quotidienne `apps/api/src/jobs/accountDeletion.ts`. Registres d'appels, de facturation et 9-1-1 gardés selon la loi. Un abonnement Google Play s'annule dans Google Play (l'app le rappelle).
 
 ### Sécurité des données (Data safety)
 
@@ -180,7 +179,7 @@ Google Play exige depuis le 31 août 2026 que les nouvelles apps et les mises à
 
 ## 6. Avant la production (liste)
 1. ~~Paiement in-app Google Play à la place des liens Stripe dans l'app~~ : fait (PR #51); créer les 6 abonnements dans la Play Console.
-2. Suppression réelle des données après 30 jours (API) et page publique de suppression du compte.
+2. ~~Suppression réelle des données après 30 jours (API) et page publique de suppression du compte~~ : fait (`jobs/accountDeletion.ts`, `mimt.ca/confidentialite/#suppression`).
 3. Compte d'examen pour Google.
 4. Captures depuis l'app Android réelle.
 5. Identifiants AdMob réels, `google-services.json` (Firebase) et TAKATAK (variables GitHub).

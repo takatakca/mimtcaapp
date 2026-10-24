@@ -235,6 +235,29 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
                 (registres d&apos;appels, textos, messages vocaux, adresse 9-1-1, consentements) : <Placeholder lang={lang} />
               </p>
 
+              <h2 id="suppression">Supprimer votre compte</h2>
+              <ul>
+                <li>
+                  Dans l&apos;app MIMT (iPhone, Android ou app.mimt.ca) : Compte › « Supprimer mon compte ». Ou écrivez à{" "}
+                  <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Suppression de compte")}`}>{CONTACT_EMAIL}</a> (objet
+                  « Suppression de compte ») depuis le courriel ou en donnant le numéro de votre compte; nous confirmons votre identité
+                  avant d&apos;agir.
+                </li>
+                <li>
+                  Le compte est fermé tout de suite : déconnexion partout, numéro retiré, abonnements payés sur le Web annulés. Un
+                  abonnement payé par l&apos;App Store ou Google Play s&apos;annule dans les réglages du magasin.
+                </li>
+                <li>
+                  30 jours après la demande, nous supprimons définitivement vos textos, photos, messages vocaux, adresse 9-1-1, @nom,
+                  données d&apos;IA, consentements et appareils, et nous effaçons votre nom, courriel et numéro de téléphone.
+                </li>
+                <li>
+                  Nous gardons seulement ce que la loi exige : factures et abonnements, registres d&apos;appels (facturation et
+                  9-1-1), acceptation de l&apos;avis 9-1-1 et journaux de sécurité, pour la durée prévue par la loi (par exemple 6 ans
+                  pour les registres comptables).
+                </li>
+              </ul>
+
               <h2>Vos droits</h2>
               <ul>
                 <li>Accéder à vos renseignements et les faire corriger.</li>
@@ -293,6 +316,27 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
                 Only as long as needed for the stated purposes or as required by law. Specific periods per type of information (call
                 records, texts, voicemails, 9-1-1 address, consents): <Placeholder lang={lang} />
               </p>
+
+              <h2 id="delete-account">Delete your account</h2>
+              <ul>
+                <li>
+                  In the MIMT app (iPhone, Android or app.mimt.ca): Account › “Delete my account”. Or write to{" "}
+                  <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Account deletion")}`}>{CONTACT_EMAIL}</a> (subject
+                  “Account deletion”) from your account email or with your account number; we confirm your identity before acting.
+                </li>
+                <li>
+                  The account closes at once: signed out everywhere, number removed, subscriptions paid on the web cancelled. A
+                  subscription paid through the App Store or Google Play is cancelled in the store settings.
+                </li>
+                <li>
+                  30 days after the request, we permanently delete your texts, photos, voicemails, 9-1-1 address, @name, AI data,
+                  consents and devices, and erase your name, email and phone number.
+                </li>
+                <li>
+                  We keep only what the law requires: invoices and subscriptions, call records (billing and 9-1-1), the 9-1-1 notice
+                  acceptance and security logs, for the period the law sets (for example 6 years for accounting records).
+                </li>
+              </ul>
 
               <h2>Your rights</h2>
               <ul>

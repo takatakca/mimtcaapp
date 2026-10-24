@@ -31,6 +31,7 @@ import type {
   Subscription,
   TelecomAccount,
   Usage,
+  PurgeResult,
   User,
   Voicemail,
 } from "./types.js";
@@ -110,6 +111,68 @@ export class MemoryRepository implements Repository {
     if (!u) throw new Error(`user ${id} not found`);
     Object.assign(u, patch);
     return clone(u);
+  }
+
+  async listUsersDueForDeletion(now: Date, limit: number) {
+    return [...this.users.values()]
+      .filter((u) => u.status === "pending_deletion" && u.deletionScheduledAt && u.deletionScheduledAt <= now)
+      .sort((a, b) => a.deletionScheduledAt!.getTime() - b.deletionScheduledAt!.getTime())
+      .slice(0, limit)
+      .map(clone);
+  }
+  async purgeUserData(userId: string, accountId: string | null): Promise<PurgeResult> {
+    const result: PurgeResult = { mediaPaths: [], twilioMediaUrls: [], recordingSids: [] };
+    const mine = (row: { telecomAccountId?: string | null }) => accountId !== null && row.telecomAccountId === accountId;
+    const dropMap = <T>(map: Map<string, T>, test: (row: T) => boolean) => {
+      for (const [key, row] of map) if (test(row)) map.delete(key);
+    };
+    if (accountId) {
+      this.media.settings.delete(accountId);
+      for (const m of this.media.media.values()) {
+        if (!mine(m)) continue;
+        if (m.path) result.mediaPaths.push(m.path);
+        if (m.twilioUrl) result.twilioMediaUrls.push(m.twilioUrl);
+      }
+      dropMap(this.media.media, mine);
+      for (const v of this.voicemails.filter(mine)) {
+        result.recordingSids.push(v.recordingSid);
+        if (v.audioPath) result.mediaPaths.push(v.audioPath);
+      }
+      this.voicemails = this.voicemails.filter((v) => !mine(v));
+      this.messages = this.messages.filter((m) => !mine(m));
+      this.e911Addresses.delete(accountId);
+      this.callControls.blocks = this.callControls.blocks.filter((b) => !mine(b));
+      this.callControls.settings.delete(accountId);
+      dropMap(this.portIns.requests, mine);
+      dropMap(this.numberHolds.rows, mine);
+      this.entitlements = this.entitlements.filter((e) => !mine(e));
+    }
+    dropMap(this.refreshTokens, (t) => t.userId === userId);
+    this.pushTokens = this.pushTokens.filter((t) => t.userId !== userId);
+    dropMap(this.webPush.subs, (s) => s.userId === userId);
+    this.devices = this.devices.filter((d) => d.userId !== userId);
+    dropMap(this.handles.rows, (h) => h.userId === userId);
+    this.consents = this.consents.filter((c) => c.userId !== userId);
+    this.media.emails = this.media.emails.filter((e) => e.userId !== userId);
+    this.adRewards = this.adRewards.filter((r) => r.userId !== userId);
+    dropMap(this.referrals.referrals, (r) => r.referrerUserId === userId || r.refereeUserId === userId);
+    dropMap(this.referrals.codes, (c) => c.userId === userId);
+    dropMap(this.meetings.invites, (i) => i.userId === userId);
+    dropMap(this.meetings.meetings, (m) => m.hostUserId === userId);
+    const u = this.users.get(userId);
+    if (u) {
+      Object.assign(u, {
+        globalUserId: null,
+        authUserId: null,
+        displayName: null,
+        email: null,
+        phoneE164: null,
+        phoneVerifiedAt: null,
+        deviceVerifiedAt: null,
+        status: "deleted",
+      });
+    }
+    return result;
   }
 
   // refresh tokens

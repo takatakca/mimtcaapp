@@ -30,6 +30,8 @@ export interface BillingGateway {
   /** Verifies the Stripe-Signature header against the raw body. Throws on mismatch. */
   constructEvent(rawBody: Buffer, signature: string): Stripe.Event;
   retrieveSubscription(id: string): Promise<Stripe.Subscription>;
+  /** Cancels a subscription now (account deletion). Optional: absent = the deletion job only logs it. */
+  cancelSubscription?(id: string): Promise<void>;
   /**
    * Card fingerprint of a paid invoice or payment (same card = same fingerprint across customers), used by the
    * referral anti-fraud check. Null when unknown (not a card, not paid yet). Optional: absent = no check.
@@ -150,6 +152,10 @@ export class StripeGateway implements BillingGateway {
 
   retrieveSubscription(id: string) {
     return this.stripe.subscriptions.retrieve(id);
+  }
+
+  async cancelSubscription(id: string) {
+    await this.stripe.subscriptions.cancel(id, { prorate: true });
   }
 
   async paymentFingerprint(ref: { invoiceId?: string; paymentIntentId?: string }): Promise<string | null> {
