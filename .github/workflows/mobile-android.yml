@@ -1,0 +1,186 @@
+name: Mobile Android (Google Play)
+
+# Builds the signed Android App Bundle (.aab) of apps/mobile on a GitHub runner: no Expo account needed.
+# Guide: docs/store/android-build.md. Store listing and declarations: docs/store/google-play.md.
+#
+# Required repository secrets (Settings › Secrets and variables › Actions › Secrets):
+#   ANDROID_UPLOAD_KEYSTORE_BASE64    upload keystore (.jks) encoded with `base64 -w0`
+#   ANDROID_UPLOAD_KEYSTORE_PASSWORD
+#   ANDROID_UPLOAD_KEY_ALIAS
+#   ANDROID_UPLOAD_KEY_PASSWORD
+# Optional secrets:
+#   GOOGLE_SERVICES_JSON_BASE64       Firebase google-services.json (FCM: incoming calls and notifications)
+#   PLAY_SERVICE_ACCOUNT_JSON         Play Console service account key: uploads to the internal testing track
+# Optional variables (Settings › Secrets and variables › Actions › Variables):
+#   MOBILE_API_URL, TAKATAK_ISSUER, TAKATAK_MOBILE_CLIENT_ID, EAS_PROJECT_ID,
+#   ADMOB_ANDROID_APP_ID, ADMOB_ANDROID_BANNER_UNIT_ID, ADMOB_ANDROID_REWARDED_UNIT_ID,
+#   ANDROID_VERSION_CODE_OFFSET (added to the run number, default 0)
+
+on:
+  workflow_dispatch:
+    inputs:
+      play_upload:
+        description: "Envoyer au test interne Google Play (si PLAY_SERVICE_ACCOUNT_JSON existe)"
+        type: boolean
+        default: true
+      play_status:
+        description: "Statut de la version sur Play (draft tant que l'app n'a jamais été publiée)"
+        type: choice
+        options: [draft, completed]
+        default: draft
+  push:
+    tags: ["mobile-v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-android-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+      ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+      ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+      ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+      GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+      HAS_PLAY_SERVICE_ACCOUNT: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON != '' }}
+      # Bundled into the app (public values only, never secrets).
+      EXPO_PUBLIC_API_URL: ${{ vars.MOBILE_API_URL || 'https://api.mimt.ca' }}
+      EXPO_PUBLIC_TAKATAK_ISSUER: ${{ vars.TAKATAK_ISSUER }}
+      EXPO_PUBLIC_TAKATAK_CLIENT_ID: ${{ vars.TAKATAK_MOBILE_CLIENT_ID }}
+      # Build time (read by app.config.ts).
+      APS_ENVIRONMENT: production
+      EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+      ADMOB_ANDROID_APP_ID: ${{ vars.ADMOB_ANDROID_APP_ID }}
+      ADMOB_ANDROID_BANNER_UNIT_ID: ${{ vars.ADMOB_ANDROID_BANNER_UNIT_ID }}
+      ADMOB_ANDROID_REWARDED_UNIT_ID: ${{ vars.ADMOB_ANDROID_REWARDED_UNIT_ID }}
+      NODE_ENV: production
+    steps:
+      - name: Check signing secrets (no unsigned bundle is ever produced)
+        shell: bash
+        run: |
+          missing=()
+          for name in ANDROID_UPLOAD_KEYSTORE_BASE64 ANDROID_UPLOAD_KEYSTORE_PASSWORD ANDROID_UPLOAD_KEY_ALIAS ANDROID_UPLOAD_KEY_PASSWORD; do
+            [[ -n "${!name}" ]] || missing+=("$name")
+          done
+          if (( ${#missing[@]} )); then
+            echo "::error title=Signature Android manquante / Android signing missing::Ajoutez ces secrets du dépôt (Settings › Secrets and variables › Actions) : ${missing[*]}. Créez la clé avec apps/mobile/scripts/android/create-upload-keystore.sh. Guide : docs/store/android-build.md"
+            exit 1
+          fi
+          [[ -n "$GOOGLE_SERVICES_JSON_BASE64" ]] || echo "::warning::GOOGLE_SERVICES_JSON_BASE64 absent : l'app se construit, mais sans Firebase les appels entrants et les notifications ne sonnent pas sur Android."
+          [[ -n "$EXPO_PUBLIC_TAKATAK_ISSUER" && -n "$EXPO_PUBLIC_TAKATAK_CLIENT_ID" ]] || echo "::warning::Variables TAKATAK_ISSUER / TAKATAK_MOBILE_CLIENT_ID absentes : la connexion TAKATAK reste désactivée dans l'app (connexion par texto seulement)."
+          [[ -n "$ADMOB_ANDROID_APP_ID" ]] || echo "::warning::ADMOB_ANDROID_APP_ID absent : l'app utilise les identifiants de test publics de Google (aucun revenu publicitaire)."
+
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @mimt/shared build
+      - run: pnpm --filter @mimt/mobile typecheck
+      - run: pnpm --filter @mimt/mobile test
+
+      - name: Version
+        id: version
+        shell: bash
+        run: |
+          offset="${{ vars.ANDROID_VERSION_CODE_OFFSET || '0' }}"
+          code=$(( ${{ github.run_number }} + offset ))
+          name=$(node -p "require('./apps/mobile/package.json').version")
+          echo "ANDROID_VERSION_CODE=$code" >> "$GITHUB_ENV"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "versionName $name, versionCode $code"
+
+      - name: Write signing key and Firebase config (runner temp only)
+        shell: bash
+        run: |
+          umask 077
+          echo "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          keytool -list -keystore "$RUNNER_TEMP/upload.jks" -storepass "$ANDROID_UPLOAD_KEYSTORE_PASSWORD" -alias "$ANDROID_UPLOAD_KEY_ALIAS" > /dev/null \
+            || { echo "::error::Le keystore, son mot de passe ou l'alias ne correspondent pas (ANDROID_UPLOAD_*)."; exit 1; }
+          if [[ -n "$GOOGLE_SERVICES_JSON_BASE64" ]]; then
+            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > "$RUNNER_TEMP/google-services.json"
+            echo "GOOGLE_SERVICES_JSON=$RUNNER_TEMP/google-services.json" >> "$GITHUB_ENV"
+          fi
+
+      - name: Expo prebuild (android)
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Gradle bundleRelease
+        working-directory: apps/mobile/android
+        env:
+          ORG_GRADLE_PROJECT_MIMT_UPLOAD_STORE_FILE: ${{ runner.temp }}/upload.jks
+          ORG_GRADLE_PROJECT_MIMT_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_MIMT_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_MIMT_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: ./gradlew :app:bundleRelease --no-daemon
+
+      - name: Verify the bundle is signed with the upload key (not the debug key)
+        id: aab
+        shell: bash
+        run: |
+          src=apps/mobile/android/app/build/outputs/bundle/release/app-release.aab
+          out="mimt-${{ steps.version.outputs.name }}-${{ steps.version.outputs.code }}.aab"
+          jarsigner -verify "$src" > /dev/null || { echo "::error::Bundle not signed"; exit 1; }
+          signer=$(keytool -printcert -jarfile "$src" | grep -m1 'Owner:')
+          upload=$(keytool -list -v -keystore "$RUNNER_TEMP/upload.jks" -storepass "$ANDROID_UPLOAD_KEYSTORE_PASSWORD" -alias "$ANDROID_UPLOAD_KEY_ALIAS" | grep -m1 'SHA256:' | awk '{print $2}')
+          signed=$(keytool -printcert -jarfile "$src" | grep -m1 'SHA256:' | awk '{print $2}')
+          if [[ "$signer" == *"Android Debug"* || "$upload" != "$signed" ]]; then
+            echo "::error::Bundle is not signed with the upload key"; exit 1
+          fi
+          mv "$src" "$out"
+          echo "file=$out" >> "$GITHUB_OUTPUT"
+          echo "Upload key SHA-256: $upload (to compare with Play Console › Test and release › App integrity)"
+          ls -la "$out"
+
+      - name: Remove signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.jks" "$RUNNER_TEMP/google-services.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mimt-android-aab-${{ steps.version.outputs.code }}
+          path: ${{ steps.aab.outputs.file }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload to Google Play (internal testing)
+        if: env.HAS_PLAY_SERVICE_ACCOUNT == 'true' && (github.event_name == 'push' || inputs.play_upload)
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ca.mimt.app
+          releaseFiles: ${{ steps.aab.outputs.file }}
+          track: internal
+          status: ${{ inputs.play_status || 'draft' }}
+          releaseName: ${{ steps.version.outputs.name }} (${{ steps.version.outputs.code }})
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### MIMT Android"
+            echo "- Fichier : \`${{ steps.aab.outputs.file }}\` (artefact de ce run, 30 jours)"
+            echo "- versionCode : ${{ steps.version.outputs.code }}"
+            if [[ "$HAS_PLAY_SERVICE_ACCOUNT" == "true" ]]; then
+              echo "- Google Play : envoyé au test interne si l'étape ci-dessus a réussi"
+            else
+              echo "- Google Play : pas de PLAY_SERVICE_ACCOUNT_JSON, téléversez le .aab à la main (Play Console › Tester et publier › Tests internes)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><g transform="scale(0.5)"><defs>
+    <radialGradient id="p-bg" cx="50%" cy="46%" r="70%">
+      <stop offset="0" stop-color="#0B1B3D"/>
+      <stop offset="1" stop-color="#060D1F"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#p-bg)"/><defs>
+    <linearGradient id="p-grad" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#1F8BFF"/>
+      <stop offset="1" stop-color="#29C3FF"/>
+    </linearGradient>
+    <filter id="p-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="18" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g transform="translate(512 512) scale(0.78) translate(-600 -452)" filter="url(#p-glow)">
+    <path d="M262 742 V322 L512 592 L762 322 V742" fill="none" stroke="url(#p-grad)" stroke-width="112"
+      stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M806 196 A120 120 0 0 1 906 296" fill="none" stroke="#29C3FF" stroke-width="44" stroke-linecap="round"/>
+    <path d="M800 92 A224 224 0 0 1 1010 302" fill="none" stroke="#29C3FF" stroke-width="44" stroke-linecap="round"
+      opacity="0.7"/>
+  </g></g></svg>
