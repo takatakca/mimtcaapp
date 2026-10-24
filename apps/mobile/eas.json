@@ -18,9 +18,20 @@
       "android": { "buildType": "apk" }
     },
     "production": {
+      "distribution": "store",
       "autoIncrement": true,
-      "env": { "APS_ENVIRONMENT": "production" }
+      "env": { "APS_ENVIRONMENT": "production", "NODE_ENV": "production" },
+      "ios": { "resourceClass": "default" },
+      "android": { "buildType": "app-bundle" }
     }
   },
-  "submit": { "production": {} }
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./play-service-account.json",
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    }
+  }
 }

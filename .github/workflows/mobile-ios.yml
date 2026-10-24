@@ -1,0 +1,146 @@
+name: Mobile iOS (App Store)
+
+# Builds the iOS app (.ipa) of apps/mobile on EAS Build (macOS in Expo's cloud) and sends it to
+# App Store Connect (TestFlight) with EAS Submit. Guide: docs/store/ios-build.md.
+#
+# Required repository secrets (Settings › Secrets and variables › Actions › Secrets):
+#   EXPO_TOKEN          expo.dev › Account settings › Access tokens (robot or personal token)
+#   ASC_API_KEY_ID      App Store Connect › Users and Access › Integrations › App Store Connect API (Key ID)
+#   ASC_API_ISSUER_ID   same page (Issuer ID)
+#   ASC_API_KEY_P8      contents of the downloaded AuthKey_XXXX.p8 file (role: App Manager or Admin)
+# Required repository variables (Settings › Secrets and variables › Actions › Variables):
+#   EAS_PROJECT_ID      expo.dev project id (project "mimt" › Overview)
+#   APPLE_TEAM_ID       developer.apple.com › Account › Membership details (Team ID)
+#   ASC_APP_ID          App Store Connect › app MIMT › App Information › Apple ID (digits), for submission
+# Optional variables: APPLE_TEAM_TYPE (COMPANY_OR_ORGANIZATION by default, or INDIVIDUAL), MOBILE_API_URL,
+#   TAKATAK_ISSUER, TAKATAK_MOBILE_CLIENT_ID, ADMOB_IOS_APP_ID, ADMOB_IOS_BANNER_UNIT_ID, ADMOB_IOS_REWARDED_UNIT_ID.
+
+on:
+  workflow_dispatch:
+    inputs:
+      submit:
+        description: "Envoyer à App Store Connect (TestFlight) après le build"
+        type: boolean
+        default: true
+  push:
+    tags: ["mobile-v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-ios-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ios:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+      ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+      ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+      EAS_PROJECT_ID: ${{ vars.EAS_PROJECT_ID }}
+      APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+      ASC_APP_ID: ${{ vars.ASC_APP_ID }}
+      SUBMIT: ${{ github.event_name == 'push' || inputs.submit }}
+    steps:
+      - name: Check secrets and variables
+        shell: bash
+        run: |
+          missing=()
+          for name in EXPO_TOKEN ASC_API_KEY_ID ASC_API_ISSUER_ID ASC_API_KEY_P8 EAS_PROJECT_ID APPLE_TEAM_ID; do
+            [[ -n "${!name}" ]] || missing+=("$name")
+          done
+          [[ "$SUBMIT" != "true" || -n "$ASC_APP_ID" ]] || missing+=("ASC_APP_ID")
+          if (( ${#missing[@]} )); then
+            echo "::error title=iOS : accès manquants / missing access::Ajoutez dans Settings › Secrets and variables › Actions : ${missing[*]} (secrets : EXPO_TOKEN, ASC_API_*; variables : EAS_PROJECT_ID, APPLE_TEAM_ID, ASC_APP_ID). Guide : docs/store/ios-build.md"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @mimt/shared build
+      - run: pnpm --filter @mimt/mobile typecheck
+      - run: pnpm --filter @mimt/mobile test
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: App Store Connect API key (runner temp only)
+        shell: bash
+        run: |
+          umask 077
+          printf '%s\n' "$ASC_API_KEY_P8" > "$RUNNER_TEMP/asc-api-key.p8"
+          {
+            echo "EXPO_ASC_API_KEY_PATH=$RUNNER_TEMP/asc-api-key.p8"
+            echo "EXPO_ASC_KEY_ID=$ASC_API_KEY_ID"
+            echo "EXPO_ASC_ISSUER_ID=$ASC_API_ISSUER_ID"
+            echo "EXPO_APPLE_TEAM_ID=$APPLE_TEAM_ID"
+            echo "EXPO_APPLE_TEAM_TYPE=${{ vars.APPLE_TEAM_TYPE || 'COMPANY_OR_ORGANIZATION' }}"
+          } >> "$GITHUB_ENV"
+
+      # EAS Build evaluates app.config.ts again on its own servers, where this runner's environment does not
+      # exist: the public build values go into the production profile of eas.json for this run only.
+      - name: Public build values for EAS (no secrets)
+        working-directory: apps/mobile
+        env:
+          API_URL: ${{ vars.MOBILE_API_URL || 'https://api.mimt.ca' }}
+          ISSUER: ${{ vars.TAKATAK_ISSUER }}
+          CLIENT_ID: ${{ vars.TAKATAK_MOBILE_CLIENT_ID }}
+          ADMOB_APP: ${{ vars.ADMOB_IOS_APP_ID }}
+          ADMOB_BANNER: ${{ vars.ADMOB_IOS_BANNER_UNIT_ID }}
+          ADMOB_REWARDED: ${{ vars.ADMOB_IOS_REWARDED_UNIT_ID }}
+        run: |
+          jq --arg project "$EAS_PROJECT_ID" --arg api "$API_URL" --arg issuer "$ISSUER" --arg client "$CLIENT_ID" \
+             --arg admob "$ADMOB_APP" --arg banner "$ADMOB_BANNER" --arg rewarded "$ADMOB_REWARDED" '
+            .build.production.env += ({EAS_PROJECT_ID: $project, EXPO_PUBLIC_API_URL: $api}
+              + (if $issuer != "" then {EXPO_PUBLIC_TAKATAK_ISSUER: $issuer} else {} end)
+              + (if $client != "" then {EXPO_PUBLIC_TAKATAK_CLIENT_ID: $client} else {} end)
+              + (if $admob != "" then {ADMOB_IOS_APP_ID: $admob} else {} end)
+              + (if $banner != "" then {ADMOB_IOS_BANNER_UNIT_ID: $banner} else {} end)
+              + (if $rewarded != "" then {ADMOB_IOS_REWARDED_UNIT_ID: $rewarded} else {} end))
+          ' eas.json > eas.json.tmp && mv eas.json.tmp eas.json
+          [[ -n "$ISSUER" && -n "$CLIENT_ID" ]] || echo "::warning::TAKATAK_ISSUER / TAKATAK_MOBILE_CLIENT_ID absents : connexion TAKATAK désactivée dans l'app."
+          [[ -n "$ADMOB_APP" ]] || echo "::warning::ADMOB_IOS_APP_ID absent : identifiants de test publics de Google (aucun revenu publicitaire)."
+
+      - name: EAS Build (iOS, production)
+        working-directory: apps/mobile
+        run: eas build --platform ios --profile production --non-interactive --wait --json > "$RUNNER_TEMP/build.json"
+
+      - name: Build result
+        id: build
+        shell: bash
+        run: |
+          id=$(jq -r '.[0].id' "$RUNNER_TEMP/build.json")
+          url=$(jq -r '.[0].artifacts.buildUrl // empty' "$RUNNER_TEMP/build.json")
+          version=$(jq -r '.[0].appVersion + " (" + .[0].appBuildVersion + ")"' "$RUNNER_TEMP/build.json")
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          {
+            echo "### MIMT iOS"
+            echo "- Build EAS : \`$id\` (expo.dev › projet mimt › Builds)"
+            echo "- Version : $version"
+            if [[ -n "$url" ]]; then echo "- Fichier .ipa : bouton « Download » sur la page du build (connexion expo.dev requise)"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: EAS Submit (App Store Connect / TestFlight)
+        if: env.SUBMIT == 'true'
+        working-directory: apps/mobile
+        run: |
+          jq --arg app "$ASC_APP_ID" --arg key "$RUNNER_TEMP/asc-api-key.p8" --arg kid "$ASC_API_KEY_ID" --arg iss "$ASC_API_ISSUER_ID" '
+            .submit.production.ios = {ascAppId: $app, ascApiKeyPath: $key, ascApiKeyId: $kid, ascApiKeyIssuerId: $iss}
+          ' eas.json > eas.json.tmp && mv eas.json.tmp eas.json
+          eas submit --platform ios --profile production --id "${{ steps.build.outputs.id }}" --non-interactive --wait
+          echo "- App Store Connect : envoyé, visible dans TestFlight après le traitement d'Apple (5 à 30 min)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove API key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/asc-api-key.p8"

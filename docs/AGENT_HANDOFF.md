@@ -20,6 +20,15 @@
   `routes/me.ts`); compléter les sections « à confirmer » de mimt.ca/conditions; vérifier si takatak.ca propose une
   connexion Google (alors « Se connecter avec Apple » requis).
 
+## Relève — 24 octobre 2026 (claude, agent « mobile-build », builds magasins)
+
+- **Fait (code) :** icône MIMT (marque « M » + onde d'appel, électrique sur marine) générée par `apps/mobile/scripts/make-icons.mjs` (Playwright du paquet e2e) : `assets/icon.png`, icône adaptative + monochrome, splash, icône de notification, icône 512 et image de présentation Play (`assets/brand/`). Branchée dans `app.config.ts`. Plugin `apps/mobile/plugins/withAndroidReleaseSigning.js` (clé de téléversement par variables Gradle). Workflows `mobile-android.yml` (aab signé sans compte Expo, refus clair sans les 4 secrets, versionCode = numéro du run, envoi au test interne Play en brouillon si `PLAY_SERVICE_ACCOUNT_JSON`) et `mobile-ios.yml` (EAS Build + EAS Submit, clé API App Store Connect). `eas.json` production : `app-bundle`, `autoIncrement`, submit Android `internal`.
+- **Bogue corrigé :** `microphonePermission: false` d'expo-image-picker retirait `RECORD_AUDIO` du manifeste Android (micro des appels). Test `apps/mobile/src/build/storeBuild.test.ts`. Aussi retirés : service média en arrière-plan d'expo-audio, caméra, stockage, médias, écriture des contacts, superposition.
+- **Vérifié localement :** `expo prebuild` + `./gradlew :app:bundleRelease` réussi (arm64 seulement, clé jetable « smoke test » : **pas téléversable**), manifeste fusionné : targetSdk 36, minSdk 24, FGS `microphone`. Maven Central renvoyait 429 via le proxy : miroir Google utilisé en local seulement.
+- **Bloquants pour la production Play (autres chantiers) :** l'onglet Compte ouvre encore Stripe (achats in-app : agent « mobile-iap »); la suppression réelle des données après 30 jours n'existe pas (`TODO` dans `apps/api/src/routes/me.ts`); compte d'examen Google; captures de l'app Android réelle.
+- **Accès à ajouter (noms) :** secrets `ANDROID_UPLOAD_KEYSTORE_BASE64`, `ANDROID_UPLOAD_KEYSTORE_PASSWORD`, `ANDROID_UPLOAD_KEY_ALIAS`, `ANDROID_UPLOAD_KEY_PASSWORD`, `GOOGLE_SERVICES_JSON_BASE64`, `PLAY_SERVICE_ACCOUNT_JSON`, `EXPO_TOKEN`, `ASC_API_KEY_ID`, `ASC_API_ISSUER_ID`, `ASC_API_KEY_P8`; variables `EAS_PROJECT_ID`, `APPLE_TEAM_ID`, `ASC_APP_ID`, `TAKATAK_ISSUER`, `TAKATAK_MOBILE_CLIENT_ID`, `ADMOB_*`. Détails : `docs/store/android-build.md`, `docs/store/ios-build.md`, `docs/store/google-play.md`.
+- **Prochaine action exacte :** propriétaire : créer la clé (`bash apps/mobile/scripts/android/create-upload-keystore.sh`), ajouter les 4 secrets, lancer Actions › Mobile Android (Google Play), téléverser le .aab à la main en test interne.
+
 ## Relève — 24 octobre 2026 (claude, session 01GtWamF, corrections mimt.ca)
 
 - **Fait (code) :** la classe `.consent` du bandeau de témoins collait l'encadré de la page IA en bas de l'écran (renommé `consent-example`); textes d'avant le lancement retirés (Affaires « Inclus », App Web, `llms.txt`, test mis à jour); journal : lignes du 22 octobre perdues à la fusion de la PR #25 restaurées.

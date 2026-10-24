@@ -13,3 +13,7 @@ GoogleService-Info.plist
 .env
 .env.*
 !.env.example
+*.keystore
+*.aab
+*.apk
+play-service-account.json
