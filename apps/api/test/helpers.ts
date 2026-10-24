@@ -6,6 +6,7 @@ import { TakatakOidc } from "../src/auth/takatak.js";
 import { loadConfig } from "../src/config.js";
 import type { AppDeps } from "../src/deps.js";
 import type { ProvisioningProvider } from "../src/catalog/providers/types.js";
+import type { StoreVerifier } from "../src/billing/iap.js";
 import { InMemoryRateLimiter } from "../src/fraud/rateLimiter.js";
 import { createDeviceVerifier } from "../src/devices/verify.js";
 import { expectedTwilioSignature, type TwilioGateway } from "../src/gateways/twilio.js";
@@ -60,7 +61,13 @@ export async function takatakKeys() {
 }
 
 export async function setup(
-  opts: { config?: Record<string, string>; twilio?: TwilioGateway | null; now?: () => Date; provisioning?: ProvisioningProvider | null } = {},
+  opts: {
+    config?: Record<string, string>;
+    twilio?: TwilioGateway | null;
+    now?: () => Date;
+    provisioning?: ProvisioningProvider | null;
+    store?: StoreVerifier;
+  } = {},
 ) {
   const config = testConfig(opts.config);
   const repo = new MemoryRepository();
@@ -82,6 +89,7 @@ export async function setup(
     notifier,
     now: opts.now ?? (() => new Date()),
     ...(opts.provisioning === undefined ? {} : { provisioning: opts.provisioning }),
+    ...(opts.store ? { store: opts.store } : {}),
   };
   const app = await buildApp(deps);
   return { app, deps, repo, keys, twilio, notifier };

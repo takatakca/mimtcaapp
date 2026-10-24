@@ -18,7 +18,7 @@ import { addDays, monthPeriod } from "../lib/time.js";
 import { parse } from "../lib/validate.js";
 import { badRequest, forbidden } from "../lib/errors.js";
 import type { TelecomAccount } from "../repo/types.js";
-import { getFeatures, HELD_STATES, setAccountStatus } from "../services/accounts.js";
+import { billingSourceOf, getFeatures, HELD_STATES, setAccountStatus } from "../services/accounts.js";
 import { checkForwardTarget } from "../services/callControls.js";
 import { blockDto } from "./blocks.js";
 import { messageDto } from "./messages.js";
@@ -69,16 +69,21 @@ export async function meRoutes(app: FastifyInstance, deps: AppDeps) {
   app.get("/v1/me", auth, async (req): Promise<MeResponse> => {
     const { user, account } = await loadContext(deps, req);
     const now = deps.now();
-    const [{ plan, addOns }, numbers, address, ack, usage] = await Promise.all([
+    const [{ plan, addOns }, numbers, address, ack, usage, subs] = await Promise.all([
       getFeatures(repo, account.id),
       repo.listNumbersByAccount(account.id),
       repo.getE911Address(account.id),
       repo.getLatestE911Ack(user.id),
       repo.getUsage(account.id, monthPeriod(now)),
+      repo.listSubscriptions(account.id),
     ]);
     return {
       user: { id: user.id, globalUserId: user.globalUserId, locale: user.locale, displayName: user.displayName },
-      account: { id: account.id, kind: account.kind, plan, status: account.status, addOns, intlCreditCents: account.intlCreditCents },
+      account: { id: account.id, kind: account.kind, plan, status: account.status, addOns,
+        intlCreditCents: account.intlCreditCents,
+        planSource: plan === "free" ? null : billingSourceOf(subs, "plan", plan, now),
+        addOnSource: addOns.includes("no_ads") ? billingSourceOf(subs, "addon", "no_ads", now) : null,
+      },
       numbers: numbers.filter((n) => HELD_STATES.has(n.state)).map((n) => ({ id: n.id, e164: n.e164, state: n.state })),
       e911: {
         addressRegistered: Boolean(address),

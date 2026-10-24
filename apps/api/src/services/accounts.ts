@@ -1,9 +1,11 @@
-import { isSubscriptionAddOn, PLANS, SUBSCRIPTION_ADD_ONS, type Feature, type PlanCode, type SubscriptionAddOnCode } from "@mimt/shared";
+import { isSubscriptionAddOn, PLANS, SUBSCRIPTION_ADD_ONS, type BillingSource, type Feature, type PlanCode, type SubscriptionAddOnCode } from "@mimt/shared";
 import type { AccountStatus, Repository, Subscription, TelecomAccount, User } from "../repo/types.js";
 import { dayPeriod, monthPeriod } from "../lib/time.js";
+import { STORE_RENEWAL_MARGIN_MS } from "../billing/iap.js";
 
 const PLAN_RANK: PlanCode[] = ["free", "lock", "premium", "business", "business_pro"];
 const LIVE_STATUSES = new Set<Subscription["status"]>(["active", "trialing", "past_due"]);
+const STORE_SOURCES = new Set<Subscription["source"]>(["iap_apple", "iap_google"]);
 
 export async function ensureAccount(repo: Repository, user: User): Promise<TelecomAccount> {
   const existing = await repo.getAccountByOwner(user.id);
@@ -18,11 +20,14 @@ export async function ensureAccount(repo: Repository, user: User): Promise<Telec
 
 /**
  * Live = active/trialing/past_due. Manual grants (referral rewards) also end at currentPeriodEnd, because no
- * webhook will ever cancel them. Stripe and store rows are left to their webhooks / receipt checks.
+ * webhook will ever cancel them. App Store / Google Play rows end STORE_RENEWAL_MARGIN_MS after their period:
+ * a renewal arrives by store notification or the next receipt check, and a lapsed one must not stay paid forever.
+ * Stripe rows are left to their webhooks.
  */
 export function isLiveSubscription(s: Subscription, now: Date = new Date()): boolean {
   if (!LIVE_STATUSES.has(s.status)) return false;
   if (s.source === "manual" && s.currentPeriodEnd && s.currentPeriodEnd.getTime() <= now.getTime()) return false;
+  if (STORE_SOURCES.has(s.source) && s.currentPeriodEnd && s.currentPeriodEnd.getTime() + STORE_RENEWAL_MARGIN_MS <= now.getTime()) return false;
   return true;
 }
 
@@ -34,6 +39,26 @@ export function planFromSubscriptions(subs: Subscription[], now: Date = new Date
     if (PLAN_RANK.indexOf(code) > PLAN_RANK.indexOf(best)) best = code;
   }
   return best;
+}
+
+const SOURCE_CHANNEL: Record<Subscription["source"], BillingSource> = {
+  stripe: "web",
+  iap_apple: "app_store",
+  iap_google: "google_play",
+  takatak: "other",
+  manual: "other",
+};
+
+/**
+ * Billing channel of the live subscription that grants `code` (a plan or add-on), or null when none does.
+ * When several are live (bought on the web AND in the app), "web" wins: the app must not offer store management
+ * of a subscription the store does not bill.
+ */
+export function billingSourceOf(subs: Subscription[], kind: Subscription["kind"], code: string, now: Date = new Date()): BillingSource | null {
+  const live = subs.filter((s) => s.kind === kind && s.code === code && isLiveSubscription(s, now)).map((s) => SOURCE_CHANNEL[s.source]);
+  if (!live.length) return null;
+  for (const channel of ["web", "app_store", "google_play", "other"] as const) if (live.includes(channel)) return channel;
+  return null;
 }
 
 /** Live subscription add-ons ("no_ads"…), sorted, without duplicates. */

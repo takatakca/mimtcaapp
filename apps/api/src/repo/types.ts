@@ -341,6 +341,8 @@ export interface Repository {
 
   listSubscriptions(accountId: string): Promise<Subscription[]>;
   upsertSubscription(s: New<Subscription>): Promise<Subscription>;
+  /** The row of a Stripe subscription or store purchase (`ios:<originalTransactionId>`, `android:<token>`). */
+  findSubscriptionByExternalId(externalId: string): Promise<Subscription | null>;
 
   listEntitlements(accountId: string): Promise<Entitlement[]>;
   replaceEntitlements(accountId: string, source: string, items: Array<{ feature: Feature; limit: number | null }>): Promise<void>;

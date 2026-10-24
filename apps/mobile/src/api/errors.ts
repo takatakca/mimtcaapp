@@ -52,6 +52,11 @@ const CODE_TO_KEY: Record<string, TKey> = {
   intl_balance_limit: "error.intlTopUpLimit",
   intl_topup_rate_limited: "error.rateLimited",
   phone_verification_required: "error.phoneRequired",
+  number_requires_paid_plan: "error.numberNeedsPlan",
+  // In-app purchases (POST /v1/billing/iap/verify).
+  store_purchase_linked: "purchase.linkedElsewhere",
+  invalid_receipt: "purchase.verifyFailed",
+  unknown_product: "purchase.verifyFailed",
 };
 
 export function errorKeyFor(status: number | null, code?: string | null): TKey {

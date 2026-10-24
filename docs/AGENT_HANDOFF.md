@@ -1,5 +1,25 @@
 # MIMT — Relève du développeur principal
 
+## Relève — 24 octobre 2026 (claude « mobile-iap », session 01GtWamF, App Store / Play)
+
+- **Fait (code) :** l'app `apps/mobile` ne vend plus par Stripe : forfaits Essentiel/Premium et « Sans pub » par achat
+  intégré (`expo-iap` 6.1.1, StoreKit 2 / Play Billing), prix du magasin, vérification par `POST /v1/billing/iap/verify`
+  avant `finishTransaction`, restauration, « Gérer l'abonnement », achats en attente, erreurs en français. Mode de
+  compilation `STORE_PURCHASES` : `iap` (défaut) ou `companion` (rien à vendre, règle 3.1.3(f)). Crédit international
+  retiré de l'app (solde affiché seulement). Forfait Gratuit : l'étape « numéro » de l'accueil est sautée.
+- **API :** liaison achat ↔ compte (`appAccountToken` / `obfuscatedAccountId`, refus `store_purchase_linked`), accusé
+  de réception Google côté serveur, remplacement Play (`linkedPurchaseToken`), `SUBSCRIPTION_STATE_CANCELED` garde
+  l'accès jusqu'à l'échéance, `POST /webhooks/appstore` (notifications V2), `POST /webhooks/google-play` (RTDN, jeton
+  `GOOGLE_PLAY_RTDN_TOKEN`), abonnements de magasin expirés 2 jours après leur période, `me.account.planSource`.
+  Stripe (Web, API) inchangé.
+- **iOS :** manifeste de confidentialité, textes de permission fr + `locales/en.json`, `UIBackgroundModes` audio+voip,
+  `ITSAppUsesNonExemptEncryption=false` (raison dans `docs/store/app-store.md`). URL de soutien corrigée (`/aide/`).
+- **Fiche et étapes App Store Connect / Play :** `docs/store/app-store.md`.
+- **Reste (propriétaire / serveur) :** comptes Apple et Google, produits, notifications, compte de démonstration
+  TAKATAK; tâche d'effacement définitif après 30 jours et annulation Stripe à la suppression du compte (TODO
+  `routes/me.ts`); compléter les sections « à confirmer » de mimt.ca/conditions; vérifier si takatak.ca propose une
+  connexion Google (alors « Se connecter avec Apple » requis).
+
 ## Relève — 24 octobre 2026 (claude, agent « mobile-build », builds magasins)
 
 - **Fait (code) :** icône MIMT (marque « M » + onde d'appel, électrique sur marine) générée par `apps/mobile/scripts/make-icons.mjs` (Playwright du paquet e2e) : `assets/icon.png`, icône adaptative + monochrome, splash, icône de notification, icône 512 et image de présentation Play (`assets/brand/`). Branchée dans `app.config.ts`. Plugin `apps/mobile/plugins/withAndroidReleaseSigning.js` (clé de téléversement par variables Gradle). Workflows `mobile-android.yml` (aab signé sans compte Expo, refus clair sans les 4 secrets, versionCode = numéro du run, envoi au test interne Play en brouillon si `PLAY_SERVICE_ACCOUNT_JSON`) et `mobile-ios.yml` (EAS Build + EAS Submit, clé API App Store Connect). `eas.json` production : `app-bundle`, `autoIncrement`, submit Android `internal`.

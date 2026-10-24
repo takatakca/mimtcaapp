@@ -25,6 +25,11 @@ describe("onboarding", () => {
     expect(nextOnboardingStep(base)).toBe("number");
     expect(nextOnboardingStep({ ...base, numbers: [{ id: "n", e164: "+15145550123", state: "active" }] })).toBeNull();
   });
+  it("skips the number step on the free plan (no phone-network number), not on a paid plan", () => {
+    expect(nextOnboardingStep({ ...base, account: { plan: "free" } })).toBeNull();
+    expect(nextOnboardingStep({ ...base, account: { plan: "lock" } })).toBe("number");
+    expect(nextOnboardingStep({ ...base, account: { plan: "free" }, e911: { ...base.e911, noticeAccepted: false } })).toBe("notice");
+  });
   it("puts Montréal area codes first", () => {
     expect(sortAreaCodes(["819", "418", "514", "438"]).slice(0, 2)).toEqual(["514", "438"]);
   });

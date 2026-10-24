@@ -1,4 +1,4 @@
-import { FREE_PLAN_INTL_LIMITS, formatCad, PLANS, SUBSCRIPTION_ADD_ONS, type PaidPlanCode, type PlanCode } from "@mimt/shared";
+import { formatCad, PLANS } from "@mimt/shared";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useCallback, useState } from "react";
@@ -7,28 +7,29 @@ import { api, APP_VERSION } from "../../src/api/client";
 import { toErrorKey } from "../../src/api/errors";
 import { useSession } from "../../src/auth/session";
 import { RewardButton } from "../../src/components/Ads";
+import { StorePlans } from "../../src/components/StorePlans";
 import { UsageBar } from "../../src/components/UsageBar";
-import { Body, Button, Card, ErrorText, Heading, Label, Notice, Row, Screen, Title } from "../../src/components/ui";
+import { Body, Card, ErrorText, Heading, Label, Notice, Row, Screen, Title } from "../../src/components/ui";
 import { useI18n, type TKey } from "../../src/i18n";
 import { formatPhone } from "../../src/lib/dial";
 import { dndSummaryKey, forwardingSummaryKey } from "../../src/lib/callControls";
+import { planIncludesNumber } from "../../src/lib/onboarding";
 import { usageRows } from "../../src/lib/usage";
-import { adsEnabledFor } from "../../src/services/ads";
 import { callService } from "../../src/services/call";
+import { useStorePurchases } from "../../src/services/iap";
 import { colors, radius, spacing, TAP } from "../../src/theme";
 
 const CCTS_URL = { fr: "https://www.ccts-cprst.ca/fr/", en: "https://www.ccts-cprst.ca/" };
-const SUPPORT_URL = { fr: "https://mimt.ca/soutien", en: "https://mimt.ca/en/support" };
+const SUPPORT_URL = { fr: "https://mimt.ca/aide/", en: "https://mimt.ca/en/help/" };
 const USAGE_LABEL: Record<string, TKey> = {
   outboundMinutes: "account.usageOutMin",
   inboundMinutes: "account.usageInMin",
   messages: "account.usageSms",
 };
-// Consumer upgrades shown in the app. Business plans are sold on the web from the TAKATAK dashboard.
-const UPGRADES: Partial<Record<PlanCode, PaidPlanCode[]>> = { free: ["lock", "premium"], lock: ["premium"] };
-const AD_FREE = SUBSCRIPTION_ADD_ONS.no_ads;
-/** One-tap international top-up; within the free-plan limit so it works on every plan. */
-const INTL_TOP_UP_CENTS = 500;
+// Store builds never open Stripe, never show a web price and never point to a website to buy (App Review 3.1.1 /
+// 3.1.3, Google Play Payments). Plans and "Sans pub" are sold by <StorePlans> through Apple / Google in-app
+// purchase (STORE_PURCHASES=iap, the default) or not at all (companion). International credit is not sold in the
+// app: the balance shows, and calls abroad use it.
 
 export default function Account() {
   const { t, lang, setLang, locale } = useI18n();
@@ -38,6 +39,7 @@ export default function Account() {
   const [errorKey, setErrorKey] = useState<TKey | null>(null);
   const [info, setInfo] = useState<TKey | null>(null);
   useFocusEffect(useCallback(() => void refreshMe(), [refreshMe]));
+  const store = useStorePurchases(me, refreshMe);
 
   const plan = me ? PLANS[me.account.plan] : null;
   const rows = me ? usageRows(me.account.plan, me.usage) : [];
@@ -56,30 +58,6 @@ export default function Account() {
     }
   }
 
-  // TODO(store-billing): consumer subscriptions bought in the iOS/Android app must go through
-  // Apple/Google in-app purchase (MIMT-MVP §6). Web checkout is used until IAP is implemented.
-  const upgrade = (code: PaidPlanCode) =>
-    run(`upgrade-${code}`, async () => {
-      const { checkoutUrl } = await api.checkout(code);
-      await WebBrowser.openBrowserAsync(checkoutUrl);
-      await refreshMe();
-    });
-
-  // TODO(store-billing): ca.mimt.app.noads.monthly / .yearly through Apple/Google IAP in store builds.
-  const buyAdFree = (interval: "month" | "year") =>
-    run(`adfree-${interval}`, async () => {
-      const { checkoutUrl } = await api.checkoutAddOn("no_ads", interval);
-      await WebBrowser.openBrowserAsync(checkoutUrl);
-      await refreshMe();
-    });
-
-  const topUp = () =>
-    run("intl", async () => {
-      const { checkoutUrl } = await api.checkoutIntlCredit(INTL_TOP_UP_CENTS);
-      await WebBrowser.openBrowserAsync(checkoutUrl);
-      await refreshMe();
-    });
-
   const changeLang = (next: "fr" | "en") =>
     run("lang", async () => {
       await setLang(next);
@@ -95,7 +73,7 @@ export default function Account() {
     });
 
   const deleteAccount = () =>
-    Alert.alert(t("account.delete"), t("account.deleteConfirm"), [
+    Alert.alert(t("account.delete"), store.manageable ? `${t("account.deleteConfirm")}\n\n${t("purchase.deleteStoreNote")}` : t("account.deleteConfirm"), [
       { text: t("common.cancel"), style: "cancel" },
       {
         text: t("common.delete"),
@@ -125,14 +103,15 @@ export default function Account() {
         <Card>
           <Label>{t("account.plan").toUpperCase()}</Label>
           <Text style={styles.planName}>{plan.name[lang]}</Text>
-          <Body muted>
-            {plan.monthlyPriceCents === 0 ? t("account.free") : t("account.perMonth", { price: formatCad(plan.monthlyPriceCents, lang) })}
-          </Body>
+          {/* Never a price here: the store builds show store prices only (in <StorePlans>). */}
+          <Body muted>{me.account.plan === "free" ? t("purchase.freeActive") : t("purchase.active", { plan: plan.name[lang] })}</Body>
           {me.numbers[0] ? (
             <View style={{ marginTop: spacing.sm }}>
               <Label>{t("account.number").toUpperCase()}</Label>
               <Text style={styles.number}>{formatPhone(me.numbers[0].e164)}</Text>
             </View>
+          ) : planIncludesNumber(me.account.plan) ? (
+            <Row icon="call" title={t("account.chooseNumber")} onPress={() => router.push("/number")} />
           ) : null}
         </Card>
       ) : null}
@@ -157,61 +136,14 @@ export default function Account() {
         </Card>
       ) : null}
 
-      {me && UPGRADES[me.account.plan]?.length ? (
-        <Card>
-          {UPGRADES[me.account.plan]!.map((code) => (
-            <Button
-              key={code}
-              icon="arrow-up-circle"
-              label={`${t("account.upgrade", { plan: PLANS[code].name[lang] })} · ${t("account.perMonth", {
-                price: formatCad(PLANS[code].monthlyPriceCents, lang),
-              })}`}
-              hint={t("account.upgradeHint")}
-              loading={busy === `upgrade-${code}`}
-              onPress={() => upgrade(code)}
-            />
-          ))}
-          <Body muted>{t("account.upgradeHint")}</Body>
-        </Card>
-      ) : null}
-
       {me && me.account.addOns?.includes("no_ads") ? <Notice tone="success">{t("account.adFreeActive")}</Notice> : null}
-      {me && adsEnabledFor(me.account.plan, me.account.addOns) ? (
-        <Card>
-          <Heading>{t("account.adFree")}</Heading>
-          <Button
-            icon="eye-off"
-            label={t("account.adFreeMonthly", { price: formatCad(AD_FREE.monthlyPriceCents, lang) })}
-            hint={t("account.upgradeHint")}
-            loading={busy === "adfree-month"}
-            onPress={() => buyAdFree("month")}
-          />
-          <Button
-            variant="secondary"
-            label={t("account.adFreeYearly", { price: formatCad(AD_FREE.yearlyPriceCents, lang) })}
-            hint={t("account.upgradeHint")}
-            loading={busy === "adfree-year"}
-            onPress={() => buyAdFree("year")}
-          />
-          <Body muted>{t("account.adFreeHint")}</Body>
-        </Card>
-      ) : null}
+      {me ? <StorePlans me={me} store={store} /> : null}
 
       {me ? (
         <Card>
           <Heading>{t("account.intlCredit")}</Heading>
           <Body>{t("account.intlCreditBalance", { credit: formatCad(me.account.intlCreditCents ?? 0, lang) })}</Body>
-          <Button
-            variant="secondary"
-            icon="globe"
-            label={t("account.intlTopUp", { price: formatCad(INTL_TOP_UP_CENTS, lang) })}
-            hint={t("account.upgradeHint")}
-            loading={busy === "intl"}
-            onPress={topUp}
-          />
-          {me.account.plan === "free" ? (
-            <Body muted>{t("account.intlHint", { max: formatCad(FREE_PLAN_INTL_LIMITS.maxTopUpCents, lang) })}</Body>
-          ) : null}
+          <Body muted>{t("account.intlHint")}</Body>
         </Card>
       ) : null}
 

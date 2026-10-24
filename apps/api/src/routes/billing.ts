@@ -23,7 +23,15 @@ import { parse } from "../lib/validate.js";
 import type { Subscription, TelecomAccount, User } from "../repo/types.js";
 import { getFeatures, getPlan, outboundBlocked, recomputeEntitlements, usagePeriods } from "../services/accounts.js";
 import { redeemReferral, settleReferralOnPaidPlan } from "../services/referrals.js";
-import { purchaseFromApplePayload, verifyAppleTransactionJws, verifyGoogleSubscription } from "../billing/iap.js";
+import {
+  createStoreVerifier,
+  googleTransactionId,
+  purchaseFromApplePayload,
+  storeRowId,
+  type GooglePurchase,
+  type StorePurchase,
+} from "../billing/iap.js";
+import { safeEqual } from "../lib/crypto.js";
 import { quebecTaxLines } from "../billing/taxes.js";
 import { BUSINESS_PLANS, businessSubscription } from "../pbx/engine.js";
 import { checkHoldForCheckout } from "../services/numberHoldCheckout.js";
@@ -44,6 +52,8 @@ const CheckoutBody = z
   })
   .refine((b) => Boolean(b.plan) !== Boolean(b.addon), "Pass exactly one of plan or addon")
   .refine((b) => !b.numberHold || Boolean(b.plan), "A held number is bought with a plan");
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const SUB_STATUSES = new Set<Subscription["status"]>(["active", "trialing", "past_due", "canceled", "incomplete", "unpaid"]);
 
@@ -182,21 +192,54 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     return { portalUrl: await deps.billing.createPortal(account.stripeCustomerId, `${appUrl}/settings/billing`) };
   });
 
+  // ---------------------------------------------------------------- in-app purchases (native apps only)
+  // The iOS/Android apps sell through StoreKit / Play Billing; the web keeps Stripe above. Both write the same
+  // subscriptions rows of the same account, so a plan bought on either channel is active everywhere.
+  const store = deps.store ?? createStoreVerifier(config);
+
   const IapBody = z.object({
     platform: z.enum(["ios", "android"]),
     productId: z.string().min(1).max(200),
     transaction: z.string().min(20).max(20_000),
   });
 
+  /** Writes a verified store purchase on `account`. Refuses a purchase already linked to another MIMT account. */
+  async function saveStorePurchase(account: TelecomAccount, platform: "ios" | "android", purchase: StorePurchase) {
+    const sku = purchase.plan ? { kind: "plan" as const, code: purchase.plan } : purchase.addon ? { kind: "addon" as const, code: purchase.addon } : null;
+    if (!sku) throw badRequest("unknown_product", "Ce produit n'est pas un forfait MIMT.");
+    const rowId = storeRowId(platform, purchase.transactionId);
+    const existing = await repo.findSubscriptionByExternalId(rowId);
+    // One App Store / Google Play subscription pays for one MIMT account (restoring it on a second account is refused).
+    if (existing && existing.telecomAccountId !== account.id) throw conflict("store_purchase_linked", "Cet achat est déjà lié à un autre compte MIMT.");
+    await repo.upsertSubscription({
+      telecomAccountId: account.id,
+      kind: sku.kind,
+      code: sku.code,
+      quantity: 1,
+      stripeSubscriptionId: rowId,
+      status: purchase.status,
+      source: platform === "ios" ? "iap_apple" : "iap_google",
+      currentPeriodEnd: purchase.currentPeriodEnd,
+    });
+    await recomputeEntitlements(repo, account);
+  }
+
+  async function cancelLinkedGoogleRow(accountId: string, linkedPurchaseToken: string) {
+    const old = await repo.findSubscriptionByExternalId(storeRowId("android", googleTransactionId(linkedPurchaseToken)));
+    if (!old || old.telecomAccountId !== accountId || old.status === "canceled") return;
+    const { id: _id, createdAt: _createdAt, ...fields } = old;
+    await repo.upsertSubscription({ ...fields, status: "canceled" });
+  }
+
   app.post("/v1/billing/iap/verify", auth, async (req) => {
     const body = parse(IapBody, req.body);
     const { account } = await loadContext(deps, req);
-    let purchase;
+    let purchase: StorePurchase | GooglePurchase | null;
     if (body.platform === "ios") {
       if (!config.APPLE_ROOT_CA_PEM) throw notConfigured("App Store");
       let payload: Record<string, unknown>;
       try {
-        payload = await verifyAppleTransactionJws(body.transaction, config.APPLE_ROOT_CA_PEM);
+        payload = await store.appleJws(body.transaction);
       } catch {
         throw badRequest("invalid_receipt", "Le reçu Apple n'a pas pu être vérifié.");
       }
@@ -204,26 +247,27 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       if (purchase && payload.productId !== body.productId) purchase = null;
     } else {
       if (!config.GOOGLE_PLAY_PACKAGE_NAME || !config.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON) throw notConfigured("Google Play");
-      purchase = await verifyGoogleSubscription({
-        packageName: config.GOOGLE_PLAY_PACKAGE_NAME,
-        productId: body.productId,
-        purchaseToken: body.transaction,
-        serviceAccountJson: config.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON,
-      });
+      purchase = await store.google(body.productId, body.transaction);
     }
-    const sku = purchase?.plan ? { kind: "plan" as const, code: purchase.plan } : purchase?.addon ? { kind: "addon" as const, code: purchase.addon } : null;
-    if (!purchase || !sku) throw badRequest("unknown_product", "Ce produit n'est pas un forfait MIMT.");
-    await repo.upsertSubscription({
-      telecomAccountId: account.id,
-      kind: sku.kind,
-      code: sku.code,
-      quantity: 1,
-      stripeSubscriptionId: `${body.platform}:${purchase.transactionId}`,
-      status: purchase.status,
-      source: body.platform === "ios" ? "iap_apple" : "iap_google",
-      currentPeriodEnd: purchase.currentPeriodEnd,
-    });
-    await recomputeEntitlements(repo, account);
+    if (!purchase || (!purchase.plan && !purchase.addon)) throw badRequest("unknown_product", "Ce produit n'est pas un forfait MIMT.");
+    // The app tags each purchase with the account id. A receipt tagged for another account is not reusable here.
+    if (purchase.accountToken && purchase.accountToken !== account.id.toLowerCase()) {
+      throw conflict("store_purchase_linked", "Cet achat est déjà lié à un autre compte MIMT.");
+    }
+    await saveStorePurchase(account, body.platform, purchase);
+    if ("acknowledged" in purchase) {
+      // An upgrade or downgrade replaces the previous Play subscription: that row stops counting.
+      if (purchase.linkedPurchaseToken) {
+        await cancelLinkedGoogleRow(account.id, purchase.linkedPurchaseToken);
+        await recomputeEntitlements(repo, account);
+      }
+      // Acknowledged here, once the entitlement is saved; the app's own acknowledgement then changes nothing.
+      if (!purchase.acknowledged && purchase.status === "active") {
+        await store.googleAcknowledge(body.productId, body.transaction).catch((err: unknown) =>
+          app.log.warn({ err: err instanceof Error ? err.message : "error" }, "Google Play acknowledge failed; the app acknowledges too"),
+        );
+      }
+    }
     const res: IapVerifyResponse = {
       ...(purchase.plan ? { plan: purchase.plan } : {}),
       ...(purchase.addon ? { addon: purchase.addon } : {}),
@@ -231,6 +275,119 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       currentPeriodEnd: purchase.currentPeriodEnd?.toISOString() ?? null,
     };
     return res;
+  });
+
+  /** Account of a store notification: the row already saved, else the account id the app attached to the purchase. */
+  async function storeAccount(rowId: string, accountToken: string | null | undefined): Promise<TelecomAccount | null> {
+    const row = await repo.findSubscriptionByExternalId(rowId);
+    if (row) return repo.getAccount(row.telecomAccountId);
+    return accountToken && UUID.test(accountToken) ? repo.getAccount(accountToken) : null;
+  }
+
+  /** A notification for a purchase linked to another account changes nothing (409 from saveStorePurchase). */
+  async function saveNotified(account: TelecomAccount, platform: "ios" | "android", purchase: StorePurchase): Promise<boolean> {
+    try {
+      await saveStorePurchase(account, platform, purchase);
+      return true;
+    } catch (err) {
+      if (err instanceof HttpError && err.statusCode === 409) return false;
+      throw err;
+    }
+  }
+
+  /**
+   * App Store Server Notifications V2 (renewals, expirations, refunds, revocations). Set this URL in App Store
+   * Connect for Production and Sandbox. Every payload is a JWS signed by Apple (x5c chain to the pinned root).
+   */
+  const AppleNotification = z.object({ signedPayload: z.string().min(20).max(100_000) });
+  const APPLE_ENDED = new Set(["EXPIRED", "GRACE_PERIOD_EXPIRED", "REFUND", "REVOKE"]);
+  app.post("/webhooks/appstore", { config: { rateLimit: false } }, async (req) => {
+    if (!config.APPLE_ROOT_CA_PEM) throw notConfigured("App Store");
+    const { signedPayload } = parse(AppleNotification, req.body);
+    let note: Record<string, unknown>;
+    let data: Record<string, unknown>;
+    try {
+      note = await store.appleJws(signedPayload);
+      data = (note.data ?? {}) as Record<string, unknown>;
+    } catch {
+      throw badRequest("invalid_signature", "App Store notification signature verification failed");
+    }
+    if (config.APPLE_BUNDLE_ID && data.bundleId !== config.APPLE_BUNDLE_ID) return { received: true, ignored: "bundle" };
+    if (typeof data.signedTransactionInfo !== "string") return { received: true, ignored: "no_transaction" };
+    let tx: Record<string, unknown>;
+    let renewal: Record<string, unknown> | null = null;
+    try {
+      tx = await store.appleJws(data.signedTransactionInfo);
+      if (typeof data.signedRenewalInfo === "string") renewal = await store.appleJws(data.signedRenewalInfo);
+    } catch {
+      throw badRequest("invalid_signature", "App Store notification signature verification failed");
+    }
+    const uuid = typeof note.notificationUUID === "string" ? note.notificationUUID : null;
+    if (uuid && !(await repo.useOnce(`appstore:${uuid}`, addDays(deps.now(), 30)))) return { received: true, duplicate: true };
+    const purchase = purchaseFromApplePayload(tx, deps.now(), config.APPLE_BUNDLE_ID);
+    if (!purchase) return { received: true, ignored: "product" };
+    const type = String(note.notificationType ?? "");
+    if (APPLE_ENDED.has(type)) purchase.status = "canceled";
+    // Billing retry inside Apple's grace period: access continues until gracePeriodExpiresDate.
+    if (type === "DID_FAIL_TO_RENEW" && note.subtype === "GRACE_PERIOD" && typeof renewal?.gracePeriodExpiresDate === "number") {
+      purchase.status = "active";
+      purchase.currentPeriodEnd = new Date(renewal.gracePeriodExpiresDate);
+    }
+    const account = await storeAccount(storeRowId("ios", purchase.transactionId), purchase.accountToken);
+    if (!account) return { received: true, ignored: "unknown_account" };
+    if (!(await saveNotified(account, "ios", purchase))) return { received: true, ignored: "linked_elsewhere" };
+    return { received: true };
+  });
+
+  /**
+   * Google Play Real-time developer notifications, through a Cloud Pub/Sub push subscription to
+   * /webhooks/google-play?token=<GOOGLE_PLAY_RTDN_TOKEN>. The message is only a hint: the purchase is re-read from
+   * the Play Developer API before anything changes.
+   */
+  const PubSubPush = z.object({ message: z.object({ data: z.string().max(20_000).optional(), messageId: z.string().max(200).optional() }) });
+  app.post("/webhooks/google-play", { config: { rateLimit: false } }, async (req) => {
+    if (!config.GOOGLE_PLAY_RTDN_TOKEN || !config.GOOGLE_PLAY_PACKAGE_NAME || !config.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON) throw notConfigured("Google Play");
+    const token = (req.query as Record<string, unknown>).token;
+    if (typeof token !== "string" || !safeEqual(token, config.GOOGLE_PLAY_RTDN_TOKEN)) throw new HttpError(401, "invalid_token");
+    const { message } = parse(PubSubPush, req.body);
+    let data: {
+      packageName?: string;
+      subscriptionNotification?: { purchaseToken?: string; subscriptionId?: string };
+      voidedPurchaseNotification?: { purchaseToken?: string };
+    };
+    try {
+      data = JSON.parse(Buffer.from(message.data ?? "", "base64").toString("utf8")) as typeof data;
+    } catch {
+      return { received: true, ignored: "malformed" };
+    }
+    if (data.packageName !== config.GOOGLE_PLAY_PACKAGE_NAME) return { received: true, ignored: "package" };
+    if (message.messageId && !(await repo.useOnce(`play:${message.messageId}`, addDays(deps.now(), 30)))) return { received: true, duplicate: true };
+
+    const voided = data.voidedPurchaseNotification?.purchaseToken;
+    if (voided) {
+      // Refund or chargeback: that purchase gives no access any more.
+      const row = await repo.findSubscriptionByExternalId(storeRowId("android", googleTransactionId(voided)));
+      if (row && row.status !== "canceled") {
+        const { id: _id, createdAt: _createdAt, ...fields } = row;
+        await repo.upsertSubscription({ ...fields, status: "canceled" });
+        const account = await repo.getAccount(row.telecomAccountId);
+        if (account) await recomputeEntitlements(repo, account);
+      }
+      return { received: true };
+    }
+    const sub = data.subscriptionNotification;
+    if (!sub?.purchaseToken || !sub.subscriptionId) return { received: true, ignored: "not_subscription" };
+    const purchase = await store.google(sub.subscriptionId, sub.purchaseToken);
+    if (!purchase) return { received: true, ignored: "product" };
+    const account = await storeAccount(storeRowId("android", purchase.transactionId), purchase.accountToken);
+    if (!account) return { received: true, ignored: "unknown_account" };
+    if (!(await saveNotified(account, "android", purchase))) return { received: true, ignored: "linked_elsewhere" };
+    if (purchase.linkedPurchaseToken) {
+      await cancelLinkedGoogleRow(account.id, purchase.linkedPurchaseToken);
+      await recomputeEntitlements(repo, account);
+    }
+    if (!purchase.acknowledged && purchase.status === "active") await store.googleAcknowledge(sub.subscriptionId, sub.purchaseToken);
+    return { received: true };
   });
 
   // Stripe webhook: needs the raw body for signature verification, so JSON parsing is overridden in this scope only.

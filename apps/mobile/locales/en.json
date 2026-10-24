@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "MIMT",
+    "NSContactsUsageDescription": "MIMT uses the contacts on this device to help you call and text people. They are not sent to MIMT.",
+    "NSMicrophoneUsageDescription": "MIMT uses the microphone during your calls and to record your voicemail greeting.",
+    "NSPhotoLibraryUsageDescription": "MIMT accesses the photos you choose to attach them to a text (MMS).",
+    "NSUserTrackingUsageDescription": "If you allow it, ads in the free plan can be personalised. Otherwise they stay non-personalised."
+  }
+}

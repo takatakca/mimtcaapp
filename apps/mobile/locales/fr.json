@@ -1,0 +1,9 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "MIMT",
+    "NSContactsUsageDescription": "MIMT utilise vos contacts sur cet appareil pour vous aider à appeler et à texter vos proches. Ils ne sont pas envoyés à MIMT.",
+    "NSMicrophoneUsageDescription": "MIMT utilise le micro pendant vos appels et pour enregistrer votre message d'accueil.",
+    "NSPhotoLibraryUsageDescription": "MIMT accède aux photos que vous choisissez pour les joindre à un texto (MMS).",
+    "NSUserTrackingUsageDescription": "Si vous l'autorisez, les annonces de la version gratuite pourront être personnalisées. Sinon, elles restent non personnalisées."
+  }
+}

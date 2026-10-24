@@ -5,11 +5,12 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { api } from "../../src/api/client";
 import { toErrorKey } from "../../src/api/errors";
 import { useSession } from "../../src/auth/session";
-import { Body, Card, ErrorText, Heading, Label, Loading, Row, Screen, Title } from "../../src/components/ui";
+import { Body, Button, Card, ErrorText, Heading, Label, Loading, Row, Screen, Title } from "../../src/components/ui";
 import { useI18n, type TKey } from "../../src/i18n";
 import { formatPhone } from "../../src/lib/dial";
 import { sortAreaCodes } from "../../src/lib/onboarding";
 import { useAsync } from "../../src/lib/useAsync";
+import { STORE_MODE } from "../../src/services/iap";
 import { colors, radius, spacing, TAP } from "../../src/theme";
 
 const AREA_CODES = sortAreaCodes(QUEBEC_AREA_CODES);
@@ -62,6 +63,10 @@ export default function ChooseNumber() {
       </View>
       <Heading>{t("number.available")}</Heading>
       {claimError ? <ErrorText>{t(claimError)}</ErrorText> : null}
+      {/* Companion builds sell nothing and point nowhere (App Review 3.1.3(f)): the button exists only with in-app purchase. */}
+      {claimError === "error.numberNeedsPlan" && STORE_MODE === "iap" ? (
+        <Button icon="arrow-up-circle" label={t("number.seePlans")} onPress={() => router.replace("/account")} />
+      ) : null}
       {available.loading ? <Loading label={t("common.loading")} /> : null}
       {available.errorKey ? <ErrorText>{t(available.errorKey)}</ErrorText> : null}
       {!available.loading && !available.errorKey && numbers.length === 0 ? <Body muted>{t("number.none")}</Body> : null}
