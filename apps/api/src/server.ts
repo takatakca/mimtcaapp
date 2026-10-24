@@ -3,6 +3,7 @@ import { migrateStandaloneDatabase } from "./jobs/migrateStandalone.js";
 import { createDeps, createLogger } from "./bootstrap.js";
 import { loadConfig } from "./config.js";
 import { runDailyCostReport } from "./jobs/dailyCost.js";
+import { runAccountDeletion } from "./jobs/accountDeletion.js";
 import { runNumberLifecycle } from "./jobs/numberLifecycle.js";
 import { pingHeartbeat } from "./monitoring/report.js";
 import { deliverOutbox } from "./services/outbox.js";
@@ -78,6 +79,19 @@ lifecycleFirst.unref();
 const lifecycleTimer = setInterval(lifecycle, 24 * 60 * 60 * 1000);
 lifecycleTimer.unref();
 
+// Account deletion: personal data of accounts deleted 30 days ago is purged (jobs/accountDeletion.ts).
+// First run 15 minutes after start, then daily. ACCOUNT_DELETION=off pauses it (requests still close accounts at once).
+const accountDeletion = () => {
+  if (process.env.ACCOUNT_DELETION === "off") return;
+  runAccountDeletion(deps, { log: app.log })
+    .then((res) => app.log.info({ deleted: res.deleted, errors: res.errors }, "account deletion done"))
+    .catch((err) => app.log.error({ err }, "account deletion failed"));
+};
+const deletionFirst = setTimeout(accountDeletion, 15 * 60 * 1000);
+deletionFirst.unref();
+const deletionTimer = setInterval(accountDeletion, 24 * 60 * 60 * 1000);
+deletionTimer.unref();
+
 async function shutdown(signal: string) {
   app.log.info({ signal }, "shutting down");
   clearInterval(outboxTimer);
@@ -87,6 +101,8 @@ async function shutdown(signal: string) {
   clearInterval(mediaRetentionTimer);
   clearTimeout(lifecycleFirst);
   clearInterval(lifecycleTimer);
+  clearTimeout(deletionFirst);
+  clearInterval(deletionTimer);
   await app.close();
   await deps.repo.close();
   process.exit(0);

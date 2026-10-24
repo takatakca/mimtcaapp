@@ -15,10 +15,14 @@
 - **iOS :** manifeste de confidentialité, textes de permission fr + `locales/en.json`, `UIBackgroundModes` audio+voip,
   `ITSAppUsesNonExemptEncryption=false` (raison dans `docs/store/app-store.md`). URL de soutien corrigée (`/aide/`).
 - **Fiche et étapes App Store Connect / Play :** `docs/store/app-store.md`.
-- **Reste (propriétaire / serveur) :** comptes Apple et Google, produits, notifications, compte de démonstration
-  TAKATAK; tâche d'effacement définitif après 30 jours et annulation Stripe à la suppression du compte (TODO
-  `routes/me.ts`); compléter les sections « à confirmer » de mimt.ca/conditions; vérifier si takatak.ca propose une
-  connexion Google (alors « Se connecter avec Apple » requis).
+- **Suppression réelle du compte (PR suivante, branche `claude/account-purge`) :** `apps/api/src/jobs/accountDeletion.ts`
+  (quotidienne, `ACCOUNT_DELETION=off` pour la pause) efface les données personnelles 30 jours après `DELETE /v1/me`;
+  la demande annule tout de suite les abonnements Stripe et coupe l'accès à l'API. Section publique
+  `mimt.ca/confidentialite/#suppression`. Testé aussi sur PostgreSQL 16 local (`scripts/db/test-postgres.sh` : 523 tests).
+- **Reste (propriétaire) :** comptes Apple et Google, produits, notifications, compte de démonstration TAKATAK;
+  compléter les sections « à confirmer » de mimt.ca/conditions et les durées de conservation de la politique;
+  vérifier si takatak.ca propose une connexion Google (alors « Se connecter avec Apple » requis). Déployer l'API
+  (migrations inchangées) puis le site.
 
 ## Relève — 24 octobre 2026 (claude, agent « mobile-build », builds magasins)
 

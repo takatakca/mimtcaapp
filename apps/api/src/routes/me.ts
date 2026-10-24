@@ -20,10 +20,10 @@ import { badRequest, forbidden } from "../lib/errors.js";
 import type { TelecomAccount } from "../repo/types.js";
 import { billingSourceOf, getFeatures, HELD_STATES, setAccountStatus } from "../services/accounts.js";
 import { checkForwardTarget } from "../services/callControls.js";
+import { cancelWebSubscriptions, DELETION_DELAY_DAYS } from "../jobs/accountDeletion.js";
 import { blockDto } from "./blocks.js";
 import { messageDto } from "./messages.js";
 
-const DELETION_DELAY_DAYS = 30;
 
 const Hhmm = z.string().refine(isValidHhmm, "expected HH:MM");
 const TimeRange = z.object({ open: Hhmm, close: Hhmm }).strict().refine((r) => r.open !== r.close, "empty range");
@@ -228,8 +228,14 @@ export async function meRoutes(app: FastifyInstance, deps: AppDeps) {
     await repo.revokeUserRefreshTokens(user.id);
     await repo.deletePushTokensForUser(user.id);
     await repo.audit({ actorUserId: user.id, action: "user.deletion_requested", targetType: "user", targetId: user.id, ip: req.ip });
-    // TODO: cancel Stripe subscriptions and run the hard-delete job after DELETION_DELAY_DAYS (keep CDRs per retention policy).
-    const res: DeleteMeResponse = { status: "pending_deletion", deletionScheduledAt: addDays(now, DELETION_DELAY_DAYS).toISOString() };
+    // Web (Stripe) subscriptions stop now. Store subscriptions are cancelled by the customer in the store (the app says so).
+    // jobs/accountDeletion.ts deletes the personal data DELETION_DELAY_DAYS later.
+    const storeSubscriptions = await cancelWebSubscriptions(deps, account, req.log);
+    const res: DeleteMeResponse = {
+      status: "pending_deletion",
+      deletionScheduledAt: addDays(now, DELETION_DELAY_DAYS).toISOString(),
+      storeSubscriptionActive: storeSubscriptions.length > 0,
+    };
     return reply.code(202).send(res);
   });
 }

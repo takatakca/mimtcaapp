@@ -104,7 +104,10 @@ export interface UpdateMeResponse {
 /** DELETE /v1/me → 202 */
 export interface DeleteMeResponse {
   status: "pending_deletion";
+  /** Personal data is deleted for good at this date (30 days). Web subscriptions are cancelled at once. */
   deletionScheduledAt: string;
+  /** An App Store / Google Play subscription is still live: the customer must cancel it in the store. */
+  storeSubscriptionActive?: boolean;
 }
 
 /** GET /v1/me/export (Law 25 portability). Sections are documented in apps/api/src/routes/me.ts. */

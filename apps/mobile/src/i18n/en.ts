@@ -206,7 +206,7 @@ export const en: Record<TKey, string> = {
   "account.exportStarted": "Your export is ready. Choose where to save or send it.",
   "account.delete": "Delete my account",
   "account.deleteConfirm":
-    "Your account, number, texts and voicemails will be deleted. This cannot be undone. Continue?",
+    "Your account closes right away. In 30 days, your texts, voicemails, 9-1-1 address and personal information are permanently deleted; only records the law requires (billing, calls, 9-1-1) are kept. Continue?",
   "account.deleted": "Your account has been deleted.",
   "account.complaints": "Complaints: CCTS (Commission for Complaints for Telecom-television Services)",
   "account.complaintsHint": "If we do not resolve your complaint, the CCTS can help you for free.",

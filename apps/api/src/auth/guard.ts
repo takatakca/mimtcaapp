@@ -24,7 +24,8 @@ export interface UserContext {
 
 export async function loadContext(deps: AppDeps, req: FastifyRequest): Promise<UserContext> {
   const user = await deps.repo.getUser(req.userId);
-  if (!user || user.status === "deleted") throw unauthorized("Account not found");
+  // A deletion request closes the account at once (DELETE /v1/me): no more API access while the purge is pending.
+  if (!user || user.status === "deleted" || user.status === "pending_deletion") throw unauthorized("Account not found");
   if (user.status === "suspended") throw forbidden("account_suspended");
   return { user, account: await ensureAccount(deps.repo, user) };
 }
