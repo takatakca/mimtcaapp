@@ -486,3 +486,173 @@
     animation: none !important;
   }
 }
+
+/* ======================================================================
+   Site-wide motion (2026-10-24)
+   ====================================================================== */
+
+/* Constellation canvas behind the hero and the closing band. */
+.starfield {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.9;
+}
+.home-hero,
+.final-cta {
+  position: relative;
+  isolation: isolate;
+}
+.home-hero__inner,
+.final-cta__inner {
+  position: relative;
+  z-index: 1;
+}
+
+/* Reading progress along the very top of the window. */
+.scroll-progress {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 2px;
+  z-index: 200;
+  transform-origin: 0 50%;
+  transform: scaleX(var(--scroll, 0));
+  background: linear-gradient(90deg, var(--electric), var(--cyan));
+  box-shadow: 0 0 12px rgba(41, 195, 255, 0.8);
+  pointer-events: none;
+}
+
+/* Headline gradient that slowly shimmers. */
+.text-gradient {
+  background-size: 220% 100%;
+  animation: shimmer 7s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Scroll reveal: rise out of a soft blur. */
+.js [data-reveal] {
+  filter: blur(8px);
+  transition:
+    opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
+    translate 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
+    filter 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1),
+    box-shadow 0.3s,
+    background 0.3s,
+    border-color 0.3s;
+}
+.js [data-reveal].is-visible {
+  filter: none;
+}
+
+/* A light bar draws itself under section titles. */
+.section-head h2::after {
+  content: "";
+  display: block;
+  width: 64px;
+  height: 3px;
+  margin-top: 14px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--electric), var(--cyan));
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  transition: transform 0.9s 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.section-head--center h2::after {
+  margin-left: auto;
+  margin-right: auto;
+  transform-origin: 50% 50%;
+}
+.section-head.is-visible h2::after,
+html:not(.js) .section-head h2::after {
+  transform: scaleX(1);
+}
+
+/* Spotlight that follows the pointer on cards (SiteEffects sets --mx / --my). */
+.spot {
+  position: relative;
+}
+.spot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), rgba(41, 195, 255, 0.16), transparent 60%);
+}
+.spot:hover::after {
+  opacity: 1;
+}
+.plan.spot:hover,
+.card.feature.spot:hover {
+  border-color: rgba(31, 139, 255, 0.55);
+  box-shadow:
+    0 18px 50px rgba(21, 101, 216, 0.18),
+    0 0 0 1px rgba(31, 139, 255, 0.25);
+}
+
+/* Primary buttons glow when you aim at them. */
+.btn--primary:hover {
+  box-shadow:
+    0 10px 30px rgba(31, 139, 255, 0.45),
+    0 0 0 4px rgba(41, 195, 255, 0.15);
+}
+
+/* Facts under the hero scroll by like a ticker (two copies, the second hidden from screen readers). */
+.marquee {
+  display: flex;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.marquee__track.trust__list {
+  flex: none;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  margin: 0;
+  padding-left: 22px;
+  padding-right: 22px;
+  gap: 10px 44px;
+  white-space: nowrap;
+  animation: marquee 38s linear infinite;
+}
+.marquee:hover .marquee__track {
+  animation-play-state: paused;
+}
+@keyframes marquee {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text-gradient,
+  .marquee__track.trust__list {
+    animation: none !important;
+  }
+  .marquee {
+    mask-image: none;
+    flex-wrap: wrap;
+  }
+  .marquee__track[aria-hidden="true"] {
+    display: none;
+  }
+  .js [data-reveal] {
+    filter: none;
+  }
+  .scroll-progress {
+    display: none;
+  }
+}

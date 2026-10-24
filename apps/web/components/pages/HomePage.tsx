@@ -5,6 +5,7 @@ import { FaqList } from "@/components/FaqList";
 import { AiDemo } from "@/components/AiDemo";
 import { FeatureCarousel, type Slide } from "@/components/FeatureCarousel";
 import { HeroArt, Skyline } from "@/components/HeroArt";
+import { Starfield } from "@/components/Starfield";
 import { Offers } from "@/components/Offers";
 import { Icon, type IconName } from "@/components/Visuals";
 import { PlanCard } from "@/components/PlanCard";
@@ -35,6 +36,7 @@ export function HomePage({ lang }: { lang: Lang }) {
       <section className="home-hero" aria-labelledby="hero-title">
         <div className="hero-glow" aria-hidden="true" />
         <div className="hero-grid" aria-hidden="true" />
+        <Starfield />
         <div className="container home-hero__inner">
           <div className="home-hero__copy">
             <p className="hero-pills">
@@ -67,19 +69,25 @@ export function HomePage({ lang }: { lang: Lang }) {
       </section>
 
       {/* ---------- Trust strip ---------- */}
-      <section className="trust" aria-label={t.trustLabel}>
-        <ul className="container trust__list">
-          {t.trust.map((x) => (
-            <li key={x.text}>
-              <Icon name={x.icon} />
-              <span>{x.text}</span>
-            </li>
+      <section className="trust trust--marquee" aria-label={t.trustLabel}>
+        <div className="marquee">
+          {[0, 1].map((copy) => (
+            <ul key={copy} className="trust__list marquee__track" aria-hidden={copy === 1 ? true : undefined}>
+              {t.trust.map((x) => (
+                <li key={x.text}>
+                  <Icon name={x.icon} />
+                  <span>{x.text}</span>
+                </li>
+              ))}
+              <li>
+                <Icon name="sos" />
+                <a href={href(lang, "e911")} tabIndex={copy === 1 ? -1 : undefined}>
+                  {t.trust911}
+                </a>
+              </li>
+            </ul>
           ))}
-          <li>
-            <Icon name="sos" />
-            <a href={href(lang, "e911")}>{t.trust911}</a>
-          </li>
-        </ul>
+        </div>
       </section>
 
       {/* ---------- Plans ---------- */}
@@ -276,6 +284,7 @@ export function HomePage({ lang }: { lang: Lang }) {
       {/* ---------- Final CTA + waitlist ---------- */}
       <section className="section final-cta" id={fr ? "liste-attente" : "waitlist"} aria-labelledby="wl-title">
         <div className="hero-glow" aria-hidden="true" />
+        <Starfield density={0.7} />
         <div className="container final-cta__inner">
           <div data-reveal="">
             <p className="kicker kicker--light">{fr ? "Commencer" : "Get started"}</p>

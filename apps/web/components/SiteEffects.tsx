@@ -12,8 +12,12 @@ export function SiteEffects() {
     const root = document.documentElement;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    // Header shrinks once the page scrolls.
-    const onScroll = () => root.toggleAttribute("data-scrolled", window.scrollY > 16);
+    // Header shrinks once the page scrolls; a thin bar at the top shows how far down the page you are.
+    const onScroll = () => {
+      root.toggleAttribute("data-scrolled", window.scrollY > 16);
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      root.style.setProperty("--scroll", max > 0 ? (window.scrollY / max).toFixed(4) : "0");
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
 
@@ -55,8 +59,21 @@ export function SiteEffects() {
     };
     document.addEventListener("pointerdown", onDown);
 
-    // Gentle 3D tilt on cards marked data-tilt (mouse only).
+    // Spotlight: cards light up where the pointer is (mouse only; CSS reads --mx / --my).
     const fine = window.matchMedia("(pointer: fine)").matches;
+    const spots = reduce || !fine ? [] : [...document.querySelectorAll<HTMLElement>(".plan, .card.feature, .offer, .biz-card, .aidemo__pick, .faq details")];
+    const spot = (e: PointerEvent) => {
+      const el = e.currentTarget as HTMLElement;
+      const r = el.getBoundingClientRect();
+      el.style.setProperty("--mx", `${e.clientX - r.left}px`);
+      el.style.setProperty("--my", `${e.clientY - r.top}px`);
+    };
+    spots.forEach((el) => {
+      el.classList.add("spot");
+      el.addEventListener("pointermove", spot);
+    });
+
+    // Gentle 3D tilt on cards marked data-tilt (mouse only).
     const tilts = reduce || !fine ? [] : [...document.querySelectorAll<HTMLElement>("[data-tilt]")];
     const move = (e: PointerEvent) => {
       const el = e.currentTarget as HTMLElement;
@@ -94,6 +111,7 @@ export function SiteEffects() {
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("pointerdown", onDown);
       io?.disconnect();
+      spots.forEach((el) => el.removeEventListener("pointermove", spot));
       tilts.forEach((el) => {
         el.removeEventListener("pointermove", move);
         el.removeEventListener("pointerleave", leave);

@@ -202,6 +202,7 @@ export function Shell({
       <DownloadPrompt lang={lang} auto={!NO_AUTO_PROMPT.includes(page)} />
       <ConsentBanner lang={lang} />
       <SiteEffects />
+      <div className="scroll-progress" aria-hidden="true" />
     </>
   );
 }
