@@ -178,6 +178,20 @@ test("no competitor names in the site source (named facts live only in content/r
   for (const { file, text } of siteSource()) assert.ok(!/textnow|fongo|\bfizz\b|magicjack|ooma/i.test(text), file);
 });
 
+test("/affaires: « Votre standard en 5 minutes » and the business name handed to the app in the fragment only", () => {
+  const page = readFileSync(join(web, "components", "pages", "BusinessPage.tsx"), "utf8");
+  assert.match(page, /<FiveMinutes lang=\{lang\} \/>/);
+  const five = readFileSync(join(web, "components", "FiveMinutes.tsx"), "utf8");
+  assert.match(five, /Votre standard en 5 minutes/);
+  assert.match(five, /Your phone system in 5 minutes/);
+  assert.match(five, /href="#numero-affaires"/);
+  const picker = readFileSync(join(web, "components", "NumberPicker.tsx"), "utf8");
+  // The handoff stays in the fragment (#…), never in a query string a server could log.
+  assert.match(picker, /\/numero#hold=\$\{encodeURIComponent\(hold\.id\)\}/);
+  assert.match(picker, /&biz=\$\{encodeURIComponent\(name\)\}&type=/);
+  assert.doesNotMatch(picker, /\/numero\?/);
+});
+
 test("the AI call demo says the businesses are fictional and who processes the voice and text", () => {
   const demo = readFileSync(join(web, "components", "AiDemo.tsx"), "utf8");
   assert.match(demo, /commerces fictifs/);

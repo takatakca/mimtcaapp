@@ -14,6 +14,7 @@ import type {
   CallRecordingResponse,
   ClaimInvitesResponse,
   ClaimNumberResponse,
+  CreateBusinessRequest,
   UpdateBusinessRequest,
   DidRoute,
   DidRouteRequest,
@@ -42,6 +43,8 @@ const seg = (id: string) => encodeURIComponent(id);
 export function businessEndpoints(request: HttpClient["request"]) {
   return {
     businesses: () => request<BusinessesResponse>("GET", "/v1/business"),
+    /** Creates the signed-in account's business; the caller becomes its owner (409 business_exists if it has one). */
+    createBusiness: (body: CreateBusinessRequest) => request<BusinessResponse>("POST", "/v1/business", { body }),
     business: (id: string) => request<BusinessResponse>("GET", b(id)),
     updateBusiness: (id: string, body: UpdateBusinessRequest) => request<BusinessResponse>("PATCH", b(id), { body }),
     /** Joins the businesses that invited the signed-in user's email. */

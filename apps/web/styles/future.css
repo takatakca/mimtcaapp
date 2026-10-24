@@ -839,3 +839,229 @@ html:not(.js) .section-head h2::after {
   filter: saturate(0.6);
   pointer-events: none;
 }
+
+/* ======================================================================
+   /affaires « Votre standard en 5 minutes » (components/FiveMinutes.tsx)
+   ====================================================================== */
+.five {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.five > .container {
+  position: relative;
+  z-index: 1;
+}
+.five h2 {
+  font-size: clamp(1.9rem, 4.6vw, 3rem);
+}
+.five .lead {
+  max-width: 62ch;
+}
+.five__steps {
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+  position: relative;
+}
+@media (min-width: 900px) {
+  .five__steps {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 18px;
+  }
+  /* A light line that fills from step 1 to step 4 once the steps are on screen. */
+  .five__steps::before {
+    content: "";
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    top: 38px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--electric), var(--cyan));
+    box-shadow: 0 0 12px rgba(41, 195, 255, 0.6);
+    transform-origin: 0 50%;
+    transform: scaleX(var(--fill, 1));
+    transition: transform 1.6s 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .js .five__steps::before {
+    --fill: 0;
+  }
+  .js .five__steps:has(.five__step.is-visible)::before {
+    --fill: 1;
+  }
+}
+.five__step {
+  position: relative;
+  padding: 22px 20px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(41, 195, 255, 0.25);
+  background: linear-gradient(160deg, rgba(16, 37, 82, 0.85), rgba(6, 13, 31, 0.85));
+  backdrop-filter: blur(8px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  color: var(--white);
+}
+.five__step:hover {
+  border-color: rgba(41, 195, 255, 0.6);
+  box-shadow:
+    0 0 0 1px rgba(41, 195, 255, 0.25),
+    0 18px 44px rgba(31, 139, 255, 0.25);
+}
+.five__step h3 {
+  margin: 10px 0 6px;
+  font-size: 1.1rem;
+  color: var(--white);
+}
+.five__step p {
+  margin: 0 0 12px;
+  color: var(--silver);
+  font-size: 0.95rem;
+}
+.five__num {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  font-family: var(--font-h);
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--cyan);
+}
+.five__icon {
+  position: relative;
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--electric), var(--brand));
+  box-shadow: 0 0 0 6px var(--navy), 0 10px 26px rgba(31, 139, 255, 0.45);
+}
+.five__icon .icon {
+  width: 26px;
+  height: 26px;
+}
+.five__peek {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+}
+.five__number {
+  font-family: var(--font-h);
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: 0.02em;
+  color: var(--white);
+  text-shadow: 0 0 18px rgba(41, 195, 255, 0.55);
+}
+.five__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.five__chips span {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--cyan);
+  border: 1px solid rgba(41, 195, 255, 0.4);
+}
+.five__bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 14px 14px 14px 4px;
+  font-size: 0.82rem;
+  background: rgba(31, 139, 255, 0.18);
+  color: var(--white);
+}
+.five__wave {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+  flex: none;
+}
+.five__wave i {
+  width: 3px;
+  height: 40%;
+  border-radius: 2px;
+  background: var(--cyan);
+  animation: five-wave 1s ease-in-out infinite;
+}
+.five__wave i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.five__wave i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.five__wave i:nth-child(4) {
+  animation-delay: 0.45s;
+}
+@keyframes five-wave {
+  50% {
+    height: 100%;
+  }
+}
+/* Green is a status colour here (« En ligne »), as BRAND.md allows. */
+.five__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  color: var(--white);
+}
+.five__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #3ccf8e;
+  box-shadow: 0 0 0 0 rgba(60, 207, 142, 0.6);
+  animation: five-live 1.8s ease-out infinite;
+}
+@keyframes five-live {
+  80%,
+  100% {
+    box-shadow: 0 0 0 12px rgba(60, 207, 142, 0);
+  }
+}
+.five__cta {
+  margin-top: 26px;
+  align-items: center;
+}
+.five__note {
+  color: var(--silver);
+  font-size: 0.95rem;
+}
+
+/* Business name on the held number card (business picker): prefills the app's setup wizard. */
+.picker__biz {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 14px;
+}
+.picker__biz label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.picker__bizhint {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: var(--silver);
+}
+@media (prefers-reduced-motion: reduce) {
+  .five__wave i,
+  .five__dot {
+    animation: none !important;
+  }
+  .five__steps::before {
+    transition: none !important;
+  }
+  .js .five__steps::before {
+    --fill: 1;
+  }
+}

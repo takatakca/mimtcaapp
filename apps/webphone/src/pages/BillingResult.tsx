@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { formatNanp } from "@mimt/shared";
 import { useSession } from "../auth/SessionProvider";
+import { needsBusinessSetup } from "../lib/bizSetup";
 import { useI18n } from "../i18n/I18nProvider";
 import { clearPendingHold, pendingHold } from "../lib/numberHold";
 
 export function BillingResult({ outcome }: { outcome: "success" | "cancel" }) {
-  const { me, refreshMe } = useSession();
+  const { me, businesses, refreshMe } = useSession();
   const { locale } = useI18n();
   const fr = locale === "fr-CA";
   const [waitingForNumber] = useState(() => outcome === "success" && Boolean(pendingHold()));
@@ -55,7 +56,19 @@ export function BillingResult({ outcome }: { outcome: "success" | "cancel" }) {
       ) : (
         <p>{fr ? "Votre forfait est à jour." : "Your plan is up to date."}</p>
       )}
-      <Link className="btn btn--primary" to="/messages">
+      {needsBusinessSetup(me, businesses) ? (
+        <div className="wiz-cta">
+          <p>
+            {fr
+              ? "Votre forfait Affaires est prêt. Il reste à créer votre standard : 5 minutes, sans technicien."
+              : "Your Business plan is ready. One thing left: create your phone system. 5 minutes, no technician."}
+          </p>
+          <Link className="btn btn--primary btn--lg" to="/affaires/nouvelle">
+            {fr ? "Configurer mon standard" : "Set up my phone system"}
+          </Link>
+        </div>
+      ) : null}
+      <Link className={needsBusinessSetup(me, businesses) ? "btn btn--ghost" : "btn btn--primary"} to="/messages">
         {fr ? "Ouvrir MIMT" : "Open MIMT"}
       </Link>
     </section>
