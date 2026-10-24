@@ -59,6 +59,9 @@ export interface OtpVerifyRequest {
 // ------------------------------------------------------------------------------------------ me
 
 /** GET /v1/me */
+/** Billing channel of a subscription. The native apps sell through the stores; the web keeps Stripe. */
+export type BillingSource = "web" | "app_store" | "google_play" | "other";
+
 export interface MeResponse {
   user: { id: string; globalUserId: string | null; locale: Locale; displayName: string | null };
   account: {
@@ -70,6 +73,13 @@ export interface MeResponse {
     addOns?: SubscriptionAddOnCode[];
     /** Prepaid international credit, CAD cents. Absent on older API versions. */
     intlCreditCents?: number;
+    /**
+     * Where the live paid plan is billed: "web" (Stripe, mimt.ca / app.mimt.ca), "app_store", "google_play", or
+     * "other" (referral month, TAKATAK). null on the free plan. Absent on older API versions.
+     */
+    planSource?: BillingSource | null;
+    /** Same, for the "Sans pub" add-on. */
+    addOnSource?: BillingSource | null;
   };
   numbers: Array<{ id: string; e164: string; state: NumberState }>;
   e911: { addressRegistered: boolean; noticeAccepted: boolean; noticeVersion: string };

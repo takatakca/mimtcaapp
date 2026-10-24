@@ -11,7 +11,6 @@ import type {
   BlockNumberRequest,
   BlocksResponse,
   CallsResponse,
-  CheckoutResponse,
   ClaimNumberResponse,
   ConsentRequest,
   ConsentResponse,
@@ -30,10 +29,11 @@ import type {
   Locale,
   MeExportResponse,
   MeResponse,
+  IapVerifyRequest,
+  IapVerifyResponse,
   MessageDto,
   MessagesResponse,
   OtpStartResponse,
-  PaidPlanCode,
   PushRegisterRequest,
   RateResponse,
   RedeemReferralRequest,
@@ -42,7 +42,6 @@ import type {
   RewardClaimRequest,
   RewardClaimResponse,
   SendMessageRequest,
-  SubscriptionAddOnCode,
   TakatakExchangeRequest,
   UpdateMeRequest,
   UpdateMeResponse,
@@ -262,17 +261,10 @@ export const api = {
   // Media: signed upload URL, then the app PUTs the file straight to storage (see services/upload.ts).
   createUpload: (body: CreateMediaUploadRequest) => request<CreateMediaUploadResponse>("POST", "/v1/media/uploads", { body }),
 
-  // Billing (web checkout via Stripe). TODO(store-billing): consumer plans bought inside the iOS/Android
-  // app must use Apple/Google in-app purchases (MIMT-MVP §6); this web checkout is for business plans
-  // and for testing until IAP is wired. The API decides the success/cancel URLs.
-  checkout: (plan: PaidPlanCode, referralCode?: string) =>
-    request<CheckoutResponse>("POST", "/v1/billing/checkout", { body: { plan, ...(referralCode ? { referralCode } : {}) } }),
-  /** "Sans pub" (3,99 $/mo or 29,99 $/yr). TODO(store-billing): ca.mimt.app.noads.* through IAP in store builds. */
-  checkoutAddOn: (addon: SubscriptionAddOnCode, interval: "month" | "year") =>
-    request<CheckoutResponse>("POST", "/v1/billing/checkout", { body: { addon, interval } }),
-  /** Prepaid international credit (free plan: small top-ups only, see FREE_PLAN_INTL_LIMITS). */
-  checkoutIntlCredit: (amountCents: number) =>
-    request<CheckoutResponse>("POST", "/v1/billing/checkout", { body: { addon: "intl_credit", amountCents } }),
+  // Billing. The store builds of this app sell ONLY through Apple / Google in-app purchase (services/iap.ts): the app
+  // never opens Stripe. The API verifies the StoreKit 2 JWS or Play purchase token and grants the same
+  // entitlements as a plan bought on mimt.ca / app.mimt.ca (Stripe, web only).
+  verifyStorePurchase: (body: IapVerifyRequest) => request<IapVerifyResponse>("POST", "/v1/billing/iap/verify", { body }),
   /** Per-minute price and whether the call is allowed, shown on the keypad before dialling. */
   rate: (to: string) => request<RateResponse>("GET", "/v1/rates", { query: { to } }),
 

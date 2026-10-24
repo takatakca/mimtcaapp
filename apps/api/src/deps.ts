@@ -3,6 +3,7 @@ import type { AiServices } from "./ai/service.js";
 import type { SessionService } from "./auth/sessions.js";
 import type { TakatakClient } from "./auth/takatak.js";
 import type { DeviceVerifier } from "./devices/verify.js";
+import type { StoreVerifier } from "./billing/iap.js";
 import type { BillingGateway } from "./gateways/billing.js";
 import type { ProvisioningProvider } from "./catalog/providers/types.js";
 import type { MediaStore } from "./gateways/media.js";
@@ -43,6 +44,8 @@ export interface AppDeps {
   provisioning?: ProvisioningProvider | null;
   /** Twilio Porting API (number port-in). Absent or null: requests are recorded and signed, then wait for ops. */
   porting?: TwilioPortingGateway | null;
+  /** App Store / Google Play checks. Absent: the real store calls (billing/iap.ts). Tests inject a fake. */
+  store?: StoreVerifier;
   /** Réunions MIMT SFU (LiveKit). Absent or null: meeting routes answer 503 not_configured. */
   video?: VideoGateway | null;
 }

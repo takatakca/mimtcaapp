@@ -33,7 +33,7 @@ Noms seulement. Les valeurs viennent de chaque fournisseur.
 | IA (Claude) | `ANTHROPIC_API_KEY`, `AI_RECEPTIONIST_WS_URL` |
 | Photos (MMS), message d'accueil | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_MEDIA_BUCKET` |
 | Messagerie vocale par courriel | `EMAIL_PROVIDER=resend`, `EMAIL_API_KEY`, `EMAIL_FROM` |
-| Achats intégrés | `APPLE_BUNDLE_ID`, `APPLE_TEAM_ID`, `APPLE_ROOT_CA_PEM`, `GOOGLE_PLAY_PACKAGE_NAME`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` |
+| Achats intégrés (docs/store/app-store.md) | `APPLE_BUNDLE_ID`, `APPLE_TEAM_ID`, `APPLE_ROOT_CA_PEM`, `GOOGLE_PLAY_PACKAGE_NAME`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `GOOGLE_PLAY_RTDN_TOKEN` |
 | Transfert de numéro | `TWILIO_PORTING_ENABLED`, `PORT_IN_FEE_CENTS` (0 par défaut), `PORT_IN_NOTIFICATION_EMAIL` |
 | Réunions vidéo (LiveKit) | `LIVEKIT_URL` (`wss://rtc.mimt.ca`), `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` |
 | Internet et mobile | `PROVISIONING_PROVIDER`, `VIDEOTRON_*`, `CATALOG_ADMIN_USER_IDS` |

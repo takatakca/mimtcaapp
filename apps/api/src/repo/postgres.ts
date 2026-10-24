@@ -207,6 +207,10 @@ export class PostgresRepository implements Repository {
     }
     return one<Subscription>(await this.sql`insert into subscriptions ${this.sql(row)} returning *`);
   }
+  async findSubscriptionByExternalId(externalId: string) {
+    const [row] = (await this.sql`select * from subscriptions where stripe_subscription_id = ${externalId} limit 1`) as unknown as Subscription[];
+    return row ?? null;
+  }
   async listEntitlements(accountId: string) {
     return (await this.sql`select * from entitlements where telecom_account_id = ${accountId}`) as unknown as Entitlement[];
   }

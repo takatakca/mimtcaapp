@@ -121,6 +121,9 @@ const EnvSchema = z
     APPLE_ROOT_CA_PEM: optional,
     GOOGLE_PLAY_PACKAGE_NAME: optional,
     GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: optional,
+    /** Shared secret in the Pub/Sub push URL of Google Play RTDN (/webhooks/google-play?token=…). The API re-reads
+     * every notified purchase from Google, so the token only keeps strangers from triggering those reads. */
+    GOOGLE_PLAY_RTDN_TOKEN: z.string().min(24).optional(),
     /** Réunions MIMT (LiveKit, docs/MIMT-VIDEO.md). All three or the meeting routes answer 503 not_configured. */
     LIVEKIT_URL: z
       .string()

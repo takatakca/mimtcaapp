@@ -191,6 +191,10 @@ export class MemoryRepository implements Repository {
     this.subscriptions.set(row.id, row);
     return clone(row);
   }
+  async findSubscriptionByExternalId(externalId: string) {
+    const row = [...this.subscriptions.values()].find((x) => x.stripeSubscriptionId === externalId);
+    return row ? clone(row) : null;
+  }
   async listEntitlements(accountId: string) {
     return this.entitlements.filter((e) => e.telecomAccountId === accountId).map(clone);
   }
