@@ -1,5 +1,16 @@
 # MIMT — Relève du développeur principal
 
+## Relève — 24 octobre 2026 (Codex, activation demandée par le propriétaire)
+
+- **Portée :** six actions demandées (IA, téléphone réel, magasins, CRTC, mesure/pub, sauvegardes). Dossier opérationnel : `docs/MIMT-ACTIVATION.md`; projet de lettre pour juriste : `docs/MIMT-CRTC-DRAFT.md` (non envoyé, faits privés manquants). Ajout des variables IA manquantes dans `apps/api/.env.example`, sans valeur secrète ni changement d'exécution.
+- **Base examinée :** `25a0520db3568397c5d50e3950f9aac6cd4e9424`; travaux parallèles préservés, notamment IAP et suppression de compte. Les SHA de la branche et la CI se lisent dans GitHub avant fusion.
+- **Preuves directes :** API health/readiness HTTP 200 (`db:up`, `schema:current`); recherche 514 = 12 numéros. IA démo `available:false`. Vitrine = `25a0520`; app = `612284e` au dernier contrôle. AdSense présent; aucun ID GA4/Google Ads trouvé dans le HTML de l'accueil.
+- **Téléphone :** la page indique l'envoi d'un code; vérification refusée « Invalid or expired code. ». Session authentifiée, achat, appels et textos bidirectionnels non vérifiés. Aucun numéro/OTP/contenu privé dans le dépôt.
+- **Tests :** `bash scripts/db/test-backup-mimt.sh` réussi; `bash -n` sur backup/restore/drill réussi. Pas de sauvegarde ni restauration de production effectuée. Android run `40080169700`, job `120831896284` : quatre secrets `ANDROID_UPLOAD_*` manquants, avant build.
+- **Accès bloquants :** URL et session Coolify + clé Anthropic dans son champ secret; Cloudflare R2; réglages secrets GitHub; comptes Expo/Apple/Play et Google mesure/pub; juriste, identité légale et preuves fournisseur 9-1-1. Le navigateur local connecté n'est pas disponible dans cette session.
+- **Prochaine action exacte :** obtenir l'URL Coolify et l'accès sécurisé, activer l'IA puis valider une vraie réponse; configurer sauvegarde R2 et restaurer une copie jetable; reprendre connexion SMS avec un code neuf. Les étapes magasins et CRTC gardent leurs validations propres. Aucun lancement télécom certifié.
+
+
 ## Relève — 24 octobre 2026 (claude « mobile-iap », session 01GtWamF, App Store / Play)
 
 - **Fait (code) :** l'app `apps/mobile` ne vend plus par Stripe : forfaits Essentiel/Premium et « Sans pub » par achat

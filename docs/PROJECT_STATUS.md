@@ -1,5 +1,10 @@
 # MIMT — État vérifié du projet
 
+## Vérification complémentaire du 24 octobre 2026 — activation
+
+Voir `docs/MIMT-ACTIVATION.md` pour les six chantiers, les accès et leurs critères. Les observations ci-dessous remplacent les anciens blocages de disponibilité/FTP lorsqu'ils se contredisent : `app.mimt.ca/connexion/texto` répond et affiche le formulaire; la vitrine sert `25a0520`, l'app `612284e`. L'API répond HTTP 200 sur health/readiness, base et schéma à jour; la recherche 514 retourne 12 numéros. Cela ne valide pas la téléphonie. La démo IA reste indisponible (`available:false`); aucun ID GA4/Google Ads dans l'accueil servi. La connexion par texto a indiqué un code envoyé, puis l'a refusé comme invalide/expiré. Android reste bloqué par les quatre secrets de signature (run `40080169700`). Tests hermétiques sauvegarde réussis, mais aucune sauvegarde/restauration réelle prouvée dans cette intervention. Accès Coolify/R2/magasins/Google et revue légale encore requis.
+
+
 Dernière revue : **2026-10-22**. Source de vérité : branche `main` de `takatakca/mimtcaapp`, `AGENTS.md`, `WORKLOG.md`, `docs/MIMT-LAUNCH.md`, GitHub Actions. Ce document distingue **code présent**, **tests CI** et **service réel opérationnel**.
 
 ## 22 octobre 2026 — héros et notification d'appel

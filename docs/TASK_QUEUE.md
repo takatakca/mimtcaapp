@@ -1,5 +1,19 @@
 # MIMT — File des tâches exécutables
 
+## Activation propriétaire — 24 octobre 2026
+
+| ID | État constaté | Prochaine action / preuve |
+| --- | --- | --- |
+| ACT-AI | blocked: accès Coolify/Anthropic; démo indisponible | Clé serveur, redéploiement, vraie réponse IA en français; consentements/forfaits pour fonctions privées |
+| ACT-PHONE | blocked: code refusé | Reprendre connexion sécurisée; achat au prix accepté; appel et texto reçus dans les deux sens |
+| ACT-STORE | blocked: comptes/secrets; Android run 40080169700 | Quatre secrets de signature + comptes Apple/Expo/Play, produits et tests réels; inventaire dans MIMT-ACTIVATION.md |
+| ACT-CRTC | prepared; blocked: faits privés/juriste | Compléter MIMT-CRTC-DRAFT.md, avis approuvés et pièces fournisseur, dépôt puis reçu privé |
+| ACT-ADS | blocked: identifiants des comptes | GA4/Ads absents du HTML servi; renseigner les IDs, publier et valider avec consentement |
+| ACT-BACKUP | tests hermétiques pass; blocked: R2/Coolify | Sauvegarde planifiée + premier objet + restauration isolée réelle |
+
+Ne pas réinterpréter ces blocages d'accès comme des erreurs de code. Préserver les travaux parallèles et consigner les preuves réelles.
+
+
 Date de tri : 2026-10-14. Trier par dépendances; statut `done`, `next`, `blocked` ou `pending`. Ne pas assimiler présence de code et disponibilité du service.
 
 | ID | Priorité | Statut | Tâche et critère d'acceptation |
