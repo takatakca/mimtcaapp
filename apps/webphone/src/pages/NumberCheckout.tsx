@@ -11,6 +11,7 @@ import { useI18n } from "../i18n/I18nProvider";
 import type { TKey } from "../i18n/core";
 import { clearPendingHold, pendingHold, takeHoldFromHash, type PendingHold } from "../lib/numberHold";
 import { useAsync } from "../lib/useAsync";
+import { needsBusinessSetup } from "../lib/bizSetup";
 import { E911Section } from "./Account";
 import { LanguageSwitch } from "./LanguageSwitch";
 
@@ -29,7 +30,7 @@ function useCountdown(expiresAt: string | undefined): number {
 }
 
 export function NumberCheckout() {
-  const { status, me } = useSession();
+  const { status, me, businesses } = useSession();
   const { locale } = useI18n();
   const fr = locale === "fr-CA";
   const lang = fr ? "fr" : "en";
@@ -89,9 +90,15 @@ export function NumberCheckout() {
               ? "Le numéro est retourné dans la liste. Vous pouvez le chercher à nouveau ou en choisir un autre."
               : "The number went back to the list. Search for it again or pick another one."}
         </p>
-        <a className="btn btn--primary btn--block btn--lg" href={`${SITE}/${fr ? "" : "en/"}#numero`}>
-          {fr ? "Choisir un numéro" : "Pick a number"}
-        </a>
+        {info.data.status === "converted" && status === "signedIn" && needsBusinessSetup(me, businesses) ? (
+          <Link className="btn btn--primary btn--block btn--lg" to="/affaires/nouvelle">
+            {fr ? "Configurer mon standard" : "Set up my phone system"}
+          </Link>
+        ) : (
+          <a className="btn btn--primary btn--block btn--lg" href={`${SITE}/${fr ? "" : "en/"}#numero`}>
+            {fr ? "Choisir un numéro" : "Pick a number"}
+          </a>
+        )}
       </>
     );
   } else {

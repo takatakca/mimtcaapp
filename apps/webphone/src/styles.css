@@ -1915,3 +1915,367 @@ a.list__row:hover,
     animation: none;
   }
 }
+
+/* ---------- /affaires/nouvelle: « MIMT Affaires en 5 minutes » (pages/business/NewBusiness.tsx) ---------- */
+.wiz {
+  max-width: 760px;
+}
+.wiz-head {
+  text-align: center;
+  margin: 4px 0 18px;
+}
+.wiz-eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+.wiz-title {
+  font-size: clamp(1.5rem, 5vw, 2.1rem);
+  background: linear-gradient(100deg, var(--white) 20%, var(--cyan) 50%, var(--white) 80%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: wiz-shimmer 6s linear infinite;
+}
+.wiz-title:focus,
+.wiz-sub:focus {
+  outline: none;
+}
+@keyframes wiz-shimmer {
+  to {
+    background-position: -220% 0;
+  }
+}
+.wiz-sub {
+  font-size: 1.2rem;
+  margin: 0 0 6px;
+}
+.checkout-steps.wiz-steps {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.wiz-steps .checkout-steps__label {
+  overflow-wrap: anywhere;
+}
+.wiz-card {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(41, 195, 255, 0.35);
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(31, 139, 255, 0.16), transparent 55%),
+    radial-gradient(90% 70% at 100% 100%, rgba(41, 195, 255, 0.1), transparent 60%),
+    var(--midnight);
+  box-shadow:
+    0 0 0 1px rgba(31, 139, 255, 0.08),
+    0 24px 60px rgba(6, 13, 31, 0.55),
+    0 0 48px rgba(31, 139, 255, 0.12);
+}
+.wiz-panel {
+  animation: wiz-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes wiz-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+.wiz-count {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  color: var(--cyan);
+  font-weight: 700;
+}
+.input--lg {
+  min-height: 52px;
+  font-size: 1.1rem;
+}
+.choice-grid {
+  border: 0;
+  padding: 0;
+  margin: 8px 0 12px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+}
+.choice-grid legend {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+.choice-grid--2 {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+}
+.choice {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px 14px 40px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(16, 37, 82, 0.55);
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    transform 0.2s,
+    background 0.2s;
+}
+.choice:hover {
+  border-color: rgba(41, 195, 255, 0.5);
+  transform: translateY(-1px);
+}
+.choice input {
+  position: absolute;
+  left: 14px;
+  top: 17px;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--electric);
+}
+.choice:focus-within {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.choice.is-on {
+  border-color: var(--electric);
+  background: linear-gradient(150deg, rgba(31, 139, 255, 0.22), rgba(16, 37, 82, 0.7));
+  box-shadow:
+    0 0 0 3px rgba(31, 139, 255, 0.2),
+    0 0 26px rgba(31, 139, 255, 0.25);
+}
+.choice__name {
+  font-weight: 700;
+}
+.choice__hint {
+  color: var(--silver);
+  font-size: 0.82rem;
+}
+.choice--number .choice__name {
+  font-family: var(--font-h);
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+}
+.wiz-custom {
+  margin: 4px 0 8px;
+}
+.wiz-custom .checks {
+  border: 0;
+  padding: 0;
+  margin: 0 0 8px;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+}
+.wiz-summary {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border-left: 3px solid var(--cyan);
+  background: rgba(41, 195, 255, 0.07);
+  font-size: 0.9rem;
+}
+.wiz-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+.wiz-launch {
+  box-shadow: 0 0 30px rgba(31, 139, 255, 0.45);
+}
+.wiz-listen {
+  gap: 10px;
+}
+.wiz-wave {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+.wiz-wave i {
+  width: 3px;
+  height: 40%;
+  border-radius: 2px;
+  background: currentColor;
+}
+.wiz-listen.is-on .wiz-wave i {
+  animation: wiz-wave 0.9s ease-in-out infinite;
+}
+.wiz-listen.is-on .wiz-wave i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.wiz-listen.is-on .wiz-wave i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes wiz-wave {
+  50% {
+    height: 100%;
+  }
+}
+.wiz-review li {
+  overflow-wrap: anywhere;
+}
+.wiz-run {
+  list-style: none;
+  margin: 12px 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.wiz-run li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--silver);
+  transition: color 0.3s;
+}
+.wiz-run__dot {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 0.85rem;
+  background: rgba(138, 151, 171, 0.18);
+}
+.wiz-run li.is-done {
+  color: var(--white);
+}
+.wiz-run li.is-done .wiz-run__dot {
+  background: var(--cyan);
+  color: var(--navy);
+}
+.wiz-run li.is-now {
+  color: var(--white);
+  font-weight: 700;
+}
+.wiz-run li.is-now .wiz-run__dot {
+  background: conic-gradient(var(--cyan), var(--electric), transparent 70%);
+  animation: wiz-spin 0.9s linear infinite;
+}
+.wiz-run li.is-failed .wiz-run__dot {
+  background: var(--error-bg);
+  color: var(--error);
+}
+@keyframes wiz-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.wiz-done {
+  text-align: center;
+}
+.wiz-done .row {
+  justify-content: center;
+  margin: 8px 0 18px;
+}
+.wiz-done__burst {
+  position: absolute;
+  inset: -40% -20% auto;
+  height: 320px;
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(41, 195, 255, 0.28), transparent);
+  animation: wiz-burst 1.4s ease-out both;
+}
+@keyframes wiz-burst {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.wiz-done__chip {
+  position: relative;
+  text-align: left;
+  margin: 10px auto 14px;
+  max-width: 460px;
+  animation: wiz-in 0.6s 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.wiz-live {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 0 rgba(60, 207, 142, 0.6);
+  animation: wiz-live 1.8s ease-out infinite;
+}
+@keyframes wiz-live {
+  80%,
+  100% {
+    box-shadow: 0 0 0 14px rgba(60, 207, 142, 0);
+  }
+}
+.wiz-links {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+}
+.wiz-links a {
+  display: block;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  color: var(--white);
+  text-decoration: none;
+  background: rgba(16, 37, 82, 0.55);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+.wiz-links a:hover,
+.wiz-links a:focus-visible {
+  border-color: var(--electric);
+  box-shadow: 0 0 18px rgba(31, 139, 255, 0.25);
+}
+.wiz-cta {
+  margin: 12px 0 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(41, 195, 255, 0.4);
+  background: linear-gradient(150deg, rgba(31, 139, 255, 0.16), transparent);
+}
+.side__link--setup {
+  color: var(--cyan);
+}
+.icon-btn--glow {
+  color: var(--cyan);
+  box-shadow: 0 0 14px rgba(41, 195, 255, 0.45);
+}
+@media (max-width: 480px) {
+  .wiz-steps .checkout-steps__label {
+    font-size: 0.68rem;
+  }
+  .wiz-actions .btn--lg {
+    flex: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wiz-title,
+  .wiz-panel,
+  .wiz-done__burst,
+  .wiz-done__chip,
+  .wiz-live,
+  .wiz-run li.is-now .wiz-run__dot {
+    animation: none;
+  }
+}

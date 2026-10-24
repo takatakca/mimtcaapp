@@ -51,6 +51,11 @@ describe("mock API", () => {
     expect(biz.businesses[0]?.role).toBe("owner");
   });
 
+  it("refuses a second business (409 business_exists), like the API", async () => {
+    await signIn();
+    await expect(http.request("POST", "/v1/business", { body: { name: "Autre" } })).rejects.toMatchObject({ status: 409 });
+  });
+
   it("refreshes an expired access token once, then signs out when the refresh token is bad", async () => {
     await signIn();
     // Pretend the access token expired: the client refreshes before the request.

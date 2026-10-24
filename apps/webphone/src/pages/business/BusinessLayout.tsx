@@ -1,11 +1,12 @@
 // MIMT Affaires admin portal: /affaires/:businessId/… with a sub-navigation per PBX section.
 import { PLANS } from "@mimt/shared";
-import { NavLink, Outlet, useParams } from "react-router";
+import { Link, NavLink, Outlet, useParams } from "react-router";
 import { useSession } from "../../auth/SessionProvider";
 import { Badge, Empty, PageHeader } from "../../components/ui";
 import { useI18n } from "../../i18n/I18nProvider";
 import type { TKey } from "../../i18n/core";
 import { formatPhone } from "../../lib/dial";
+import { needsBusinessSetup } from "../../lib/bizSetup";
 import type { BusinessCtx } from "./shared";
 
 const SECTIONS: Array<{ to: string; label: TKey; end?: boolean }> = [
@@ -36,6 +37,14 @@ export function BusinessLayout() {
       <div className="page">
         <PageHeader title={t("biz.title")} />
         <Empty>{t("biz.notFound")}</Empty>
+        {needsBusinessSetup(me, businesses) ? (
+          <section className="card wiz-card">
+            <p>{t("biz.new.notFoundCta")}</p>
+            <Link className="btn btn--primary" to="/affaires/nouvelle">
+              {t("biz.new.cta")}
+            </Link>
+          </section>
+        ) : null}
       </div>
     );
   }
