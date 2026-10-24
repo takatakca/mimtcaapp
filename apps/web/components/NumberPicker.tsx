@@ -13,9 +13,27 @@ type State =
   | { kind: "results"; data: PublicNumberSearchResponse }
   | { kind: "error"; message: string };
 
-/** Where the app picks the hold up (apps/webphone /numero). The token travels in the fragment: never in server logs. */
-export function appHandoffUrl(hold: Pick<NumberHoldResponse, "id" | "token">, plan: "lock" | "premium" | "business"): string {
-  return `${APP_URL}/numero#hold=${encodeURIComponent(hold.id)}&t=${encodeURIComponent(hold.token ?? "")}&plan=${plan}`;
+export type BusinessType = "restaurant" | "retail" | "professional" | "health" | "other";
+export const BUSINESS_TYPES: { value: BusinessType; fr: string; en: string }[] = [
+  { value: "restaurant", fr: "Restaurant", en: "Restaurant" },
+  { value: "retail", fr: "Commerce", en: "Retail store" },
+  { value: "professional", fr: "Services professionnels", en: "Professional services" },
+  { value: "health", fr: "Santé / clinique", en: "Health / clinic" },
+  { value: "other", fr: "Autre", en: "Other" },
+];
+
+/**
+ * Where the app picks the hold up (apps/webphone /numero). The token travels in the fragment: never in server logs.
+ * For the business plan, the business name and type typed here prefill the app's setup wizard (/affaires/nouvelle).
+ */
+export function appHandoffUrl(
+  hold: Pick<NumberHoldResponse, "id" | "token">,
+  plan: "lock" | "premium" | "business",
+  business?: { name: string; type: BusinessType },
+): string {
+  const base = `${APP_URL}/numero#hold=${encodeURIComponent(hold.id)}&t=${encodeURIComponent(hold.token ?? "")}&plan=${plan}`;
+  const name = business?.name.trim().slice(0, 120);
+  return plan === "business" && name ? `${base}&biz=${encodeURIComponent(name)}&type=${business!.type}` : base;
 }
 
 function errorText(code: string | undefined, fr: boolean): string {
@@ -46,6 +64,8 @@ export function NumberPicker({ lang, plan = "lock", id = "numero" }: { lang: Lan
   const [hold, setHold] = useState<NumberHoldResponse | null>(null);
   const [left, setLeft] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
+  const [bizName, setBizName] = useState("");
+  const [bizType, setBizType] = useState<BusinessType>("restaurant");
   const seq = useRef(0);
 
   async function search(query: string) {
@@ -166,7 +186,31 @@ export function NumberPicker({ lang, plan = "lock", id = "numero" }: { lang: Lan
               <li>{fr ? "Activé dès le paiement, sur cellulaire et ordinateur" : "Live as soon as you pay, on phone and computer"}</li>
               <li>{fr ? "Annulable en tout temps depuis votre compte" : "Cancel any time from your account"}</li>
             </ul>
-            <a className="btn btn--primary btn--lg btn--block picker__go" href={appHandoffUrl(hold, plan)}>
+            {plan === "business" ? (
+              <div className="picker__biz">
+                <label htmlFor={`${id}-biz`}>{fr ? "Nom de votre entreprise (facultatif)" : "Your business name (optional)"}</label>
+                <input
+                  id={`${id}-biz`}
+                  className="picker__input"
+                  maxLength={120}
+                  autoComplete="organization"
+                  value={bizName}
+                  onChange={(e) => setBizName(e.target.value)}
+                />
+                <label htmlFor={`${id}-type`}>{fr ? "Type d'entreprise" : "Type of business"}</label>
+                <select id={`${id}-type`} className="picker__input" value={bizType} onChange={(e) => setBizType(e.target.value as BusinessType)}>
+                  {BUSINESS_TYPES.map((b) => (
+                    <option key={b.value} value={b.value}>
+                      {fr ? b.fr : b.en}
+                    </option>
+                  ))}
+                </select>
+                <p className="picker__bizhint">
+                  {fr ? "Votre accueil bilingue et vos heures seront prêts à confirmer dans l'app." : "Your bilingual greeting and hours will be ready to confirm in the app."}
+                </p>
+              </div>
+            ) : null}
+            <a className="btn btn--primary btn--lg btn--block picker__go" href={appHandoffUrl(hold, plan, { name: bizName, type: bizType })}>
               {fr ? "Continuer : créer mon compte" : "Continue: create my account"}
               <span aria-hidden="true"> →</span>
             </a>
