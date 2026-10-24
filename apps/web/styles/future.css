@@ -486,6 +486,7 @@
     animation: none !important;
   }
 }
+<<<<<<< HEAD
 
 /* ======================================================================
    Site-wide motion (2026-10-24)
@@ -656,3 +657,5 @@ html:not(.js) .section-head h2::after {
     display: none;
   }
 }
+=======
+>>>>>>> origin/main
