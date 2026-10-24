@@ -25,6 +25,18 @@ describe("hold handoff", () => {
     expect(afterSignIn()).toBe("/numero");
   });
 
+  it("keeps the business name and type typed on mimt.ca for the setup wizard", async () => {
+    const { takeHoldFromHash, pendingBusiness, clearPendingHold } = await import("../lib/numberHold");
+    window.history.pushState(null, "", `/numero#hold=${HOLD}&t=tok_abcdefghijklmnop&plan=business&biz=${encodeURIComponent("Casse-croûte Comète")}&type=restaurant`);
+    expect(takeHoldFromHash()?.plan).toBe("business");
+    expect(window.location.hash).toBe("");
+    clearPendingHold();
+    expect(pendingBusiness()).toEqual({ name: "Casse-croûte Comète", type: "restaurant" });
+    window.history.pushState(null, "", `/numero#hold=${HOLD}&t=tok_abcdefghijklmnop&plan=business&biz=X&type=casino`);
+    takeHoldFromHash();
+    expect(pendingBusiness()).toEqual({ name: "X", type: "other" });
+  });
+
   it("ignores a malformed fragment", async () => {
     const { takeHoldFromHash } = await import("../lib/numberHold");
     window.history.pushState(null, "", "/numero#hold=nope&t=x");

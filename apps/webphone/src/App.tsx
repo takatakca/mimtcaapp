@@ -34,6 +34,7 @@ import { BusinessOverview } from "./pages/business/Overview";
 import { RingGroups } from "./pages/business/RingGroups";
 import { AiReceptionist } from "./pages/business/AiReceptionist";
 import { Recordings } from "./pages/business/Recordings";
+import { NewBusiness } from "./pages/business/NewBusiness";
 import { Offers } from "./pages/services/Offers";
 import { OrderDetail } from "./pages/services/OrderDetail";
 import { Orders } from "./pages/services/Orders";
@@ -106,6 +107,8 @@ export function AppRoutes() {
         <Route path="services/transfert" element={<PortIn />} />
         <Route path="reunions" element={<Meetings />} />
         <Route path="reunions/:meetingId" element={<MeetingRoom />} />
+        {/* « MIMT Affaires en 5 minutes »: business plan, no business yet. */}
+        <Route path="affaires/nouvelle" element={<NewBusiness />} />
         <Route path="affaires/:businessId" element={<BusinessLayout />}>
           <Route index element={<BusinessOverview />} />
           <Route path="postes" element={<Extensions />} />

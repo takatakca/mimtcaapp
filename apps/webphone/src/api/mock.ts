@@ -82,6 +82,8 @@ interface State {
   messages: MessageDto[];
   voicemails: VoicemailDto[];
   business: Business;
+  /** false = the account has a business plan but no business yet (localStorage "mimt.demo.business" = "none"). */
+  hasBusiness: boolean;
   seats: number;
   members: BusinessMember[];
   extensions: Extension[];
@@ -139,6 +141,15 @@ function demoPlan(): "free" | "lock" | "premium" | null {
     return v === "free" || v === "lock" || v === "premium" ? v : null;
   } catch {
     return null;
+  }
+}
+
+/** Demo only: localStorage "mimt.demo.business" = "none" starts with a business plan and no business (the wizard). */
+function demoNoBusiness(): boolean {
+  try {
+    return globalThis.localStorage?.getItem("mimt.demo.business") === "none";
+  } catch {
+    return false;
   }
 }
 
@@ -230,6 +241,7 @@ function initialState(): State {
       recordingPolicy: DEFAULT_RECORDING_POLICY,
       createdAt,
     },
+    hasBusiness: consumerPlan ? true : !demoNoBusiness(),
     seats: 3,
     members: [
       { id: "mem-1", businessId: BIZ_ID, userId: USER_ID, email: "camille@example.com", role: "owner", status: "active", createdAt },
@@ -463,6 +475,22 @@ const fail = (status: number, error: string, message = error) => json(status, { 
 function tokens(): AuthTokensResponse {
   const r = Math.random().toString(36).slice(2, 10);
   return { accessToken: `${ACCESS_PREFIX}${r}`, refreshToken: `${REFRESH_PREFIX}${r}`, tokenType: "Bearer", expiresIn: 3600 };
+}
+
+/** POST /v1/business in demo mode: a fresh, empty business owned by the demo user. */
+function startBusiness(name: string, locale: "fr-CA" | "en-CA") {
+  const now = new Date().toISOString();
+  state.hasBusiness = true;
+  state.business = { id: BIZ_ID, name, takatakBusinessId: null, telecomAccountId: state.me.account.id, mainNumber: null, locale, recordingPolicy: DEFAULT_RECORDING_POLICY, createdAt: now };
+  state.seats = 1;
+  state.members = [{ id: nextId("mem"), businessId: BIZ_ID, userId: USER_ID, email: "camille@example.com", role: "owner", status: "active", createdAt: now }];
+  state.extensions = [];
+  state.ringGroups = [];
+  state.menus = [];
+  state.dids = [];
+  state.recordings = [];
+  state.hours = { businessId: BIZ_ID, timezone: BUSINESS_TIMEZONE, weekly: structuredClone(DEFAULT_WEEKLY_SCHEDULE), holidays: [], quebecHolidays: true, openTarget: { type: "voicemail" }, closedTarget: { type: "voicemail" } };
+  state.receptionist = { ...state.receptionist, enabled: false, businessName: name, greeting: null, faqMarkdown: "", hoursText: "", address: null, transferTargets: [], acceptedAt: null, acceptedVersion: null, updatedAt: null };
 }
 
 function businessResponse(): BusinessResponse {
@@ -929,7 +957,22 @@ const routes: Route[] = [
   ["GET", /^\/v1\/billing\/portal$/, () => ok({ portalUrl: "/compte?portail=demo" })],
 
   // Business (MIMT Affaires)
-  ["GET", /^\/v1\/business$/, () => ok({ businesses: [businessResponse()] })],
+  ["GET", /^\/v1\/business$/, () => ok({ businesses: state.hasBusiness ? [businessResponse()] : [] })],
+  ["POST", /^\/v1\/business$/, ({ body }) => {
+    const b = body as { name?: string; locale?: "fr-CA" | "en-CA" };
+    const name = b.name?.trim() ?? "";
+    if (!name || name.length > 120) return fail(400, "validation_error", "name required");
+    if (state.hasBusiness) return fail(409, "business_exists", "This account already has a business");
+    startBusiness(name, b.locale ?? state.me.user.locale);
+    return created(businessResponse());
+  }],
+  ["PATCH", new RegExp(`^${B}$`), ({ body }) => {
+    const b = body as { name?: string; mainNumber?: string | null; locale?: "fr-CA" | "en-CA" };
+    if (b.name !== undefined && !b.name.trim()) return fail(400, "validation_error");
+    if (b.mainNumber && !state.me.numbers.some((n) => n.e164 === b.mainNumber)) return fail(400, "number_not_in_business");
+    state.business = { ...state.business, ...b, name: b.name?.trim() ?? state.business.name };
+    return ok(businessResponse());
+  }],
   ["GET", new RegExp(`^${B}/usage$`), () => {
     const caps = PLANS.business.caps;
     const u = state.me.usage;
@@ -1094,11 +1137,19 @@ const routes: Route[] = [
   ["GET", new RegExp(`^${B}/dids$`), () => ok({ routes: state.dids })],
   ["PUT", new RegExp(`^${B}/dids$`), ({ body }) => {
     const b = body as { e164: string; target: DidRoute["target"] };
-    const r = state.dids.find((x) => x.e164 === b.e164);
-    if (!r) return fail(404, "not_found");
     if (b.target.type === "external" && (isEmergencyNumber(b.target.number) || !NANP_E164.test(b.target.number))) return fail(400, "validation_error");
-    r.target = b.target;
-    return ok(r);
+    if (b.target.type === "ivr" && !state.menus.some((m) => m.id === (b.target as { ivrMenuId: string }).ivrMenuId)) return fail(400, "invalid_target");
+    const r = state.dids.find((x) => x.e164 === b.e164);
+    if (r) {
+      r.target = b.target;
+      return ok(r);
+    }
+    // Like the API: any number the account holds can be routed (upsert).
+    const n = state.me.numbers.find((x) => x.e164 === b.e164);
+    if (!n) return fail(400, "number_not_in_business");
+    const route: DidRoute = { id: nextId("did"), businessId: BIZ_ID, phoneNumberId: n.id, e164: n.e164, target: b.target, createdAt: new Date().toISOString() };
+    state.dids.push(route);
+    return ok(route);
   }],
   // Signed links last 15 minutes (apps/api RECORDING_URL_TTL_S): each listing hands out fresh ones.
   ["GET", new RegExp(`^${B}/recordings$`), () =>
@@ -1426,6 +1477,6 @@ export async function mockFetch(input: string, init: RequestInit = {}): Promise<
   }
   const params = (re.exec(url.pathname) ?? []).slice(1).map((p) => decodeURIComponent(p ?? ""));
   // apps/api answers 404 to non-members (no existence leak).
-  if (params[0] && url.pathname.startsWith("/v1/business/") && params[0] !== BIZ_ID) return fail(404, "not_found");
+  if (params[0] && url.pathname.startsWith("/v1/business/") && (params[0] !== BIZ_ID || !state.hasBusiness)) return fail(404, "not_found");
   return handler({ params, query: url.searchParams, body, method });
 }

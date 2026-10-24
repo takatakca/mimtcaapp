@@ -9,6 +9,7 @@ import { Softphone } from "../phone/Softphone";
 import { Icon, type IconName } from "./Icon";
 import { DemoBanner, Wordmark } from "./ui";
 import { meetingScopes } from "../pages/meetings/shared";
+import { needsBusinessSetup } from "../lib/bizSetup";
 
 interface NavItem {
   to: string;
@@ -49,6 +50,7 @@ export function Shell() {
   // Réunions: premium and business plans, and every member of a business.
   const scopes = meetingScopes(me, businesses);
   const showMeetings = scopes.any || scopes.member;
+  const setup = needsBusinessSetup(me, businesses);
   return (
     <AdsProvider>
       <div className="app">
@@ -68,7 +70,13 @@ export function Shell() {
             {SERVICES.map((i) => (
               <SideLink key={i.to} item={i} />
             ))}
-            {businesses.length > 0 ? <p className="side__section">{t("nav.business")}</p> : null}
+            {businesses.length > 0 || setup ? <p className="side__section">{t("nav.business")}</p> : null}
+            {setup ? (
+              <NavLink to="/affaires/nouvelle" className={({ isActive }) => `side__link side__link--setup${isActive ? " is-active" : ""}`}>
+                <Icon name="sparkle" />
+                <span>{t("biz.new.nav")}</span>
+              </NavLink>
+            ) : null}
             {businesses.map((b) => (
               <NavLink
                 key={b.business.id}
@@ -96,6 +104,10 @@ export function Shell() {
             ) : null}
             {businesses[0] ? (
               <NavLink to={`/affaires/${businesses[0].business.id}`} className="icon-btn" aria-label={t("nav.business")}>
+                <Icon name="business" />
+              </NavLink>
+            ) : setup ? (
+              <NavLink to="/affaires/nouvelle" className="icon-btn icon-btn--glow" aria-label={t("biz.new.nav")}>
                 <Icon name="business" />
               </NavLink>
             ) : null}
