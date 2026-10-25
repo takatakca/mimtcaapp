@@ -1,5 +1,14 @@
 # MIMT — Relève du développeur principal
 
+## Relève — 25 octobre 2026 (Codex, opérations de sauvegarde réelles)
+
+- **Fait :** accès Coolify retrouvé dans le contexte précédent et session authentifiée réutilisée; absence de `ANTHROPIC_API_KEY` confirmée par le filtre de variables MIMT, sans lecture de valeurs secrètes. Sauvegarde quotidienne privée MIMT activée, rétention locale 3 et seuil d'alerte 2 jours persistés. Exécution manuelle 06:52:34 UTC et planifiée 07:00:15 UTC réussies le 25 octobre; archive 225,63 KB.
+- **Vraie restauration :** archive locale montée en lecture seule dans PostgreSQL 17 Alpine jetable sans réseau, stockage tmpfs et ressources limitées. Restauration réussie, 17 migrations / 4 tables lisibles; conteneur supprimé automatiquement. Dossier MIMT `0700`, archive manuelle `0600`, modes vérifiés. Aucun dump/client/téléphone/secret dans le dépôt. Le premier essai a échoué sur le format de commande avant restauration; commande corrigée puis vérifiée.
+- **Détails et preuve :** `docs/MIMT-BACKUPS.md`, `docs/MIMT-ACTIVATION.md`. Le code de référence reste `9605bee5417c5a5e7cefef74028d17f796cc1dd8` (CI `40083012517`, PostgreSQL `40083012511` et site `40083110006` réussis). Cette branche ne modifie que les documents; ses nouveaux checks se lisent dans la PR.
+- **Blocages :** 0 stockage S3 dans Coolify; authentification Cloudflare non complétée, donc R2/restore distant non faits. Aucun canal de notification; seuil seul ne livre pas d'alerte. GitHub navigateur déconnecté, déploiement webphone non lancé. Clé Anthropic toujours requise. Les autres comptes magasins/Google, tests téléphone et revue juridique restent requis.
+- **Prochaine action exacte :** propriétaire : entrer la clé existante dans le champ secret `ANTHROPIC_API_KEY` de l'API MIMT, puis reprendre pour sauvegarder/redéployer et tester l'IA. Avec accès Cloudflare : R2 privé, stockage validé, rétention 14 et restore de l'objet distant; configurer/tester les alertes. Ne pas déclarer le lancement télécom terminé.
+
+
 ## Relève — 24 octobre 2026 (Codex, activation demandée par le propriétaire)
 
 - **Portée :** six actions demandées (IA, téléphone réel, magasins, CRTC, mesure/pub, sauvegardes). Dossier opérationnel : `docs/MIMT-ACTIVATION.md`; projet de lettre pour juriste : `docs/MIMT-CRTC-DRAFT.md` (non envoyé, faits privés manquants). Ajout des variables IA manquantes dans `apps/api/.env.example`, sans valeur secrète ni changement d'exécution.

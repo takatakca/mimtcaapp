@@ -1,5 +1,10 @@
 # MIMT — Déploiement et preuve de publication
 
+## Reprise du 25 octobre 2026 — sauvegardes
+
+Base revue `9605bee5417c5a5e7cefef74028d17f796cc1dd8` : CI `40083012517`, PostgreSQL `40083012511`, publication vitrine `40083110006` réussis; manifeste vitrine correspondant. App encore `612284efba406d3bf708f2a4e0c574000fde5fed`; aucun nouveau déploiement webphone/API dans cette reprise. Sauvegardes Coolify quotidiennes locales et première restauration réelle isolée terminées : preuve actuelle dans `MIMT-BACKUPS.md`. Le calendrier fonctionne; R2, restauration distante et livraison d'alertes restent à configurer. Absence de clé Anthropic confirmée dans l'API MIMT.
+
+
 ## Contrôle direct du 24 octobre 2026 (Codex)
 
 Baseline examinée : `25a0520db3568397c5d50e3950f9aac6cd4e9424`. Au dernier contrôle HTTP, le manifeste de la vitrine sert ce SHA; celui d'app.mimt.ca sert encore `612284efba406d3bf708f2a4e0c574000fde5fed`. L'app répond sur `/connexion/texto`. API : health/readiness HTTP 200, `db:up`, `schema:current`; démo IA `available:false`. Aucun redéploiement, secret changé, numéro acheté ou backup de production effectué par Codex dans cette intervention. Avant toute action, relire HEAD et les publications car d'autres agents publient aussi. Les variables IA serveur sont désormais listées dans `.env.example`; le plan d'activation et ses accès sont dans `MIMT-ACTIVATION.md`.

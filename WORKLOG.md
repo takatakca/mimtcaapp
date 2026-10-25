@@ -3,6 +3,8 @@
 Newest first, one line per piece of work. Rule: `AGENTS.md` › Work log rule.
 Format: `YYYY-MM-DD | agent | branch → PR | status | what | next step`
 
+- 2026-10-25 | Codex | codex/mimt-activation-operations | local backup/restore done; blocked: R2 access and AI key | Coolify recovered; daily local MIMT backup at 07:00 UTC, retention 3; manual and scheduled runs succeeded; real archive restored in isolated network-disabled temporary PG17 (17 migrations, 4 tables readable); owner-only backup directory/archive; threshold 2 days, no alert channel | enter Anthropic key privately; configure R2 plus remote restore and notification channel; other store/Google/phone/legal access still needed
+
 - 2026-10-24 | Codex | codex/mimt-launch-activation → PR #56 | prepared; CI passed; blocked: account access and phone verification | Six-part activation inventory + unsent CRTC draft; missing AI env settings documented; HTTP health/readiness and 12-number search verified; AI off, GA4/Ads absent; Android signing missing; mocked backup tests pass; SMS code rejected | obtain Coolify URL/access, resume secure phone login; real backup/restore and provider/store/legal tests remain
 
 - 2026-10-24 | claude (MIMT agent mobile-iap, session 01GtWamF) | claude/account-purge → PR #54 | done (merged b02a1f6) | Real account deletion: daily job purges personal data 30 days after DELETE /v1/me (keeps billing, call records, 9-1-1 acks, audit), web subscriptions cancelled at request, no API access while pending, public deletion section on mimt.ca/confidentialite (#suppression) | merge when CI green; deploy API (job starts 15 min after boot) and site

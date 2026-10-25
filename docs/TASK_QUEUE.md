@@ -1,5 +1,17 @@
 # MIMT — File des tâches exécutables
 
+## Avancement opérationnel — 25 octobre 2026
+
+| ID | État actuel | Prochaine preuve requise |
+| --- | --- | --- |
+| ACT-BACKUP / DB-01 | **Local quotidien + vraie restauration locale vérifiés**; hors hôte bloqué | R2 privé, stockage S3 validé, conservation distante 14, restauration depuis R2; détails dans MIMT-BACKUPS.md |
+| ACT-ALERT | Seuil absence de backup = 2 jours; **aucun canal** | Canal approuvé, notification de test reçue |
+| ACT-AI | Coolify connecté; **clé Anthropic absente** | Entrée privée de la clé, redéploiement API, réponse IA réelle |
+| ACT-DEPLOY | Site 9605bee publié; app encore 612284e | Accès GitHub pour Deploy scope webphone et concordance du manifeste |
+
+Les blocages magasins/mesure/juriste/téléphone de la liste précédente restent ouverts. Ne pas refaire les sauvegardes locales simplement parce que R2 n'est pas encore accessible.
+
+
 ## Activation propriétaire — 24 octobre 2026
 
 | ID | État constaté | Prochaine action / preuve |

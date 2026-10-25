@@ -1,5 +1,10 @@
 # MIMT — Décisions approuvées et contraintes
 
+## Exécution autorisée du 25 octobre 2026
+
+La demande de poursuivre les six actions a été appliquée aux sauvegardes : base MIMT uniquement, quotidien 07:00 UTC, rétention locale 3, exercice de restauration dans un conteneur temporaire sans réseau, aucun changement dans la production TAKATAK. Aucun nouveau coût récurrent, contrat, tarif ni accès de tiers créé. Le seuil d'alerte est 2 jours, mais un canal reste requis; les copies R2 et leur rétention 14 restent à réaliser avec les accès du propriétaire.
+
+
 ## Demande d'exécution du 24 octobre 2026
 
 Le propriétaire a demandé de réaliser les six actions d'activation (IA, téléphone réel, magasins, CRTC, mesure/pub, sauvegardes) et d'indiquer les accès manquants. Cette demande autorise le travail de préparation et de configuration correspondant; elle ne constitue pas une preuve de conformité, de livraison des tests ou d'approbation des magasins. Les tests d'urgence suivent leur protocole et la lettre CRTC reste soumise aux faits vérifiés et à la revue du juriste. Aucun changement de prix, fournisseur ou règle de coûts n'a été décidé lors de cette intervention. Dossier de suivi : `MIMT-ACTIVATION.md`.

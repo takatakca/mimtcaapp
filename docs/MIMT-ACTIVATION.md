@@ -4,7 +4,13 @@ Owner request: complete AI activation, real-phone testing, store setup, the 9-1-
 Review date: 2026-10-24. Repository: `takatakca/mimtcaapp`. Baseline inspected: `25a0520db3568397c5d50e3950f9aac6cd4e9424`.
 This document records observations, required access and completion tests. It is not a launch certificate.
 
-## Observed in this session
+## Update — 2026-10-25
+
+Coolify access recovered; MIMT has no `ANTHROPIC_API_KEY` environment variable. Daily local backups are now enabled at **07:00 UTC**, with **3** local copies retained. Both the manual backup and the first scheduled run succeeded. A real archive was restored in an isolated, network-disabled, temporary PostgreSQL container: all 17 migrations and four core tables passed checks. See [current backup evidence](MIMT-BACKUPS.md).
+
+The missing-backup threshold is 2 days, but no notification channel exists. No S3 destination is configured; Cloudflare authentication was not completed, so R2 and the remote restore drill remain blocked. GitHub's browser session is signed out, so the webphone deployment was not dispatched. Public API readiness is healthy; the AI demo remains unavailable. No AI key was entered, no number was purchased, and no store or CRTC submission was made.
+
+## Observed on 2026-10-24
 
 | Check | Result |
 | --- | --- |
@@ -130,6 +136,6 @@ Access needed: Cloudflare R2 and Coolify MIMT PostgreSQL settings, plus GitHub s
 
 ## Next action
 
-Obtain the Coolify URL and secure access, then complete AI activation and R2/Coolify setup. Resume phone sign-in
+Enter the Anthropic key directly in the prepared MIMT Coolify field, then redeploy and verify a real response. Obtain Cloudflare access for R2 and a notification channel. Resume phone sign-in
 with a fresh code through the secure browser flow. Store, Google and legal account access can follow independently.
 Record each real completion with its release/run/receipt evidence; keep blocked work explicitly blocked.
