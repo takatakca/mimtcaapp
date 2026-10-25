@@ -1,5 +1,13 @@
 # MIMT activation: six workstreams and verified evidence
 
+## Latest update — 2026-10-25, AI live
+
+The owner saved `ANTHROPIC_API_KEY` directly in Coolify. Only the saved variable name was inspected, never its secret value. The MIMT API was redeployed from approved `main` revision `c27010bd83d37a4e9d681f6005df58641839f101`: Coolify deployment `linln0s30zq4vib8j514clio` completed successfully at 14:05:15 UTC (19:05:15 Asia/Karachi).
+
+Post-deployment health/readiness returned HTTP 200 with database/schema healthy. Public demo status is now `available:true`. Actual provider requests returned French responses for all three fictional scenarios: restaurant, customer support and booking. The website restaurant flow also completed a fictional order and displayed its generated ticket. No actual order, appointment or SMS delivery occurred.
+
+The public demo portion of workstream 1 is verified. Private summaries, help assistant and business receptionist still need an authorized test account, plan/consent/budget checks and a real receptionist call/WebSocket test. The other workstreams retain their existing blockers. The earlier missing-key observations below are historical and superseded by this update.
+
 Owner request: complete AI activation, real-phone testing, store setup, the 9-1-1 filing, measurement/ads, and backups.
 Review date: 2026-10-24. Repository: `takatakca/mimtcaapp`. Baseline inspected: `25a0520db3568397c5d50e3950f9aac6cd4e9424`.
 This document records observations, required access and completion tests. It is not a launch certificate.

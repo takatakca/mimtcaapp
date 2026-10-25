@@ -1,5 +1,14 @@
 # MIMT — File des tâches exécutables
 
+## Activation IA vérifiée — 25 octobre 2026
+
+| ID | État actuel | Prochaine preuve requise |
+| --- | --- | --- |
+| ACT-AI-PUBLIC | **Terminé** : clé sauvegardée par le propriétaire, redéploiement c27010b réussi; HTTP 200; trois scénarios en français et commande fictive sur le site | Surveiller les erreurs et l'usage dans les comptes existants; aucune nouvelle clé requise |
+| ACT-AI-PRIVATE | **À vérifier avec compte de test autorisé** | Résumé vocal/appel, assistant, budgets/consentement, réceptionniste avec appel et WebSocket; la démo publique ne les certifie pas |
+
+Déploiement Coolify `linln0s30zq4vib8j514clio`, terminé 14:05:15 UTC. Les tickets de démonstration sont simulés, aucun SMS d'entreprise livré par ces essais. Les autres accès bloquants de la liste précédente restent nécessaires.
+
 ## Avancement opérationnel — 25 octobre 2026
 
 | ID | État actuel | Prochaine preuve requise |

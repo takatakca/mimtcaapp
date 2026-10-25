@@ -1,5 +1,12 @@
 # MIMT — Déploiement et preuve de publication
 
+## API publiée — 25 octobre 2026, activation Anthropic
+
+- Révision déployée : `c27010bd83d37a4e9d681f6005df58641839f101`, CI `40174104925` réussie avant publication.
+- Coolify : déploiement manuel `linln0s30zq4vib8j514clio`, début 14:01:35 UTC, conteneur sain à 14:05:10, mise à jour roulante terminée à 14:05:15 UTC. La clé a été saisie par le propriétaire; aucune valeur lue ou enregistrée par l'agent.
+- Contrôles après publication : HTTP 200 `/healthz`, `/readyz` (`db:up`, `schema:current`), `/v1/public/ai-demo/status` (`available:true`). Trois réponses fournisseur réelles en français via POST `/v1/public/ai-demo` (restaurant, soutien, rendez-vous); parcours restaurant dans mimt.ca terminé avec confirmation et ticket fictifs.
+- Aucun SMS réel, rendez-vous réel ou commande réelle créé. Aucun déploiement webphone/mobile effectué; aucune certification télécom ou des fonctions IA privées depuis ces seuls essais.
+
 ## Reprise du 25 octobre 2026 — sauvegardes
 
 Base revue `9605bee5417c5a5e7cefef74028d17f796cc1dd8` : CI `40083012517`, PostgreSQL `40083012511`, publication vitrine `40083110006` réussis; manifeste vitrine correspondant. App encore `612284efba406d3bf708f2a4e0c574000fde5fed`; aucun nouveau déploiement webphone/API dans cette reprise. Sauvegardes Coolify quotidiennes locales et première restauration réelle isolée terminées : preuve actuelle dans `MIMT-BACKUPS.md`. Le calendrier fonctionne; R2, restauration distante et livraison d'alertes restent à configurer. Absence de clé Anthropic confirmée dans l'API MIMT.
