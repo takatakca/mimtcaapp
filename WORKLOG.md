@@ -3,6 +3,8 @@
 Newest first, one line per piece of work. Rule: `AGENTS.md` › Work log rule.
 Format: `YYYY-MM-DD | agent | branch → PR | status | what | next step`
 
+- 2026-10-25 | Codex | codex/mimt-ai-activation | public AI verified; private AI blocked: test account | Owner saved key privately; API c27010b deployed successfully (Coolify linln0s30zq4vib8j514clio); health/readiness and actual French responses in 3 scenarios passed; website fictional order + ticket passed | test private summaries/help/receptionist with authorized account; phone/store/Google/R2/legal blockers remain
+
 - 2026-10-25 | Codex | codex/mimt-activation-operations | local backup/restore done; blocked: R2 access and AI key | Coolify recovered; daily local MIMT backup at 07:00 UTC, retention 3; manual and scheduled runs succeeded; real archive restored in isolated network-disabled temporary PG17 (17 migrations, 4 tables readable); owner-only backup directory/archive; threshold 2 days, no alert channel | enter Anthropic key privately; configure R2 plus remote restore and notification channel; other store/Google/phone/legal access still needed
 
 - 2026-10-24 | Codex | codex/mimt-launch-activation → PR #56 | prepared; CI passed; blocked: account access and phone verification | Six-part activation inventory + unsent CRTC draft; missing AI env settings documented; HTTP health/readiness and 12-number search verified; AI off, GA4/Ads absent; Android signing missing; mocked backup tests pass; SMS code rejected | obtain Coolify URL/access, resume secure phone login; real backup/restore and provider/store/legal tests remain

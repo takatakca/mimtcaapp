@@ -1,5 +1,9 @@
 # MIMT — État vérifié du projet
 
+## IA activée — 25 octobre 2026
+
+La clé Anthropic du propriétaire est enregistrée dans Coolify. API `c27010bd83d37a4e9d681f6005df58641839f101` redéployée avec succès (Coolify `linln0s30zq4vib8j514clio`, fin 14:05:15 UTC). Health/readiness HTTP 200, base et schéma courants; démo publique `available:true`. Trois scénarios ont reçu une vraie réponse IA en français; le site a terminé une commande fictive avec ticket affiché. Ce ticket ne prouve pas un SMS livré. Les fonctions privées résumés/assistant/réceptionniste attendent leurs tests avec compte, consentement, forfait et appel réels. Les autres blocages des six chantiers restent ouverts.
+
 ## Opérations vérifiées — 25 octobre 2026
 
 Coolify est accessible et le travail a dépassé la préparation : sauvegarde quotidienne locale de `mimt_production` activée (07:00 UTC, rétention 3), exécution manuelle et première exécution planifiée réussies, puis **restauration réelle isolée réussie** (17 migrations, 4 tables lisibles). Voir `MIMT-BACKUPS.md`. Hors hôte R2 et alertes restent incomplets (0 stockage S3, aucun canal de notification). Clé Anthropic absente des variables MIMT; IA non activée. Authentification Cloudflare et navigateur GitHub non disponibles pour poursuivre leurs opérations. Aucun numéro acheté, aucun lancement magasins/CRTC ni déploiement API/webphone dans cette reprise.

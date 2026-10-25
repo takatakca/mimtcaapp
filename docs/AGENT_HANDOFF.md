@@ -1,5 +1,13 @@
 # MIMT — Relève du développeur principal
 
+## Relève — 25 octobre 2026 (Codex, clé IA activée)
+
+- **Fait :** propriétaire : clé Anthropic enregistrée directement dans Coolify; nom `ANTHROPIC_API_KEY` confirmé sans lecture/copie de sa valeur. API MIMT redéployée depuis `main` approuvé `c27010bd83d37a4e9d681f6005df58641839f101`; Coolify `linln0s30zq4vib8j514clio`, succès à 14:05:15 UTC (19:05:15 Asia/Karachi). Aucun changement de code d'exécution.
+- **Vérifications :** HTTP 200 health/readiness, `db:up`, `schema:current`; démo `available:true`. Réponses réelles du fournisseur en français pour restaurant, soutien et rendez-vous. Parcours du site mimt.ca : accueil IA, commande fictive, confirmation et ticket de commande affiché. Le ticket est une simulation, aucun SMS réel envoyé.
+- **Base et CI :** `main` c27010b; CI `40174104925` et vitrine `40174202731` réussis avant intervention. Aucune PR ouverte lors de la reprise. La présente branche modifie uniquement la documentation; ses checks sont à lire dans la PR.
+- **Limites :** aucune connexion à un compte MIMT de test autorisé; résumés vocaux/d'appels, assistant privé, consentements/budgets et réceptionniste WebSocket/téléphone non vérifiés de bout en bout. Ne pas les déclarer certifiés depuis la démo publique.
+- **Suite :** reprendre la connexion téléphone sécurisée et les contrôles privés; R2/alertes, magasins, mesure/pub et revue juridique restent bloqués par les accès/faits précédemment listés. Ne pas redemander la clé Anthropic ni refaire les sauvegardes locales déjà vérifiées.
+
 ## Relève — 25 octobre 2026 (Codex, opérations de sauvegarde réelles)
 
 - **Fait :** accès Coolify retrouvé dans le contexte précédent et session authentifiée réutilisée; absence de `ANTHROPIC_API_KEY` confirmée par le filtre de variables MIMT, sans lecture de valeurs secrètes. Sauvegarde quotidienne privée MIMT activée, rétention locale 3 et seuil d'alerte 2 jours persistés. Exécution manuelle 06:52:34 UTC et planifiée 07:00:15 UTC réussies le 25 octobre; archive 225,63 KB.
