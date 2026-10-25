@@ -1,5 +1,18 @@
 # MIMT : sauvegardes PostgreSQL et exercice de restauration
 
+## État réel vérifié — 25 octobre 2026
+
+- Accès Coolify MIMT rétabli via la session du propriétaire. Ressource privée `mimt-prod-postgres`, base ciblée **`mimt_production`** uniquement.
+- **Planification activée :** `0 7 * * *`, fuseau **UTC**, conservation **3** sauvegardes locales. Les valeurs ont été relues après rechargement de la page, pas seulement saisies dans le formulaire.
+- **Première exécution manuelle réussie :** 2026-10-25 06:52:30–06:52:34 UTC, **231046 octets** (225,63 KB dans Coolify).
+- **Première exécution planifiée réussie :** 2026-10-25 07:00:12–07:00:15 UTC, 225,63 KB. Les deux archives apparaissent `Success` / `Local` dans les exécutions.
+- **Restauration réelle réussie :** l'archive manuelle a été montée en lecture seule dans un conteneur jetable `postgres:17-alpine` déjà présent sur l'hôte, avec `--network none`, aucune publication de port, données PostgreSQL en tmpfs, limite mémoire 256 MB / CPU 0,5. `pg_restore --no-owner --no-acl --exit-on-error` a réussi; **17 migrations** sont enregistrées et les quatre tables `users`, `telecom_accounts`, `phone_numbers`, `messages` sont lisibles. Résultat terminal : `RESTORE_DRILL_OK`. Le conteneur a terminé et s'est supprimé (`--rm`). Aucune restauration dans la base de production.
+- Le dossier dédié MIMT a été restreint au propriétaire (`0700`), ainsi que l'archive manuelle restaurée (`0600`); modes vérifiés par `stat`. Aucun dump ni donnée client téléchargé ou ajouté à GitHub.
+- **Alertes :** seuil « Missing backup alert after » réglé à **2 jours** et relu après navigation. **Aucun canal de notification Coolify n'est configuré** : la livraison d'alerte reste à activer et à tester.
+- **Hors hôte encore bloqué :** Coolify contient **0 destination S3**; la connexion Cloudflare nécessaire n'a pas été complétée. Aucun bucket R2, aucune clé S3, aucune rétention distante ni restauration depuis R2 ne sont configurés/prouvés. La conservation S3 affiche encore 0 tant qu'aucune destination n'est validée. La copie locale ne protège pas contre la perte de l'hôte.
+- Prochaine étape : accès Cloudflare, bucket privé MIMT, stockage S3 validé dans Coolify, rétention distante **14**, nouvelle sauvegarde puis restauration depuis l'objet R2 et canal d'alerte vérifié. Le workflow hebdomadaire GitHub nécessite toujours ses accès lecture seule.
+
+
 But : chaque jour une copie de la base MIMT (`mimt_production`) hors du serveur Coolify, gardée 14 jours, et la
 preuve chaque semaine qu'on sait la restaurer. Une sauvegarde jamais restaurée n'est pas une sauvegarde.
 

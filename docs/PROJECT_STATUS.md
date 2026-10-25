@@ -1,5 +1,10 @@
 # MIMT — État vérifié du projet
 
+## Opérations vérifiées — 25 octobre 2026
+
+Coolify est accessible et le travail a dépassé la préparation : sauvegarde quotidienne locale de `mimt_production` activée (07:00 UTC, rétention 3), exécution manuelle et première exécution planifiée réussies, puis **restauration réelle isolée réussie** (17 migrations, 4 tables lisibles). Voir `MIMT-BACKUPS.md`. Hors hôte R2 et alertes restent incomplets (0 stockage S3, aucun canal de notification). Clé Anthropic absente des variables MIMT; IA non activée. Authentification Cloudflare et navigateur GitHub non disponibles pour poursuivre leurs opérations. Aucun numéro acheté, aucun lancement magasins/CRTC ni déploiement API/webphone dans cette reprise.
+
+
 ## Vérification complémentaire du 24 octobre 2026 — activation
 
 Voir `docs/MIMT-ACTIVATION.md` pour les six chantiers, les accès et leurs critères. Les observations ci-dessous remplacent les anciens blocages de disponibilité/FTP lorsqu'ils se contredisent : `app.mimt.ca/connexion/texto` répond et affiche le formulaire; la vitrine sert `25a0520`, l'app `612284e`. L'API répond HTTP 200 sur health/readiness, base et schéma à jour; la recherche 514 retourne 12 numéros. Cela ne valide pas la téléphonie. La démo IA reste indisponible (`available:false`); aucun ID GA4/Google Ads dans l'accueil servi. La connexion par texto a indiqué un code envoyé, puis l'a refusé comme invalide/expiré. Android reste bloqué par les quatre secrets de signature (run `40080169700`). Tests hermétiques sauvegarde réussis, mais aucune sauvegarde/restauration réelle prouvée dans cette intervention. Accès Coolify/R2/magasins/Google et revue légale encore requis.
