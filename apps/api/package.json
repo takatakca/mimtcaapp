@@ -29,7 +29,7 @@
     "@fastify/rate-limit": "^11.2.1",
     "@fastify/websocket": "^11.3.4",
     "@mimt/shared": "workspace:*",
-    "fastify": "^5.12.5",
+    "fastify": "^5.12.6",
     "jose": "^6.2.12",
     "livekit-server-sdk": "^2.19.1",
     "pino": "^10.4.0",
@@ -37,7 +37,7 @@
     "stripe": "^23.0.0",
     "twilio": "^6.1.2",
     "web-push": "3.6.7",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
