@@ -21,7 +21,7 @@ const AUTOPLAY_MS = 5000;
  */
 export function FeatureCarousel({ lang, label, slides }: { lang: Lang; label: string; slides: Slide[] }) {
   const fr = lang === "fr";
-  const track = useRef<HTMLUListElement>(null);
+  const track = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
   // Slides at least half on screen. Before hydration (and without JavaScript) every slide is shown.
   const [shown, setShown] = useState<boolean[]>(() => slides.map(() => true));
@@ -133,9 +133,9 @@ export function FeatureCarousel({ lang, label, slides }: { lang: Lang; label: st
         </button>
       </div>
 
-      <ul className="carousel__track" ref={track} aria-live={auto ? "off" : "polite"} tabIndex={0} aria-label={fr ? "Fonctions, faites défiler" : "Features, scroll"}>
+      <div className="carousel__track" ref={track} aria-live={auto ? "off" : "polite"} tabIndex={0} aria-label={fr ? "Fonctions, faites défiler" : "Features, scroll"}>
         {slides.map((s, i) => (
-          <li
+          <div
             key={s.title}
             className={`carousel__slide carousel__slide--${s.tone ?? "blue"}${i === index ? " is-active" : ""}`}
             role="group"
@@ -154,9 +154,9 @@ export function FeatureCarousel({ lang, label, slides }: { lang: Lang; label: st
                 {s.link.label} <span aria-hidden="true">→</span>
               </a>
             ) : null}
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
 
       <div className="carousel__dots">
         {slides.map((s, i) => (

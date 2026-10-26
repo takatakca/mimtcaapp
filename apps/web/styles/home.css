@@ -1287,6 +1287,8 @@ html[data-scrolled] .wordmark__name {
 }
 .final-cta__qc a {
   color: var(--cyan);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .final-cta .form-card {
   color: var(--ink);
@@ -1555,13 +1557,13 @@ html[data-sheet] .mobile-cta {
 /* Law 25 ad-cookie banner (components/ConsentBanner). Accept and Refuse look the same on purpose. */
 .consent {
   position: fixed;
-  inset: auto var(--gutter) var(--gutter) var(--gutter);
+  inset: auto var(--gutter) var(--gutter) auto;
   z-index: 70;
-  max-width: 640px;
-  margin-inline: auto;
+  width: min(380px, calc(100vw - 2 * var(--gutter)));
   padding: 16px 18px;
   border-radius: var(--radius);
   background: var(--midnight);
+  border: 1px solid rgba(184, 196, 211, 0.18);
   color: var(--white);
   box-shadow: 0 12px 32px rgba(6, 13, 31, 0.35);
   display: grid;
@@ -1569,16 +1571,16 @@ html[data-sheet] .mobile-cta {
 }
 .consent p {
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 0.86rem;
   line-height: 1.5;
 }
 .consent a {
   color: var(--cyan);
 }
 .consent__actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
-  justify-content: flex-end;
 }
 .link-button {
   background: none;

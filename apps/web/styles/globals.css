@@ -1174,6 +1174,8 @@ main:focus {
 }
 .site-footer__bottom a {
   color: var(--cyan);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .site-footer__tagline {
   color: var(--silver);
