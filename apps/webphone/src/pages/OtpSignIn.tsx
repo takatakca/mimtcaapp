@@ -58,6 +58,7 @@ export function OtpSignIn() {
       <div className="auth__card">
         <Wordmark />
         <h1 className="auth__title">{t("otp.title")}</h1>
+        <p className="auth__lead">{t("otp.lead")}</p>
         {!sentTo ? (
           <form onSubmit={send} className="stack" noValidate>
             <Field id="otp-phone" label={t("otp.phoneLabel")}>

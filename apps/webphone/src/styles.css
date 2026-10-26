@@ -912,6 +912,22 @@ a.list__row:hover,
 .auth__lead {
   color: var(--silver);
 }
+.auth__perks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--silver);
+  font-size: 0.85rem;
+}
+.auth__perks li::before {
+  content: "✓";
+  margin-right: 6px;
+  color: var(--cyan);
+}
 .auth__divider {
   display: flex;
   align-items: center;

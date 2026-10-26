@@ -47,17 +47,22 @@ export function SignIn() {
         </div>
         <h1 className="auth__title">{t("signin.webTitle")}</h1>
         <p className="auth__lead">{t("signin.webLead")}</p>
-        <button type="button" className="btn btn--primary btn--block btn--lg" onClick={start} disabled={busy || !configured}>
+        <Link to="/connexion/texto" className="btn btn--primary btn--block btn--lg">
+          {t("signin.sms")}
+        </Link>
+        <ul className="auth__perks">
+          <li>{t("signin.perkNoPassword")}</li>
+          <li>{t("signin.perkNoContract")}</li>
+          <li>{t("signin.perkFrench")}</li>
+        </ul>
+        <div className="auth__divider">
+          <span>{t("signin.or")}</span>
+        </div>
+        <button type="button" className="btn btn--ghost btn--block" onClick={start} disabled={busy || !configured}>
           {t("signin.takatak")}
         </button>
         <p className="field__hint">{configured ? t("signin.takatakHint") : t("signin.notConfigured")}</p>
         <ErrorNote error={error} />
-        <div className="auth__divider">
-          <span>{t("signin.or")}</span>
-        </div>
-        <Link to="/connexion/texto" className="btn btn--ghost btn--block">
-          {t("signin.sms")}
-        </Link>
         <p className="auth__legal">{t("signin.terms")}</p>
         <div className="auth__e911">
           <strong>{t("signin.e911Title")}</strong> {t("signin.e911Body")}
