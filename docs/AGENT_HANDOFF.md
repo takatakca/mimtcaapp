@@ -1,5 +1,13 @@
 # MIMT — Relève du développeur principal
 
+## Relève — 26 octobre 2026 (Claude, API racine, hébergement des sites, courriel)
+
+- **Fait :** `GET /` de l'API répond 200 avec la description du service au lieu de 404 (`apps/api/src/routes/health.ts`, test `apps/api/test/root.test.ts`). Les routes inconnues restent en 404. Typecheck et tests API réussis localement : 50 fichiers, 494 réussis, 31 ignorés.
+- **Hébergement des sites :** depuis le 26 octobre, `mimt.ca`/`www` et `app.mimt.ca` sont servis par Coolify sur vps1 (31.220.96.134), applications `mimt-web` et `mimt-app`, déploiement automatique depuis `main`. Seul l'enregistrement DNS du site a changé; courriel, ftp et cPanel restent chez MochaHost. Les 40 pages du plan du site ont été comparées avec l'ancienne copie avant la bascule; connexion TAKATAK conservée sur app.mimt.ca.
+- **Workflows FTP à désactiver (propriétaire) :** `auto-deploy-website.yml` et `deploy.yml` (website/webphone) publient encore vers MochaHost, qui ne sert plus ces domaines; leur contrôle en ligne de `mimt-release.json` échouera. Coolify n'injecte pas le SHA dans la construction de mimt.ca; app.mimt.ca le calcule depuis git.
+- **Courriel :** l'API reste en `EMAIL_PROVIDER=log`, file d'envoi en pause (« email outbox paused »). Le propriétaire a choisi le compte Resend d'Alkao, mais sa clé `RESEND_API_KEY` est refusée par Resend (« API key is invalid »). Requis : une clé Resend à accès complet, saisie directement dans Coolify; ensuite domaine mimt.ca dans Resend (DKIM `resend._domainkey`, MX et TXT `send`), `EMAIL_PROVIDER=resend` et `EMAIL_API_KEY`, puis publication de l'API.
+- **Publication API :** l'auto-déploiement de l'API reste désactivé (téléphonie, facturation et 9-1-1 restent sous contrôle du propriétaire). Cette version est publiée à la demande explicite du propriétaire après CI verte; le SHA publié est consigné dans la ligne du journal.
+
 ## Relève — 25 octobre 2026 (Codex, clé IA activée)
 
 - **Fait :** propriétaire : clé Anthropic enregistrée directement dans Coolify; nom `ANTHROPIC_API_KEY` confirmé sans lecture/copie de sa valeur. API MIMT redéployée depuis `main` approuvé `c27010bd83d37a4e9d681f6005df58641839f101`; Coolify `linln0s30zq4vib8j514clio`, succès à 14:05:15 UTC (19:05:15 Asia/Karachi). Aucun changement de code d'exécution.

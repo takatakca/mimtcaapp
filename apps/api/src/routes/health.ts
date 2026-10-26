@@ -4,6 +4,15 @@ import { pingHeartbeat } from "../monitoring/report.js";
 import { MIGRATION_ORDER } from "../jobs/migrateStandalone.js";
 
 export async function healthRoutes(app: FastifyInstance, deps: AppDeps) {
+  // The bare address says what this service is instead of a 404: people and uptime monitors open it first.
+  app.get("/", { config: { rateLimit: false } }, async () => ({
+    ok: true,
+    service: "API MIMT",
+    fr: "API téléphonie de MIMT. Site : https://mimt.ca · application : https://app.mimt.ca",
+    en: "MIMT telecom API. Website: https://mimt.ca · web app: https://app.mimt.ca",
+    health: "/healthz",
+    readiness: "/readyz",
+  }));
   app.get("/healthz", { config: { rateLimit: false } }, async () => ({ ok: true }));
   app.get("/readyz", { config: { rateLimit: false } }, async (_req, reply) => {
     try {
