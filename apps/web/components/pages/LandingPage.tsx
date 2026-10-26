@@ -5,6 +5,14 @@ import { PAGE_META } from "@/lib/meta";
 import { faqPageLd, landingServiceLd } from "@/lib/seo";
 import { LABELS, href, type Lang } from "@/lib/site";
 
+/** Real photograph for each landing page (public/photos/CREDITS.md). */
+function landingPhoto(page: LandingKey, fr: boolean): { name: string; alt: string } {
+  if (page === "useVoip") return { name: "commerce-cafe", alt: fr ? "Un propriétaire de café au téléphone derrière son comptoir" : "A café owner on the phone behind his counter" };
+  if (page === "useSecond") return { name: "studio-design", alt: fr ? "Une designer au téléphone dans son atelier" : "A designer on the phone in her studio" };
+  if (page === "useVirtual") return { name: "artisan-atelier", alt: fr ? "Un artisan content regarde son téléphone dans son atelier" : "A happy craftsman looks at his phone in his workshop" };
+  return { name: "hero-cafe", alt: fr ? "Une femme sourit en lisant un texto dans un café" : "A woman smiles as she reads a text in a café" };
+}
+
 /** Local (city) and use-case landing pages. One clear action: get a number with the live picker. */
 export function LandingPage({ lang, page }: { lang: Lang; page: LandingKey }) {
   const fr = lang === "fr";
@@ -26,7 +34,7 @@ export function LandingPage({ lang, page }: { lang: Lang; page: LandingKey }) {
   );
   return (
     <Shell lang={lang} page={page} ld={ld}>
-      <PageHero eyebrow={c.eyebrow} title={c.h1} lead={c.lead} />
+      <PageHero eyebrow={c.eyebrow} title={c.h1} lead={c.lead} photo={landingPhoto(page, fr)} />
       <section className="section">
         <div className="container prose">
           {button}

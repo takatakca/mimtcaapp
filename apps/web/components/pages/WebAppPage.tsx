@@ -30,6 +30,7 @@ export function WebAppPage({ lang }: { lang: Lang }) {
   return (
     <Shell lang={lang} page="webapp">
       <PageHero
+        photo={{ name: "pro-bureau", alt: fr ? "Une professionnelle appelle depuis son bureau, ordinateur ouvert" : "A professional calls from her desk, laptop open" }}
         eyebrow={fr ? "App Web" : "Web app"}
         title={fr ? "MIMT sur votre ordinateur : app.mimt.ca" : "MIMT on your computer: app.mimt.ca"}
         lead={

@@ -126,6 +126,7 @@ export function PlansPage({ lang }: { lang: Lang }) {
   return (
     <Shell lang={lang} page="plans" ld={[serviceLd(lang, "mobile"), serviceLd(lang, "business")]}>
       <PageHero
+        photo={{ name: "pro-bureau", alt: fr ? "Une femme au téléphone devant son ordinateur portable" : "A woman on the phone at her laptop" }}
         eyebrow={fr ? "Forfaits" : "Plans"}
         title={fr ? "Des forfaits clairs, sans surprise" : "Clear plans, no surprises"}
         lead={
