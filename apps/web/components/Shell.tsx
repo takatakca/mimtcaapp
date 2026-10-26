@@ -226,14 +226,39 @@ function MobileCtaBar({ lang }: { lang: Lang }) {
 }
 
 /** Dark page header used on inner pages. */
-export function PageHero({ eyebrow, title, lead }: { eyebrow?: string; title: string; lead?: ReactNode }) {
+export function PageHero({
+  eyebrow,
+  title,
+  lead,
+  photo,
+}: {
+  eyebrow?: string;
+  title: string;
+  lead?: ReactNode;
+  /** A real photograph from public/photos (base name, e.g. "commerce-cafe") and its alt text. */
+  photo?: { name: string; alt: string };
+}) {
   return (
-    <section className="page-hero">
+    <section className={`page-hero${photo ? " page-hero--photo" : ""}`}>
       <div className="hero-glow" aria-hidden="true" />
-      <div className="container">
-        {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
-        <h1>{title}</h1>
-        {lead ? <p className="lead">{lead}</p> : null}
+      <div className="container page-hero__inner">
+        <div className="page-hero__copy">
+          {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
+          <h1>{title}</h1>
+          {lead ? <p className="lead">{lead}</p> : null}
+        </div>
+        {photo ? (
+          <img
+            className="page-hero__photo"
+            src={`/photos/${photo.name}-800.webp`}
+            srcSet={`/photos/${photo.name}-800.webp 800w, /photos/${photo.name}-1600.webp 1600w`}
+            sizes="(min-width: 900px) 460px, 92vw"
+            width={1600}
+            height={1067}
+            alt={photo.alt}
+            fetchPriority="high"
+          />
+        ) : null}
       </div>
     </section>
   );

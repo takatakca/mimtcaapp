@@ -1844,3 +1844,122 @@ html[data-sheet] .mobile-cta {
     grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr;
   }
 }
+
+/* Hero: real photograph with the app screenshot layered on it (components/HeroArt). */
+.hero-art--photo {
+  max-width: 540px;
+  padding: 0 0 40px;
+}
+.hero-art__photo {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  object-position: 50% 70%;
+  border-radius: 28px;
+  border: 1px solid rgba(184, 196, 211, 0.18);
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.5);
+}
+.hero-art--photo .hero-art__device {
+  position: absolute;
+  right: -18px;
+  bottom: 0;
+  width: 42%;
+  max-width: 210px;
+  padding: 6px;
+  border-radius: 26px;
+}
+.hero-art--photo .hero-art__device img {
+  border-radius: 20px;
+}
+.hero-art__chip {
+  position: absolute;
+  left: 18px;
+  top: 18px;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(6, 13, 31, 0.78);
+  backdrop-filter: blur(8px);
+  color: var(--white);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.hero-art__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 0 4px rgba(41, 195, 255, 0.25);
+}
+.hero-art--photo .hero-art__cap {
+  text-align: left;
+  margin-top: 12px;
+}
+@media (max-width: 899px) {
+  .hero-art--photo .hero-art__device {
+    right: 8px;
+    width: 38%;
+  }
+}
+
+/* Who it's for: real photographs, one line each. */
+.people__grid {
+  display: grid;
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 700px) {
+  .people__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 1100px) {
+  .people__grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+.people__card {
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--white);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 30px rgba(6, 13, 31, 0.08);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.people__card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px rgba(6, 13, 31, 0.14);
+}
+.people__card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+.people__body {
+  padding: 18px 20px 22px;
+}
+.people__body h3 {
+  margin: 0 0 6px;
+  font-size: 1.12rem;
+}
+.people__body p {
+  margin: 0;
+  color: var(--ink-2);
+  line-height: 1.55;
+}
+@media (prefers-reduced-motion: reduce) {
+  .people__card,
+  .people__card:hover {
+    transition: none;
+    transform: none;
+  }
+}

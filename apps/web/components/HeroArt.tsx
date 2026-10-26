@@ -1,23 +1,34 @@
 import type { Lang } from "@/lib/site";
 
 /**
- * Home hero visual: a real screenshot of the MIMT web app on a phone (demo data, no real customer), in a simple
- * device frame. Captured from apps/webphone in demo mode; refresh public/screens/*.webp when the app changes.
+ * Home hero visual: a real photograph (Unsplash License, see public/photos/CREDITS.md) with a real screenshot of the
+ * MIMT web app layered on it (demo data, no real customer). Refresh public/screens/*.webp when the app changes.
  */
 export function HeroArt({ lang }: { lang: Lang }) {
   const fr = lang === "fr";
   return (
-    <figure className="hero-art">
-      <div className="hero-art__halo" aria-hidden="true" />
-      <div className="device device--phone">
+    <figure className="hero-art hero-art--photo">
+      <img
+        className="hero-art__photo"
+        src="/photos/hero-cafe-800.webp"
+        srcSet="/photos/hero-cafe-800.webp 800w, /photos/hero-cafe-1600.webp 1600w"
+        sizes="(min-width: 900px) 520px, 92vw"
+        width={1600}
+        height={1067}
+        alt={fr ? "Une femme sourit en lisant un texto dans un café" : "A woman smiles as she reads a text in a café"}
+        fetchPriority="high"
+      />
+      <div className="device device--phone hero-art__device">
         <img
           src="/screens/app-phone-conversation.webp"
           width={640}
           height={1313}
           alt={fr ? "L'app MIMT sur un téléphone : une conversation texto avec un client" : "The MIMT app on a phone: a text conversation with a customer"}
-          fetchPriority="high"
         />
       </div>
+      <p className="hero-art__chip" aria-hidden="true">
+        <span className="hero-art__dot" /> {fr ? "Nouveau texto · 438" : "New text · 438"}
+      </p>
       <figcaption className="hero-art__cap">{fr ? "L'app Web MIMT, données de démonstration" : "The MIMT web app, demo data"}</figcaption>
     </figure>
   );

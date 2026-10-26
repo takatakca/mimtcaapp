@@ -125,6 +125,7 @@ export function BusinessPage({ lang }: { lang: Lang }) {
   return (
     <Shell lang={lang} page="business" ld={[serviceLd(lang, "business")]}>
       <PageHero
+        photo={{ name: "commerce-cafe", alt: fr ? "Un propriétaire de café au téléphone derrière son comptoir" : "A café owner on the phone behind his counter" }}
         eyebrow={fr ? "MIMT Affaires" : "MIMT Business"}
         title={fr ? "Le système téléphonique d'entreprise, en français d'abord" : "The business phone system, French first"}
         lead={

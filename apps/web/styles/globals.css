@@ -1204,3 +1204,29 @@ main:focus {
   padding-top: 32px;
   border-top: 1px solid rgba(184, 196, 211, 0.2);
 }
+
+/* Inner page hero with a real photograph (PageHero photo prop, public/photos/CREDITS.md). */
+.page-hero__photo {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 24px;
+  border: 1px solid rgba(184, 196, 211, 0.18);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
+}
+.page-hero--photo .page-hero__inner {
+  display: grid;
+  gap: 32px;
+  align-items: center;
+}
+@media (min-width: 900px) {
+  .page-hero--photo .page-hero__inner {
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 56px;
+  }
+  .page-hero__photo {
+    aspect-ratio: 4 / 3;
+  }
+}

@@ -45,7 +45,7 @@ export function HomePage({ lang }: { lang: Lang }) {
             <h1 id="hero-title">
               <span className="h1-line">{t.h1a}</span>{" "}
               <span className="h1-line text-gradient">{t.h1b.replace("{lock}", formatCad(PLANS.lock.monthlyPriceCents, lang))}</span>{" "}
-              <span className="h1-line">{t.h1c}</span>
+              {t.h1c ? <span className="h1-line">{t.h1c}</span> : null}
             </h1>
             <p className="lead home-hero__lead">
               <strong>{t.leadStrong}</strong> {heroWithoutNumber(lang, PLANS.free.caps.onNetMinutes ?? 0)} {t.lead}
@@ -87,6 +87,34 @@ export function HomePage({ lang }: { lang: Lang }) {
               </li>
             </ul>
           ))}
+        </div>
+      </section>
+
+      {/* ---------- Who it's for: real photographs (public/photos/CREDITS.md), no names or quotes on stock people ---------- */}
+      <section className="section people" aria-labelledby="people-title">
+        <div className="container">
+          <div className="section-head section-head--center" data-reveal="">
+            <p className="kicker">{t.peopleEyebrow}</p>
+            <h2 id="people-title">{t.peopleTitle}</h2>
+          </div>
+          <ul className="people__grid">
+            {t.people.map((x) => (
+              <li key={x.photo} className="people__card" data-reveal="">
+                <img
+                  src={`/photos/${x.photo}-800.webp`}
+                  width={800}
+                  height={533}
+                  alt={x.alt}
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div className="people__body">
+                  <h3>{x.title}</h3>
+                  <p>{x.text}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
@@ -329,6 +357,9 @@ type Copy = {
   ctaWeb: string;
   heroLink: string;
   ticks: string[];
+  peopleEyebrow: string;
+  peopleTitle: string;
+  people: { photo: string; alt: string; title: string; text: string }[];
   heroNote: string;
   trustLabel: string;
   trust: { icon: IconName; text: string }[];
@@ -360,14 +391,22 @@ const FR: Copy = {
   offerStrong: "Lancement :",
   offer: "transfert de votre numéro gratuit, aucuns frais d'activation.",
   offerLink: "Choisir mon numéro",
-  h1a: "Un vrai numéro canadien",
+  h1a: "Votre numéro canadien,",
   h1b: "dès {lock} par mois.",
-  h1c: "Activé dès le paiement.",
+  h1c: "",
   leadStrong: "Appels et textos sur votre cellulaire et votre ordinateur.",
   lead: "Avec un numéro, par Wi‑Fi ou données, ici comme en voyage. Choisissez-le ci-dessous : il est réservé 10 minutes pour vous.",
   ctaWeb: "Ouvrir l'app Web",
   heroLink: "commencer dans l'app Web",
-  ticks: ["Vrai numéro canadien", "Transfert de numéro gratuit", "Français d'abord"],
+  ticks: ["Activé dès le paiement", "Transfert de numéro gratuit", "Sans contrat"],
+  peopleEyebrow: "Pour qui",
+  peopleTitle: "Un numéro qui travaille pour vous",
+  people: [
+    { photo: "studio-design", alt: "Une designer au téléphone dans son atelier", title: "Votre deuxième numéro", text: "Gardez votre cellulaire privé. Donnez votre numéro MIMT pour les ventes en ligne, les rendez-vous et les inconnus." },
+    { photo: "commerce-cafe", alt: "Un propriétaire de café au téléphone derrière son comptoir", title: "Votre commerce", text: "Un numéro local, un accueil bilingue et vos heures. La réceptionniste IA prend les appels quand vous êtes occupé." },
+    { photo: "artisan-atelier", alt: "Un artisan content regarde son téléphone dans son atelier", title: "Votre métier", text: "Vos clients appellent un numéro d'affaires. Vous répondez de votre cellulaire, même sur le chantier." },
+    { photo: "pro-bureau", alt: "Une professionnelle au téléphone devant son ordinateur", title: "Votre bureau", text: "Appels, textos et messages vocaux transcrits en français, sur votre ordinateur comme sur votre téléphone." },
+  ],
   heroNote: "Un numéro à vous dès {lock} par mois, payé d'avance et activé tout de suite :",
   trustLabel: "Nos engagements",
   trust: [
@@ -432,14 +471,22 @@ const EN: Copy = {
   offerStrong: "Launch:",
   offer: "free number transfer, no activation fee.",
   offerLink: "Pick my number",
-  h1a: "A real Canadian number",
+  h1a: "Your Canadian number,",
   h1b: "from {lock} a month.",
-  h1c: "Active as soon as you pay.",
+  h1c: "",
   leadStrong: "Calls and texts on your phone and your computer.",
   lead: "With a number, over Wi‑Fi or data, at home or abroad. Pick it below: it is held for you for 10 minutes.",
   ctaWeb: "Open the web app",
   heroLink: "start in the web app",
-  ticks: ["A real Canadian number", "Free number transfer", "French first, bilingual"],
+  ticks: ["Live as soon as you pay", "Free number transfer", "No contract"],
+  peopleEyebrow: "Who it's for",
+  peopleTitle: "A number that works for you",
+  people: [
+    { photo: "studio-design", alt: "A designer on the phone in her studio", title: "Your second number", text: "Keep your mobile private. Give your MIMT number for online sales, appointments and strangers." },
+    { photo: "commerce-cafe", alt: "A café owner on the phone behind his counter", title: "Your shop", text: "A local number, a bilingual greeting and your hours. The AI receptionist takes calls when you are busy." },
+    { photo: "artisan-atelier", alt: "A happy craftsman looks at his phone in his workshop", title: "Your trade", text: "Customers call a business number. You answer from your mobile, even on the job site." },
+    { photo: "pro-bureau", alt: "A professional on the phone at her computer", title: "Your office", text: "Calls, texts and voicemail transcribed in French, on your computer as on your phone." },
+  ],
   heroNote: "A number of your own from {lock} a month, paid up front and active right away:",
   trustLabel: "Our commitments",
   trust: [
