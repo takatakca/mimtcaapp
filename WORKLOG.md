@@ -3,6 +3,7 @@
 Newest first, one line per piece of work. Rule: `AGENTS.md` › Work log rule.
 Format: `YYYY-MM-DD | agent | branch → PR | status | what | next step`
 
+- 2026-10-26 | claude (MIMT agent 2, session 01GtWamF) | claude/drive-dossier → PR | done | Owner-facing MIMT dossier written in the owner's private Drive (MAIN › « MIMT — Télécom (produit TAKATAK) », 11 signed files: status, delivery history, architecture, production, owner actions, mobile, pricing, competitors, regulatory). Pointer only: no private data in this repo | owner reads files 01 and 05 first
 - 2026-10-25 | Codex | codex/mimt-ai-activation | public AI verified; private AI blocked: test account | Owner saved key privately; API c27010b deployed successfully (Coolify linln0s30zq4vib8j514clio); health/readiness and actual French responses in 3 scenarios passed; website fictional order + ticket passed | test private summaries/help/receptionist with authorized account; phone/store/Google/R2/legal blockers remain
 
 - 2026-10-25 | Codex | codex/mimt-activation-operations | local backup/restore done; blocked: R2 access and AI key | Coolify recovered; daily local MIMT backup at 07:00 UTC, retention 3; manual and scheduled runs succeeded; real archive restored in isolated network-disabled temporary PG17 (17 migrations, 4 tables readable); owner-only backup directory/archive; threshold 2 days, no alert channel | enter Anthropic key privately; configure R2 plus remote restore and notification channel; other store/Google/phone/legal access still needed
