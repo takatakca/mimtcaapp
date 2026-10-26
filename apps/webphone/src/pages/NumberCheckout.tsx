@@ -142,12 +142,12 @@ export function NumberCheckout() {
         {status !== "signedIn" ? (
           <>
             <p className="auth__lead">{fr ? "Étape 1 sur 3 : créez votre compte ou connectez-vous." : "Step 1 of 3: create your account or sign in."}</p>
-            <button type="button" className="btn btn--primary btn--block btn--lg" onClick={() => navigate("/connexion", { state: { from: "/numero" } })}>
+            <Link to="/connexion/texto" className="btn btn--primary btn--block btn--lg">
+              {fr ? "Continuer avec mon cellulaire" : "Continue with my mobile number"}
+            </Link>
+            <button type="button" className="btn btn--ghost btn--block" onClick={() => navigate("/connexion", { state: { from: "/numero" } })}>
               {fr ? "Continuer avec TAKATAK" : "Continue with TAKATAK"}
             </button>
-            <Link to="/connexion/texto" className="btn btn--ghost btn--block">
-              {fr ? "Recevoir un code par texto" : "Get a code by text"}
-            </Link>
           </>
         ) : !me?.e911.addressRegistered || !me.e911.noticeAccepted ? (
           <>
