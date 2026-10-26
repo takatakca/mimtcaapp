@@ -59,7 +59,7 @@ test("sign in by SMS code, read messages and voicemail, add an extension, browse
   // --- Sign in (OTP; the e2e server's fake Twilio Verify accepts only the fixture code) -------------
   await page.goto("/");
   await expect(page).toHaveURL(/\/connexion$/);
-  await page.getByRole("link", { name: "Recevoir un code par texto" }).click();
+  await page.getByRole("link", { name: "Continuer avec mon cellulaire" }).click();
   await page.getByLabel("Votre numéro de cellulaire").fill(E2E_PHONE_TYPED);
   await page.getByRole("button", { name: "Envoyer le code" }).click();
   await page.getByLabel("Code reçu par texto").fill(E2E_OTP_CODE);
