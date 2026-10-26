@@ -2,6 +2,11 @@ name: Auto deploy MIMT website
 
 # Only the public, pre-launch static website is eligible for automatic publishing.
 # Telecom API, billing and emergency-call integrations remain manual release gates.
+#
+# Since 2026-10-26 mimt.ca and www.mimt.ca are served by Coolify (vps1, application mimt-web), not MochaHost.
+# Coolify builds main on every push and its build runs scripts/verify-out.mjs, so a broken site never goes
+# live. This workflow no longer uploads anything: once CI passes, it confirms that the public site serves
+# that exact commit (out/mimt-release.json is written by the build from SOURCE_COMMIT).
 on:
   workflow_run:
     workflows: ["CI"]
@@ -15,8 +20,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Cheap remote HEAD check keeps superseded workflow_run events from rebuilding the
-  # whole monorepo. A second check just before FTP closes the build-time race.
+  # Cheap remote HEAD check: a superseded CI run has nothing to confirm, the newer push is checked by its own run.
   release-candidate:
     if: >-
       ${{ github.event.workflow_run.conclusion == 'success' &&
@@ -42,63 +46,12 @@ jobs:
             echo "current=true" >> "$GITHUB_OUTPUT"
           fi
 
-  deploy-website:
+  confirm-website:
     needs: release-candidate
     if: needs.release-candidate.outputs.current == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Check required website FTPS configuration without exposing secrets
-        shell: bash
-        env:
-          FTP_SERVER: ${{ secrets.MOCHAHOST_FTP_SERVER }}
-          FTP_USER: ${{ secrets.MOCHAHOST_FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
-        run: |
-          set -euo pipefail
-          for value in "$FTP_SERVER" "$FTP_USER" "$FTP_PASSWORD"; do
-            if [[ -z "$value" ]]; then
-              echo "::error::Missing MOCHAHOST_FTP_SERVER, MOCHAHOST_FTP_USERNAME or MOCHAHOST_FTP_PASSWORD."
-              exit 1
-            fi
-          done
-          if [[ ! "$FTP_SERVER" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]] || [[ "$FTP_SERVER" == *..* ]]; then
-            echo "::error::MOCHAHOST_FTP_SERVER must be a hostname, not a URL, a path or a placeholder."
-            exit 1
-          fi
-          if ! getent ahosts "$FTP_SERVER" >/dev/null; then
-            echo "::error::Website FTPS host does not resolve in DNS. Check MOCHAHOST_FTP_SERVER."
-            exit 1
-          fi
-      - uses: actions/checkout@v4
-        with:
-          # Publish exactly the revision that passed CI, not a newer untested main.
-          ref: ${{ github.event.workflow_run.head_sha }}
-          persist-credentials: false
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @mimt/shared build
-      - run: pnpm --filter @mimt/web build
-        env:
-          NEXT_PUBLIC_FORMS_ENDPOINT: ${{ vars.FORMS_ENDPOINT }}
-          NEXT_PUBLIC_API_URL: ${{ vars.API_URL || 'https://api.mimt.ca' }}
-          # Google Analytics 4 / Google Ads (public ids; unset = tag off). docs/MIMT-ADS-TRACKING.md
-          NEXT_PUBLIC_GA4_ID: ${{ vars.GA4_ID }}
-          NEXT_PUBLIC_GADS_ID: ${{ vars.GADS_ID }}
-          NEXT_PUBLIC_GADS_HOLD_LABEL: ${{ vars.GADS_HOLD_LABEL }}
-          # AdSense ads.txt on the root domain (covers app.mimt.ca). Unset: no ads.txt. docs/MIMT-LAUNCH.md « Publicités et coûts ».
-          NEXT_PUBLIC_ADSENSE_PUBLISHER_ID: ${{ vars.ADSENSE_PUBLISHER_ID || vars.ADSENSE_CLIENT }}
-      - name: Embed CI-validated revision in public static release manifest
-        env:
-          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          set -euo pipefail
-          printf '{"commit":"%s"}\n' "$RELEASE_SHA" > apps/web/out/mimt-release.json
-      # workflow_run may finish after a newer main push. Never roll back production
-      # by publishing a previously validated but now superseded commit.
+      # workflow_run may finish after a newer main push: only the current main revision is confirmed.
       - name: Verify release commit still matches remote main
         id: release-gate
         shell: bash
@@ -112,18 +65,10 @@ jobs:
             echo "::notice::Skipping superseded revision; current main differs from the CI-tested commit."
           else
             echo "publish=true" >> "$GITHUB_OUTPUT"
-            echo "Publishing only the current main revision that passed CI."
           fi
-      - name: Upload only the public static website to the verified FTP login root
-        if: steps.release-gate.outputs.publish == 'true'
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.MOCHAHOST_FTP_SERVER }}
-          username: ${{ secrets.MOCHAHOST_FTP_USERNAME }}
-          password: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
-          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
-          local-dir: ./apps/web/out/
-          server-dir: ./
+      # Coolify starts building on the push itself; CI usually takes longer, so the first attempt often passes.
+      # Up to 15 minutes covers a slow Coolify build. A newer push to main ends the wait without failing:
+      # its own CI run confirms the newer commit.
       - name: Confirm published website content, revision and reject old provider content
         if: steps.release-gate.outputs.publish == 'true'
         shell: bash
@@ -131,8 +76,8 @@ jobs:
           RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          for attempt in {1..10}; do
-            html="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://mimt.ca/?release=${GITHUB_SHA}" 2>/dev/null || true)"
+          for attempt in {1..60}; do
+            html="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://mimt.ca/?release=${RELEASE_SHA}" 2>/dev/null || true)"
             manifest="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://mimt.ca/mimt-release.json?release=${RELEASE_SHA}" 2>/dev/null || true)"
             if [[ "$html" == *"Votre numéro canadien"* ]] &&
                ! grep -Eiq 'Fongo (Mobile|Works|Internet|World|Home Phone)|Waterloo, Ontario|About Fongo' <<<"$html" &&
@@ -140,8 +85,14 @@ jobs:
               echo "Published MIMT French website at the expected CI-validated commit: $RELEASE_SHA."
               exit 0
             fi
-            echo "Public website verification attempt ${attempt}/10 failed."
-            sleep 10
+            current="$(git ls-remote --exit-code "https://github.com/${GITHUB_REPOSITORY}.git" refs/heads/main | cut -f1)"
+            if [[ "$current" != "$RELEASE_SHA" ]]; then
+              echo "::notice::main moved on to ${current}; its own CI run confirms the newer website."
+              exit 0
+            fi
+            served="$(jq -r '.commit // "none"' <<<"$manifest" 2>/dev/null || echo none)"
+            echo "Attempt ${attempt}/60: mimt.ca serves commit ${served}, waiting for ${RELEASE_SHA}."
+            sleep 15
           done
-          echo "::error::FTPS upload did not publish the expected MIMT site and release commit. Check document root, CDN caching and mimt-release.json."
+          echo "::error::mimt.ca did not serve ${RELEASE_SHA} within 15 minutes. Check the mimt-web deployment in Coolify (build log, then https://mimt.ca/mimt-release.json)."
           exit 1

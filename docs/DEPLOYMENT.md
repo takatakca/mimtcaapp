@@ -23,8 +23,8 @@ Vérifié au 2026-10-14. Repository `takatakca/mimtcaapp`, branche `main`. Node 
 
 | Nom | Origine | Destination | Procédure |
 | --- | --- | --- | --- |
-| `mimt.ca` | `apps/web/out/` (Next.js statique) | compte FTPS MochaHost propre au site, répertoire de connexion `./` | automatique après **CI complète réussie** sur `main`; également manuel |
-| `app.mimt.ca` | `apps/webphone/dist/` (Vite) | compte FTPS distinct pointant vers le véritable document root `app.mimt.ca`, `./` | manuel; dernier FTP `ENOTFOUND` |
+| `mimt.ca` | `apps/web/out/` (Next.js statique) | Coolify vps1, application `mimt-web` (nginx), depuis le 26 octobre 2026 | Coolify construit `main` à chaque poussée (la construction exécute `verify-out.mjs`); `auto-deploy-website.yml` confirme ensuite, après CI, que `mimt-release.json` sert le SHA testé. Plus de FTP. |
+| `app.mimt.ca` | `apps/webphone/dist/` (Vite) | Coolify vps1, application `mimt-app` (nginx), depuis le 26 octobre 2026 | Coolify construit `main` à chaque poussée; `mimt-release.json` vient de `SOURCE_COMMIT`. Les portées FTP de `deploy.yml` visent MochaHost, qui ne sert plus ces domaines. |
 | `api.mimt.ca` | `apps/api/Dockerfile` | application MIMT sur Coolify, proxy HTTPS vers 8080 | manuel (télécom, conformité et paiements restent des portes de lancement) |
 | PostgreSQL | `mimt-prod-postgres` | PostgreSQL privée sur Coolify | migration explicite, sauvegardes/restore séparés |
 

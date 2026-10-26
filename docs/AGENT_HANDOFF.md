@@ -1,5 +1,14 @@
 # MIMT — Relève du développeur principal
 
+## Relève — 26 octobre 2026, après-midi (Claude, publication du site par Coolify)
+
+- **Constat :** l'exécution `40336213065` (« Auto deploy MIMT website », `912d12c`) échouait à « Confirm published website content » : le contenu de mimt.ca était bon, mais `https://mimt.ca/mimt-release.json` répondait 404. Depuis le 26 octobre le site est servi par Coolify; le FTP publiait vers MochaHost, qui ne sert plus mimt.ca.
+- **Correctif :** la construction écrit `out/mimt-release.json` depuis `GITHUB_SHA` ou `SOURCE_COMMIT` (`apps/web/lib/releaseManifest.ts`, `scripts/release-manifest.mjs`, test `apps/web/test/releaseManifest.test.ts`). `auto-deploy-website.yml` ne téléverse plus rien : après CI, il attend jusqu'à 15 minutes que mimt.ca serve le SHA testé, et s'arrête sans échec si `main` a avancé. app.mimt.ca lit aussi `SOURCE_COMMIT` (il affichait « unknown »).
+- **Coolify (fait) :** « include source commit in build » activé sur `mimt-web` et `mimt-app`; leurs configurations nginx refusent désormais les fichiers commençant par un point (`.htaccess` était lisible publiquement), sauf `.well-known`.
+- **Vérifications locales :** tests web 44/44, webphone 22 fichiers / 105 tests, typecheck webphone, construction du site avec `SOURCE_COMMIT` = `912d12c` : manifeste correct, `verify-out` 46 pages OK.
+- **Avis Next.js :** la construction locale a affiché un avertissement de sécurité pour Next.js 16.4.0 (mise à niveau recommandée). Non traité ici : à planifier.
+- **Suite :** fusion de la PR, puis vérifier que la CI de `main` et « Auto deploy MIMT website » passent, et que `https://mimt.ca/mimt-release.json` sert le SHA fusionné.
+
 ## Relève — 26 octobre 2026 (Claude, API racine, hébergement des sites, courriel)
 
 - **Fait :** `GET /` de l'API répond 200 avec la description du service au lieu de 404 (`apps/api/src/routes/health.ts`, test `apps/api/test/root.test.ts`). Les routes inconnues restent en 404. Typecheck et tests API réussis localement : 50 fichiers, 494 réussis, 31 ignorés.
