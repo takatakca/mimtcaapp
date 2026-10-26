@@ -92,6 +92,10 @@ describe("mimt-release.json commit", () => {
     expect(releaseCommit({ GITHUB_SHA: " 0123456789abcdef0123456789abcdef01234567 " })).toBe("0123456789abcdef0123456789abcdef01234567");
   });
 
+  it("uses SOURCE_COMMIT in Coolify builds", () => {
+    expect(releaseCommit({ SOURCE_COMMIT: "0123456789abcdef0123456789abcdef01234567" })).toBe("0123456789abcdef0123456789abcdef01234567");
+  });
+
   it("falls back to the local git revision (or 'unknown'), never an empty string", () => {
     expect(releaseCommit({})).toMatch(/^([0-9a-f]{40}|unknown)$/);
   });

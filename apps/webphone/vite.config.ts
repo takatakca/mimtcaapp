@@ -6,10 +6,11 @@ import { defineConfig, type Plugin } from "vite";
 /**
  * dist/mimt-release.json = {"commit":"<sha>"}, the same shape as mimt.ca's. The deploy workflow
  * fetches https://app.mimt.ca/mimt-release.json and requires the released commit, so a stale or
- * partial upload can never pass as verified. GITHUB_SHA in Actions, else the local git HEAD.
+ * partial upload can never pass as verified. GITHUB_SHA in Actions, SOURCE_COMMIT in Coolify builds,
+ * else the local git HEAD.
  */
 export function releaseCommit(env: Record<string, string | undefined> = process.env): string {
-  const fromEnv = env.GITHUB_SHA?.trim();
+  const fromEnv = env.GITHUB_SHA?.trim() || env.SOURCE_COMMIT?.trim();
   if (fromEnv) return fromEnv;
   try {
     return execSync("git rev-parse HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim() || "unknown";
