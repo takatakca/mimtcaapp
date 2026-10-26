@@ -51,10 +51,26 @@ jobs:
     if: needs.release-candidate.outputs.current == 'true'
     runs-on: ubuntu-latest
     steps:
+      # workflow_run may finish after a newer main push: only the current main revision is confirmed.
+      - name: Verify release commit still matches remote main
+        id: release-gate
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          current="$(git ls-remote --exit-code "https://github.com/${GITHUB_REPOSITORY}.git" refs/heads/main | cut -f1)"
+          if [[ "$current" != "$RELEASE_SHA" ]]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping superseded revision; current main differs from the CI-tested commit."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
       # Coolify starts building on the push itself; CI usually takes longer, so the first attempt often passes.
       # Up to 15 minutes covers a slow Coolify build. A newer push to main ends the wait without failing:
       # its own CI run confirms the newer commit.
       - name: Confirm published website content, revision and reject old provider content
+        if: steps.release-gate.outputs.publish == 'true'
         shell: bash
         env:
           RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
