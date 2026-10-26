@@ -7,7 +7,8 @@
 - **Coolify (fait) :** « include source commit in build » activé sur `mimt-web` et `mimt-app`; leurs configurations nginx refusent désormais les fichiers commençant par un point (`.htaccess` était lisible publiquement), sauf `.well-known`.
 - **Vérifications locales :** tests web 44/44, webphone 22 fichiers / 105 tests, typecheck webphone, construction du site avec `SOURCE_COMMIT` = `912d12c` : manifeste correct, `verify-out` 46 pages OK.
 - **Avis Next.js :** la construction locale a affiché un avertissement de sécurité pour Next.js 16.4.0 (mise à niveau recommandée). Non traité ici : à planifier.
-- **Suite :** fusion de la PR, puis vérifier que la CI de `main` et « Auto deploy MIMT website » passent, et que `https://mimt.ca/mimt-release.json` sert le SHA fusionné.
+- **Vérifié après fusion (PR #61, commit `0b834b10e79fec8a7fad53e94349f70e0e5c95fd`) :** CI de `main` [40350437332](https://github.com/takatakca/mimtcaapp/actions/runs/40350437332) réussie; « Auto deploy MIMT website » [40352305767](https://github.com/takatakca/mimtcaapp/actions/runs/40352305767) réussi dès la 1re tentative (« Published MIMT French website at the expected CI-validated commit: 0b834b1… »); `https://mimt.ca/mimt-release.json` = `{"commit":"0b834b10e79fec8a7fad53e94349f70e0e5c95fd"}`.
+- **Suite :** propriétaire : désactiver le workflow FTP `deploy.yml` (portées website/webphone), devenu inutile; planifier la mise à niveau de Next.js 16.4.0.
 
 ## Relève — 26 octobre 2026 (Claude, API racine, hébergement des sites, courriel)
 
