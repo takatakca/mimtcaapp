@@ -21,9 +21,9 @@ export function price(plan: Plan, lang: Lang): { amount: string; unit: string } 
 
 export function yearly(plan: Plan, lang: Lang): string | null {
   if (!plan.yearlyPriceCents) return null;
-  return lang === "fr"
-    ? `ou ${formatCad(plan.yearlyPriceCents, lang)}/an`
-    : `or ${formatCad(plan.yearlyPriceCents, lang)}/year`;
+  const free = plan.yearlyPriceCents <= plan.monthlyPriceCents * 11;
+  if (lang === "fr") return `ou ${formatCad(plan.yearlyPriceCents, lang)}/an${free ? " : 1 mois gratuit" : ""}`;
+  return `or ${formatCad(plan.yearlyPriceCents, lang)}/year${free ? ": 1 month free" : ""}`;
 }
 
 export const FEATURE_LABELS: Record<Feature, { fr: string; en: string }> = {
