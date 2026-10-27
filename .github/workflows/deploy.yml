@@ -136,7 +136,8 @@ jobs:
           RELEASE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          for attempt in {1..10}; do
+          # The host can take several minutes to serve a new upload (2026-10-26/27), so wait up to 15 min.
+          for attempt in {1..45}; do
             html="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://mimt.ca/?release=${GITHUB_SHA}" 2>/dev/null || true)"
             manifest="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://mimt.ca/mimt-release.json?release=${RELEASE_SHA}" 2>/dev/null || true)"
             if [[ "$html" == *"Votre numéro canadien"* ]] &&
@@ -145,8 +146,8 @@ jobs:
               echo "Verified: mimt.ca serves the expected manual-release commit: $RELEASE_SHA."
               exit 0
             fi
-            echo "Attempt ${attempt}/10: mimt.ca still does not show the expected MIMT homepage."
-            sleep 10
+            echo "Attempt ${attempt}/45: mimt.ca still does not show the expected MIMT homepage."
+            sleep 20
           done
           echo "::error::FTP upload finished but mimt.ca did not publish the new MIMT homepage. Verify the cPanel document root, WEB_FTP_DIR (currently an FTP-relative directory), domain DNS, and any server/CDN cache. Never mark the release successful while Fongo content remains online."
           exit 1
