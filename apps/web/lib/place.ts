@@ -37,3 +37,19 @@ export function placeName(e164: string, locality: string | null | undefined, reg
   if (known) return fr ? known.fr : known.en;
   return region ?? "";
 }
+
+/** A short reason a number is easy to remember (last 4 digits), or null. Shown as a badge in the picker. */
+export function memorable(e164: string, fr: boolean): string | null {
+  const last4 = e164.replace(/\D/g, "").slice(-4);
+  if (last4.length < 4) return null;
+  const d = last4.split("").map(Number);
+  if (/^(\d)\1{3}$/.test(last4)) return fr ? "Quatre chiffres pareils" : "Four of a kind";
+  if (last4.endsWith("000")) return fr ? "Finit par 000" : "Ends in 000";
+  if (d.every((x, i) => i === 0 || x === d[i - 1]! + 1) || d.every((x, i) => i === 0 || x === d[i - 1]! - 1)) return fr ? "Suite de chiffres" : "Digit run";
+  if (last4.endsWith("00")) return fr ? "Finit par 00" : "Ends in 00";
+  if (last4[0] === last4[2] && last4[1] === last4[3]) return fr ? "Motif qui se répète" : "Repeating pattern";
+  if (/(\d)\1\1/.test(last4)) return fr ? "Trois chiffres pareils" : "Triple digits";
+  if (last4[0] === last4[1] && last4[2] === last4[3]) return fr ? "Chiffres doublés" : "Double digits";
+  if (last4 === last4.split("").reverse().join("")) return fr ? "Se lit dans les deux sens" : "Reads both ways";
+  return null;
+}

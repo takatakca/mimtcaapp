@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatCad, formatNanp, NUMBER_HOLD_MINUTES, PLANS, type NumberHoldResponse, type PublicNumber, type PublicNumberSearchResponse } from "@mimt/shared";
 import { API_URL, APP_URL, type Lang } from "@/lib/site";
 import { trackNumberHeld } from "@/lib/tags";
-import { placeName } from "@/lib/place";
+import { memorable, placeName } from "@/lib/place";
 
 const CHIPS = ["514", "438", "450", "418", "819", "Toronto"];
 
@@ -287,7 +287,10 @@ export function NumberPicker({ lang, plan = "lock", id = "numero" }: { lang: Lan
                   <li key={n.e164} style={{ "--i": String(i) } as React.CSSProperties}>
                     <button type="button" className="picker__item" disabled={busy !== null} onClick={() => void pick(n)}>
                       <span className="picker__digits">{formatNanp(n.e164, lang)}</span>
-                      <span className="picker__place">{placeName(n.e164, n.locality, n.region, fr)}</span>
+                      <span className="picker__place">
+                        {placeName(n.e164, n.locality, n.region, fr)}
+                        {memorable(n.e164, fr) ? <span className="picker__lucky">✦ {memorable(n.e164, fr)}</span> : null}
+                      </span>
                       <span className="picker__take">{busy === n.e164 ? "…" : fr ? "Réserver" : "Hold"}</span>
                     </button>
                   </li>

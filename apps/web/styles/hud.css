@@ -667,3 +667,16 @@ html[data-scrolled] .ai-launch {
     transition: none;
   }
 }
+
+/* Number picker: badge on numbers that are easy to remember (lib/place.ts memorable). */
+.picker__lucky {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font: 600 0.7rem/1.5 var(--mono);
+  letter-spacing: 0.04em;
+  color: var(--navy);
+  background: linear-gradient(90deg, var(--cyan), #8fd8ff);
+  white-space: nowrap;
+}
