@@ -10,6 +10,7 @@ import { PostgresReferralRepository } from "./referralsPostgres.js";
 import { PostgresNumberHoldRepository } from "./numberHoldsPostgres.js";
 import { PostgresHandleRepository } from "./handlesPostgres.js";
 import { PostgresWebPushRepository } from "./webPushPostgres.js";
+import { PostgresMissionRepository } from "./missionsPostgres.js";
 import { PostgresPortInRepository } from "./portInPostgres.js";
 import { PostgresMeetingRepository } from "./meetingsPostgres.js";
 import type {
@@ -93,6 +94,11 @@ export class PostgresRepository implements Repository {
   private handleRepo?: PostgresHandleRepository;
   get handles(): PostgresHandleRepository {
     return (this.handleRepo ??= new PostgresHandleRepository(this.sql));
+  }
+
+  private missionRepo?: PostgresMissionRepository;
+  get missions(): PostgresMissionRepository {
+    return (this.missionRepo ??= new PostgresMissionRepository(this.sql));
   }
 
   private webPushRepo?: PostgresWebPushRepository;
@@ -466,9 +472,9 @@ export class PostgresRepository implements Repository {
       for (const period of periods) {
         await tx`
           insert into usage_ledger (telecom_account_id, period, minutes_out, minutes_in, sms_out, sms_in, mms_out, minutes_on_net,
-                                    bonus_minutes_out, spend_cad, intl_spend_cad)
+                                    bonus_minutes_out, bonus_minutes_on_net, spend_cad, intl_spend_cad)
           values (${accountId}, ${period}, ${d.minutesOut ?? 0}, ${d.minutesIn ?? 0}, ${d.smsOut ?? 0}, ${d.smsIn ?? 0}, ${d.mmsOut ?? 0},
-                  ${d.minutesOnNet ?? 0}, ${d.bonusMinutesOut ?? 0}, ${d.spendCad ?? 0}, ${d.intlSpendCad ?? 0})
+                  ${d.minutesOnNet ?? 0}, ${d.bonusMinutesOut ?? 0}, ${d.bonusMinutesOnNet ?? 0}, ${d.spendCad ?? 0}, ${d.intlSpendCad ?? 0})
           on conflict (telecom_account_id, period) do update set
             minutes_out = usage_ledger.minutes_out + excluded.minutes_out,
             minutes_in = usage_ledger.minutes_in + excluded.minutes_in,
@@ -477,6 +483,7 @@ export class PostgresRepository implements Repository {
             mms_out = usage_ledger.mms_out + excluded.mms_out,
             minutes_on_net = usage_ledger.minutes_on_net + excluded.minutes_on_net,
             bonus_minutes_out = usage_ledger.bonus_minutes_out + excluded.bonus_minutes_out,
+            bonus_minutes_on_net = usage_ledger.bonus_minutes_on_net + excluded.bonus_minutes_on_net,
             spend_cad = usage_ledger.spend_cad + excluded.spend_cad,
             intl_spend_cad = usage_ledger.intl_spend_cad + excluded.intl_spend_cad`;
       }
@@ -485,7 +492,7 @@ export class PostgresRepository implements Repository {
   async getUsage(accountId: string, period: string): Promise<Usage> {
     const row = maybe<Usage>(
       await this.sql`select telecom_account_id, period, minutes_out, minutes_in, sms_out, sms_in, mms_out, minutes_on_net,
-          bonus_minutes_out, spend_cad, intl_spend_cad
+          bonus_minutes_out, bonus_minutes_on_net, spend_cad, intl_spend_cad
         from usage_ledger where telecom_account_id = ${accountId} and period = ${period}`,
     );
     return row ?? emptyUsage(accountId, period);

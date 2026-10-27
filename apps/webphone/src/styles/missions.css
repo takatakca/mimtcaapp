@@ -1,0 +1,196 @@
+/* Yearly plans (components/IntervalToggle.tsx) and Missions MIMT (pages/Missions.tsx, components/MissionToaster.tsx).
+   Brand: electric blue on deep navy; green only for the « done » status. Tokens come from styles.css. */
+
+.interval-toggle {
+  padding: 4px;
+  margin: 0 0 12px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-radius: 999px;
+  background: var(--navy);
+  border: 1px solid var(--line);
+}
+.interval-toggle__opt {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.interval-toggle__opt input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.interval-toggle__opt.is-on {
+  background: var(--brand);
+  color: var(--white);
+}
+.interval-toggle__opt:focus-within {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.interval-toggle__badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(41, 195, 255, 0.15);
+  color: var(--cyan);
+}
+.interval-toggle__opt.is-on .interval-toggle__badge {
+  background: rgba(245, 248, 252, 0.18);
+  color: var(--white);
+}
+.plan-equiv {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--silver);
+}
+.upgrade-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.upgrade-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mission-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+  border-color: var(--electric);
+}
+.mission-card:hover,
+.mission-card:focus-visible {
+  background: var(--midnight-2);
+}
+.mission-progress {
+  height: 12px;
+  margin: 8px 0;
+}
+.mission-earned {
+  font-family: var(--font-h);
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin: 8px 0 4px;
+}
+.mission-list {
+  list-style: none;
+  margin: 16px 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.mission {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--midnight);
+  border: 1px solid var(--line);
+}
+.mission__check {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--navy);
+  color: var(--electric);
+  font-weight: 700;
+}
+/* « Accomplie » is a status: green is allowed here (docs/BRAND.md). */
+.mission--done .mission__check {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.mission--pending .mission__check {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+.mission__body p {
+  margin: 0 0 2px;
+}
+.mission__label {
+  font-weight: 700;
+}
+.mission__reward {
+  color: var(--cyan);
+  font-weight: 600;
+}
+.mission-share-url {
+  word-break: break-all;
+}
+.mission-rules ul {
+  margin: 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: 6px;
+}
+@media (max-width: 560px) {
+  .mission {
+    grid-template-columns: auto 1fr;
+  }
+  .mission > .btn {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+.mission-toast-region {
+  top: auto;
+  bottom: calc(var(--bottomnav-h) + 16px);
+}
+.mission-toast {
+  border-color: var(--electric);
+}
+.mission-toast__icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--brand);
+  color: var(--white);
+  animation: mission-pop 0.6s ease-out;
+}
+.mission-toast__text {
+  flex: 1;
+  min-width: 0;
+  color: var(--white);
+  font-weight: 600;
+  text-decoration: none;
+}
+@keyframes mission-pop {
+  0% {
+    transform: scale(0.4);
+  }
+  70% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mission-toast__icon {
+    animation: none;
+  }
+}

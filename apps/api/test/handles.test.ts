@@ -14,7 +14,8 @@ describe("MIMT handles", () => {
   it("lets a user pick one handle, once, normalised", async () => {
     const a = await makeUser(ctx);
     expect((await ctx.app.inject({ url: "/v1/me/handle", headers: a.auth })).json()).toEqual({ handle: null });
-    expect((await setHandle(a.auth, "Camille.T")).json()).toEqual({ handle: "@camille.t" });
+    expect((await setHandle(a.auth, "Camille.T")).json()).toMatchObject({ handle: "@camille.t", missionGranted: { id: "choose_handle" } });
+    expect((await setHandle(a.auth, "camille.t")).json()).toEqual({ handle: "@camille.t" });
     expect((await setHandle(a.auth, "camille.t")).statusCode).toBe(200);
     expect((await setHandle(a.auth, "autre")).json().error).toBe("handle_already_set");
   });

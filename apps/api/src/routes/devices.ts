@@ -5,6 +5,7 @@ import type { AppDeps } from "../deps.js";
 import { requireUser } from "../auth/guard.js";
 import { badRequest, conflict, forbidden, notConfigured } from "../lib/errors.js";
 import { parse } from "../lib/validate.js";
+import { grantMission } from "../services/missions.js";
 
 const DEVICE_KEY = /^[A-Za-z0-9_-]{8,256}$/;
 const CHALLENGE_TTL_S = 300;
@@ -46,6 +47,12 @@ export async function deviceRoutes(app: FastifyInstance, deps: AppDeps) {
     if (bound === "taken") throw conflict("device_already_used", "Cet appareil est déjà lié à un autre compte MIMT.");
     await deps.repo.updateUser(req.userId!, { deviceVerifiedAt: deps.now() });
     await deps.repo.audit({ actorUserId: req.userId, action: "device.attested", targetType: "user", targetId: req.userId, ip: req.ip, meta: { platform: body.platform } });
-    return { verified: true };
+    // Mission « Installez l'app mobile »: App Attest / Play Integrity just proved a genuine MIMT app on a real device.
+    // Once per account and once per device (keyed hash of the device key).
+    const account = await deps.repo.getAccountByOwner(req.userId!);
+    const missionGranted = account
+      ? await grantMission(deps, { account, mission: "install_app", sourceRef: `device:${body.platform}`, deviceKey: body.deviceKey, log: req.log })
+      : null;
+    return missionGranted ? { verified: true, missionGranted } : { verified: true };
   });
 }

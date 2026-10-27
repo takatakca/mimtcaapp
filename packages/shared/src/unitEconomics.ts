@@ -185,3 +185,57 @@ export function planRuleViolations(
     .map((p) => ({ code: p.code, economics: planEconomics(p.monthlyPriceCents, quotaFromCaps(p.caps), r, a) }))
     .filter((v) => !v.economics.ok);
 }
+
+// ---------------------------------------------------------------- annual plans (12 months for the price of 11)
+
+/**
+ * Ceiling for the YEARLY worst case, owner decision 2026-10-27 (« un mois gratuit si t'achètes pour un an »).
+ * Separate from the monthly rule (maxCostShare 0.70), which stays as it is: the free month is a known margin cost.
+ *
+ * Why 0.80: a plan that passes the monthly 70 % rule reaches at most ≈ 76.4 % on its yearly price
+ * (0.70 × 12 / (11 × (1 − 2.9 %)), the Stripe fee being charged once a year), so 0.80 never blocks a plan the
+ * monthly rule accepts, while staying far from 100 % (cost = net: a loss). It is never applied above NEVER_A_LOSS.
+ */
+export const MAX_COST_SHARE_YEARLY = 0.8;
+/** Hard limit for any price: the worst-case cost never reaches what MIMT keeps of it. */
+export const NEVER_A_LOSS = 1;
+
+export interface YearlyPlanEconomics extends PlanEconomics {
+  /** priceCad is the yearly price, stripeFeeCad the one fee on it, netCad the yearly net; this is the net per month. */
+  netPerMonthCad: number;
+}
+
+/**
+ * Yearly price vs worst-case cost, per month. The customer pays `yearlyPriceCents` once (one Stripe fee, 2.9 % +
+ * 0.30 $) and gets 12 months of the plan's monthly quotas. costShare = monthly worst case / (yearly net / 12).
+ */
+export function yearlyPlanEconomics(
+  yearlyPriceCents: number,
+  q: UsageQuota,
+  r: CarrierRatesUsd = DEFAULT_CARRIER_RATES_USD,
+  a: EconomicsAssumptions = DEFAULT_ASSUMPTIONS,
+  maxShare: number = MAX_COST_SHARE_YEARLY,
+): YearlyPlanEconomics {
+  const priceCad = yearlyPriceCents / 100;
+  const stripeFeeCad = priceCad > 0 ? round2(priceCad * a.stripePercent + a.stripeFixedCad) : 0;
+  const netCad = round2(priceCad - stripeFeeCad);
+  const netPerMonthCad = round2(netCad / 12);
+  const lines = worstCaseCostUsd(q, r, a);
+  const worstCostCad = round2(lines.reduce((s, l) => s + l.usd, 0) * a.usdToCad);
+  const costShare = netPerMonthCad > 0 ? Math.round((worstCostCad / netPerMonthCad) * 1000) / 1000 : 0;
+  const ceiling = Math.min(maxShare, NEVER_A_LOSS);
+  return { priceCad, stripeFeeCad, netCad, netPerMonthCad, worstCostCad, costShare, ok: netPerMonthCad > 0 && worstCostCad <= netPerMonthCad * ceiling, lines };
+}
+
+/** Paid plans whose yearly price breaks MAX_COST_SHARE_YEARLY (or would lose money); [] when all pass. */
+export function yearlyPlanRuleViolations(
+  plans: Record<string, Pick<Plan, "code" | "yearlyPriceCents" | "caps">>,
+  r: CarrierRatesUsd = DEFAULT_CARRIER_RATES_USD,
+  a: EconomicsAssumptions = DEFAULT_ASSUMPTIONS,
+  maxShare: number = MAX_COST_SHARE_YEARLY,
+): { code: string; economics: YearlyPlanEconomics }[] {
+  return Object.values(plans)
+    .filter((p) => (p.yearlyPriceCents ?? 0) > 0)
+    .map((p) => ({ code: p.code, economics: yearlyPlanEconomics(p.yearlyPriceCents!, quotaFromCaps(p.caps), r, a, maxShare) }))
+    .filter((v) => !v.economics.ok);
+}

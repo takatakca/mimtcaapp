@@ -22,6 +22,8 @@ export function isHandle(peer: string): boolean {
 /** GET/PUT /v1/me/handle */
 export interface HandleResponse {
   handle: string | null;
+  /** PUT only: the « Choisissez votre @nom » mission was just rewarded (first handle of the account). */
+  missionGranted?: import("./api.js").MissionGrantedDto;
 }
 export interface SetHandleRequest {
   handle: string;

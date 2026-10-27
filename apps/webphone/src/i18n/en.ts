@@ -3,11 +3,13 @@ import type { TKey } from "./fr";
 import { enExtra } from "./en.extra";
 import { enMeet } from "./en.meet";
 import { enBiz } from "./en.biz";
+import { enMissions } from "./en.missions";
 
 export const en: Record<TKey, string> = {
   ...enExtra,
   ...enMeet,
   ...enBiz,
+  ...enMissions,
   "account.billingPortal": "Manage billing",
   "account.complaints": "Complaints: CCTS (Commission for Complaints for Telecom-television Services)",
   "account.complaintsHint": "If we do not resolve your complaint, the CCTS can help you for free.",

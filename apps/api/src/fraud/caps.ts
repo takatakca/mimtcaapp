@@ -51,7 +51,7 @@ export function checkSmsCaps(input: { caps: PlanCaps; usage: Usage; segments: nu
  */
 export function checkOnNetCaps(input: { caps: PlanCaps; usage: Usage }): CapResult {
   const { caps, usage } = input;
-  const remaining = caps.onNetMinutes === null ? caps.outboundMinutes + usage.bonusMinutesOut - usage.minutesOut : caps.onNetMinutes - usage.minutesOnNet;
+  const remaining = caps.onNetMinutes === null ? caps.outboundMinutes + usage.bonusMinutesOut - usage.minutesOut : caps.onNetMinutes + usage.bonusMinutesOnNet - usage.minutesOnNet;
   return remaining > 0 ? { ok: true, remaining } : { ok: false, reason: "on_net_minutes_exhausted" };
 }
 

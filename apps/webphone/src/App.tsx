@@ -13,6 +13,7 @@ import { AuthCallback } from "./pages/AuthCallback";
 import { CallSettings } from "./pages/CallSettings";
 import { Calls } from "./pages/Calls";
 import { Messages } from "./pages/Messages";
+import { Missions } from "./pages/Missions";
 import { NotFound } from "./pages/NotFound";
 import { HelpAssistant } from "./pages/HelpAssistant";
 import { NumberCheckout } from "./pages/NumberCheckout";
@@ -98,6 +99,7 @@ export function AppRoutes() {
         <Route path="compte" element={<Account />} />
         <Route path="compte/appels" element={<CallSettings />} />
         <Route path="aide" element={<HelpAssistant />} />
+        <Route path="missions" element={<Missions />} />
         <Route path="billing/success" element={<BillingResult outcome="success" />} />
         <Route path="billing/cancel" element={<BillingResult outcome="cancel" />} />
         <Route path="services" element={<Navigate to="/services/offres" replace />} />

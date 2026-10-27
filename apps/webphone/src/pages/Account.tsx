@@ -1,4 +1,4 @@
-import { AI_CONSENT_KIND, PLANS, SUBSCRIPTION_ADD_ONS, adFreeFor, formatCad, type AiStatusResponse, type E911NoticeResponse, type PaidPlanCode, type UserConsentKind } from "@mimt/shared";
+import { AI_CONSENT_KIND, MISSION_MINUTES_CAP, PLANS, SUBSCRIPTION_ADD_ONS, adFreeFor, formatCad, type AiStatusResponse, type E911NoticeResponse, type PaidPlanCode, type UserConsentKind } from "@mimt/shared";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { api } from "../api/client";
@@ -14,17 +14,25 @@ import { formatPhone } from "../lib/dial";
 import { usageRows } from "../lib/usage";
 
 import { useAsync } from "../lib/useAsync";
+import { celebrateGrant, celebrateMission, celebrationsOf } from "../lib/missions";
+import { IntervalToggle, PlanPrice, intervalPrice, type BillingInterval } from "../components/IntervalToggle";
 import { disableWebPush, enableWebPush, webPushState, type PushState } from "../lib/webPush";
 
-const USAGE_LABEL: Record<"outboundMinutes" | "inboundMinutes" | "messages", TKey> = {
+const USAGE_LABEL: Record<"outboundMinutes" | "inboundMinutes" | "messages" | "onNetMinutes", TKey> = {
   outboundMinutes: "account.usageOutMin",
   inboundMinutes: "account.usageInMin",
   messages: "account.usageSms",
+  onNetMinutes: "account.usageOnNetMin",
 };
 
 export function Account() {
   const { t, lang, setLang } = useI18n();
   const { me, signOut } = useSession();
+  // Links from the Missions page land on a section (/compte#nom, #notifications, #forfait).
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (me && /^(nom|notifications|forfait)$/.test(id)) document.getElementById(id)?.scrollIntoView?.({ block: "start" });
+  }, [me]);
   if (!me) return <Loading />;
   const plan = PLANS[me.account.plan];
   const rows = usageRows(me.account.plan, me.usage);
@@ -34,7 +42,7 @@ export function Account() {
     <div className="page">
       <PageHeader title={t("account.title")} />
       <div className="grid grid--2">
-        <section className="card" aria-labelledby="plan-h">
+        <section className="card" id="forfait" aria-labelledby="plan-h">
           <h2 id="plan-h" className="card__title">
             {t("account.plan")}
           </h2>
@@ -47,13 +55,12 @@ export function Account() {
               {t("account.number")} : <strong>{formatPhone(me.numbers[0].e164)}</strong>
             </p>
           ) : null}
-          <div className="row row--wrap">
-            {upgrades.map((p) => (
-              <UpgradeButton key={p} plan={p} />
-            ))}
-            {me.account.plan !== "free" ? <PortalButton /> : null}
-          </div>
-          {upgrades.length ? <p className="field__hint">{t("account.upgradeHint")}</p> : null}
+          {upgrades.length ? <Upgrades plans={upgrades} /> : null}
+          {me.account.plan !== "free" ? (
+            <div className="row row--wrap">
+              <PortalButton />
+            </div>
+          ) : null}
           {adFreeFor(me.account.plan, me.account.addOns) ? null : <NoAdsOffer />}
         </section>
         <section className="card" aria-labelledby="usage-h">
@@ -70,6 +77,14 @@ export function Account() {
           ) : null}
         </section>
       </div>
+
+      <Link to="/missions" className="card mission-card">
+        <Icon name="sparkle" size={22} />
+        <span>
+          <strong>{t("account.missions")}</strong>
+          <span className="muted small"> {t("account.missionsLead", { cap: MISSION_MINUTES_CAP })}</span>
+        </span>
+      </Link>
 
       <HandleSection />
 
@@ -106,7 +121,32 @@ export function Account() {
   );
 }
 
-function UpgradeButton({ plan }: { plan: PaidPlanCode }) {
+/** Plan upgrades with the Mensuel / Annuel choice (12 months for the price of 11), prices before taxes. */
+function Upgrades({ plans }: { plans: PaidPlanCode[] }) {
+  const { t, lang } = useI18n();
+  const [interval, setBillingInterval] = useState<BillingInterval>("month");
+  return (
+    <div className="stack">
+      <IntervalToggle value={interval} onChange={setBillingInterval} />
+      <ul className="upgrade-list">
+        {plans.map((p) => (
+          <li key={p}>
+            <span className="upgrade-list__price">
+              <strong>{PLANS[p].name[lang]}</strong> <PlanPrice plan={PLANS[p]} interval={interval} />
+              {interval === "year" ? (
+                <small className="plan-equiv"> {t("plan.yearSaving", { price: formatCad(intervalPrice(PLANS[p], "year").savingCents, lang) })}</small>
+              ) : null}
+            </span>
+            <UpgradeButton plan={p} interval={interval} />
+          </li>
+        ))}
+      </ul>
+      <p className="field__hint">{t("account.upgradeHint")}</p>
+    </div>
+  );
+}
+
+function UpgradeButton({ plan, interval }: { plan: PaidPlanCode; interval: BillingInterval }) {
   const { t, lang } = useI18n();
   const [error, setError] = useState<TKey | null>(null);
   const [busy, setBusy] = useState(false);
@@ -119,7 +159,7 @@ function UpgradeButton({ plan }: { plan: PaidPlanCode }) {
         onClick={async () => {
           setBusy(true);
           try {
-            const { checkoutUrl } = await api.checkout({ plan, interval: "month", quantity: 1 });
+            const { checkoutUrl } = await api.checkout({ plan, interval, quantity: 1 });
             window.location.assign(checkoutUrl);
           } catch (e) {
             setError(toErrorKey(e));
@@ -198,13 +238,18 @@ function PushSection() {
       if (was === "on") {
         await disableWebPush();
         setState("off");
-      } else setState((await enableWebPush()) ? "on" : await webPushState());
+      } else {
+        const on = await enableWebPush();
+        setState(on ? "on" : await webPushState());
+        // The API rewards the « Activez les notifications » mission when it saves the subscription.
+        if (on) void api.missions().then((r) => celebrationsOf(r.missions).forEach(celebrateMission), () => undefined);
+      }
     } catch {
       setState(await webPushState());
     }
   };
   return (
-    <section className="card" aria-labelledby="push-h">
+    <section className="card" id="notifications" aria-labelledby="push-h">
       <h2 id="push-h" className="card__title">
         {t("push.title")}
       </h2>
@@ -232,7 +277,8 @@ function HandleSection() {
     setBusy(true);
     setError(null);
     try {
-      await api.setHandle(value.trim());
+      const res = await api.setHandle(value.trim());
+      celebrateGrant(res.missionGranted);
       current.reload();
     } catch (err) {
       setError(toErrorKey(err));
@@ -242,7 +288,7 @@ function HandleSection() {
   };
 
   return (
-    <section className="card" aria-labelledby="handle-h">
+    <section className="card" id="nom" aria-labelledby="handle-h">
       <h2 id="handle-h" className="card__title">
         {t("handle.title")}
       </h2>

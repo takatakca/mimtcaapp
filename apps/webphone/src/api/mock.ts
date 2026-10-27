@@ -64,6 +64,11 @@ import {
   type VoicemailDto,
   type VoicemailSettingsDto,
   type Weekday,
+  MISSION_MINUTES_CAP,
+  MISSIONS,
+  type MissionGrantedDto,
+  type MissionId,
+  type MissionsResponse,
 } from "@mimt/shared";
 import { meetingMockRoutes, resetMeetingsMock } from "./mock.meetings";
 
@@ -455,10 +460,38 @@ let state = initialState();
 let mockHandle: string | null = null;
 const DEMO_HANDLES = new Set(["@camille", "@cafe.lumiere", "@jules"]);
 
+/** Demo « Missions MIMT »: mission → when it was granted (same rules as apps/api services/missions.ts, in memory). */
+let mockMissions = new Map<MissionId, string>();
+
+/** Grants a demo mission once; returns what the real API would put in `missionGranted`. */
+function grantMockMission(id: MissionId): MissionGrantedDto | null {
+  if (mockMissions.has(id)) return null;
+  mockMissions.set(id, new Date().toISOString());
+  const def = MISSIONS.find((m) => m.id === id)!;
+  const bucket = def.minutes > 0 ? (PLANS[state.me.account.plan].caps.onNetMinutes !== null ? "on_net" : "outbound") : null;
+  return { id, minutes: def.minutes, bucket, status: "granted", period: bucket ? new Date().toISOString().slice(0, 7) : null };
+}
+
+function missionsResponse(): MissionsResponse {
+  const missions = MISSIONS.map((def) => {
+    const grantedAt = mockMissions.get(def.id) ?? null;
+    return { id: def.id, status: grantedAt ? ("done" as const) : ("todo" as const), rewardKind: def.rewardKind, minutes: def.minutes, needsPurchase: def.needsPurchase, grantedAt };
+  });
+  return {
+    enabled: true,
+    missions,
+    totalMinutes: missions.filter((m) => m.status === "done").reduce((s, m) => s + m.minutes, 0),
+    capMinutes: MISSION_MINUTES_CAP,
+    bucket: PLANS[state.me.account.plan].caps.onNetMinutes !== null ? "on_net" : "outbound",
+    period: new Date().toISOString().slice(0, 7),
+  };
+}
+
 /** Tests: start from fresh fixtures. */
 export function resetMockState(): void {
   state = initialState();
   mockHandle = null;
+  mockMissions = new Map();
   resetMeetingsMock();
 }
 
@@ -818,9 +851,21 @@ const routes: Route[] = [
     if (!h) return fail(400, "invalid_handle");
     if (mockHandle && mockHandle !== h) return fail(409, "handle_already_set");
     if (DEMO_HANDLES.has(h)) return fail(409, "handle_taken");
+    if (mockHandle === h) return ok({ handle: h });
     mockHandle = h;
-    return ok({ handle: h });
+    const missionGranted = grantMockMission("choose_handle");
+    return ok(missionGranted ? { handle: h, missionGranted } : { handle: h });
   }],
+  // Missions MIMT (read-only; rewards come from the routes above, never from a claim).
+  ["GET", /^\/v1\/missions$/, () => ok(missionsResponse())],
+  ["GET", /^\/v1\/referrals$/, () =>
+    ok({ code: "DEMO2345", shareUrl: "https://mimt.ca/invitation/DEMO2345", reward: { months: 1, plan: "premium" }, referrals: [], referredBy: null })],
+  ["GET", /^\/v1\/push\/web\/key$/, () => ok({ publicKey: "BDemoPublicKeyForTheMockApiOnly" }), false],
+  ["POST", /^\/v1\/push\/web\/subscribe$/, () => {
+    grantMockMission("enable_push");
+    return json(204, undefined);
+  }],
+  ["POST", /^\/v1\/push\/web\/unsubscribe$/, () => json(204, undefined)],
   ["POST", /^\/v1\/messages$/, ({ body }) => {
     const b = body as { from?: string; to: string; body: string };
     if (b.to.startsWith("@")) {

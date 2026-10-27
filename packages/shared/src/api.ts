@@ -8,6 +8,7 @@ import type { SpamLabel, VoicemailInsight } from "./ai.js";
 import type { CallSettings, CallSettingsPatch } from "./callControls.js";
 import type { MessageMediaDto } from "./media.js";
 import type { SubscriptionAddOnCode } from "./addons.js";
+import type { MissionId, MissionRewardKind } from "./missions.js";
 
 export type Locale = "fr-CA" | "en-CA";
 export type Direction = "inbound" | "outbound";
@@ -27,6 +28,8 @@ export interface AuthTokensResponse {
   tokenType: "Bearer";
   /** Seconds until the access token expires. */
   expiresIn: number;
+  /** POST /v1/auth/otp/verify only: the « Vérifiez votre cellulaire » mission was just rewarded. */
+  missionGranted?: MissionGrantedDto;
 }
 
 /** POST /v1/auth/takatak/exchange (OAuth code + PKCE verifier; the API talks to TAKATAK). */
@@ -84,7 +87,17 @@ export interface MeResponse {
   numbers: Array<{ id: string; e164: string; state: NumberState }>;
   e911: { addressRegistered: boolean; noticeAccepted: boolean; noticeVersion: string };
   /** `messages`: texts sent AND received this month (both count in the plan). */
-  usage: { outboundMinutes: number; inboundMinutes: number; messages: number; periodStart: string };
+  usage: {
+    outboundMinutes: number;
+    inboundMinutes: number;
+    messages: number;
+    periodStart: string;
+    /** App-to-app minutes used this month (the free plan's own pool). */
+    onNetMinutes?: number;
+    /** Extra minutes of this month on top of the plan (Missions MIMT, rewarded ads, 250-minute packs). */
+    bonusOutboundMinutes?: number;
+    bonusOnNetMinutes?: number;
+  };
   /** Forwarding, do not disturb and blocked-call handling (callControls.ts). */
   callSettings?: CallSettings;
 }
@@ -232,6 +245,8 @@ export interface ClaimNumberResponse {
   id: string;
   e164: string;
   state: NumberState;
+  /** The « Obtenez votre numéro » mission was just rewarded (first number on a paid plan). */
+  missionGranted?: MissionGrantedDto;
 }
 
 // ------------------------------------------------------------------------------------------ voice
@@ -460,6 +475,49 @@ export interface RewardClaimRequest {
 }
 export interface RewardClaimResponse {
   creditedMinutes: number;
+}
+
+// ------------------------------------------------------------------------------------------ missions
+
+/** Where mission minutes go: paid plans' outbound minutes, or the free plan's app-to-app (on-net) minutes. */
+export type MissionBucket = "outbound" | "on_net";
+
+/**
+ * A mission reward the server just recorded. "granted": minutes added to the current month (`period`).
+ * "pending": the free tier's monthly budget is reached; the minutes are reserved and added on a later month.
+ */
+export interface MissionGrantedDto {
+  id: MissionId;
+  minutes: number;
+  bucket: MissionBucket | null;
+  status: "granted" | "pending";
+  /** "YYYY-MM" (UTC) the minutes were added to; null while pending or for a reward without minutes. */
+  period: string | null;
+}
+
+export interface MissionDto {
+  id: MissionId;
+  /** todo: not done yet; pending: done, minutes reserved (free-tier budget); done: rewarded. */
+  status: "todo" | "pending" | "done";
+  rewardKind: MissionRewardKind;
+  /** Bonus minutes of the mission (0 for the referral and yearly missions). */
+  minutes: number;
+  needsPurchase: boolean;
+  grantedAt: string | null;
+}
+
+/** GET /v1/missions */
+export interface MissionsResponse {
+  /** false when the MISSIONS kill switch is off: nothing new is granted. */
+  enabled: boolean;
+  missions: MissionDto[];
+  /** Bonus minutes earned from missions, all time (≤ capMinutes). */
+  totalMinutes: number;
+  capMinutes: number;
+  /** Bucket new minutes go to for this account's plan. */
+  bucket: MissionBucket;
+  /** Current usage month ("YYYY-MM", UTC): minutes are added to it and do not carry over. */
+  period: string;
 }
 
 // ------------------------------------------------------------------------------------------ push
