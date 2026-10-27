@@ -1,5 +1,13 @@
 # MIMT — Déploiement et preuve de publication
 
+## Reprise vérifiée — 26 octobre 2026, Codex
+
+PR #63–#68 fusionnées, main vérifié c308dd8; CI 40420964736 réussie. Publication 40421110321 échouée : manifeste 8d38458 pendant 60 essais. Surveillance 40438511037 : trois services UP, sans comparaison de SHA. Les crédits ont bloqué la revue automatique Claude, pas la sauvegarde des modifications.
+**État : vérification documentaire terminée; finalisation production bloquée par accès Coolify/réseau et tests réels.**
+La démo IA a une preuve d'activation le 25 octobre; sa disponibilité actuelle contredit le journal du 26 et reste à contrôler avant de demander une clé.
+Voir [la vérification finale](FINAL_AUDIT_2026-10-26.md) et [l'action #69](https://github.com/takatakca/mimtcaapp/issues/69) : preuves, limites et prochaines étapes exactes. Les sections datées plus anciennes ci-dessous sont historiques.
+
+
 ## API publiée — 25 octobre 2026, activation Anthropic
 
 - Révision déployée : `c27010bd83d37a4e9d681f6005df58641839f101`, CI `40174104925` réussie avant publication.
