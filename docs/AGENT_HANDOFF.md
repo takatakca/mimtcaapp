@@ -1,5 +1,13 @@
 # MIMT — Relève du développeur principal
 
+## Reprise vérifiée — 26 octobre 2026, Codex
+
+PR #63–#68 fusionnées, main vérifié c308dd8; CI 40420964736 réussie. Publication 40421110321 échouée : manifeste 8d38458 pendant 60 essais. Surveillance 40438511037 : trois services UP, sans comparaison de SHA. Les crédits ont bloqué la revue automatique Claude, pas la sauvegarde des modifications.
+**État : vérification documentaire terminée; finalisation production bloquée par accès Coolify/réseau et tests réels.**
+La démo IA a une preuve d'activation le 25 octobre; sa disponibilité actuelle contredit le journal du 26 et reste à contrôler avant de demander une clé.
+Voir [la vérification finale](FINAL_AUDIT_2026-10-26.md) et [l'action #69](https://github.com/takatakca/mimtcaapp/issues/69) : preuves, limites et prochaines étapes exactes. Les sections datées plus anciennes ci-dessous sont historiques.
+
+
 ## Relève — 26 octobre 2026, après-midi (Claude, publication du site par Coolify)
 
 - **Constat :** l'exécution `40336213065` (« Auto deploy MIMT website », `912d12c`) échouait à « Confirm published website content » : le contenu de mimt.ca était bon, mais `https://mimt.ca/mimt-release.json` répondait 404. Depuis le 26 octobre le site est servi par Coolify; le FTP publiait vers MochaHost, qui ne sert plus mimt.ca.
