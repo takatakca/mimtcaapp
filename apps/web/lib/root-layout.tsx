@@ -7,6 +7,7 @@ import "../styles/globals.css";
 import "../styles/phase2.css";
 import "../styles/home.css";
 import "../styles/future.css";
+import "../styles/hud.css";
 
 export const viewport: Viewport = {
   themeColor: "#060D1F",

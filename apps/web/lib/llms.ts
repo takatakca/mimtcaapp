@@ -72,6 +72,7 @@ ${link("soon", "Internet and mobile service: coming soon, waitlist only.")}
 ${link("help", "Frequently asked questions.")}
 ${link("contact", "Contact form.")}
 ${link("about", "Who runs MIMT.")}
+${link("rewards", "Missions: bonus minutes for verified account setup steps, and 1 month of Premium each when a referred friend subscribes. No draw, no reward for reviews.")}
 ${link("useVirtual", "What a Canadian virtual phone number is and how MIMT provides one.")}
 ${link("useSecond", "A second number on the same mobile phone.")}
 ${link("useVoip", "Business VoIP for Québec companies (MIMT Affaires).")}

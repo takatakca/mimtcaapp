@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 import { ConsentBanner, ConsentLink } from "@/components/ConsentBanner";
+import { AiLauncher } from "@/components/AiLauncher";
 import { DownloadPrompt } from "@/components/DownloadPrompt";
+import { OfferTicker } from "@/components/OfferTicker";
+import { PromoModal } from "@/components/PromoModal";
 import { SiteEffects } from "@/components/SiteEffects";
 import { PAGE_META } from "@/lib/meta";
 import { breadcrumbLd, graph, jsonLdString, organizationLd, webPageLd, websiteLd, type JsonLdObject } from "@/lib/seo";
@@ -194,12 +197,16 @@ export function Shell({
         {lang === "fr" ? "Aller au contenu" : "Skip to content"}
       </a>
       <Header lang={lang} page={page} />
+      <OfferTicker lang={lang} />
       <main id="contenu" tabIndex={-1}>
         {children}
       </main>
       <Footer lang={lang} />
       <MobileCtaBar lang={lang} />
-      <DownloadPrompt lang={lang} auto={!NO_AUTO_PROMPT.includes(page)} />
+      {/* The download modal still opens from any data-download button; the one automatic pop-up is the promo. */}
+      <DownloadPrompt lang={lang} auto={false} />
+      {NO_AUTO_PROMPT.includes(page) ? null : <PromoModal lang={lang} />}
+      <AiLauncher lang={lang} />
       <ConsentBanner lang={lang} />
       <SiteEffects />
       <div className="scroll-progress" aria-hidden="true" />
@@ -207,7 +214,7 @@ export function Shell({
   );
 }
 
-/** Legal and complaint pages never get the automatic download prompt (it still opens from a button). */
+/** Legal and complaint pages never get the automatic promo pop-up. */
 const NO_AUTO_PROMPT: RouteKey[] = ["about", "e911", "privacy", "terms", "complaints", "accessibility", "contact"];
 
 /** Sticky call-to-action bar on phones; appears once the page has scrolled (see home.css). */
