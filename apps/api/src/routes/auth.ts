@@ -5,6 +5,7 @@ import { forbidden, HttpError, notConfigured, unauthorized } from "../lib/errors
 import { parse } from "../lib/validate.js";
 import { NANP_E164, type AuthTokensResponse, type OtpStartResponse } from "@mimt/shared";
 import { ensureAccount } from "../services/accounts.js";
+import { grantMission } from "../services/missions.js";
 
 const ExchangeBody = z.object({
   code: z.string().min(1).max(2048),
@@ -127,7 +128,11 @@ export async function authRoutes(app: FastifyInstance, deps: AppDeps) {
     } else if (!user.phoneVerifiedAt) {
       user = await repo.updateUser(user.id, { phoneVerifiedAt: now });
     }
-    await ensureAccount(repo, user);
-    return deps.sessions.issue(user.id);
+    const account = await ensureAccount(repo, user);
+    const tokens = await deps.sessions.issue(user.id);
+    // Mission « Vérifiez votre cellulaire »: Twilio Verify just approved this phone. Once per account AND per
+    // phone number (keyed hash), so a second account on the same phone earns nothing.
+    const missionGranted = await grantMission(deps, { account, user, mission: "verify_phone", sourceRef: "otp", log: req.log });
+    return missionGranted ? { ...tokens, missionGranted } : tokens;
   });
 }

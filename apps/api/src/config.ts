@@ -157,6 +157,11 @@ const EnvSchema = z
       .enum(["true", "false"])
       .optional()
       .transform((v) => v === "true"),
+    /**
+     * « Missions MIMT » kill switch (services/missions.ts): "off" grants no new mission reward (events are not
+     * recorded while off); GET /v1/missions still answers with enabled: false. Default "on".
+     */
+    MISSIONS: z.enum(["on", "off"]).default("on"),
     DEVICE_ATTESTATION_REQUIRED: z
       .enum(["true", "false"])
       .optional()

@@ -5,6 +5,7 @@ import type { AppDeps } from "../deps.js";
 import { loadContext, requireUser } from "../auth/guard.js";
 import { parse } from "../lib/validate.js";
 import { vapidKeys } from "../services/webPush.js";
+import { grantMission, isKnownPushService } from "../services/missions.js";
 
 const WebSubscribeBody = z.object({
   endpoint: z.string().url().startsWith("https://").max(2048),
@@ -32,8 +33,11 @@ export async function pushRoutes(app: FastifyInstance, deps: AppDeps) {
 
   app.post("/v1/push/web/subscribe", { preHandler: requireUser(deps), config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (req, reply) => {
     const body = parse(WebSubscribeBody, req.body);
-    const { user } = await loadContext(deps, req);
+    const { user, account } = await loadContext(deps, req);
     await deps.repo.webPush.upsert({ userId: user.id, endpoint: body.endpoint, p256dh: body.keys.p256dh, auth: body.keys.auth });
+    // Mission « Activez les notifications »: a subscription to a real browser push service, saved by the server.
+    // Still 204 (no body): the app learns about the reward from GET /v1/missions.
+    if (isKnownPushService(body.endpoint)) await grantMission(deps, { account, user, mission: "enable_push", sourceRef: "web_push", log: req.log });
     return reply.code(204).send();
   });
 

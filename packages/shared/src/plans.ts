@@ -57,6 +57,14 @@ export interface Plan {
   caps: PlanCaps;
 }
 
+/**
+ * Annual plans: 12 months for the price of 11 (owner decision 2026-10-27, « un mois gratuit si t'achètes pour un an »).
+ * The free month lowers the net per month: the yearly worst case is checked against its own ceiling
+ * (unitEconomics.ts MAX_COST_SHARE_YEARLY), never against a loosened monthly rule.
+ */
+export const YEARLY_MONTHS_PAID = 11;
+export const yearlyPriceFor = (monthlyPriceCents: number): number => monthlyPriceCents * YEARLY_MONTHS_PAID;
+
 // Launch line-up (docs/MIMT-UNIT-ECONOMICS.md): worst-case carrier cost ≤ 70 % of the price after Stripe fees.
 // The internal code `lock` is the Essentiel plan (DB constraints, Stripe metadata and store SKUs keep the code).
 // The API can override prices and quotas from the environment (apps/api/src/plansConfig.ts), never past the rule.
@@ -84,6 +92,7 @@ export const PLANS: Record<PlanCode, Plan> = {
     code: "lock",
     name: { fr: "Essentiel", en: "Essential" },
     monthlyPriceCents: 1299,
+    yearlyPriceCents: yearlyPriceFor(1299),
     perLine: false,
     features: ["number_lock", "vm_greeting", "vm_email"],
     caps: {
@@ -103,6 +112,7 @@ export const PLANS: Record<PlanCode, Plan> = {
     code: "premium",
     name: { fr: "Premium", en: "Premium" },
     monthlyPriceCents: 2999,
+    yearlyPriceCents: yearlyPriceFor(2999),
     perLine: false,
     features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "ai_assist", "vm_greeting", "vm_email", "video_meetings"],
     caps: {
@@ -122,6 +132,7 @@ export const PLANS: Record<PlanCode, Plan> = {
     code: "business",
     name: { fr: "Affaires", en: "Business" },
     monthlyPriceCents: 3499,
+    yearlyPriceCents: yearlyPriceFor(3499),
     perLine: true,
     features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "auto_attendant", "ring_groups", "admin_portal", "ai_assist", "vm_greeting", "vm_email", "video_meetings"],
     caps: {
@@ -141,6 +152,7 @@ export const PLANS: Record<PlanCode, Plan> = {
     code: "business_pro",
     name: { fr: "Affaires Pro", en: "Business Pro" },
     monthlyPriceCents: 4499,
+    yearlyPriceCents: yearlyPriceFor(4499),
     perLine: true,
     features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "auto_attendant", "ring_groups", "admin_portal", "call_recording", "ai_assist", "vm_greeting", "vm_email", "video_meetings"],
     caps: {

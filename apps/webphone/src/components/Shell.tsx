@@ -7,6 +7,7 @@ import { useI18n } from "../i18n/I18nProvider";
 import type { TKey } from "../i18n/core";
 import { Softphone } from "../phone/Softphone";
 import { Icon, type IconName } from "./Icon";
+import { MissionToaster } from "./MissionToaster";
 import { DemoBanner, Wordmark } from "./ui";
 import { meetingScopes } from "../pages/meetings/shared";
 import { needsBusinessSetup } from "../lib/bizSetup";
@@ -27,6 +28,7 @@ const MAIN: NavItem[] = [
 
 const MEETINGS: NavItem = { to: "/reunions", label: "nav.meetings", icon: "video" };
 const HELP: NavItem = { to: "/aide", label: "nav.help", icon: "chat" };
+const MISSIONS: NavItem = { to: "/missions", label: "nav.missions", icon: "sparkle" };
 
 const SERVICES: NavItem[] = [
   { to: "/services/offres", label: "nav.offers", icon: "offers" },
@@ -66,6 +68,7 @@ export function Shell() {
             ))}
             {showMeetings ? <SideLink item={MEETINGS} /> : null}
             <SideLink item={HELP} />
+            <SideLink item={MISSIONS} />
             <p className="side__section">{t("nav.services")}</p>
             {SERVICES.map((i) => (
               <SideLink key={i.to} item={i} />
@@ -111,6 +114,9 @@ export function Shell() {
                 <Icon name="business" />
               </NavLink>
             ) : null}
+            <NavLink to="/missions" className="icon-btn" aria-label={t("nav.missions")}>
+              <Icon name="sparkle" />
+            </NavLink>
             <NavLink to="/services/offres" className="icon-btn" aria-label={t("nav.services")}>
               <Icon name="offers" />
             </NavLink>
@@ -128,6 +134,7 @@ export function Shell() {
           ))}
         </nav>
         <Softphone />
+        <MissionToaster />
       </div>
     </AdsProvider>
   );

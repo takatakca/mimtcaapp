@@ -7,6 +7,7 @@ import type { ReferralRepository } from "./referrals.js";
 import type { NumberHoldRepository } from "./numberHolds.js";
 import type { HandleRepository } from "./handles.js";
 import type { WebPushRepository } from "./webPush.js";
+import type { MissionRepository } from "./missions.js";
 import type { PortInRepository } from "./portIn.js";
 import type { MeetingRepository } from "./meetings.js";
 
@@ -221,6 +222,8 @@ export interface Usage {
   /** App-to-app call minutes (free plan fair use; paid plans count them in minutesOut). */
   minutesOnNet: number;
   bonusMinutesOut: number;
+  /** Bonus app-to-app minutes (free plan's own pool, e.g. Missions MIMT). */
+  bonusMinutesOnNet: number;
   spendCad: number;
   intlSpendCad: number;
 }
@@ -235,6 +238,7 @@ export const emptyUsage = (telecomAccountId: string, period: string): Usage => (
   mmsOut: 0,
   minutesOnNet: 0,
   bonusMinutesOut: 0,
+  bonusMinutesOnNet: 0,
   spendCad: 0,
   intlSpendCad: 0,
 });
@@ -318,6 +322,8 @@ export interface Repository {
   readonly handles: HandleRepository;
   /** Web Push subscriptions and server keys: src/repo/webPush.ts. */
   readonly webPush: WebPushRepository;
+  /** « Missions MIMT » reward ledger: src/repo/missions.ts. */
+  readonly missions: MissionRepository;
   /** Number port-in (landline/VoIP into MIMT) storage: src/repo/portIn.ts. */
   readonly portIns: PortInRepository;
   /** Réunions MIMT (video meetings) storage: src/repo/meetings.ts. */
@@ -337,7 +343,7 @@ export interface Repository {
   /**
    * Account deletion (jobs/accountDeletion.ts): deletes the user's personal data in one transaction and anonymises
    * the user row (status "deleted"). Keeps only what the law requires: subscriptions and usage (billing), call
-   * records, 9-1-1 notice acceptances, audit and fraud logs, the closed account row and MIMT's own phone numbers.
+   * records, 9-1-1 notice acceptances, audit and fraud logs, the mission reward ledger (hashed, anti-abuse), the closed account row and MIMT's own phone numbers.
    * Returns the files left to delete outside the database.
    */
   purgeUserData(userId: string, accountId: string | null): Promise<PurgeResult>;

@@ -13,6 +13,7 @@ import { clearPendingHold, pendingHold, takeHoldFromHash, type PendingHold } fro
 import { useAsync } from "../lib/useAsync";
 import { needsBusinessSetup } from "../lib/bizSetup";
 import { E911Section } from "./Account";
+import { IntervalToggle, PlanPrice, intervalPrice, type BillingInterval } from "../components/IntervalToggle";
 import { LanguageSwitch } from "./LanguageSwitch";
 
 const SITE = "https://mimt.ca";
@@ -31,7 +32,7 @@ function useCountdown(expiresAt: string | undefined): number {
 
 export function NumberCheckout() {
   const { status, me, businesses } = useSession();
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const fr = locale === "fr-CA";
   const lang = fr ? "fr" : "en";
   const navigate = useNavigate();
@@ -41,6 +42,7 @@ export function NumberCheckout() {
   const [plan, setPlan] = useState<PaidPlanCode>(hold?.plan === "business" ? "business" : (hold?.plan ?? "lock"));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<TKey | null>(null);
+  const [interval, setBillingInterval] = useState<BillingInterval>("month");
 
   const live = info.data && (info.data.status === "held" || info.data.status === "checkout") && left > 0;
   useEffect(() => {
@@ -58,7 +60,7 @@ export function NumberCheckout() {
     setBusy(true);
     setError(null);
     try {
-      const { checkoutUrl } = await api.checkout({ plan, numberHold: { id: hold.id, token: hold.token } });
+      const { checkoutUrl } = await api.checkout({ plan, interval, numberHold: { id: hold.id, token: hold.token } });
       window.location.assign(checkoutUrl);
     } catch (e) {
       setError(toErrorKey(e));
@@ -161,6 +163,7 @@ export function NumberCheckout() {
         ) : (
           <>
             <p className="auth__lead">{fr ? "Étape 3 sur 3 : votre forfait. Le numéro s'active dès le paiement." : "Step 3 of 3: your plan. The number turns on as soon as you pay."}</p>
+            <IntervalToggle value={interval} onChange={setBillingInterval} />
             <fieldset className="plan-pick">
               <legend className="sr-only">{fr ? "Forfait" : "Plan"}</legend>
               {choices.map((code) => (
@@ -168,8 +171,7 @@ export function NumberCheckout() {
                   <input type="radio" name="plan" value={code} checked={plan === code} onChange={() => setPlan(code)} />
                   <span className="plan-pick__name">{PLANS[code].name[lang]}</span>
                   <span className="plan-pick__price">
-                    {formatCad(PLANS[code].monthlyPriceCents, lang)}
-                    {PLANS[code].perLine ? (fr ? " / ligne / mois" : " / line / month") : fr ? " / mois" : " / month"}
+                    <PlanPrice plan={PLANS[code]} interval={interval} />
                   </span>
                   <span className="plan-pick__caps">
                     {fr
@@ -182,10 +184,15 @@ export function NumberCheckout() {
             <div className="checkout-total">
               <span>{fr ? "Aujourd'hui" : "Today"}</span>
               <strong>
-                {formatCad(PLANS[plan].monthlyPriceCents, lang)}
+                {formatCad(intervalPrice(PLANS[plan], interval).totalCents, lang)}
                 <small>{fr ? " + taxes" : " + tax"}</small>
               </strong>
             </div>
+            {interval === "year" ? (
+              <p className="field__hint">
+                {t("plan.interval.yearBadge")} — {t("plan.yearSaving", { price: formatCad(intervalPrice(PLANS[plan], "year").savingCents, lang) })}
+              </p>
+            ) : null}
             <button type="button" className="btn btn--primary btn--block btn--lg checkout-pay" disabled={busy} onClick={() => void pay()}>
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
                 <path fill="currentColor" d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2Zm-8-2a3 3 0 0 1 6 0v2H9V7Zm4 9.73V18h-2v-1.27a2 2 0 1 1 2 0Z" />

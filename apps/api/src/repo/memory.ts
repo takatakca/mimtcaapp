@@ -8,6 +8,7 @@ import { MemoryReferralRepository } from "./referralsMemory.js";
 import { MemoryNumberHoldRepository } from "./numberHoldsMemory.js";
 import { MemoryHandleRepository } from "./handlesMemory.js";
 import { MemoryWebPushRepository } from "./webPushMemory.js";
+import { MemoryMissionRepository } from "./missionsMemory.js";
 import { MemoryPortInRepository } from "./portInMemory.js";
 import { MemoryMeetingRepository } from "./meetingsMemory.js";
 import { planFromSubscriptions } from "../services/accounts.js";
@@ -73,6 +74,8 @@ export class MemoryRepository implements Repository {
   readonly numberHolds = new MemoryNumberHoldRepository();
   readonly handles = new MemoryHandleRepository();
   readonly webPush = new MemoryWebPushRepository();
+  // Kept on account deletion (purgeUserData): the anti-abuse record of who already earned what.
+  readonly missions = new MemoryMissionRepository((id, periods, d) => this.addUsage(id, periods, d));
 
   async ping() {}
   async close() {}
@@ -516,7 +519,7 @@ export class MemoryRepository implements Repository {
   async addUsage(accountId: string, periods: string[], delta: Partial<Usage>) {
     for (const period of periods) {
       const u = this.usage.get(`${accountId}|${period}`) ?? (await this.getUsage(accountId, period));
-      for (const k of ["minutesOut", "minutesIn", "smsOut", "smsIn", "mmsOut", "minutesOnNet", "bonusMinutesOut", "spendCad", "intlSpendCad"] as const) {
+      for (const k of ["minutesOut", "minutesIn", "smsOut", "smsIn", "mmsOut", "minutesOnNet", "bonusMinutesOut", "bonusMinutesOnNet", "spendCad", "intlSpendCad"] as const) {
         u[k] += delta[k] ?? 0;
       }
       this.usage.set(`${accountId}|${period}`, u);

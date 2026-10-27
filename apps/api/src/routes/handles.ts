@@ -5,6 +5,7 @@ import type { AppDeps } from "../deps.js";
 import { loadContext, requireUser } from "../auth/guard.js";
 import { badRequest, conflict, HttpError } from "../lib/errors.js";
 import { parse } from "../lib/validate.js";
+import { grantMission } from "../services/missions.js";
 
 /** Looking up handles is rate limited so the directory cannot be scraped. */
 const LOOKUP_RULE = { capacity: 30, windowSeconds: 600 };
@@ -33,7 +34,10 @@ export async function handleRoutes(app: FastifyInstance, deps: AppDeps) {
     const created = await repo.handles.create({ handle, userId: user.id, telecomAccountId: account.id });
     if (!created) throw conflict("handle_taken", "Cet identifiant n'est pas disponible.");
     await repo.audit({ actorUserId: user.id, action: "handle.created", targetType: "user", targetId: user.id, meta: {} });
-    return { handle };
+    // Mission « Choisissez votre @nom »: the first handle only (a handle cannot be changed; the ledger also keys on
+    // the owner, so a new account of the same person earns nothing again).
+    const missionGranted = await grantMission(deps, { account, user, mission: "choose_handle", sourceRef: "handle", log: req.log });
+    return missionGranted ? { handle, missionGranted } : { handle };
   });
 
   app.get("/v1/handles/:handle", auth, async (req): Promise<HandleLookupResponse> => {

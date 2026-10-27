@@ -5,6 +5,7 @@ import {
   FREE_PLAN_INTL_LIMITS,
   formatCad,
   PLANS,
+  storeProduct,
   SUBSCRIPTION_ADD_ONS,
   TRIAL_DAYS,
   type BillingPortalResponse,
@@ -36,6 +37,7 @@ import { quebecTaxLines } from "../billing/taxes.js";
 import { BUSINESS_PLANS, businessSubscription } from "../pbx/engine.js";
 import { checkHoldForCheckout } from "../services/numberHoldCheckout.js";
 import { provisionHeldNumber } from "../services/numberProvisioning.js";
+import { grantMission } from "../services/missions.js";
 import type { CheckoutLine } from "../gateways/billing.js";
 
 const CheckoutBody = z
@@ -149,7 +151,7 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       mode,
       line,
       taxLines,
-      metadata: { telecom_account_id: account.id, kind: body.plan ? "plan" : "addon", code, ...(hold ? { number_hold_id: hold.id } : {}) },
+      metadata: { telecom_account_id: account.id, kind: body.plan ? "plan" : "addon", code, ...(line.recurring ? { interval: line.recurring } : {}), ...(hold ? { number_hold_id: hold.id } : {}) },
       successUrl: `${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${appUrl}/billing/cancel`,
       locale: user.locale,
@@ -204,7 +206,7 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
   });
 
   /** Writes a verified store purchase on `account`. Refuses a purchase already linked to another MIMT account. */
-  async function saveStorePurchase(account: TelecomAccount, platform: "ios" | "android", purchase: StorePurchase) {
+  async function saveStorePurchase(account: TelecomAccount, platform: "ios" | "android", purchase: StorePurchase, productId: string) {
     const sku = purchase.plan ? { kind: "plan" as const, code: purchase.plan } : purchase.addon ? { kind: "addon" as const, code: purchase.addon } : null;
     if (!sku) throw badRequest("unknown_product", "Ce produit n'est pas un forfait MIMT.");
     const rowId = storeRowId(platform, purchase.transactionId);
@@ -222,6 +224,10 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       currentPeriodEnd: purchase.currentPeriodEnd,
     });
     await recomputeEntitlements(repo, account);
+    // Mission « Passez à l'annuel »: a verified yearly App Store / Google Play plan.
+    if (sku.kind === "plan" && purchase.status === "active" && storeProduct(productId)?.interval === "year") {
+      await grantMission(deps, { account, mission: "go_yearly", sourceRef: `${platform}:yearly`, log: app.log });
+    }
   }
 
   async function cancelLinkedGoogleRow(accountId: string, linkedPurchaseToken: string) {
@@ -254,7 +260,7 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     if (purchase.accountToken && purchase.accountToken !== account.id.toLowerCase()) {
       throw conflict("store_purchase_linked", "Cet achat est déjà lié à un autre compte MIMT.");
     }
-    await saveStorePurchase(account, body.platform, purchase);
+    await saveStorePurchase(account, body.platform, purchase, body.productId);
     if ("acknowledged" in purchase) {
       // An upgrade or downgrade replaces the previous Play subscription: that row stops counting.
       if (purchase.linkedPurchaseToken) {
@@ -285,9 +291,9 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
   }
 
   /** A notification for a purchase linked to another account changes nothing (409 from saveStorePurchase). */
-  async function saveNotified(account: TelecomAccount, platform: "ios" | "android", purchase: StorePurchase): Promise<boolean> {
+  async function saveNotified(account: TelecomAccount, platform: "ios" | "android", purchase: StorePurchase, productId: string): Promise<boolean> {
     try {
-      await saveStorePurchase(account, platform, purchase);
+      await saveStorePurchase(account, platform, purchase, productId);
       return true;
     } catch (err) {
       if (err instanceof HttpError && err.statusCode === 409) return false;
@@ -335,7 +341,7 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     }
     const account = await storeAccount(storeRowId("ios", purchase.transactionId), purchase.accountToken);
     if (!account) return { received: true, ignored: "unknown_account" };
-    if (!(await saveNotified(account, "ios", purchase))) return { received: true, ignored: "linked_elsewhere" };
+    if (!(await saveNotified(account, "ios", purchase, String(tx.productId ?? "")))) return { received: true, ignored: "linked_elsewhere" };
     return { received: true };
   });
 
@@ -381,7 +387,7 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     if (!purchase) return { received: true, ignored: "product" };
     const account = await storeAccount(storeRowId("android", purchase.transactionId), purchase.accountToken);
     if (!account) return { received: true, ignored: "unknown_account" };
-    if (!(await saveNotified(account, "android", purchase))) return { received: true, ignored: "linked_elsewhere" };
+    if (!(await saveNotified(account, "android", purchase, sub.subscriptionId))) return { received: true, ignored: "linked_elsewhere" };
     if (purchase.linkedPurchaseToken) {
       await cancelLinkedGoogleRow(account.id, purchase.linkedPurchaseToken);
       await recomputeEntitlements(repo, account);
@@ -438,6 +444,10 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     });
     await recomputeEntitlements(repo, account);
     if (kind === "plan" && BUSINESS_PLANS.has(code as PlanCode)) await syncBusinessSeats(account, sub, item?.quantity ?? 1);
+    // Mission « Passez à l'annuel »: a yearly plan Stripe reports as paid. The reward is the free month in the price.
+    if (kind === "plan" && code !== "free" && item?.price?.recurring?.interval === "year" && sub.status === "active") {
+      await grantMission(deps, { account, mission: "go_yearly", sourceRef: `stripe:${sub.id}`, log: app.log });
+    }
   }
 
   /**
