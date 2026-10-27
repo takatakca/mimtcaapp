@@ -16,3 +16,4 @@ export * from "./numberSearch.js";
 export * from "./unitEconomics.js";
 export * from "./handles.js";
 export * from "./aiDemo.js";
+export * from "./missions.js";

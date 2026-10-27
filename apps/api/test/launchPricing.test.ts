@@ -37,6 +37,15 @@ describe("plan configuration", () => {
     expect(plans.free.caps.onNetMinutes).toBe(60);
   });
 
+  it("yearly prices stay 12 months for the price of 11, also after a monthly price override", () => {
+    const plans = plansFromEnv({ PLAN_PREMIUM_PRICE_CENTS: "3499", PLAN_PREMIUM_OUT_MIN: "250", PLAN_PREMIUM_IN_MIN: "400" });
+    expect(plans.premium.yearlyPriceCents).toBe(3499 * 11);
+    expect(plans.lock.yearlyPriceCents).toBe(1299 * 11);
+    expect(plans.business.yearlyPriceCents).toBe(3499 * 11);
+    expect(plans.business_pro.yearlyPriceCents).toBe(4499 * 11);
+    expect(plans.free.yearlyPriceCents).toBeUndefined();
+  });
+
   it("refuses to start when a paid plan would lose money at worst case, and says which and by how much", () => {
     expect(() => loadConfig({ PLAN_PREMIUM_OUT_MIN: "250", PLAN_PREMIUM_IN_MIN: "400" })).toThrow(/premium: worst-case cost .* > 70 %/);
     expect(() => loadConfig({ PLAN_LOCK_PRICE_CENTS: "499" })).toThrow(/lock: worst-case cost/);

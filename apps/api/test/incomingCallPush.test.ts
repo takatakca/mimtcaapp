@@ -58,7 +58,8 @@ describe("incoming call Web Push", () => {
     const d = await makeUser(ctx);
     await handle(c, "alice");
     await handle(d, "bob");
-    await ctx.repo.addUsage(c.account.id, [monthPeriod(new Date())], { minutesOnNet: 120 });
+    // 120 free on-net minutes + the 30 bonus minutes of the « Choisissez votre @nom » mission, all used.
+    await ctx.repo.addUsage(c.account.id, [monthPeriod(new Date())], { minutesOnNet: 150 });
     expect((await call(c.user.id, "@bob")).body).toContain("minutes d'appels entre applications");
     expect((await call(c.user.id, "@bob")).body).not.toContain("<Client>");
     expect(rings()).toEqual([]);

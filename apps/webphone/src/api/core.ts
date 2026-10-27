@@ -30,8 +30,10 @@ import type {
   MeResponse,
   MessageDto,
   MessagesResponse,
+  MissionsResponse,
   NumberHoldResponse,
   OtpStartResponse,
+  ReferralsResponse,
   RecordGreetingByCallResponse,
   ReplySuggestionsResponse,
   SendMessageRequest,
@@ -128,5 +130,10 @@ export function coreEndpoints(request: HttpClient["request"]) {
     numberHold: (id: string, token: string) =>
       request<NumberHoldResponse>("GET", `/v1/public/numbers/holds/${seg(id)}`, { auth: false, headers: { "X-Hold-Token": token } }),
     billingPortal: () => request<BillingPortalResponse>("GET", "/v1/billing/portal"),
+
+    // Missions MIMT (read-only: rewards are granted by the API when it sees the event, never claimed).
+    missions: () => request<MissionsResponse>("GET", "/v1/missions"),
+    /** My referral code and share link (the « Un ami s'abonne » mission). */
+    referrals: () => request<ReferralsResponse>("GET", "/v1/referrals"),
   };
 }

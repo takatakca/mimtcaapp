@@ -95,6 +95,9 @@ export async function meRoutes(app: FastifyInstance, deps: AppDeps) {
         inboundMinutes: usage.minutesIn,
         messages: usage.smsOut + usage.smsIn,
         periodStart: `${monthPeriod(now)}-01T00:00:00.000Z`,
+        onNetMinutes: usage.minutesOnNet,
+        bonusOutboundMinutes: usage.bonusMinutesOut,
+        bonusOnNetMinutes: usage.bonusMinutesOnNet,
       },
       callSettings: await repo.callControls.getCallSettings(account.id),
     };

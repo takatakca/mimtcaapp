@@ -18,25 +18,35 @@ export function usageLevel(percent: number): UsageLevel {
 }
 
 export interface UsageRow {
-  key: "outboundMinutes" | "inboundMinutes" | "messages";
+  key: "outboundMinutes" | "inboundMinutes" | "messages" | "onNetMinutes";
   used: number;
   cap: number;
   percent: number;
   level: UsageLevel;
 }
 
-export function usageRows(
-  plan: PlanCode,
-  usage: { outboundMinutes: number; inboundMinutes: number; messages: number },
-  multiplier = 1,
-): UsageRow[] {
+export interface MonthUsage {
+  outboundMinutes: number;
+  inboundMinutes: number;
+  messages: number;
+  /** App-to-app minutes (the free plan's own pool). */
+  onNetMinutes?: number;
+  /** Extra minutes of this month (Missions MIMT, rewarded ads, minute packs): they raise this month's cap. */
+  bonusOutboundMinutes?: number;
+  bonusOnNetMinutes?: number;
+}
+
+export function usageRows(plan: PlanCode, usage: MonthUsage, multiplier = 1): UsageRow[] {
   const caps = PLANS[plan].caps;
+  const row = (key: UsageRow["key"], used: number, cap: number): UsageRow => {
+    const percent = usagePercent(used, cap);
+    return { key, used, cap, percent, level: usageLevel(percent) };
+  };
   // A zero cap is not in the plan (Gratuit has no phone-network minutes or texts): no row for it.
-  return (["outboundMinutes", "inboundMinutes", "messages"] as const)
+  const rows = (["outboundMinutes", "inboundMinutes", "messages"] as const)
     .filter((key) => caps[key] > 0)
-    .map((key) => {
-      const cap = caps[key] * multiplier;
-      const percent = usagePercent(usage[key], cap);
-      return { key, used: usage[key], cap, percent, level: usageLevel(percent) };
-    });
+    .map((key) => row(key, usage[key], caps[key] * multiplier + (key === "outboundMinutes" ? (usage.bonusOutboundMinutes ?? 0) : 0)));
+  // The free plan's app-to-app pool (paid plans draw app-to-app calls from outbound minutes).
+  if (caps.onNetMinutes !== null) rows.push(row("onNetMinutes", usage.onNetMinutes ?? 0, caps.onNetMinutes * multiplier + (usage.bonusOnNetMinutes ?? 0)));
+  return rows;
 }

@@ -5,14 +5,21 @@
 //   (<CODE>: LOCK — the Essentiel plan —, PREMIUM, BUSINESS, BUSINESS_PRO), FREE_ON_NET_MINUTES,
 //   TWILIO_USD_* carrier rates and USD_TO_CAD.
 //
+// Yearly prices are always 12 months for the price of 11 (YEARLY_MONTHS_PAID): an overridden monthly price moves the
+// yearly one with it. The yearly price is checked against its own ceiling (MAX_COST_SHARE_YEARLY, owner decision
+// 2026-10-27), never against a loosened monthly rule, and never past a loss.
+//
 // A paid plan that breaks the rule stops the API at startup with the numbers, instead of losing money per customer.
 // The free plan has no price, so no rule: its cost is capped by FREE_* (services/freeTier.ts).
 
 import {
   DEFAULT_ASSUMPTIONS,
   DEFAULT_CARRIER_RATES_USD,
+  MAX_COST_SHARE_YEARLY,
   PLANS,
   planRuleViolations,
+  yearlyPlanRuleViolations,
+  yearlyPriceFor,
   type CarrierRatesUsd,
   type Plan,
   type PlanCode,
@@ -64,8 +71,8 @@ export function plansFromEnv(env: Record<string, string | undefined>, usdToCad =
     p.caps.inboundMinutes = num(env, `PLAN_${name}_IN_MIN`, p.caps.inboundMinutes, { int: true });
     p.caps.messages = num(env, `PLAN_${name}_MESSAGES`, p.caps.messages, { int: true });
     p.caps.mms = num(env, `PLAN_${name}_MMS`, p.caps.mms, { int: true });
-    // A yearly price is only kept if it is not overridden away from the monthly one it was set against.
-    if (env[`PLAN_${name}_PRICE_CENTS`]) delete p.yearlyPriceCents;
+    // 12 months for the price of 11, also after a monthly price override.
+    if (p.yearlyPriceCents) p.yearlyPriceCents = yearlyPriceFor(p.monthlyPriceCents);
     if (p.monthlyPriceCents <= 0) throw new Error(`Invalid configuration: PLAN_${name}_PRICE_CENTS must be > 0 (paid plan)`);
   }
   plans.free.caps.onNetMinutes = num(env, "FREE_ON_NET_MINUTES", plans.free.caps.onNetMinutes ?? 0, { int: true });
@@ -78,12 +85,21 @@ export function plansFromEnv(env: Record<string, string | undefined>, usdToCad =
     plans.free.caps.messages = num(env, "PLAN_FREE_MESSAGES", 100, { int: true });
   }
 
-  const broken = planRuleViolations(plans, carrierRatesFromEnv(env), { ...DEFAULT_ASSUMPTIONS, usdToCad });
+  const rates = carrierRatesFromEnv(env);
+  const assumptions = { ...DEFAULT_ASSUMPTIONS, usdToCad };
+  const broken = planRuleViolations(plans, rates, assumptions);
   if (broken.length) {
     const detail = broken
       .map(({ code, economics: e }) => `${code}: worst-case cost ${e.worstCostCad} $ > 70 % of ${e.netCad} $ net (${Math.round(e.costShare * 100)} %)`)
       .join("; ");
     throw new Error(`Invalid configuration: plan loses money at worst case (docs/MIMT-UNIT-ECONOMICS.md): ${detail}`);
+  }
+  const yearly = yearlyPlanRuleViolations(plans, rates, assumptions);
+  if (yearly.length) {
+    const detail = yearly
+      .map(({ code, economics: e }) => `${code} yearly: worst-case cost ${e.worstCostCad} $/month > ${Math.round(MAX_COST_SHARE_YEARLY * 100)} % of ${e.netPerMonthCad} $ net/month (${Math.round(e.costShare * 1000) / 10} %)`)
+      .join("; ");
+    throw new Error(`Invalid configuration: yearly price over its ceiling (docs/MIMT-UNIT-ECONOMICS.md): ${detail}`);
   }
   return plans;
 }

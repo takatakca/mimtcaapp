@@ -55,7 +55,7 @@ describe("API contract (webphone ↔ apps/api routes)", () => {
   });
 
   it("the AI routes used outside those modules exist too", () => {
-    for (const r of ["POST /v1/voicemails/:/summary", "GET /v1/conversations/:/suggestions", "GET /v1/ai/status", "POST /v1/consents"]) {
+    for (const r of ["POST /v1/voicemails/:/summary", "GET /v1/conversations/:/suggestions", "GET /v1/ai/status", "POST /v1/consents", "GET /v1/missions", "GET /v1/referrals"]) {
       expect(routes, r).toContain(r);
     }
   });

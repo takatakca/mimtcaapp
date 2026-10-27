@@ -92,6 +92,51 @@ Ce qui change par rapport à la suggestion du propriétaire :
 - Module « 250 minutes de plus » : 9,99 $ (7,99 $ donnait 84 %). Numéro supplémentaire 4,99 $ : 58 %.
 - Plafonds `FREE_*` conservés; 9-1-1 jamais bloqué.
 
+## Forfaits annuels : 12 mois pour le prix de 11 (décision du propriétaire, 2026-10-27)
+
+Ordre du propriétaire : « un mois gratuit si t'achètes pour un an ». `yearlyPriceCents = 11 × monthlyPriceCents` pour
+Essentiel, Premium, Affaires et Affaires Pro (`packages/shared/src/plans.ts`, `YEARLY_MONTHS_PAID`). Les quotas restent
+**mensuels** (remis à zéro chaque mois). Le client paie une fois par an : **un seul** frais Stripe (2,9 % + 0,30 $) sur
+le prix annuel, donc le net par mois n'est pas simplement 11/12 du net mensuel.
+
+| Forfait | Prix annuel | Équivalent / mois | Stripe (1 fois) | Net / an | Net / mois | Coût pire cas / mois | Coût / net (annuel) | Coût / net (mensuel) | Marge / mois perdue |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Essentiel | 142,89 | 11,91 | 4,44 | 138,45 | 11,54 | 8,15 | **70,6 %** | 66,2 % | 0,77 $ |
+| Premium | 329,89 | 27,49 | 9,87 | 320,02 | 26,67 | 20,10 | **75,4 %** | 69,7 % | 2,15 $ |
+| Affaires (par ligne) | 384,89 | 32,07 | 11,46 | 373,43 | 31,12 | 23,21 | **74,6 %** | 68,9 % | 2,56 $ |
+| Affaires Pro (par ligne) | 494,89 | 41,24 | 14,65 | 480,24 | 40,02 | 29,13 | **72,8 %** | 67,1 % | 3,37 $ |
+
+Les quatre dépassent 70 % au pire cas : c'est le coût du mois gratuit, accepté par le propriétaire. La règle mensuelle
+de 70 % **n'est pas assouplie**. L'annuel a son propre plafond explicite, `MAX_COST_SHARE_YEARLY = 0,80`
+(`packages/shared/src/unitEconomics.ts`), jamais appliqué au-delà de `NEVER_A_LOSS = 100 %` (coût = net : perte) :
+
+- 0,80 parce qu'un forfait qui respecte tout juste la règle mensuelle atteint au plus ≈ 76,4 % en annuel
+  (0,70 × 12 / (11 × 0,971)); le plafond annuel ne bloque donc jamais un prix accepté au mois, et reste loin d'une perte;
+- `apps/api/src/plansConfig.ts` : le prix annuel suit le prix mensuel modifié par `PLAN_<CODE>_PRICE_CENTS` (toujours
+  11 ×), et l'API **refuse de démarrer** si un prix annuel dépasse 80 %, avec les chiffres;
+- tests : `unitEconomics.test.ts` fixe les quatre pourcentages ci-dessus (un changement de tarif Twilio ou de prix les
+  fait échouer, à revoir consciemment).
+
+Magasins (App Store, Google Play) : le prix annuel est saisi dans App Store Connect / Play Console, pas par le code.
+Le fixer à 11 × le prix mensuel du magasin. Avec la commission de 15 %, l'annuel Essentiel passerait à ≈ 80,5 % :
+préférer l'annuel sur le Web (Stripe).
+
+## Missions MIMT : coût des minutes en prime (2026-10-27)
+
+Détails et règles : `docs/MIMT-MISSIONS.md`. Au plus **150 minutes une seule fois par compte** (et par cellulaire ou
+appareil), ajoutées au mois en cours, sans report.
+
+| Cas | Minutes | Coût pire cas (une fois) |
+| --- | ---: | ---: |
+| Forfait payant (minutes sortantes : réseau + volet app, 0,018 USD/min) | 150 | 3,78 $ |
+| Gratuit (minutes entre applications : volet app, 0,004 USD/min) | 150 | 0,84 $ (dans le budget `FREE_TIER_MONTHLY_BUDGET_CAD`) |
+
+Ce coût est ponctuel, pas mensuel. Au pire, le **premier mois** d'un Essentiel mensuel qui fait toutes les missions et
+utilise tout coûte 8,15 + 3,78 = 11,93 $ pour 12,31 $ net (96,9 %, pas une perte). Pour un Essentiel annuel, ce premier
+mois dépasse son douzième de net (103 %), mais l'année entière reste à (12 × 8,15 + 3,78) / 138,45 = 73,4 %. Les
+missions « Un ami s'abonne » et « Passez à l'annuel » ne donnent aucune minute : leur récompense est le mois Premium du
+parrainage (déjà compté plus bas) et le mois gratuit de l'annuel (tableau ci-dessus). Coupe-circuit : `MISSIONS=off`.
+
 ## Ce qui peut casser la règle
 
 - **Achats dans les applications (App Store, Google Play)** : la commission de 15 à 30 % n'est pas comptée ci-dessus.

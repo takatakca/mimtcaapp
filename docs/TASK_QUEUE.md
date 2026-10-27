@@ -1,5 +1,12 @@
 # MIMT — File des tâches exécutables
 
+## Annuel 12 pour 11 + Missions MIMT — 27 octobre 2026, Claude (branche `claude/missions`, PR à ouvrir par le propriétaire)
+
+| ID | État | Prochaine preuve requise |
+| --- | --- | --- |
+| GROW-YEARLY | Code prêt : prix annuels 11 ×, bascule Mensuel / Annuel (app), plafond annuel distinct 80 % | Paiement Stripe annuel réel en mode test; produits annuels App Store / Play à 11 × (propriétaire) |
+| GROW-MISSIONS | Code prêt : migration 0017, `GET /v1/missions`, récompenses dans les routes et webhooks, page `/missions` | CI Postgres (contrats `missions.repo.contract`), puis déploiement API (migration au démarrage) et webphone |
+
 ## Reprise vérifiée — 26 octobre 2026, Codex
 
 PR #63–#68 fusionnées, main vérifié c308dd8; CI 40420964736 réussie. Publication 40421110321 échouée : manifeste 8d38458 pendant 60 essais. Surveillance 40438511037 : trois services UP, sans comparaison de SHA. Les crédits ont bloqué la revue automatique Claude, pas la sauvegarde des modifications.

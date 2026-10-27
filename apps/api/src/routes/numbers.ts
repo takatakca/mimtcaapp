@@ -10,6 +10,7 @@ import { getFeatures, HELD_STATES, outboundBlocked } from "../services/accounts.
 import { FREE_QUOTA_MESSAGE, freeNumberAvailable, NUMBER_REQUIRES_PAID_MESSAGE } from "../services/freeTier.js";
 import { planOf } from "../plansConfig.js";
 import { e911Ready } from "./e911.js";
+import { grantMission } from "../services/missions.js";
 
 const DEFAULT_AREA_CODES = ["514", "438", "450", "418", "819", "581", "579", "873"] as const satisfies readonly (typeof QUEBEC_AREA_CODES)[number][];
 
@@ -90,7 +91,9 @@ export async function numberRoutes(app: FastifyInstance, deps: AppDeps) {
       global_user_id: user.globalUserId,
       workspace_id: account.workspaceId,
     });
-    const res: ClaimNumberResponse = { id: number.id, e164: number.e164, state: number.state };
+    // Mission « Obtenez votre numéro »: a number bought on a paid plan (never the legacy free number).
+    const missionGranted = plan !== "free" ? await grantMission(deps, { account, user, mission: "first_number", sourceRef: "number:claim", log: req.log }) : null;
+    const res: ClaimNumberResponse = { id: number.id, e164: number.e164, state: number.state, ...(missionGranted ? { missionGranted } : {}) };
     return reply.code(201).send(res);
   });
 }

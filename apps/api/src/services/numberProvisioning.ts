@@ -1,6 +1,7 @@
 import type { AppDeps } from "../deps.js";
 import type { TelecomAccount } from "../repo/types.js";
 import { LIVE_HOLD_STATES } from "../repo/numberHolds.js";
+import { grantMission } from "./missions.js";
 
 /**
  * Buys the number a visitor held in the picker, once Stripe confirms the payment (checkout.session.completed with
@@ -71,5 +72,7 @@ export async function provisionHeldNumber(
     global_user_id: owner?.globalUserId ?? null,
     workspace_id: account.workspaceId,
   });
+  // Mission « Obtenez votre numéro »: Stripe confirmed the plan, the number is bought.
+  await grantMission(deps, { account, user: owner, mission: "first_number", sourceRef: "number:picker" });
   return "provisioned";
 }
