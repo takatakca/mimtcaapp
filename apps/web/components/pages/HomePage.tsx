@@ -7,6 +7,7 @@ import { FeatureCarousel, type Slide } from "@/components/FeatureCarousel";
 import { HeroArt, Skyline } from "@/components/HeroArt";
 import { Starfield } from "@/components/Starfield";
 import { Offers } from "@/components/Offers";
+import { FutureSection } from "@/components/FutureSection";
 import { Icon, type IconName } from "@/components/Visuals";
 import { PlanCard } from "@/components/PlanCard";
 import { faqItems } from "@/lib/faq";
@@ -26,12 +27,6 @@ export function HomePage({ lang }: { lang: Lang }) {
 
   return (
     <Shell lang={lang} page="home" ld={[softwareApplicationLd(lang), serviceLd(lang, "mobile"), serviceLd(lang, "business"), faqPageLd(lang, faq, "home")]}>
-      {/* ---------- Offer banner (true facts only) ---------- */}
-      <p className="offer-banner">
-        <strong>{t.offerStrong}</strong> {t.offer}{" "}
-        <a href="#numero">{t.offerLink}</a>
-      </p>
-
       {/* ---------- Hero ---------- */}
       <section className="home-hero" aria-labelledby="hero-title">
         <div className="hero-glow" aria-hidden="true" />
@@ -117,6 +112,9 @@ export function HomePage({ lang }: { lang: Lang }) {
           </ul>
         </div>
       </section>
+
+      {/* ---------- The future of calling ---------- */}
+      <FutureSection lang={lang} />
 
       {/* ---------- Plans ---------- */}
       <section className="section section--tint" id={fr ? "forfaits" : "plans"} aria-labelledby="plans-title">
@@ -346,9 +344,6 @@ export function HomePage({ lang }: { lang: Lang }) {
 
 type Copy = {
   pillQc: string;
-  offerStrong: string;
-  offer: string;
-  offerLink: string;
   h1a: string;
   h1b: string;
   h1c: string;
@@ -388,9 +383,6 @@ type Copy = {
 
 const FR: Copy = {
   pillQc: "Fait au Québec",
-  offerStrong: "Lancement :",
-  offer: "transfert de votre numéro gratuit, aucuns frais d'activation.",
-  offerLink: "Choisir mon numéro",
   h1a: "Votre numéro canadien,",
   h1b: "dès {lock} par mois.",
   h1c: "",
@@ -468,9 +460,6 @@ const FR: Copy = {
 
 const EN: Copy = {
   pillQc: "Made in Québec",
-  offerStrong: "Launch:",
-  offer: "free number transfer, no activation fee.",
-  offerLink: "Pick my number",
   h1a: "Your Canadian number,",
   h1b: "from {lock} a month.",
   h1c: "",

@@ -138,6 +138,10 @@ export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; descripti
     fr: { title: "À propos de MIMT", description: "Qui est derrière MIMT : une entreprise québécoise de GROUPE TAKATAK qui offre numéros canadiens, appels et textos par Internet." },
     en: { title: "About MIMT", description: "Who is behind MIMT: a Québec company of GROUPE TAKATAK offering Canadian numbers, calls and texts over the internet." },
   },
+  rewards: {
+    fr: { title: "Missions et récompenses", description: "Gagnez des minutes bonus en configurant votre compte MIMT, et 1 mois Premium chacun quand un ami s'abonne. Vérifié, sans tirage." },
+    en: { title: "Missions and rewards", description: "Earn bonus minutes by setting up your MIMT account, and 1 month of Premium each when a friend subscribes. Verified, no draw." },
+  },
   cityMontreal: {
     fr: { title: "Numéro virtuel Montréal (514, 438)", description: "Un numéro de Montréal (514, 438, 263) dans une app : appels et textos par Wi‑Fi ou données, sur cellulaire et ordinateur. Réservez-le en ligne." },
     en: { title: "Virtual number in Montréal (514, 438)", description: "A Montréal number (514, 438, 263) in an app: calls and texts over Wi‑Fi or data, on your phone and computer. Reserve it online." },
