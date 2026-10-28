@@ -142,6 +142,16 @@ export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; descripti
     fr: { title: "Missions et récompenses", description: "Gagnez des minutes bonus en configurant votre compte MIMT, et 1 mois Premium chacun quand un ami s'abonne. Vérifié, sans tirage." },
     en: { title: "Missions and rewards", description: "Earn bonus minutes by setting up your MIMT account, and 1 month of Premium each when a friend subscribes. Verified, no draw." },
   },
+  affiliates: {
+    fr: {
+      title: "Agents affiliés : une commission sur chaque client",
+      description: "Devenez agent affilié MIMT : 20 % des revenus nets de chaque client que vous amenez, pendant 12 mois. Demande en ligne, contrat signé électroniquement.",
+    },
+    en: {
+      title: "Affiliate agents: a commission on every customer",
+      description: "Become a MIMT affiliate agent: 20% of the net revenue of every customer you bring, for 12 months. Apply online, sign the agreement electronically.",
+    },
+  },
   cityMontreal: {
     fr: { title: "Numéro virtuel Montréal (514, 438)", description: "Un numéro de Montréal (514, 438, 263) dans une app : appels et textos par Wi‑Fi ou données, sur cellulaire et ordinateur. Réservez-le en ligne." },
     en: { title: "Virtual number in Montréal (514, 438)", description: "A Montréal number (514, 438, 263) in an app: calls and texts over Wi‑Fi or data, on your phone and computer. Reserve it online." },

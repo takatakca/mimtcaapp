@@ -5,6 +5,13 @@ import { formatCad, formatNanp, NUMBER_HOLD_MINUTES, PLANS, type NumberHoldRespo
 import { API_URL, APP_URL, type Lang } from "@/lib/site";
 import { trackNumberHeld } from "@/lib/tags";
 import { memorable, placeName } from "@/lib/place";
+import { readAffiliateTouch } from "@/lib/affiliate-link";
+
+/** Affiliate code and click time kept by SiteEffects (lib/affiliate-link.ts), for POST /v1/public/numbers/holds. */
+function affiliateHoldFields(): { affiliateCode?: string; affiliateTouchedAt?: string } {
+  const touch = readAffiliateTouch(() => window.localStorage);
+  return touch ? { affiliateCode: touch.code, affiliateTouchedAt: touch.touchedAt } : {};
+}
 
 const CHIPS = ["514", "438", "450", "418", "819", "Toronto"];
 
@@ -108,7 +115,8 @@ export function NumberPicker({ lang, plan = "lock", id = "numero" }: { lang: Lan
       const res = await fetch(`${API_URL}/v1/public/numbers/holds`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ e164: n.e164 }),
+        // Affiliate link the visitor arrived with: kept with the hold, the API decides at checkout.
+        body: JSON.stringify({ e164: n.e164, ...affiliateHoldFields() }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {

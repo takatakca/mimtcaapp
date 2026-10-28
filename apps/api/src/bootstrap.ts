@@ -19,6 +19,7 @@ import { PostgresRepository } from "./repo/postgres.js";
 import { WebPushNotifier } from "./services/webPush.js";
 import { createEmailSender } from "./services/email.js";
 import { createVideoGateway } from "./video/gateway.js";
+import { createContractGateway } from "./gateways/docusign.js";
 
 export const createLogger = (config: Config): Logger =>
   pino({ level: config.LOG_LEVEL, redact: { paths: REDACT_PATHS, censor: "[redacted]" } });
@@ -77,6 +78,9 @@ export function createDeps(config: Config, log: Logger): AppDeps {
   const video = createVideoGateway(config);
   if (!video) log.warn("LIVEKIT_URL/LIVEKIT_API_KEY/LIVEKIT_API_SECRET not set: video meetings answer 503");
 
+  const contracts = createContractGateway(config);
+  if (!contracts) log.warn("DOCUSIGN_* not set: affiliate contracts are sent in manual mode");
+
   const cipher = new MessageCipher(cipherKey);
   return {
     config,
@@ -97,6 +101,7 @@ export function createDeps(config: Config, log: Logger): AppDeps {
     provisioning,
     porting,
     video,
+    contracts,
     ai: createAiServices({ config, ...(repo instanceof PostgresRepository ? { sql: repo.sql } : {}), log }),
   };
 }

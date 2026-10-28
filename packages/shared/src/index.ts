@@ -17,4 +17,5 @@ export * from "./unitEconomics.js";
 export * from "./handles.js";
 export * from "./aiDemo.js";
 export * from "./missions.js";
+export * from "./affiliates.js";
 export * from "./pilot.js";

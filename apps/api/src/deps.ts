@@ -15,6 +15,7 @@ import type { Repository } from "./repo/types.js";
 import type { Notifier } from "./services/notifier.js";
 import type { EmailSender } from "./services/email.js";
 import type { VideoGateway } from "./video/gateway.js";
+import type { ContractGateway } from "./gateways/docusign.js";
 
 export interface AppDeps {
   config: Config;
@@ -48,4 +49,6 @@ export interface AppDeps {
   store?: StoreVerifier;
   /** Réunions MIMT SFU (LiveKit). Absent or null: meeting routes answer 503 not_configured. */
   video?: VideoGateway | null;
+  /** DocuSign (affiliate agreement). Absent or null: « send contract » answers in manual mode with the filled text. */
+  contracts?: ContractGateway | null;
 }

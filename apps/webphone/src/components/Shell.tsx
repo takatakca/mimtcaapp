@@ -9,6 +9,7 @@ import type { TKey } from "../i18n/core";
 import { Softphone } from "../phone/Softphone";
 import { Icon, type IconName } from "./Icon";
 import { MissionToaster } from "./MissionToaster";
+import { AffiliateAttribution } from "./AffiliateAttribution";
 import { PilotBar } from "../pilot/PilotBar";
 import { DemoBanner, Wordmark } from "./ui";
 import { meetingScopes } from "../pages/meetings/shared";
@@ -141,6 +142,7 @@ export function Shell() {
         </nav>
         <Softphone />
         <MissionToaster />
+        <AffiliateAttribution />
         <PilotBar />
       </div>
     </AdsProvider>

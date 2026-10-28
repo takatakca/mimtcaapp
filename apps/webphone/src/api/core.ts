@@ -2,6 +2,8 @@
 // controls, media, billing). Paths and shapes follow apps/api/src/routes/*.ts and @mimt/shared;
 // contract.test.ts checks every path and method against the API route files.
 import type {
+  AffiliateAttributionResponse,
+  AffiliateDashboardResponse,
   AiStatusResponse,
   AuthTokensResponse,
   BillingPortalResponse,
@@ -48,6 +50,7 @@ import type {
   VoiceTokenResponse,
 } from "@mimt/shared";
 import type { HttpClient } from "./http";
+import { checkoutAffiliate } from "../lib/affiliate";
 
 const seg = (s: string) => encodeURIComponent(s);
 
@@ -125,7 +128,11 @@ export function coreEndpoints(request: HttpClient["request"]) {
     recordGreetingByCall: () => request<RecordGreetingByCallResponse>("POST", "/v1/voicemail/greeting/call"),
 
     // Billing (Stripe Checkout on the web; the API decides the success/cancel URLs).
-    checkout: (body: CheckoutRequest) => request<CheckoutResponse>("POST", "/v1/billing/checkout", { body }),
+    /** Carries the pending affiliate link (lib/affiliate.ts) so the API records it before the payment. */
+    checkout: (body: CheckoutRequest) => {
+      const affiliate = body.affiliate ?? checkoutAffiliate();
+      return request<CheckoutResponse>("POST", "/v1/billing/checkout", { body: affiliate ? { ...body, affiliate } : body });
+    },
     /** Live picker hold (public: the token is the proof). */
     numberHold: (id: string, token: string) =>
       request<NumberHoldResponse>("GET", `/v1/public/numbers/holds/${seg(id)}`, { auth: false, headers: { "X-Hold-Token": token } }),
@@ -135,5 +142,12 @@ export function coreEndpoints(request: HttpClient["request"]) {
     missions: () => request<MissionsResponse>("GET", "/v1/missions"),
     /** My referral code and share link (the « Un ami s'abonne » mission). */
     referrals: () => request<ReferralsResponse>("GET", "/v1/referrals"),
+
+    // Programme d'agents affiliés (docs/MIMT-AFFILIATES.md).
+    /** 404 not_affiliate unless this user is an active (or suspended) affiliate. */
+    affiliateDashboard: () => request<AffiliateDashboardResponse>("GET", "/v1/affiliates/me"),
+    /** First touch of the link this browser arrived with; the API checks the window and self-referral. */
+    affiliateAttribution: (code: string, touchedAt?: string) =>
+      request<AffiliateAttributionResponse>("POST", "/v1/affiliates/attribution", { body: { code, ...(touchedAt ? { touchedAt } : {}) } }),
   };
 }

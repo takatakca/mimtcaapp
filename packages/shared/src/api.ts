@@ -382,6 +382,11 @@ export interface CheckoutRequest {
    * (TRIAL_CAPS), one per account. Refused with 400 trial_unavailable otherwise.
    */
   trial?: boolean;
+  /**
+   * Affiliate link the visitor arrived with (?aff=CODE, kept by the app): first touch, recorded server-side before
+   * the payment (docs/MIMT-AFFILIATES.md). Never blocks the checkout.
+   */
+  affiliate?: { code: string; touchedAt?: string };
 }
 export interface CheckoutResponse {
   /** Stripe Checkout URL to open in the browser. */

@@ -38,6 +38,13 @@ import { BUSINESS_PLANS, businessSubscription } from "../pbx/engine.js";
 import { checkHoldForCheckout } from "../services/numberHoldCheckout.js";
 import { provisionHeldNumber } from "../services/numberProvisioning.js";
 import { grantMission } from "../services/missions.js";
+import {
+  attributeAccount,
+  attributeFromHold,
+  invoiceNetRevenueCents,
+  recordAffiliateCommission,
+  reverseAffiliateCommission,
+} from "../services/affiliates.js";
 import type { CheckoutLine } from "../gateways/billing.js";
 
 const CheckoutBody = z
@@ -51,6 +58,7 @@ const CheckoutBody = z
     referralCode: z.string().min(4).max(32).optional(),
     numberHold: z.object({ id: z.string().uuid(), token: z.string().min(16).max(128) }).optional(),
     trial: z.boolean().optional(),
+    affiliate: z.object({ code: z.string().min(4).max(32), touchedAt: z.iso.datetime().optional() }).optional(),
   })
   .refine((b) => Boolean(b.plan) !== Boolean(b.addon), "Pass exactly one of plan or addon")
   .refine((b) => !b.numberHold || Boolean(b.plan), "A held number is bought with a plan");
@@ -137,6 +145,17 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
 
     // Live picker: the held number must still be ours and the account ready to own a number (9-1-1, verification).
     const hold = body.numberHold ? await checkHoldForCheckout(deps, { user, account, ...body.numberHold }) : null;
+
+    // Affiliate program: who brought this customer, recorded server-side before the payment (first touch wins).
+    try {
+      if (hold) await attributeFromHold(deps, { user, account, holdId: hold.id });
+      if (body.affiliate) {
+        const touchedAt = body.affiliate.touchedAt ? new Date(body.affiliate.touchedAt) : null;
+        await attributeAccount(deps, { user, account, code: body.affiliate.code, touchedAt, source: "checkout" });
+      }
+    } catch (err) {
+      app.log.warn({ err: err instanceof Error ? err.message : "error" }, "affiliate attribution failed; checkout continues");
+    }
 
     const customerId = account.stripeCustomerId ?? (await createCustomer(account, user.email, user.displayName, user.locale));
     const taxLines = quebecTaxLines({
@@ -531,6 +550,27 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
         if (meta?.kind === "plan" && meta.code && meta.code !== "free" && meta.code in PLANS) {
           const outcome = await settleReferralOnPaidPlan(deps, { account, fingerprint });
           if (outcome) app.log.info({ account: account.id, outcome }, "referral settled");
+        }
+        // Affiliate program: commission on every paid subscription invoice of a referred customer (net of taxes).
+        if (inv.id) {
+          const paidAt = inv.status_transitions?.paid_at ? new Date(inv.status_transitions.paid_at * 1000) : deps.now();
+          await recordAffiliateCommission(deps, { account, invoiceId: inv.id, netRevenueCents: invoiceNetRevenueCents(inv), paidAt, fingerprint }, app.log);
+        }
+        return;
+      }
+      case "charge.refunded":
+      case "charge.dispute.created": {
+        // Affiliate program: a refund reverses the commission in proportion, a chargeback reverses all of it.
+        const obj = event.data.object;
+        const pi = typeof obj.payment_intent === "string" ? obj.payment_intent : (obj.payment_intent?.id ?? null);
+        if (!pi || !deps.billing?.invoiceIdForPayment) return;
+        const invoiceId = await deps.billing.invoiceIdForPayment(pi);
+        if (!invoiceId) return;
+        if (event.type === "charge.refunded") {
+          const charge = event.data.object;
+          await reverseAffiliateCommission(deps, { invoiceId, reason: "refund", refundedCents: charge.amount_refunded, amountCents: charge.amount });
+        } else {
+          await reverseAffiliateCommission(deps, { invoiceId, reason: "chargeback" });
         }
         return;
       }

@@ -42,6 +42,7 @@ describe("isolated self-hosted MIMT migration guard", () => {
     expect(MIGRATION_ORDER[15]).toBe("0015_ai_help.sql");
     expect(MIGRATION_ORDER[16]).toBe("0016_call_summaries.sql");
     expect(MIGRATION_ORDER[17]).toBe("0017_missions.sql");
+    expect(MIGRATION_ORDER).toContain("0019_affiliates.sql");
     expect(MIGRATION_ORDER[MIGRATION_ORDER.length - 1]).toBe("0020_ai_pilot.sql");
   });
   it("lists every migration file in supabase/migrations", () => {
