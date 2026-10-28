@@ -7,12 +7,14 @@ import { frExtra } from "./fr.extra";
 import { frMeet } from "./fr.meet";
 import { frBiz } from "./fr.biz";
 import { frMissions } from "./fr.missions";
+import { frPilot } from "./fr.pilot";
 
 export const fr = {
   ...frExtra,
   ...frMeet,
   ...frBiz,
   ...frMissions,
+  ...frPilot,
   "account.billingPortal": "Gérer la facturation",
   "account.complaints": "Plaintes : CPRST (Commission des plaintes relatives aux services de télécom-télévision)",
   "account.complaintsHint": "Si nous ne réglons pas votre plainte, la CPRST peut vous aider gratuitement.",
