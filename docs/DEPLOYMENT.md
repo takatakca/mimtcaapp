@@ -32,16 +32,15 @@ Vérifié au 2026-10-14. Repository `takatakca/mimtcaapp`, branche `main`. Node 
 | Nom | Origine | Destination | Procédure |
 | --- | --- | --- | --- |
 | `mimt.ca` | `apps/web/out/` (Next.js statique) | Coolify vps1, application `mimt-web` (nginx), depuis le 26 octobre 2026 | Coolify construit `main` à chaque poussée (la construction exécute `verify-out.mjs`); `auto-deploy-website.yml` confirme ensuite, après CI, que `mimt-release.json` sert le SHA testé. Plus de FTP. |
-| `app.mimt.ca` | `apps/webphone/dist/` (Vite) | Coolify vps1, application `mimt-app` (nginx), depuis le 26 octobre 2026 | Coolify construit `main` à chaque poussée; `mimt-release.json` vient de `SOURCE_COMMIT`. Les portées FTP de `deploy.yml` visent MochaHost, qui ne sert plus ces domaines. |
+| `app.mimt.ca` | `apps/webphone/dist/` (Vite) | Coolify vps1, application `mimt-app` (nginx), depuis le 26 octobre 2026 | Coolify construit `main` à chaque poussée; `mimt-release.json` vient de `SOURCE_COMMIT`. Plus de FTP (portée `webphone` retirée de `deploy.yml` le 28 octobre 2026). |
 | `api.mimt.ca` | `apps/api/Dockerfile` | application MIMT sur Coolify, proxy HTTPS vers 8080 | manuel (télécom, conformité et paiements restent des portes de lancement) |
 | PostgreSQL | `mimt-prod-postgres` | PostgreSQL privée sur Coolify | migration explicite, sauvegardes/restore séparés |
 
 ## Secrets GitHub (noms seulement)
 
-- Site : `MOCHAHOST_FTP_SERVER`, `MOCHAHOST_FTP_USERNAME`, `MOCHAHOST_FTP_PASSWORD`.
-- Portail : `MOCHAHOST_APP_FTP_SERVER`, `MOCHAHOST_APP_FTP_USERNAME`, `MOCHAHOST_APP_FTP_PASSWORD`.
-- API : `COOLIFY_URL`, `COOLIFY_TOKEN`, `COOLIFY_API_UUID`.
-- Variables non secrètes : `FTP_PROTOCOL` (par défaut `ftps`), `API_URL`, `TAKATAK_ISSUER`, `TAKATAK_CLIENT_ID`, `FORMS_ENDPOINT`.
+- API : `COOLIFY_URL`, `COOLIFY_TOKEN`, `COOLIFY_API_UUID` (lus par `deploy.yml`).
+- Variables non secrètes : `API_URL`, `TAKATAK_ISSUER`, `TAKATAK_CLIENT_ID`, `FORMS_ENDPOINT`.
+- Anciens secrets FTP (depuis le 28 octobre 2026, plus aucune publication ne les lit) : `MOCHAHOST_APP_FTP_SERVER`, `MOCHAHOST_APP_FTP_USERNAME`, `MOCHAHOST_APP_FTP_PASSWORD` et la variable `FTP_PROTOCOL` peuvent être supprimés de GitHub. `MOCHAHOST_FTP_SERVER`, `MOCHAHOST_FTP_USERNAME`, `MOCHAHOST_FTP_PASSWORD` ne servent plus qu'au diagnostic manuel en lecture seule `diagnose-ftp-paths.yml`.
 
 Ne jamais inclure des valeurs dans un commit, une URL, un journal ou une réponse publique.
 
@@ -50,8 +49,8 @@ Ne jamais inclure des valeurs dans un commit, une URL, un journal ou une répons
 1. Une modification sur `main` déclenche `CI` : installation figée, compilation du paquet partagé, TypeScript, tests unitaires, sites statiques, e2e Playwright et vérifications de sécurité du webphone.
 2. Lorsque la CI d'un **push de la branche main** réussit, `Auto deploy MIMT website` commence par le job `release-candidate` (comparaison du SHA CI à `main`). Un ancien commit est **ignoré avant les installations/builds**. Si le SHA est encore courant, `deploy-website` construit ce commit et refait la comparaison dans `release-gate` juste avant FTP. **Un workflow vert dont le job d'envoi est `skipped` ne prouve aucune nouvelle publication.** Vérifier les étapes `Upload` et `Confirm` comme `success` pour annoncer une livraison.
 3. Le site publié doit contenir `/mimt-release.json`, par exemple `{"commit":"<sha de 40 caractères>"}`. Le contrôle HTTP compare l'identifiant servi au SHA de la CI, et vérifie la présence de la marque française MIMT et l'absence des anciennes références Fongo. Un transfert seul n'est pas une preuve de succès.
-4. Pour publication manuelle : GitHub → Actions → **Deploy** → Run workflow → portée `website`, `webphone`, `api` ou `all`; laisser les chemins FTPS `./` pour les comptes dédiés. Les secrets sont contrôlés uniquement pour la portée choisie.
-5. Le portail vérifie le titre `MIMT Web`, le montage `root`, `/connexion`, `/messages` et l'absence d'erreur FTPS. Le serveur Apache doit conserver `apps/webphone/public/.htaccess` pour les URL SPA. Vérifier les assets et TLS indépendamment.
+4. Publication manuelle de l'API : GitHub → Actions → **Deploy** → Run workflow → portée `api`. Depuis le 28 octobre 2026, ce workflow ne publie plus les sites : Coolify construit `mimt.ca` et `app.mimt.ca` depuis `main`. La CI échoue si `deploy.yml` contient à nouveau un envoi FTP.
+5. Le portail (`app.mimt.ca`) est construit par Coolify (`mimt-app`, nginx) : vérifier que `https://app.mimt.ca/mimt-release.json` donne le SHA de `main`, puis le titre `MIMT Web`, `/connexion` et `/messages`. Le `.htaccess` Apache reste dans le build pour mémoire. Vérifier les assets et TLS indépendamment.
 6. L'API nécessite `GET https://api.mimt.ca/healthz` -> `ok:true` et `GET /readyz` -> `ok:true, db:up`. Cela **ne valide pas** appels, SMS, 9-1-1, billing ou conformité.
 7. Pour un échec : ouvrir l'étape exacte dans GitHub Actions, classifier DNS/TLS/auth/transfert/docroot/schéma/health, corriger la cause, et éviter de relancer la même erreur sans modification.
 

@@ -39,8 +39,12 @@ jobs:
           grep -Fq 'release-candidate:' .github/workflows/auto-deploy-website.yml
           grep -Fq 'id: release-gate' .github/workflows/auto-deploy-website.yml
           grep -Fq 'mimt-release.json' .github/workflows/auto-deploy-website.yml
-          grep -Fq 'mimt-release.json' .github/workflows/deploy.yml
-          grep -Fq 'https://app.mimt.ca/mimt-release.json' .github/workflows/deploy.yml
+          # Coolify serves mimt.ca and app.mimt.ca; the manual Deploy must never upload to MochaHost again.
+          if grep -Fq 'FTP-Deploy-Action' .github/workflows/deploy.yml; then
+            echo "::error::deploy.yml uploads by FTP, but MochaHost no longer serves mimt.ca or app.mimt.ca."
+            exit 1
+          fi
+          grep -Fq '/readyz' .github/workflows/deploy.yml
       - name: Verify Apache SPA routing file included in built webphone
         run: |
           test -f apps/webphone/dist/.htaccess

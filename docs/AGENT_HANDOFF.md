@@ -1,5 +1,12 @@
 # MIMT — Relève du développeur principal
 
+## Relève — 28 octobre 2026 (Claude, retrait des envois FTP)
+
+- **Fait :** `.github/workflows/deploy.yml` ne garde que la portée manuelle `api` (Coolify, contrôle `/healthz` et `/readyz`). Les portées `website`, `webphone` et `all` envoyaient par FTP vers MochaHost, qui ne sert plus `mimt.ca` ni `app.mimt.ca` depuis le 26 octobre. Le contrôle CI « Preserve deploy safety » échoue désormais si `deploy.yml` contient `FTP-Deploy-Action`; testé localement sur l'ancien (échec attendu) et le nouveau fichier (réussite).
+- **Inchangé :** `auto-deploy-website.yml` (confirmation Coolify, sans envoi) et `diagnose-ftp-paths.yml` (lecture seule).
+- **Next.js :** l'avis de sécurité visant 16.4.0 est réglé : `apps/web` et `pnpm-lock.yaml` sont en 16.4.3 sur `main` (vérifié le 28 octobre).
+- **Suite :** propriétaire : supprimer de GitHub les secrets `MOCHAHOST_APP_FTP_*` et la variable `FTP_PROTOCOL` (plus lus).
+
 ## Reprise vérifiée — 26 octobre 2026, Codex
 
 PR #63–#68 fusionnées, main vérifié c308dd8; CI 40420964736 réussie. Publication 40421110321 échouée : manifeste 8d38458 pendant 60 essais. Surveillance 40438511037 : trois services UP, sans comparaison de SHA. Les crédits ont bloqué la revue automatique Claude, pas la sauvegarde des modifications.
