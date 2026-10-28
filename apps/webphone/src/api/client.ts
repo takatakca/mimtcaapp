@@ -7,6 +7,7 @@ import { businessEndpoints } from "./business";
 import { catalogEndpoints } from "./catalog";
 import { portInEndpoints } from "./portIn";
 import { meetingEndpoints } from "./meetings";
+import { pilotEndpoints } from "./pilot";
 import { coreEndpoints } from "./core";
 import { createHttpClient, type FetchLike } from "./http";
 import { createTokenStore } from "./tokens";
@@ -55,6 +56,7 @@ export const api = {
   ...catalogEndpoints(request),
   ...portInEndpoints(request),
   ...meetingEndpoints(request),
+  ...pilotEndpoints(request),
 };
 
 export type Api = typeof api;

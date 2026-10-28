@@ -162,6 +162,12 @@ const EnvSchema = z
      * recorded while off); GET /v1/missions still answers with enabled: false. Default "on".
      */
     MISSIONS: z.enum(["on", "off"]).default("on"),
+    /**
+     * « Pilote MIMT » command bar (docs/MIMT-PILOTE.md): "on" = Claude plans commands when AI is configured and the
+     * user consented (local French/English parser otherwise); "rules" = local parser only (no AI cost); "off" =
+     * POST /v1/ai/command answers 503 pilot_disabled. Default "on".
+     */
+    AI_COMMANDS: z.enum(["on", "rules", "off"]).default("on"),
     DEVICE_ATTESTATION_REQUIRED: z
       .enum(["true", "false"])
       .optional()
