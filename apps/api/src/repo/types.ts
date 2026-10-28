@@ -8,6 +8,7 @@ import type { NumberHoldRepository } from "./numberHolds.js";
 import type { HandleRepository } from "./handles.js";
 import type { WebPushRepository } from "./webPush.js";
 import type { MissionRepository } from "./missions.js";
+import type { AffiliateRepository } from "./affiliates.js";
 import type { PortInRepository } from "./portIn.js";
 import type { MeetingRepository } from "./meetings.js";
 
@@ -324,6 +325,8 @@ export interface Repository {
   readonly webPush: WebPushRepository;
   /** « Missions MIMT » reward ledger: src/repo/missions.ts. */
   readonly missions: MissionRepository;
+  /** « Programme d'agents affiliés »: applications, attribution, commission ledger: src/repo/affiliates.ts. */
+  readonly affiliates: AffiliateRepository;
   /** Number port-in (landline/VoIP into MIMT) storage: src/repo/portIn.ts. */
   readonly portIns: PortInRepository;
   /** Réunions MIMT (video meetings) storage: src/repo/meetings.ts. */

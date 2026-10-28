@@ -162,6 +162,23 @@ const EnvSchema = z
      * recorded while off); GET /v1/missions still answers with enabled: false. Default "on".
      */
     MISSIONS: z.enum(["on", "off"]).default("on"),
+    /**
+     * « Programme d'agents affiliés » e-signature (docs/MIMT-AFFILIATES.md). All six (account, integration key, user,
+     * RSA private key for JWT grant, REST base URL, template) or « send contract » answers in manual mode with the
+     * filled contract text. DOCUSIGN_BASE_URL is the account's REST base, e.g. https://demo.docusign.net/restapi
+     * (sandbox) or https://ca.docusign.net/restapi; the OAuth host follows it (account-d for demo).
+     */
+    DOCUSIGN_ACCOUNT_ID: optional,
+    DOCUSIGN_INTEGRATION_KEY: optional,
+    DOCUSIGN_USER_ID: optional,
+    /** RSA private key (PEM, PKCS#1 or PKCS#8) of the integration key. Never logged. */
+    DOCUSIGN_PRIVATE_KEY: optional,
+    DOCUSIGN_BASE_URL: z.url().optional(),
+    DOCUSIGN_TEMPLATE_ID: optional,
+    /** Role name of the signer in the DocuSign template. */
+    DOCUSIGN_TEMPLATE_ROLE: z.string().min(1).max(100).default("Affilie"),
+    /** HMAC key of the DocuSign Connect configuration (X-DocuSign-Signature-1). Unset: /webhooks/docusign answers 503. */
+    DOCUSIGN_CONNECT_HMAC_KEY: optional,
     DEVICE_ATTESTATION_REQUIRED: z
       .enum(["true", "false"])
       .optional()
@@ -176,6 +193,9 @@ const EnvSchema = z
     }
     if (env.CUBA_SIP_HOST && !isSipHost(env.CUBA_SIP_HOST)) {
       ctx.addIssue({ code: "custom", path: ["CUBA_SIP_HOST"], message: "CUBA_SIP_HOST must be a hostname, with no user or password" });
+    }
+    if (env.DOCUSIGN_BASE_URL && !env.DOCUSIGN_BASE_URL.startsWith("https://")) {
+      ctx.addIssue({ code: "custom", path: ["DOCUSIGN_BASE_URL"], message: "DOCUSIGN_BASE_URL must be https" });
     }
     if (env.EMAIL_PROVIDER === "resend" && !env.EMAIL_API_KEY) {
       ctx.addIssue({ code: "custom", path: ["EMAIL_API_KEY"], message: "EMAIL_API_KEY is required when EMAIL_PROVIDER=resend" });
@@ -248,7 +268,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const cleaned = Object.fromEntries(
     Object.entries(env)
       .filter(([, v]) => v !== undefined && v !== "")
-      .map(([k, v]) => [k, k.endsWith("_PEM") || k.endsWith("_JSON") ? v!.replace(/\\n/g, "\n") : v]),
+      .map(([k, v]) => [k, k.endsWith("_PEM") || k.endsWith("_JSON") || k === "DOCUSIGN_PRIVATE_KEY" ? v!.replace(/\\n/g, "\n") : v]),
   );
   const parsed = EnvSchema.safeParse(cleaned);
   if (!parsed.success) {
@@ -261,3 +281,5 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
 export const twilioRestConfigured = (c: Config) => Boolean(c.TWILIO_ACCOUNT_SID && c.TWILIO_API_KEY_SID && c.TWILIO_API_KEY_SECRET);
 export const stripeConfigured = (c: Config) => Boolean(c.STRIPE_SECRET_KEY && c.STRIPE_WEBHOOK_SECRET);
 export const aiConfigured = (c: Config) => Boolean(c.ANTHROPIC_API_KEY);
+export const docusignConfigured = (c: Config) =>
+  Boolean(c.DOCUSIGN_ACCOUNT_ID && c.DOCUSIGN_INTEGRATION_KEY && c.DOCUSIGN_USER_ID && c.DOCUSIGN_PRIVATE_KEY && c.DOCUSIGN_BASE_URL && c.DOCUSIGN_TEMPLATE_ID);

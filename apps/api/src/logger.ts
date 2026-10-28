@@ -8,6 +8,8 @@ export const REDACT_PATHS = [
   "req.headers['x-twilio-signature']",
   "req.headers['stripe-signature']",
   "req.headers['x-mimt-api-key']",
+  "req.headers['x-docusign-signature-1']",
+  "req.headers['x-docusign-signature-2']",
   "headers.authorization",
   "body.Body",
   "body.body",

@@ -9,6 +9,7 @@ import { MemoryNumberHoldRepository } from "./numberHoldsMemory.js";
 import { MemoryHandleRepository } from "./handlesMemory.js";
 import { MemoryWebPushRepository } from "./webPushMemory.js";
 import { MemoryMissionRepository } from "./missionsMemory.js";
+import { MemoryAffiliateRepository } from "./affiliatesMemory.js";
 import { MemoryPortInRepository } from "./portInMemory.js";
 import { MemoryMeetingRepository } from "./meetingsMemory.js";
 import { planFromSubscriptions } from "../services/accounts.js";
@@ -76,6 +77,7 @@ export class MemoryRepository implements Repository {
   readonly webPush = new MemoryWebPushRepository();
   // Kept on account deletion (purgeUserData): the anti-abuse record of who already earned what.
   readonly missions = new MemoryMissionRepository((id, periods, d) => this.addUsage(id, periods, d));
+  readonly affiliates = new MemoryAffiliateRepository();
 
   async ping() {}
   async close() {}

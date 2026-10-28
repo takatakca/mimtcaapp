@@ -46,7 +46,7 @@ export class MessageCipher {
    * Keyed, one-way pseudonym of an identifier (phone number, TAKATAK id, device key) for anti-abuse records that
    * outlive the account (mission_rewards). Keyed so a stored value cannot be reversed by hashing every phone number.
    */
-  subjectHash(kind: "phone" | "global" | "device", value: string): string {
+  subjectHash(kind: "phone" | "global" | "device" | "email", value: string): string {
     return createHmac("sha256", this.subjectKey).update(`${kind}:${value.trim()}`).digest("base64url");
   }
 
