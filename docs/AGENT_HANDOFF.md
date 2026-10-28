@@ -4,7 +4,8 @@
 
 - **Fait :** `.github/workflows/deploy.yml` ne garde que la portée manuelle `api` (Coolify, contrôle `/healthz` et `/readyz`). Les portées `website`, `webphone` et `all` envoyaient par FTP vers MochaHost, qui ne sert plus `mimt.ca` ni `app.mimt.ca` depuis le 26 octobre. Le contrôle CI « Preserve deploy safety » échoue désormais si `deploy.yml` contient `FTP-Deploy-Action`; testé localement sur l'ancien (échec attendu) et le nouveau fichier (réussite).
 - **Inchangé :** `auto-deploy-website.yml` (confirmation Coolify, sans envoi) et `diagnose-ftp-paths.yml` (lecture seule).
-- **Suite :** propriétaire : supprimer de GitHub les secrets `MOCHAHOST_APP_FTP_*` et la variable `FTP_PROTOCOL` (plus lus); planifier la mise à niveau de Next.js 16.4.0.
+- **Next.js :** l'avis de sécurité visant 16.4.0 est réglé : `apps/web` et `pnpm-lock.yaml` sont en 16.4.3 sur `main` (vérifié le 28 octobre).
+- **Suite :** propriétaire : supprimer de GitHub les secrets `MOCHAHOST_APP_FTP_*` et la variable `FTP_PROTOCOL` (plus lus).
 
 ## Reprise vérifiée — 26 octobre 2026, Codex
 
