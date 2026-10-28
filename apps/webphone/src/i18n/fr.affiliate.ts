@@ -1,0 +1,57 @@
+// Français (Canada) — Espace agent affilié (docs/MIMT-AFFILIATES.md). Fusionné dans fr.ts; chaque clé doit aussi
+// exister dans en.affiliate.ts.
+
+export const frAffiliate = {
+  "aff.title": "Espace agent affilié",
+  "aff.lead": "Votre lien, les clients que vous amenez et vos commissions.",
+  "aff.notAffiliate": "Cet espace est réservé aux agents affiliés MIMT dont le contrat est signé. Pour devenir agent affilié, remplissez la demande sur mimt.ca/affilies/.",
+  "aff.apply": "Faire une demande",
+  "aff.suspended": "Votre lien est suspendu pendant un examen. Les commissions restent enregistrées, mais les paiements sont retenus.",
+
+  "aff.link.title": "Votre lien et votre code",
+  "aff.link.lead": "Un client compte pour vous s'il paie son premier forfait dans les {days} jours suivant son premier clic. Le premier lien utilisé l'emporte.",
+  "aff.link.code": "Code : {code}",
+  "aff.link.copy": "Copier le lien",
+  "aff.link.copyCode": "Copier le code",
+  "aff.link.share": "Partager",
+  "aff.link.copied": "Copié.",
+  "aff.link.shareText": "MIMT : un numéro canadien dans une app, appels et textos par Wi-Fi. Lien affilié : je reçois une commission si vous vous abonnez.",
+
+  "aff.stats.signups": "Inscriptions",
+  "aff.stats.paying": "Clients payants",
+  "aff.stats.rate": "Commission",
+  "aff.stats.rateValue": "{pct} % des revenus nets",
+  "aff.stats.duration": "Durée par client",
+  "aff.stats.durationValue": "{months} mois",
+
+  "aff.payout.title": "Prochain paiement",
+  "aff.payout.progress": "{payable} payables sur un seuil de {threshold}",
+  "aff.payout.progressLabel": "Progression vers le seuil de paiement",
+  "aff.payout.reached": "Seuil atteint : le paiement sera fait au plus tard le 15 du mois prochain.",
+  "aff.payout.missing": "Encore {missing} avant le seuil de paiement.",
+  "aff.payout.hold": "Chaque commission est en attente {days} jours (remboursements et rétrofacturations), puis devient payable.",
+  "aff.totals.pending": "En attente",
+  "aff.totals.payable": "Payable",
+  "aff.totals.paid": "Payé",
+
+  "aff.ledger.title": "Registre des commissions",
+  "aff.ledger.empty": "Aucune commission pour l'instant. Elles apparaissent ici dès que vos clients paient.",
+  "aff.ledger.date": "Date",
+  "aff.ledger.net": "Revenu net",
+  "aff.ledger.rate": "Taux",
+  "aff.ledger.amount": "Commission",
+  "aff.ledger.status": "Statut",
+  "aff.ledger.clawback": "Récupération",
+  "aff.status.pending": "En attente",
+  "aff.status.payable": "Payable",
+  "aff.status.paid": "Payé",
+  "aff.status.reversed": "Annulé",
+
+  "aff.rules.title": "Les règles, en bref",
+  "aff.rules.disclose": "Dites-le à chaque publication, avant le lien : « Lien affilié : je reçois une commission » ou #partenariatpayé (Loi sur la concurrence).",
+  "aff.rules.casl": "Aucun courriel, texto ou message direct sans consentement, et toujours un moyen de se désabonner (Loi canadienne anti-pourriel).",
+  "aff.rules.claims": "Aucune promesse que MIMT ne fait pas : pas d'« illimité », seulement les prix et limites publiés sur mimt.ca.",
+  "aff.rules.brand": "Aucune annonce payée sur le nom MIMT ou GROUPE TAKATAK, aucun faux avis, aucune récompense pour un avis ou un « j'aime ».",
+  "aff.rules.self": "Pas d'autorecommandation : vos propres comptes ne donnent pas de commission.",
+  "aff.rules.privacy": "Vous ne voyez jamais l'identité de vos clients, seulement des totaux (Loi 25).",
+} as const;
