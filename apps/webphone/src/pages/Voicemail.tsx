@@ -56,7 +56,7 @@ export function Voicemail() {
         {vms.data?.voicemails.map((vm) => {
           const urgency = vm.ai ? URGENCY[vm.ai.urgency] : null;
           return (
-            <li key={vm.id} className={`card vm${vm.listened ? "" : " vm--new"}`}>
+            <li key={vm.id} className={`card vm${vm.listened ? "" : " vm--new"}`} data-pilot={`vm-${vm.id}`}>
               <div className="vm__head">
                 <div>
                   <p className="vm__from">

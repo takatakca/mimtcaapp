@@ -1,5 +1,6 @@
 import type { CallRecord } from "@mimt/shared";
 import { useState } from "react";
+import { Link, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import { toErrorKey } from "../api/errors";
 import { AdSlot } from "../ads/Ads";
@@ -20,7 +21,12 @@ export function Calls() {
   const [cursor, setCursor] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState<TKey | null>(null);
   const nextCursor = cursor === undefined ? first.data?.nextCursor : cursor;
-  const calls = [...(first.data?.calls ?? []), ...more];
+  // ?filtre=missed|inbound|outbound (set by the « Pilote MIMT », or a shared link).
+  const [params] = useSearchParams();
+  const filter = params.get("filtre");
+  const known = filter === "missed" || filter === "inbound" || filter === "outbound" ? filter : null;
+  const all = [...(first.data?.calls ?? []), ...more];
+  const calls = known ? all.filter((c) => (known === "missed" ? c.missed : c.direction === known)) : all;
 
   const loadMore = async () => {
     if (!nextCursor) return;
@@ -43,12 +49,18 @@ export function Calls() {
           </button>
         }
       />
+      {known ? (
+        <p className="calls-filter" data-pilot="calls-filter">
+          <Badge tone="info">{t("calls.filtered", { filter: t(`calls.filter.${known}` as TKey) })}</Badge>{" "}
+          <Link to="/appels">{t("calls.filterClear")}</Link>
+        </p>
+      ) : null}
       <ErrorNote error={first.error ?? error} onRetry={first.reload} />
       {first.loading ? <Loading /> : null}
       {first.data && calls.length === 0 ? <Empty>{t("calls.empty")}</Empty> : null}
       <ul className="list card">
         {calls.map((c) => (
-          <li key={c.id} className="list__row">
+          <li key={c.id} className="list__row" data-pilot={`call-${c.id}`}>
             <span className={`call-dir call-dir--${c.missed ? "missed" : c.direction}`} aria-hidden="true">
               <Icon name="phone" size={16} />
             </span>
