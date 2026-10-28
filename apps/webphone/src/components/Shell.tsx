@@ -8,6 +8,7 @@ import type { TKey } from "../i18n/core";
 import { Softphone } from "../phone/Softphone";
 import { Icon, type IconName } from "./Icon";
 import { MissionToaster } from "./MissionToaster";
+import { usePointsShell } from "./PointsNav";
 import { DemoBanner, Wordmark } from "./ui";
 import { meetingScopes } from "../pages/meetings/shared";
 import { needsBusinessSetup } from "../lib/bizSetup";
@@ -53,6 +54,7 @@ export function Shell() {
   const scopes = meetingScopes(me, businesses);
   const showMeetings = scopes.any || scopes.member;
   const setup = needsBusinessSetup(me, businesses);
+  const points = usePointsShell();
   return (
     <AdsProvider>
       <div className="app">
@@ -69,6 +71,7 @@ export function Shell() {
             {showMeetings ? <SideLink item={MEETINGS} /> : null}
             <SideLink item={HELP} />
             <SideLink item={MISSIONS} />
+            {points.side}
             <p className="side__section">{t("nav.services")}</p>
             {SERVICES.map((i) => (
               <SideLink key={i.to} item={i} />
@@ -117,6 +120,7 @@ export function Shell() {
             <NavLink to="/missions" className="icon-btn" aria-label={t("nav.missions")}>
               <Icon name="sparkle" />
             </NavLink>
+            {points.top}
             <NavLink to="/services/offres" className="icon-btn" aria-label={t("nav.services")}>
               <Icon name="offers" />
             </NavLink>
@@ -135,6 +139,7 @@ export function Shell() {
         </nav>
         <Softphone />
         <MissionToaster />
+        {points.toast}
       </div>
     </AdsProvider>
   );

@@ -10,6 +10,9 @@ const SEEN_KEY = "mimt.missions.celebrated";
 
 export interface MissionCelebration {
   id: MissionId;
+  /** MIMT Points of the mission (missions granted since 2026-10-28). */
+  points?: number;
+  /** Bonus minutes (missions granted before points). */
   minutes: number;
   pending: boolean;
 }
@@ -45,12 +48,12 @@ export function celebrateMission(c: MissionCelebration): void {
 
 /** From a route response's `missionGranted`. */
 export function celebrateGrant(granted: MissionGrantedDto | undefined | null): void {
-  if (granted) celebrateMission({ id: granted.id, minutes: granted.minutes, pending: granted.status === "pending" });
+  if (granted) celebrateMission({ id: granted.id, points: granted.points ?? 0, minutes: granted.minutes, pending: granted.status === "pending" });
 }
 
 /** From GET /v1/missions: every mission done or pending (the toaster skips those already celebrated). */
 export function celebrationsOf(missions: readonly MissionDto[]): MissionCelebration[] {
-  return missions.filter((m) => m.status !== "todo").map((m) => ({ id: m.id, minutes: m.minutes, pending: m.status === "pending" }));
+  return missions.filter((m) => m.status !== "todo").map((m) => ({ id: m.id, points: m.rewardKind === "points" ? m.points : 0, minutes: m.minutes, pending: m.status === "pending" }));
 }
 
 export const missionLabel = (id: MissionId, lang: "fr" | "en") => MISSIONS.find((m) => m.id === id)?.label[lang] ?? id;

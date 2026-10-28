@@ -14,6 +14,8 @@ describe("Missions MIMT", () => {
     ]);
     expect(MISSION_POINTS_CAP).toBe(1500);
     expect(MISSION_MINUTES_CAP).toBe(150);
+    // The minute equivalent the site still shows is exactly what the points buy (10 points = 1 minute).
+    for (const m of MISSIONS) expect(m.minutes * 10, m.id).toBe(m.points);
   });
 
   it("the referral and yearly missions give their month, not minutes", () => {

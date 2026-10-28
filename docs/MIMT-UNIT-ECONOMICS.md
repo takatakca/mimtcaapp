@@ -137,6 +137,58 @@ mois dépasse son douzième de net (103 %), mais l'année entière reste à (12 
 missions « Un ami s'abonne » et « Passez à l'annuel » ne donnent aucune minute : leur récompense est le mois Premium du
 parrainage (déjà compté plus bas) et le mois gratuit de l'annuel (tableau ci-dessus). Coupe-circuit : `MISSIONS=off`.
 
+## Points MIMT : ce que les points achètent, contre ce qui les a fait gagner (2026-10-28)
+
+Détails et règles : `docs/MIMT-POINTS.md`. Source de vérité : `packages/shared/src/points.ts` (`rewardEconomics`,
+`pointsCatalogViolations`), testée dans `points.test.ts` (un prix qui casse la règle fait échouer la CI) et vérifiée au
+démarrage de l'API (`apps/api/src/pointsConfig.ts`, même pour `POINTS_CATALOG_JSON`).
+
+**Règle** : le coût au pire cas de ce qu'un point achète ne dépasse jamais **10 %** (`MAX_REWARD_COST_SHARE`) des
+revenus qui ont fait gagner ce point, **même au multiplicateur de campagne le plus haut (×3)**. Au taux normal, c'est au
+plus 3,4 %. En plus, une minute ne coûte jamais moins de 10 points (le taux des missions) : les 1 500 points des
+missions n'achètent jamais plus que les 150 minutes d'avant.
+
+Revenu derrière un point : 10 points par dollar payé avant taxes, donc **0,10 $ par point** (0,033 $ à ×3).
+
+| Récompense | Prix | Coût pire cas | Coût / point | Part du revenu (×1) | Part du revenu (×3) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 30 minutes sortantes (0,018 USD/min : réseau + volet app) | 300 | 0,76 $ | 0,00252 $ | 2,5 % | 7,6 % |
+| 100 minutes sortantes | 1 000 | 2,52 $ | 0,00252 $ | 2,5 % | 7,6 % |
+| 60 minutes entre apps (Gratuit, 0,004 USD/min) | 150 | 0,34 $ | 0,00224 $ | 2,2 % | 6,7 % |
+| 50 textos (0,0083 USD, MMS non compris) | 250 | 0,58 $ | 0,00232 $ | 2,3 % | 7,0 % |
+| 1 semaine sans pub (revenu publicitaire perdu, plafond prudent 0,50 $/sem.) | 200 | 0,50 $ | 0,00250 $ | 2,5 % | 7,5 % |
+| 5 $ sur la prochaine facture (revenu perdu) | 2 000 | 5,00 $ | 0,00250 $ | 2,5 % | 7,5 % |
+
+Pire cas par forfait (chaque quota utilisé à fond **et** chaque point échangé contre la récompense la plus chère par
+point, 0,00252 $) :
+
+| Forfait | Pire cas sans points | + points au taux normal | + points à ×2 | + points à ×3 |
+| --- | ---: | ---: | ---: | ---: |
+| Essentiel mensuel (129 pts/mois) | 66,2 % | 68,8 % | 71,5 % | 74,1 % |
+| Premium mensuel (299 pts/mois) | 69,7 % | 72,4 % | 75,0 % | 77,6 % |
+| Essentiel annuel (1 428 pts/an) | 70,6 % | 73,2 % | 75,8 % | 78,4 % |
+| Premium annuel (3 298 pts/an) | 75,4 % | 78,0 % | 80,6 % | 83,2 % |
+| Affaires annuel, par ligne (3 848 pts/an) | 74,6 % | 77,2 % | 79,8 % | 82,4 % |
+| Affaires Pro annuel, par ligne (4 948 pts/an) | 72,8 % | 75,4 % | 78,0 % | 80,6 % |
+
+Jamais une perte, même à ×3 (au plus 83,2 %, sous `NEVER_A_LOSS` = 100 %). Le plafond annuel de 80 % est respecté au
+taux normal; une campagne ×2 ou ×3 sur l'annuel Premium ou Affaires le dépasse **pendant la campagne seulement** et
+dans la limite de son budget : c'est un coût de marketing choisi par le propriétaire, plafonné par `budgetPoints`.
+Recommandation : ×1,5 au plus sur `purchase_yearly`, ou un budget modeste.
+
+Points sans revenu derrière (une seule fois par compte) :
+
+- **Missions** : 1 500 points au plus = 150 minutes au plus = 3,78 $ au pire (exactement le coût déjà accepté pour les
+  missions en minutes, plus bas).
+- **Parrainage** : 1 000 points au parrain = 2,52 $ au pire, après la première facture payée de l'ami (≥ 12,99 $) et
+  les contrôles anti-fraude. Le mois Premium pour chacun est conservé (son coût est compté plus bas).
+- **Bonus de campagne** : au plus 2 000 points par compte et par campagne (5,04 $ au pire), et jamais plus que le
+  budget de la campagne au total.
+
+Autres garde-fous : plafonds de gains (5 000 points par jour, 20 000 par mois et par compte), limite mensuelle par
+récompense, crédit sur facture limité à 5 $ par mois et par compte, budget du forfait Gratuit vérifié avant chaque
+échange de minutes du Gratuit, coupe-circuit `POINTS=off`.
+
 ## Ce qui peut casser la règle
 
 - **Achats dans les applications (App Store, Google Play)** : la commission de 15 à 30 % n'est pas comptée ci-dessus.
