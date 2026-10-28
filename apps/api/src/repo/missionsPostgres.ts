@@ -11,7 +11,7 @@ export class PostgresMissionRepository implements MissionRepository {
 
   async listForAccount(accountId: string) {
     return (await this.sql`
-      select id, telecom_account_id, mission_id, minutes, bucket, status, period, owner_hash, device_hash, source_ref, granted_at, credited_at
+      select id, telecom_account_id, mission_id, minutes, points, bucket, status, period, owner_hash, device_hash, source_ref, granted_at, credited_at
       from mission_rewards where telecom_account_id = ${accountId} order by granted_at`) as unknown as MissionRewardRow[];
   }
 
@@ -37,12 +37,12 @@ export class PostgresMissionRepository implements MissionRepository {
     return (await this.sql.begin(async (tx) => {
       // Any unique key (account, owner or device) already taken: nothing is written, nothing is credited.
       const rows = await tx`
-        insert into mission_rewards (telecom_account_id, mission_id, minutes, bucket, status, period, owner_hash, device_hash,
+        insert into mission_rewards (telecom_account_id, mission_id, minutes, points, bucket, status, period, owner_hash, device_hash,
                                      source_ref, granted_at, credited_at)
-        values (${r.telecomAccountId}, ${r.missionId}, ${r.minutes}, ${r.bucket}, ${r.status}, ${r.period}, ${r.ownerHash},
+        values (${r.telecomAccountId}, ${r.missionId}, ${r.minutes}, ${r.points ?? 0}, ${r.bucket}, ${r.status}, ${r.period}, ${r.ownerHash},
                 ${r.deviceHash}, ${r.sourceRef}, ${r.grantedAt}, ${credited ? r.grantedAt : null})
         on conflict do nothing
-        returning id, telecom_account_id, mission_id, minutes, bucket, status, period, owner_hash, device_hash, source_ref, granted_at, credited_at`;
+        returning id, telecom_account_id, mission_id, minutes, points, bucket, status, period, owner_hash, device_hash, source_ref, granted_at, credited_at`;
       const row = (rows[0] as MissionRewardRow | undefined) ?? null;
       if (row && credited) await this.credit(tx, row, usagePeriods);
       return row;
@@ -55,7 +55,7 @@ export class PostgresMissionRepository implements MissionRepository {
         update mission_rewards set status = 'granted', period = ${usagePeriods[0] ?? null}, credited_at = ${at},
           bucket = case when minutes > 0 then ${bucket}::text else null end
         where id = ${id} and status = 'pending'
-        returning id, telecom_account_id, mission_id, minutes, bucket, status, period, owner_hash, device_hash, source_ref, granted_at, credited_at`;
+        returning id, telecom_account_id, mission_id, minutes, points, bucket, status, period, owner_hash, device_hash, source_ref, granted_at, credited_at`;
       const row = (rows[0] as MissionRewardRow | undefined) ?? null;
       if (row) await this.credit(tx, row, usagePeriods);
       return row;

@@ -14,6 +14,7 @@ import type { ReferralRow } from "../repo/referrals.js";
 import type { Subscription, TelecomAccount, User } from "../repo/types.js";
 import { isLiveSubscription, planFromSubscriptions, recomputeEntitlements } from "./accounts.js";
 import { grantMission } from "./missions.js";
+import { earnReferralPoints } from "./points.js";
 
 export const REFERRAL_REWARD = { months: 1, days: 30, plan: "premium" as const satisfies PlanCode };
 export const REDEEM_WINDOW_DAYS = 30;
@@ -145,6 +146,8 @@ export async function settleReferralOnPaidPlan(deps: AppDeps, input: { account: 
     await grantPremiumMonth(deps, referrerAccount, `referral:${referral.id}:referrer`);
     // Mission « Un ami s'abonne »: the reward is the Premium month above; the ledger row only marks it done.
     await grantMission(deps, { account: referrerAccount, mission: "invite_friend", sourceRef: `referral:${referral.id}` });
+    // MIMT Points: the referrer also earns REFERRAL_POINTS, once per referral (key "referral:<id>").
+    await earnReferralPoints(deps, referrerAccount, referral.id);
   }
   await repo.audit({ actorUserId: null, action: "referral.rewarded", targetType: "user", targetId: referral.refereeUserId, meta: { referralId: referral.id } });
   return "rewarded";

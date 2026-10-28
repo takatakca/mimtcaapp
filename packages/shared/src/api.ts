@@ -97,6 +97,8 @@ export interface MeResponse {
     /** Extra minutes of this month on top of the plan (Missions MIMT, rewarded ads, 250-minute packs). */
     bonusOutboundMinutes?: number;
     bonusOnNetMinutes?: number;
+    /** Extra texts of this month on top of the plan (MIMT Points rewards). */
+    bonusMessages?: number;
   };
   /** Forwarding, do not disturb and blocked-call handling (callControls.ts). */
   callSettings?: CallSettings;
@@ -488,6 +490,9 @@ export type MissionBucket = "outbound" | "on_net";
  */
 export interface MissionGrantedDto {
   id: MissionId;
+  /** MIMT Points credited for the mission (0 for missions whose reward is a month). */
+  points: number;
+  /** Bonus minutes (missions granted before points, 2026-10-28); 0 for every new grant. */
   minutes: number;
   bucket: MissionBucket | null;
   status: "granted" | "pending";
@@ -500,7 +505,9 @@ export interface MissionDto {
   /** todo: not done yet; pending: done, minutes reserved (free-tier budget); done: rewarded. */
   status: "todo" | "pending" | "done";
   rewardKind: MissionRewardKind;
-  /** Bonus minutes of the mission (0 for the referral and yearly missions). */
+  /** MIMT Points of the mission (0 for the referral and yearly missions). */
+  points: number;
+  /** Bonus minutes this account received for it before missions switched to points (else 0). */
   minutes: number;
   needsPurchase: boolean;
   grantedAt: string | null;
@@ -511,7 +518,10 @@ export interface MissionsResponse {
   /** false when the MISSIONS kill switch is off: nothing new is granted. */
   enabled: boolean;
   missions: MissionDto[];
-  /** Bonus minutes earned from missions, all time (≤ capMinutes). */
+  /** MIMT Points earned from missions, all time (≤ capPoints). */
+  totalPoints: number;
+  capPoints: number;
+  /** Bonus minutes earned from missions before they switched to points (legacy, ≤ capMinutes). */
   totalMinutes: number;
   capMinutes: number;
   /** Bucket new minutes go to for this account's plan. */

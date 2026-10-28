@@ -39,6 +39,7 @@ import { voicemailRoutes } from "./routes/voicemails.js";
 import { mediaRoutes } from "./routes/media.js";
 import { meetingRoutes } from "./routes/meetings.js";
 import { missionRoutes } from "./routes/missions.js";
+import { pointsRoutes } from "./routes/points.js";
 import { voicemailSettingsRoutes } from "./routes/voicemailSettings.js";
 
 type Routes = (app: import("fastify").FastifyInstance, deps: AppDeps) => Promise<void>;
@@ -102,6 +103,7 @@ export async function buildApp(deps: AppDeps) {
     catalogRoutes,
     referralRoutes,
     missionRoutes,
+    pointsRoutes,
     rateRoutes,
     twilioWebhooks,
     businessRoutes,

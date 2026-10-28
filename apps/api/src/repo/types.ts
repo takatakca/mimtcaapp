@@ -8,6 +8,7 @@ import type { NumberHoldRepository } from "./numberHolds.js";
 import type { HandleRepository } from "./handles.js";
 import type { WebPushRepository } from "./webPush.js";
 import type { MissionRepository } from "./missions.js";
+import type { PointsRepository } from "./points.js";
 import type { PortInRepository } from "./portIn.js";
 import type { MeetingRepository } from "./meetings.js";
 
@@ -224,6 +225,8 @@ export interface Usage {
   bonusMinutesOut: number;
   /** Bonus app-to-app minutes (free plan's own pool, e.g. Missions MIMT). */
   bonusMinutesOnNet: number;
+  /** Bonus texts (MIMT Points rewards): raise the plan's `messages` cap this period. */
+  bonusMessages: number;
   spendCad: number;
   intlSpendCad: number;
 }
@@ -239,6 +242,7 @@ export const emptyUsage = (telecomAccountId: string, period: string): Usage => (
   minutesOnNet: 0,
   bonusMinutesOut: 0,
   bonusMinutesOnNet: 0,
+  bonusMessages: 0,
   spendCad: 0,
   intlSpendCad: 0,
 });
@@ -324,6 +328,8 @@ export interface Repository {
   readonly webPush: WebPushRepository;
   /** « Missions MIMT » reward ledger: src/repo/missions.ts. */
   readonly missions: MissionRepository;
+  /** « MIMT Points » ledger, redemptions and campaigns: src/repo/points.ts. */
+  readonly points: PointsRepository;
   /** Number port-in (landline/VoIP into MIMT) storage: src/repo/portIn.ts. */
   readonly portIns: PortInRepository;
   /** Réunions MIMT (video meetings) storage: src/repo/meetings.ts. */

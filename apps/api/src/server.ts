@@ -4,6 +4,7 @@ import { createDeps, createLogger } from "./bootstrap.js";
 import { loadConfig } from "./config.js";
 import { runDailyCostReport } from "./jobs/dailyCost.js";
 import { runAccountDeletion } from "./jobs/accountDeletion.js";
+import { runPointsExpiry } from "./jobs/pointsExpiry.js";
 import { runNumberLifecycle } from "./jobs/numberLifecycle.js";
 import { pingHeartbeat } from "./monitoring/report.js";
 import { deliverOutbox } from "./services/outbox.js";
@@ -92,6 +93,17 @@ deletionFirst.unref();
 const deletionTimer = setInterval(accountDeletion, 24 * 60 * 60 * 1000);
 deletionTimer.unref();
 
+// MIMT Points inactivity expiry (jobs/pointsExpiry.ts): off unless POINTS_EXPIRY=on; first run 20 minutes after start.
+const pointsExpiry = () => {
+  runPointsExpiry(deps, { log: app.log })
+    .then((res) => app.log.info(res, "points expiry done"))
+    .catch((err) => app.log.error({ err }, "points expiry failed"));
+};
+const pointsExpiryFirst = setTimeout(pointsExpiry, 20 * 60 * 1000);
+pointsExpiryFirst.unref();
+const pointsExpiryTimer = setInterval(pointsExpiry, 24 * 60 * 60 * 1000);
+pointsExpiryTimer.unref();
+
 async function shutdown(signal: string) {
   app.log.info({ signal }, "shutting down");
   clearInterval(outboxTimer);
@@ -103,6 +115,8 @@ async function shutdown(signal: string) {
   clearInterval(lifecycleTimer);
   clearTimeout(deletionFirst);
   clearInterval(deletionTimer);
+  clearTimeout(pointsExpiryFirst);
+  clearInterval(pointsExpiryTimer);
   await app.close();
   await deps.repo.close();
   process.exit(0);
