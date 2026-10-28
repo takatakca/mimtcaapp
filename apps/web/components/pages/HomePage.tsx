@@ -8,6 +8,7 @@ import { HeroArt, Skyline } from "@/components/HeroArt";
 import { Starfield } from "@/components/Starfield";
 import { Offers } from "@/components/Offers";
 import { FutureSection } from "@/components/FutureSection";
+import { PilotShowcase } from "@/components/PilotShowcase";
 import { Icon, type IconName } from "@/components/Visuals";
 import { PlanCard } from "@/components/PlanCard";
 import { faqItems } from "@/lib/faq";
@@ -112,6 +113,9 @@ export function HomePage({ lang }: { lang: Lang }) {
           </ul>
         </div>
       </section>
+
+      {/* ---------- Pilote MIMT: the AI drives the app ---------- */}
+      <PilotShowcase lang={lang} />
 
       {/* ---------- The future of calling ---------- */}
       <FutureSection lang={lang} />

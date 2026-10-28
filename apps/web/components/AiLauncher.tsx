@@ -53,6 +53,9 @@ export function AiLauncher({ lang }: { lang: Lang }) {
           </p>
           <ul className="ai-launch__list">
             <li>
+              <a href={`${home}#${fr ? "pilote" : "pilot"}`}>{fr ? "Voir l'IA piloter l'app" : "Watch the AI drive the app"}</a>
+            </li>
+            <li>
               <a href={`${home}#${fr ? "essai-ia" : "try-ai"}`}>{fr ? "Me parler à voix haute (démo)" : "Talk to me out loud (demo)"}</a>
             </li>
             <li>
