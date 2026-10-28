@@ -1,40 +1,23 @@
 name: Deploy
 
-# Manual-only production release. Verify each public endpoint after uploads.
+# Manual-only release of api.mimt.ca on Coolify, verified on /healthz and /readyz.
+# mimt.ca and app.mimt.ca are built by Coolify from main since 2026-10-26 (applications mimt-web and
+# mimt-app on vps1), so the former MochaHost FTP scopes were removed: MochaHost no longer serves them.
 # GitHub Secrets values are never printed.
 # Secrets (GitHub → Settings → Secrets and variables → Actions):
-#   MOCHAHOST_FTP_SERVER, MOCHAHOST_FTP_USERNAME, MOCHAHOST_FTP_PASSWORD   → mimt.ca (FTP login root is website root)
-#   MOCHAHOST_APP_FTP_SERVER, MOCHAHOST_APP_FTP_USERNAME, MOCHAHOST_APP_FTP_PASSWORD → separate app FTP account
 #   COOLIFY_URL, COOLIFY_TOKEN, COOLIFY_API_UUID                            → API
-# Variables (same page, "Variables" tab), optional:
-#   FTP paths are explicitly provided via Run workflow inputs, so stale WEB_FTP_DIR/WEBPHONE_FTP_DIR variables cannot misroute uploads.
-#   FTP_PROTOCOL (ftps or ftp),
-#   API_URL, TAKATAK_ISSUER, TAKATAK_CLIENT_ID, FORMS_ENDPOINT
 
 on:
-  # Explicit release only; wrong FTP paths must not auto-publish.
+  # Explicit release only: telecom, billing and emergency calls stay manual launch gates.
   workflow_dispatch:
     inputs:
       deploy_scope:
-        description: "Deploy websites, API, or everything"
+        description: "Deploy the API (websites are deployed by Coolify from main)"
         type: choice
         required: true
-        default: website
+        default: api
         options:
-          - website
-          - webphone
           - api
-          - all
-      web_ftp_dir:
-        description: "MIMT public website must use ./ for this FTP account"
-        type: string
-        required: true
-        default: "./"
-      webphone_ftp_dir:
-        description: "Relative to separate app FTP account (default root ./)"
-        type: string
-        required: true
-        default: "./"
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -44,245 +27,25 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify only the secrets needed for the selected release scope
+      - name: Verify the secrets needed for the API release
         shell: bash
         env:
-          SCOPE: ${{ inputs.deploy_scope }}
-          MOCHAHOST_FTP_SERVER: ${{ secrets.MOCHAHOST_FTP_SERVER }}
-          MOCHAHOST_FTP_USERNAME: ${{ secrets.MOCHAHOST_FTP_USERNAME }}
-          MOCHAHOST_FTP_PASSWORD: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
-          MOCHAHOST_APP_FTP_SERVER: ${{ secrets.MOCHAHOST_APP_FTP_SERVER }}
-          MOCHAHOST_APP_FTP_USERNAME: ${{ secrets.MOCHAHOST_APP_FTP_USERNAME }}
-          MOCHAHOST_APP_FTP_PASSWORD: ${{ secrets.MOCHAHOST_APP_FTP_PASSWORD }}
           COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
           COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
         run: |
           set -euo pipefail
-          required=()
-          case "$SCOPE" in
-            website) required=(MOCHAHOST_FTP_SERVER MOCHAHOST_FTP_USERNAME MOCHAHOST_FTP_PASSWORD) ;;
-            webphone) required=(MOCHAHOST_APP_FTP_SERVER MOCHAHOST_APP_FTP_USERNAME MOCHAHOST_APP_FTP_PASSWORD) ;;
-            api) required=(COOLIFY_URL COOLIFY_TOKEN COOLIFY_API_UUID) ;;
-            all) required=(MOCHAHOST_FTP_SERVER MOCHAHOST_FTP_USERNAME MOCHAHOST_FTP_PASSWORD MOCHAHOST_APP_FTP_SERVER MOCHAHOST_APP_FTP_USERNAME MOCHAHOST_APP_FTP_PASSWORD COOLIFY_URL COOLIFY_TOKEN COOLIFY_API_UUID) ;;
-            *) echo "::error::Unsupported release scope"; exit 1 ;;
-          esac
-          for name in "${required[@]}"; do
+          for name in COOLIFY_URL COOLIFY_TOKEN COOLIFY_API_UUID; do
             if [[ -z "${!name:-}" ]]; then
               echo "::error::Missing required repository secret: $name"
               exit 1
             fi
           done
-          echo "All required secrets for scope $SCOPE are configured."
-
-      - name: Reject wrong or nested FTP destination paths before uploading
-        shell: bash
-        env:
-          TARGET_SITE: ${{ inputs.web_ftp_dir }}
-          TARGET_APP: ${{ inputs.webphone_ftp_dir }}
-        run: |
-          set -euo pipefail
-          for dir in "$TARGET_SITE" "$TARGET_APP"; do
-            if [[ "$dir" != "./" && "$dir" != ./*/ ]] || [[ "$dir" == *".."* ]] || [[ "$dir" == *"/home/"* ]] || [[ "$dir" == *"bolonca"* ]]; then
-              echo "::error::Use an FTP-login-relative directory ending in / (for example ./mimt.ca/), not an absolute cPanel filesystem path or nested bolonca/home directory."
-              exit 1
-            fi
-          done
-          # Website and app are on different FTP accounts, so ./ is valid for both.
-          echo "FTP-relative destinations selected: $TARGET_SITE and $TARGET_APP"
-
-  web:
-    needs: check
-    if: inputs.deploy_scope == 'website' || inputs.deploy_scope == 'all'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @mimt/shared build
-      - run: pnpm --filter @mimt/web build
-        env:
-          NEXT_PUBLIC_FORMS_ENDPOINT: ${{ vars.FORMS_ENDPOINT }}
-          NEXT_PUBLIC_API_URL: ${{ vars.API_URL || 'https://api.mimt.ca' }}
-          # Google Analytics 4 / Google Ads (public ids; unset = tag off). docs/MIMT-ADS-TRACKING.md
-          NEXT_PUBLIC_GA4_ID: ${{ vars.GA4_ID }}
-          NEXT_PUBLIC_GADS_ID: ${{ vars.GADS_ID }}
-          NEXT_PUBLIC_GADS_HOLD_LABEL: ${{ vars.GADS_HOLD_LABEL }}
-          # AdSense ads.txt on the root domain (covers app.mimt.ca). Unset: no ads.txt. docs/MIMT-LAUNCH.md « Publicités et coûts ».
-          NEXT_PUBLIC_ADSENSE_PUBLISHER_ID: ${{ vars.ADSENSE_PUBLISHER_ID || vars.ADSENSE_CLIENT }}
-      - name: Embed manually released Git revision in public manifest
-        env:
-          RELEASE_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          printf '{"commit":"%s"}\n' "$RELEASE_SHA" > apps/web/out/mimt-release.json
-      - name: Upload mimt.ca
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.MOCHAHOST_FTP_SERVER }}
-          username: ${{ secrets.MOCHAHOST_FTP_USERNAME }}
-          password: ${{ secrets.MOCHAHOST_FTP_PASSWORD }}
-          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
-          local-dir: ./apps/web/out/
-          server-dir: ${{ inputs.web_ftp_dir }}
-
-      - name: Verify live mimt.ca serves French MIMT website at released commit
-        shell: bash
-        env:
-          RELEASE_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          # The host can take several minutes to serve a new upload (2026-10-26/27), so wait up to 15 min.
-          for attempt in {1..45}; do
-            html="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://mimt.ca/?release=${GITHUB_SHA}" 2>/dev/null || true)"
-            manifest="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://mimt.ca/mimt-release.json?release=${RELEASE_SHA}" 2>/dev/null || true)"
-            if [[ "$html" == *"Votre numéro canadien"* ]] &&
-               ! grep -Eiq 'Fongo (Mobile|Works|Internet|World|Home Phone)|Waterloo, Ontario|About Fongo' <<<"$html" &&
-               jq -e --arg expected "$RELEASE_SHA" '.commit == $expected' <<<"$manifest" >/dev/null 2>&1; then
-              echo "Verified: mimt.ca serves the expected manual-release commit: $RELEASE_SHA."
-              exit 0
-            fi
-            echo "Attempt ${attempt}/45: mimt.ca still does not show the expected MIMT homepage."
-            sleep 20
-          done
-          echo "::error::FTP upload finished but mimt.ca did not publish the new MIMT homepage. Verify the cPanel document root, WEB_FTP_DIR (currently an FTP-relative directory), domain DNS, and any server/CDN cache. Never mark the release successful while Fongo content remains online."
-          exit 1
-
-  webphone:
-    needs: check
-    if: inputs.deploy_scope == 'webphone' || inputs.deploy_scope == 'all'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Require separate app-domain FTP account
-        shell: bash
-        env:
-          APP_SERVER: ${{ secrets.MOCHAHOST_APP_FTP_SERVER }}
-          APP_USERNAME: ${{ secrets.MOCHAHOST_APP_FTP_USERNAME }}
-          APP_PASSWORD: ${{ secrets.MOCHAHOST_APP_FTP_PASSWORD }}
-        run: |
-          set -euo pipefail
-          if [[ -z "$APP_SERVER" || -z "$APP_USERNAME" || -z "$APP_PASSWORD" ]]; then
-            echo "::error::app.mimt.ca requires its own scoped FTP account. Create GitHub secrets MOCHAHOST_APP_FTP_SERVER, MOCHAHOST_APP_FTP_USERNAME and MOCHAHOST_APP_FTP_PASSWORD."
-            exit 1
-          fi
-      - name: Validate app FTPS server resolves before spending time building
-        id: app_ftp
-        shell: bash
-        env:
-          APP_SERVER: ${{ secrets.MOCHAHOST_APP_FTP_SERVER }}
-          SITE_SERVER: ${{ secrets.MOCHAHOST_FTP_SERVER }}
-        run: |
-          set -euo pipefail
-          # Common paste mistakes are repaired instead of failing: surrounding whitespace or newline,
-          # an ftp://, ftps:// or sftp:// prefix, a user@ part, a :port suffix, a trailing /path.
-          # Only the kind of repair is printed, never the value.
-          raw="$APP_SERVER"
-          host="$(printf '%s' "$raw" | tr -d '[:space:]')"
-          [[ "$host" != "$raw" ]] && echo "::warning::MOCHAHOST_APP_FTP_SERVER had spaces or a line break; ignored them."
-          if [[ "$host" =~ ^[A-Za-z]+:// ]]; then host="${host#*://}"; echo "::warning::MOCHAHOST_APP_FTP_SERVER had a scheme (ftp://); removed it."; fi
-          if [[ "$host" == *@* ]]; then host="${host##*@}"; echo "::warning::MOCHAHOST_APP_FTP_SERVER had a user@ part; removed it."; fi
-          if [[ "$host" == */* ]]; then host="${host%%/*}"; echo "::warning::MOCHAHOST_APP_FTP_SERVER had a path; removed it."; fi
-          if [[ "$host" == *:* ]]; then host="${host%%:*}"; echo "::warning::MOCHAHOST_APP_FTP_SERVER had a :port; removed it (FTPS uses 21)."; fi
-          host="${host%.}"
-          if [[ -z "$host" ]]; then
-            # The app FTP account lives on the same MochaHost cPanel server as the website account.
-            echo "::warning::MOCHAHOST_APP_FTP_SERVER holds no hostname (a folder path only?). Using the website FTP server; put the hostname alone in this secret and the folder in the deploy input."
-            host="$(printf '%s' "$SITE_SERVER" | tr -d '[:space:]')"
-            host="${host#*://}"; host="${host##*@}"; host="${host%%/*}"; host="${host%%:*}"; host="${host%.}"
-          fi
-          echo "::add-mask::$host"
-          if [[ ! "$host" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*$ ]] || [[ "$host" == *..* ]]; then
-            echo "::error::MOCHAHOST_APP_FTP_SERVER must contain only a DNS hostname, without ftp://, :21, spaces or a path."
-            exit 1
-          fi
-          if ! getent ahosts "$host" >/dev/null; then
-            echo "::error::MOCHAHOST_APP_FTP_SERVER cannot be resolved in DNS. Last failed deploy: ENOTFOUND. Correct the GitHub secret to the real MochaHost FTP hostname."
-            exit 1
-          fi
-          echo "server=$host" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @mimt/shared build
-      # TAKATAK sign-in ids are public (they end up in the bundle) but are accepted as a variable or a secret,
-      # with or without the VITE_ prefix, because that is how they tend to get pasted.
-      - name: Check TAKATAK sign-in settings (names only, never values)
-        env:
-          ISSUER: ${{ vars.TAKATAK_ISSUER || vars.VITE_TAKATAK_ISSUER || secrets.TAKATAK_ISSUER || secrets.VITE_TAKATAK_ISSUER }}
-          CLIENT_ID: ${{ vars.TAKATAK_CLIENT_ID || vars.VITE_TAKATAK_CLIENT_ID || secrets.TAKATAK_CLIENT_ID || secrets.VITE_TAKATAK_CLIENT_ID }}
-        run: |
-          [[ -n "$ISSUER" ]] && echo "TAKATAK issuer: set" || echo "::warning::TAKATAK issuer missing: add repository variable TAKATAK_ISSUER (Settings › Secrets and variables › Actions › Variables). Sign-in with TAKATAK stays disabled."
-          [[ -n "$CLIENT_ID" ]] && echo "TAKATAK client id: set" || echo "::warning::TAKATAK client id missing: add repository variable TAKATAK_CLIENT_ID. Sign-in with TAKATAK stays disabled."
-      - run: pnpm --filter @mimt/webphone build
-        env:
-          VITE_API_URL: ${{ vars.API_URL || 'https://api.mimt.ca' }}
-          VITE_TAKATAK_ISSUER: ${{ vars.TAKATAK_ISSUER || vars.VITE_TAKATAK_ISSUER || secrets.TAKATAK_ISSUER || secrets.VITE_TAKATAK_ISSUER }}
-          VITE_TAKATAK_CLIENT_ID: ${{ vars.TAKATAK_CLIENT_ID || vars.VITE_TAKATAK_CLIENT_ID || secrets.TAKATAK_CLIENT_ID || secrets.VITE_TAKATAK_CLIENT_ID }}
-          # Free-plan web ads (Google AdSense). Public ids, not secrets; unset = no ads. docs/MIMT-LAUNCH.md « Publicités et coûts ».
-          VITE_ADSENSE_CLIENT: ${{ vars.ADSENSE_CLIENT || 'ca-pub-4518068873401341' }}
-          VITE_ADSENSE_SLOT_BANNER: ${{ vars.ADSENSE_SLOT_BANNER }}
-          VITE_ADSENSE_SLOT_SIDEBAR: ${{ vars.ADSENSE_SLOT_SIDEBAR }}
-      - name: Check the build embeds the released commit in mimt-release.json
-        env:
-          RELEASE_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          # vite.config.ts writes {"commit":"$GITHUB_SHA"}; app.mimt.ca/mimt-release.json is verified after upload.
-          jq -e --arg expected "$RELEASE_SHA" '.commit == $expected' apps/webphone/dist/mimt-release.json >/dev/null
-          test -f apps/webphone/dist/.htaccess
-      - name: Upload app.mimt.ca
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ steps.app_ftp.outputs.server }}
-          username: ${{ secrets.MOCHAHOST_APP_FTP_USERNAME }}
-          password: ${{ secrets.MOCHAHOST_APP_FTP_PASSWORD }}
-          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
-          local-dir: ./apps/webphone/dist/
-          server-dir: ${{ inputs.webphone_ftp_dir }}
-
-      - name: Verify live app.mimt.ca is serving the MIMT web app at released commit
-        shell: bash
-        env:
-          RELEASE_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          # The host can take several minutes to serve a new upload (seen 2026-10-26: about 6 min),
-          # so wait up to 15 min before calling the release failed.
-          for attempt in {1..45}; do
-            html="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://app.mimt.ca/?release=${GITHUB_SHA}" 2>/dev/null || true)"
-            manifest="$(curl -fsSL --connect-timeout 8 --max-time 20 "https://app.mimt.ca/mimt-release.json?release=${RELEASE_SHA}" 2>/dev/null || true)"
-            # The SPA fallback answers unknown paths with index.html, which jq rejects: a stale or
-            # partial upload without this release's manifest can never pass.
-            if ! jq -e --arg expected "$RELEASE_SHA" '.commit == $expected' <<<"$manifest" >/dev/null 2>&1; then
-              echo "Attempt ${attempt}/45: app.mimt.ca/mimt-release.json does not report commit ${RELEASE_SHA} yet."
-            elif grep -Fqi 'MIMT Web' <<<"$html" && grep -Fq 'id="root"' <<<"$html"; then
-              # A healthy root page is not enough: the router needs Apache SPA fallback.
-              if ! curl -fsSL --connect-timeout 8 --max-time 20 "https://app.mimt.ca/connexion" | grep -Fqi 'MIMT Web'; then
-                echo "Attempt ${attempt}/45: /connexion does not serve the SPA (check uploaded .htaccess)."
-              elif ! curl -fsSL --connect-timeout 8 --max-time 20 "https://app.mimt.ca/messages" | grep -Fqi 'MIMT Web'; then
-                echo "Attempt ${attempt}/45: /messages does not serve the SPA (check uploaded .htaccess)."
-              else
-                echo "Verified: app.mimt.ca serves the app shell and browser deep links at commit ${RELEASE_SHA}."
-                exit 0
-              fi
-            fi
-            echo "Attempt ${attempt}/45: app.mimt.ca is not serving the expected web app."
-            sleep 20
-          done
-          echo "::error::FTP sync finished but app.mimt.ca does not serve the MIMT Web app at the released commit. Check cPanel document root, WEBPHONE_FTP_DIR, DNS, SSL, server/CDN cache and mimt-release.json."
-          exit 1
+          echo "All required secrets for the API release are configured."
 
   api:
     needs: check
-    if: inputs.deploy_scope == 'api' || inputs.deploy_scope == 'all'
+    if: inputs.deploy_scope == 'api'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Coolify deploy
