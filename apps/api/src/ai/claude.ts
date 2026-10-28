@@ -2,8 +2,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { AI_LIMITS } from "@mimt/shared";
 import { z } from "zod";
-import type { AiGateway, AiOutcome, CallSummaryInput, CallSummaryOutput, ClassifySmsInput, DemoTurn, DemoTurnInput, HelpAnswer, HelpAnswerInput, ReceptionistStepInput, ReceptionistStepResult, ReplySuggestions, SmsClassification, SuggestRepliesInput, TokenUsage, VoicemailSummary, VoicemailSummaryInput } from "./gateway.js";
+import type { AiGateway, AiOutcome, PilotModelPlan, PilotPlanInput, CallSummaryInput, CallSummaryOutput, ClassifySmsInput, DemoTurn, DemoTurnInput, HelpAnswer, HelpAnswerInput, ReceptionistStepInput, ReceptionistStepResult, ReplySuggestions, SmsClassification, SuggestRepliesInput, TokenUsage, VoicemailSummary, VoicemailSummaryInput } from "./gateway.js";
 import { HELP_SYSTEM } from "./helpKnowledge.js";
+import { PILOT_CLAUDE_TOOLS, PILOT_SYSTEM } from "./pilot/tools.js";
 import { CALL_SUMMARY_SYSTEM, RECEPTIONIST_SYSTEM, RECEPTIONIST_TOOLS, SMS_SPAM_SYSTEM, SUGGESTIONS_SYSTEM, VOICEMAIL_SYSTEM } from "./prompts.js";
 
 type Effort = "low" | "medium";
@@ -140,6 +141,26 @@ export class ClaudeGateway implements AiGateway {
       content: message.content,
       usage: usageOf(message),
     };
+  }
+
+  /** « Pilote MIMT »: tool use, one round trip, nothing executed. The command is wrapped as data. */
+  async planCommand(input: PilotPlanInput): Promise<AiOutcome<PilotModelPlan>> {
+    const message = await this.client.beta.messages.create({
+      model: this.model,
+      max_tokens: 1500,
+      betas: BETAS,
+      fallbacks: "default",
+      output_config: { effort: "low" },
+      tools: PILOT_CLAUDE_TOOLS,
+      tool_choice: { type: "auto" },
+      system: [{ type: "text", text: PILOT_SYSTEM, cache_control: { type: "ephemeral" } }],
+      messages: [{ role: "user", content: `User locale: ${input.locale}\n<context>\n${input.context}\n</context>\n<command>\n${input.text}\n</command>` }],
+    });
+    const usage = usageOf(message);
+    if (message.stop_reason === "refusal") return { ok: false, reason: "refusal", usage, refusalCategory: message.stop_details?.category ?? null };
+    if (message.stop_reason === "max_tokens") return { ok: false, reason: "max_tokens", usage };
+    const calls = message.content.flatMap((b) => (b.type === "tool_use" ? [{ name: b.name, input: b.input }] : []));
+    return { ok: true, value: { calls }, usage };
   }
 
   private async structured<T>(schema: z.ZodType<T>, system: string, user: string, effort: Effort, maxTokens: number): Promise<AiOutcome<T>> {

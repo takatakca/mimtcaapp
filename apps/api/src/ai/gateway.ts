@@ -19,6 +19,23 @@ export interface AiGateway {
   demoTurn(input: DemoTurnInput): Promise<AiOutcome<DemoTurn>>;
   /** One streamed model round trip of the AI receptionist (effort "medium"). Text deltas go to onText. */
   receptionistStep(input: ReceptionistStepInput, onText: (delta: string) => void): Promise<ReceptionistStepResult>;
+  /**
+   * « Pilote MIMT »: one model round trip with the Pilote tools (ai/pilot/tools.ts). Returns the proposed tool
+   * calls only; nothing is executed here. Optional so older fakes keep compiling; absent = rules only.
+   */
+  planCommand?(input: PilotPlanInput): Promise<AiOutcome<PilotModelPlan>>;
+}
+
+export interface PilotPlanInput {
+  locale: Locale;
+  /** The user's command, verbatim (data, never instructions). */
+  text: string;
+  /** Non-personal context: plan name, page, whether the user owns a business. */
+  context: string;
+}
+
+export interface PilotModelPlan {
+  calls: Array<{ name: string; input: unknown }>;
 }
 
 export interface TokenUsage {

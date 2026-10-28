@@ -10,6 +10,7 @@ import "./styles/affiliate.css";
 
 // Affiliate link (?aff=CODE): kept as first touch before anything else (lib/affiliate.ts).
 captureAffiliate(window.location.search);
+import "./styles/pilot.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("#root missing in index.html");

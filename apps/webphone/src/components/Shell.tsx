@@ -1,5 +1,6 @@
 // App shell: sidebar on desktop, top bar + bottom navigation on phones, floating softphone.
-import { NavLink, Outlet } from "react-router";
+import { Fragment } from "react";
+import { NavLink, Outlet, useLocation } from "react-router";
 import { AdSlot, AdsProvider } from "../ads/Ads";
 import { useSession } from "../auth/SessionProvider";
 import { env } from "../env";
@@ -9,6 +10,7 @@ import { Softphone } from "../phone/Softphone";
 import { Icon, type IconName } from "./Icon";
 import { MissionToaster } from "./MissionToaster";
 import { AffiliateAttribution } from "./AffiliateAttribution";
+import { PilotBar } from "../pilot/PilotBar";
 import { DemoBanner, Wordmark } from "./ui";
 import { meetingScopes } from "../pages/meetings/shared";
 import { needsBusinessSetup } from "../lib/bizSetup";
@@ -54,6 +56,8 @@ export function Shell() {
   const scopes = meetingScopes(me, businesses);
   const showMeetings = scopes.any || scopes.member;
   const setup = needsBusinessSetup(me, businesses);
+  // « Pilote MIMT »: a navigation with a new pilotRun remounts the page so it shows what was just changed.
+  const pilotRun = (useLocation().state as { pilotRun?: number } | null)?.pilotRun ?? 0;
   return (
     <AdsProvider>
       <div className="app">
@@ -124,7 +128,9 @@ export function Shell() {
           </div>
         </header>
         <main id="main" className="main" tabIndex={-1}>
-          <Outlet />
+          <Fragment key={pilotRun}>
+            <Outlet />
+          </Fragment>
         </main>
         <nav className="bottomnav" aria-label={t("nav.main")}>
           {MAIN.map((i) => (
@@ -137,6 +143,7 @@ export function Shell() {
         <Softphone />
         <MissionToaster />
         <AffiliateAttribution />
+        <PilotBar />
       </div>
     </AdsProvider>
   );

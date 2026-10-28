@@ -179,6 +179,12 @@ const EnvSchema = z
     DOCUSIGN_TEMPLATE_ROLE: z.string().min(1).max(100).default("Affilie"),
     /** HMAC key of the DocuSign Connect configuration (X-DocuSign-Signature-1). Unset: /webhooks/docusign answers 503. */
     DOCUSIGN_CONNECT_HMAC_KEY: optional,
+    /**
+     * « Pilote MIMT » command bar (docs/MIMT-PILOTE.md): "on" = Claude plans commands when AI is configured and the
+     * user consented (local French/English parser otherwise); "rules" = local parser only (no AI cost); "off" =
+     * POST /v1/ai/command answers 503 pilot_disabled. Default "on".
+     */
+    AI_COMMANDS: z.enum(["on", "rules", "off"]).default("on"),
     DEVICE_ATTESTATION_REQUIRED: z
       .enum(["true", "false"])
       .optional()
