@@ -31,7 +31,7 @@ describe("isolated self-hosted MIMT migration guard", () => {
     )).not.toThrow();
   });
   it("retains explicit deterministic migration order", () => {
-    expect(MIGRATION_ORDER).toHaveLength(20);
+    expect(MIGRATION_ORDER).toHaveLength(21);
     expect(MIGRATION_ORDER).toContain("0020_ai_pilot.sql");
     expect(MIGRATION_ORDER[0]).toBe("0001_init.sql");
     expect(MIGRATION_ORDER[9]).toBe("0009_port_in.sql");

@@ -106,6 +106,8 @@ export class PostgresRepository implements Repository {
   private pointsRepo?: PostgresPointsRepository;
   get points(): PostgresPointsRepository {
     return (this.pointsRepo ??= new PostgresPointsRepository(this.sql));
+  }
+
   private affiliateRepo?: PostgresAffiliateRepository;
   get affiliates(): PostgresAffiliateRepository {
     return (this.affiliateRepo ??= new PostgresAffiliateRepository(this.sql));
