@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { QUEBEC_AREA_CODES, NANP_E164, type AvailableNumbersResponse, type ClaimNumberResponse } from "@mimt/shared";
 import { z } from "zod";
 import type { AppDeps } from "../deps.js";
+import { numberFallbacks } from "../gateways/twilio.js";
 import { loadContext, requireUser } from "../auth/guard.js";
 import { conflict, forbidden, HttpError, notConfigured } from "../lib/errors.js";
 import { classifyDestination } from "../lib/phone.js";
@@ -67,6 +68,7 @@ export async function numberRoutes(app: FastifyInstance, deps: AppDeps) {
       voiceUrl: `${base}/webhooks/twilio/voice/inbound`,
       smsUrl: `${base}/webhooks/twilio/sms/inbound`,
       statusCallback: `${base}/webhooks/twilio/voice/status`,
+      ...numberFallbacks(config),
       ...(address?.providerRef ? { emergencyAddressSid: address.providerRef } : {}),
     });
     const now = deps.now();

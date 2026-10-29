@@ -40,7 +40,7 @@ export function PhoneProvider({ children }: { children: ReactNode }) {
     if (status !== "signedIn") return;
     const e: PhoneEngine = env.mock
       ? new MockEngine()
-      : new TwilioEngine({ getToken: async () => (await api.voiceToken()).token, closeProtection: t("phone.closeProtection") });
+      : new TwilioEngine({ getToken: async () => (await api.voiceToken()).token, closeProtection: t("phone.closeProtection"), edges: env.twilioEdges });
     setEngine(e);
     e.start().catch(() => undefined);
     if (env.mock) (window as unknown as { mimtDemo?: unknown }).mimtDemo = e;

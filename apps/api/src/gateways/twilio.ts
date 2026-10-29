@@ -32,7 +32,7 @@ export interface VoicemailTranscriber {
 export interface TwilioGateway {
   createVoiceToken(identity: string, platform: Platform, ttlSeconds: number): { token: string; expiresAt: Date };
   searchLocalNumbers(input: { areaCode?: string; limit: number }): Promise<AvailableNumber[]>;
-  purchaseNumber(input: { e164: string; voiceUrl: string; smsUrl: string; statusCallback: string; emergencyAddressSid?: string }): Promise<{ sid: string }>;
+  purchaseNumber(input: { e164: string; voiceUrl: string; smsUrl: string; statusCallback: string; emergencyAddressSid?: string } & NumberFallbacks): Promise<{ sid: string }>;
   releaseNumber(sid: string): Promise<void>;
   createEmergencyAddress(input: EmergencyAddressInput): Promise<{ sid: string; validated: boolean }>;
   attachEmergencyAddress(numberSid: string, addressSid: string): Promise<void>;
@@ -50,8 +50,41 @@ export interface TwilioGateway {
   fetchMedia?(url: string): Promise<{ contentType: string; body: Buffer }>;
   /** Deletes inbound MMS media at Twilio once copied (Law 25 minimisation). */
   deleteMedia?(url: string): Promise<void>;
+  /** Reads one number at Twilio (fallback backfill, jobs/numberFallback.ts). Optional: absent → no backfill. */
+  fetchNumberConfig?(sid: string): Promise<TwilioNumberConfig>;
+  /** Sets only the fallback URLs of one number; voice/SMS URLs and everything else stay as they are. */
+  updateNumberFallbacks?(sid: string, fallbacks: NumberFallbacks): Promise<void>;
   /** Places a call whose TwiML comes from `url` (used to record a voicemail greeting by phone). */
   createCall?(input: { to: string; from: string; url: string; statusCallback?: string }): Promise<{ sid: string }>;
+}
+
+/** Twilio-hosted fallbacks used when our webhooks fail (docs/MIMT-CALL-RELIABILITY.md). */
+export interface NumberFallbacks {
+  voiceFallbackUrl?: string;
+  smsFallbackUrl?: string;
+}
+
+export interface TwilioNumberConfig {
+  e164: string;
+  dateCreated: Date | null;
+  voiceFallbackUrl: string | null;
+  smsFallbackUrl: string | null;
+}
+
+/** Fallback fields from TWILIO_VOICE_FALLBACK_URL / TWILIO_SMS_FALLBACK_URL; empty when neither is set. */
+export function numberFallbacks(config: Pick<Config, "TWILIO_VOICE_FALLBACK_URL" | "TWILIO_SMS_FALLBACK_URL">): NumberFallbacks {
+  return {
+    ...(config.TWILIO_VOICE_FALLBACK_URL ? { voiceFallbackUrl: config.TWILIO_VOICE_FALLBACK_URL } : {}),
+    ...(config.TWILIO_SMS_FALLBACK_URL ? { smsFallbackUrl: config.TWILIO_SMS_FALLBACK_URL } : {}),
+  };
+}
+
+/** Twilio parameters for the fallbacks (always POST, like our own webhooks). */
+export function fallbackParams(f: NumberFallbacks) {
+  return {
+    ...(f.voiceFallbackUrl ? { voiceFallbackUrl: f.voiceFallbackUrl, voiceFallbackMethod: "POST" as const } : {}),
+    ...(f.smsFallbackUrl ? { smsFallbackUrl: f.smsFallbackUrl, smsFallbackMethod: "POST" as const } : {}),
+  };
 }
 
 const TWILIO_MEDIA_URL = /^https:\/\/api\.twilio\.com\/2010-04-01\/Accounts\/AC[0-9a-f]{32}\/Messages\/(MM|SM)[0-9a-f]{32}\/Media\/ME[0-9a-f]{32}$/i;
@@ -110,7 +143,7 @@ export class TwilioRestGateway implements TwilioGateway {
     return list.map((n) => ({ e164: n.phoneNumber, locality: n.locality || null, region: n.region || null }));
   }
 
-  async purchaseNumber(input: { e164: string; voiceUrl: string; smsUrl: string; statusCallback: string; emergencyAddressSid?: string }) {
+  async purchaseNumber(input: { e164: string; voiceUrl: string; smsUrl: string; statusCallback: string; emergencyAddressSid?: string } & NumberFallbacks) {
     // Inbound voice goes straight to our inbound webhook (not the TwiML App, which handles client-originated calls).
     const n = await this.client.incomingPhoneNumbers.create({
       phoneNumber: input.e164,
@@ -120,9 +153,25 @@ export class TwilioRestGateway implements TwilioGateway {
       smsMethod: "POST",
       statusCallback: input.statusCallback,
       statusCallbackMethod: "POST",
+      ...fallbackParams(input),
       ...(input.emergencyAddressSid ? { emergencyAddressSid: input.emergencyAddressSid } : {}),
     });
     return { sid: n.sid };
+  }
+
+  async fetchNumberConfig(sid: string): Promise<TwilioNumberConfig> {
+    const n = await this.client.incomingPhoneNumbers(sid).fetch();
+    return {
+      e164: n.phoneNumber,
+      dateCreated: n.dateCreated ? new Date(n.dateCreated) : null,
+      voiceFallbackUrl: n.voiceFallbackUrl || null,
+      smsFallbackUrl: n.smsFallbackUrl || null,
+    };
+  }
+
+  async updateNumberFallbacks(sid: string, fallbacks: NumberFallbacks) {
+    const params = fallbackParams(fallbacks);
+    if (Object.keys(params).length) await this.client.incomingPhoneNumbers(sid).update(params);
   }
 
   async releaseNumber(sid: string) {

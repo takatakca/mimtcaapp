@@ -33,7 +33,7 @@ import {
 import { z } from "zod";
 import type { AppDeps } from "../deps.js";
 import { loadContext, requireUser } from "../auth/guard.js";
-import { recordingAccountSid } from "../gateways/twilio.js";
+import { numberFallbacks, recordingAccountSid } from "../gateways/twilio.js";
 import { decodeCursor, encodeCursor } from "../lib/cursor.js";
 import { badRequest, conflict, forbidden, HttpError, notConfigured, notFound } from "../lib/errors.js";
 import { classifyDestination } from "../lib/phone.js";
@@ -539,6 +539,7 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
       voiceUrl: `${base}/webhooks/twilio/voice/inbound`,
       smsUrl: `${base}/webhooks/twilio/sms/inbound`,
       statusCallback: `${base}/webhooks/twilio/voice/status`,
+      ...numberFallbacks(deps.config),
       ...(address?.providerRef ? { emergencyAddressSid: address.providerRef } : {}),
     });
     const now = deps.now();

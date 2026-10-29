@@ -1,5 +1,6 @@
 // Demo engine for VITE_MOCK_API=1: simulates calls without Twilio, so screens can be reviewed.
 import { isEmergencyNumber } from "@mimt/shared";
+import type { ConnectionTestResult } from "./connectionTest";
 import { IDLE_CALL, SnapshotStore, type PhoneEngine } from "./types";
 
 export class MockEngine implements PhoneEngine {
@@ -78,5 +79,10 @@ export class MockEngine implements PhoneEngine {
   }
   dismiss(): void {
     this.store.set({ ...IDLE_CALL, error: null });
+  }
+  /** Demo result: never loads the Twilio SDK, so the demo build cannot crash on « Tester ma connexion ». */
+  async runConnectionTest(): Promise<ConnectionTestResult> {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    return { quality: "good", jitterMs: 4, packetLossPct: 0, rttMs: 42, turnRequired: false, edge: "ashburn" };
   }
 }

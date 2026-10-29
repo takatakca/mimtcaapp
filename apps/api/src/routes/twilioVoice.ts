@@ -27,6 +27,9 @@ const RING_TIMEOUT_S = 25;
 const VOICEMAIL_MAX_S = 120;
 const MAX_CALL_S = 4 * 3600;
 const ACTIVE_CALL_WINDOW_MS = MAX_CALL_S * 1000;
+/** « Tester ma connexion » (webphone, Twilio preflight): seconds of open line to measure, and attempts per hour. */
+const CONNECTION_TEST_S = 12;
+const CONNECTION_TEST_RULE = { capacity: 10, windowSeconds: 3600 };
 /** Rough domestic cost when Twilio has not reported a price yet (CAD per minute). */
 const DOMESTIC_EST_CAD_PER_MIN = 0.02;
 
@@ -190,6 +193,17 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
     const user = identity ? await repo.getUser(identity) : null;
     const account = user && user.status === "active" ? await repo.getAccountByOwner(user.id) : null;
     if (!user || !account) return sendTwiml(reply, refuse("unknown_user"));
+
+    // Connection test: Twilio's preflight places a call with no `To`. Keep the line open a few seconds so the
+    // browser can measure jitter, loss and round-trip time, then hang up. Nothing is dialed; 9-1-1 is handled above.
+    if (!dialed.trim()) {
+      if (!(await deps.rateLimiter.take(`preflight:${account.id}`, CONNECTION_TEST_RULE))) return sendTwiml(reply, refuse("rate_limited"));
+      const vr = new VoiceResponse();
+      sayBilingual(vr, "Test de connexion MIMT.", "MIMT connection test.");
+      vr.pause({ length: CONNECTION_TEST_S });
+      vr.hangup();
+      return sendTwiml(reply, vr);
+    }
 
     // MIMT Affaires: extensions, business DIDs and calls on behalf of a business. Runs after the 9-1-1 path.
     const business = await pbxOutbound(deps, app.log, { user, consumerAccount: account, dialed, callSid: p.CallSid, callerId: p.CallerId });

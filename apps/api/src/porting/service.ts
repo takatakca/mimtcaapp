@@ -8,6 +8,7 @@ import {
   type PortInNumberStatus,
 } from "@mimt/shared";
 import type { AppDeps } from "../deps.js";
+import { numberFallbacks } from "../gateways/twilio.js";
 import { mapTwilioNumberStatus, type PortInSnapshot } from "../gateways/twilioPorting.js";
 import { sha256Hex } from "../lib/crypto.js";
 import { addDays } from "../lib/time.js";
@@ -159,6 +160,7 @@ async function activate(deps: AppDeps, r: PortInRow, e164: string, log: Log) {
     voiceUrl: `${base}/webhooks/twilio/voice/inbound`,
     smsUrl: `${base}/webhooks/twilio/sms/inbound`,
     statusCallback: `${base}/webhooks/twilio/voice/status`,
+    ...numberFallbacks(deps.config),
     ...(address?.providerRef ? { emergencyAddressSid: address.providerRef } : {}),
   });
   const now = deps.now();

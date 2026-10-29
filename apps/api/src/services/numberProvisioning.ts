@@ -1,4 +1,5 @@
 import type { AppDeps } from "../deps.js";
+import { numberFallbacks } from "../gateways/twilio.js";
 import type { TelecomAccount } from "../repo/types.js";
 import { LIVE_HOLD_STATES } from "../repo/numberHolds.js";
 import { grantMission } from "./missions.js";
@@ -37,6 +38,7 @@ export async function provisionHeldNumber(
       voiceUrl: `${base}/webhooks/twilio/voice/inbound`,
       smsUrl: `${base}/webhooks/twilio/sms/inbound`,
       statusCallback: `${base}/webhooks/twilio/voice/status`,
+      ...numberFallbacks(deps.config),
       ...(address?.providerRef ? { emergencyAddressSid: address.providerRef } : {}),
     }));
   } catch (err) {

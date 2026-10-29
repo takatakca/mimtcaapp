@@ -8,6 +8,7 @@ interface ImportMetaEnv {
   readonly VITE_ADSENSE_CLIENT?: string;
   readonly VITE_ADSENSE_SLOT_BANNER?: string;
   readonly VITE_ADSENSE_SLOT_SIDEBAR?: string;
+  readonly VITE_TWILIO_EDGE?: string;
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;

@@ -43,6 +43,14 @@ const EnvSchema = z
       .min(1)
       .optional()
       .transform((v) => (v === "off" ? undefined : (v ?? DEFAULT_VERIFY_SERVICE_SID))),
+    /**
+     * Twilio-hosted fallback (TwiML Bin or Function, docs/MIMT-CALL-RELIABILITY.md): Twilio fetches it when our
+     * voice webhook fails, so callers still hear a message while the API is down. A URL, not a secret. Set on new
+     * numbers, and on MIMT numbers created from 2026-10-23 at API start (jobs/numberFallback.ts).
+     */
+    TWILIO_VOICE_FALLBACK_URL: z.url({ protocol: /^https$/ }).optional(),
+    /** Same for texts (optional): Twilio-hosted reply when our SMS webhook fails. */
+    TWILIO_SMS_FALLBACK_URL: z.url({ protocol: /^https$/ }).optional(),
     /** Emergency-enabled company number used as caller ID for 9-1-1 when the user has no number yet. */
     EMERGENCY_FALLBACK_CALLER_ID: optional,
     /** Number port-in through the Twilio Porting API. Off until porting is enabled on the Twilio account. */
