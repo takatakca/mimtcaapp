@@ -42,6 +42,7 @@ import { mediaRoutes } from "./routes/media.js";
 import { meetingRoutes } from "./routes/meetings.js";
 import { missionRoutes } from "./routes/missions.js";
 import { pointsRoutes } from "./routes/points.js";
+import { partnerRoutes } from "./routes/partners.js";
 import { voicemailSettingsRoutes } from "./routes/voicemailSettings.js";
 
 type Routes = (app: import("fastify").FastifyInstance, deps: AppDeps) => Promise<void>;
@@ -117,6 +118,7 @@ export async function buildApp(deps: AppDeps) {
     meetingRoutes,
     adminCostRoutes,
     affiliateRoutes,
+    partnerRoutes,
   ];
   for (const r of routes) await app.register(async (scope) => r(scope, deps));
   return app;

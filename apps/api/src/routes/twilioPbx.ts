@@ -5,6 +5,7 @@ import type { AppDeps } from "../deps.js";
 import { addDays } from "../lib/time.js";
 import { loadSnapshot } from "../pbx/engine.js";
 import * as router from "../pbx/router.js";
+import { partnerLegAnswered, partnerLegCompleted, partnerRecordingReady, safeHook } from "../services/partners.js";
 import { sendTwiml, twilioParams, VoiceResponse } from "./twiml.js";
 
 const Q = z.object({
@@ -89,9 +90,33 @@ export async function twilioPbxWebhooks(app: FastifyInstance, deps: AppDeps) {
   app.post(`${P}/whisper`, async (req, reply) => {
     const q = Q.safeParse(req.query);
     if (!q.success) return sendTwiml(reply, hangup());
-    return sendTwiml(reply, router.whisper(base, q.data.b));
+    return sendTwiml(reply, router.whisper(base, q.data.b, q.data.x));
   });
-  app.post(`${P}/whisper-input`, async (req, reply) => sendTwiml(reply, router.whisperInput(twilioParams(req).Digits)));
+  app.post(`${P}/whisper-input`, async (req, reply) => {
+    const p = twilioParams(req);
+    const q = Q.safeParse(req.query);
+    // « MIMT Connect »: on a partner member's mobile, pressing 1 is the answer (x = the member's extension).
+    if (p.Digits === "1" && q.success && q.data.x && p.CallSid && p.ParentCallSid) {
+      const input = { parentCallSid: p.ParentCallSid, legSid: p.CallSid, extensionId: q.data.x };
+      await safeHook(req.log, "whisper-answer", () => partnerLegAnswered(deps, input));
+    }
+    return sendTwiml(reply, router.whisperInput(p.Digits));
+  });
+
+  // « MIMT Connect »: status of a member leg of a partner business (router.ts legCallbacks). App leg answered →
+  // call.answered; the answered leg completed → its talk time. Always 204: Twilio needs nothing back.
+  app.post(`${P}/leg`, async (req, reply) => {
+    const p = twilioParams(req);
+    const q = Q.safeParse(req.query);
+    if (!q.success || !q.data.x || !p.CallSid || !p.ParentCallSid) return reply.code(204).send();
+    const leg = { parentCallSid: p.ParentCallSid, legSid: p.CallSid };
+    if (p.CallStatus === "in-progress" || p.CallStatus === "answered") {
+      await safeHook(req.log, "leg-answered", () => partnerLegAnswered(deps, { ...leg, extensionId: q.data.x! }));
+    } else if (p.CallStatus === "completed") {
+      await safeHook(req.log, "leg-completed", () => partnerLegCompleted(deps, { ...leg, durationS: Number(p.CallDuration ?? 0) || 0 }));
+    }
+    return reply.code(204).send();
+  });
 
   // Called party of a business outbound call: recording notice before they are connected.
   app.post(`${P}/consent`, async (req, reply) => {
@@ -151,6 +176,8 @@ export async function twilioPbxWebhooks(app: FastifyInstance, deps: AppDeps) {
       retentionDays,
       deleteAfter: addDays(now, retentionDays),
     });
+    const callSid = p.CallSid;
+    await safeHook(req.log, "recording", () => partnerRecordingReady(deps, { business, recording, callSid, ...(p.ParentCallSid ? { parentCallSid: p.ParentCallSid } : {}) }));
     // AI summary (Affaires Pro + owner's AI consent; checked inside). Transcription can take a minute or two.
     if (deps.ai?.gateway) deps.ai.background("call:summary", () => summarizeBusinessCall(deps, business, recording));
     return reply.code(204).send();

@@ -31,7 +31,8 @@ describe("isolated self-hosted MIMT migration guard", () => {
     )).not.toThrow();
   });
   it("retains explicit deterministic migration order", () => {
-    expect(MIGRATION_ORDER).toHaveLength(22);
+    // Containment and relative order (not an exact length): parallel branches add their own files.
+    expect(MIGRATION_ORDER.length).toBeGreaterThanOrEqual(22);
     expect(MIGRATION_ORDER).toContain("0020_ai_pilot.sql");
     expect(MIGRATION_ORDER[0]).toBe("0001_init.sql");
     expect(MIGRATION_ORDER[9]).toBe("0009_port_in.sql");
@@ -45,8 +46,13 @@ describe("isolated self-hosted MIMT migration guard", () => {
     expect(MIGRATION_ORDER[17]).toBe("0017_missions.sql");
     expect(MIGRATION_ORDER[18]).toBe("0018_points.sql");
     expect(MIGRATION_ORDER).toContain("0019_affiliates.sql");
-    expect(MIGRATION_ORDER).toContain("0020_ai_pilot.sql");
-    expect(MIGRATION_ORDER[MIGRATION_ORDER.length - 1]).toBe("0021_points_clawback.sql");
+    expect(MIGRATION_ORDER[20]).toBe("0020_ai_pilot.sql");
+    // 0021 (points clawback) and 0022 (security) come from other branches; MIMT Connect is 0023 and runs after them.
+    expect(MIGRATION_ORDER).toContain("0023_partners.sql");
+    expect(MIGRATION_ORDER.indexOf("0023_partners.sql")).toBeGreaterThan(MIGRATION_ORDER.indexOf("0020_ai_pilot.sql"));
+    for (const earlier of MIGRATION_ORDER.filter((m) => m.startsWith("0021_") || m.startsWith("0022_"))) {
+      expect(MIGRATION_ORDER.indexOf(earlier)).toBeLessThan(MIGRATION_ORDER.indexOf("0023_partners.sql"));
+    }
   });
   it("lists every migration file in supabase/migrations", () => {
     const files = readdirSync(join(__dirname, "../../../supabase/migrations")).filter((f) => f.endsWith(".sql"));
