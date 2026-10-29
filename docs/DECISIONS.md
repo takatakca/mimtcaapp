@@ -1,5 +1,9 @@
 # MIMT — Décisions approuvées et contraintes
 
+## D-OPS-MON — Politique de surveillance fiable (29 octobre 2026, branche en revue)
+
+Conserver le fonctionnement choisi du moniteur : une panne de service correctement signalée par une issue GitHub ne fait pas automatiquement échouer chaque exécution de cron. **Exception indispensable** : lorsqu'une issue d'incident ne peut être recherchée, ouverte, commentée ou fermée, l'exécution doit échouer et rendre l'échec visible. Exiger aussi `readyz.ok=true`, `db=up` et `schema=current`. Régression hermétique sur branche `agent/uptime-alert-delivery-20261029`, sans accès réel aux services. Ne jamais confondre un job UP avec une téléphonie conforme et certifiée.
+
 ## Activation autorisée de la clé IA — 25 octobre 2026
 
 Le propriétaire a confirmé l'enregistrement de la clé Anthropic après les instructions de saisie privée. Redéploiement de l'API MIMT depuis le `main` approuvé c27010b, puis essais courts avec données entièrement fictives : trois scénarios publics répondent en français, commande restaurant visible dans le site. Consentements, budgets et forfaits existants conservés. Les fonctions privées et les flux télécom restent soumis à leurs preuves propres; aucune nouvelle approbation de lancement commercial ou réglementaire déduite de la réponse IA.

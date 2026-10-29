@@ -1,5 +1,9 @@
 # MIMT — État vérifié du projet
 
+## État vérifié le 29 octobre 2026
+
+Dépôt actif confirmé par le dossier maître Drive : `takatakca/mimtcaapp`, `main` SHA `93d303d0e3128652e5a0230edc2d61c77acd34c9` (PR #84 fusionnée). CI `40846622396`, migrations standalone `40846622271` réussies. Publication vitrine `40846814733` : le contrôle GitHub Actions a confirmé que `mimt.ca` servait le manifeste du **SHA exact** le 29 octobre à 09:07 UTC. Déploiement API `40846623390` réussi côté workflow, mais pas de preuve visible du SHA exact de l'API ou du fonctionnement réel des services télécom. Uptime `40935863819`: 3 services UP. Le moniteur avait un risque de perte silencieuse des notifications Github; correction MON-ALERT-01 sur branche, CI en attente. Voir `docs/AGENT_HANDOFF.md`. État commercial non certifié.
+
 ## Reprise vérifiée — 26 octobre 2026, Codex
 
 PR #63–#68 fusionnées, main vérifié c308dd8; CI 40420964736 réussie. Publication 40421110321 échouée : manifeste 8d38458 pendant 60 essais. Surveillance 40438511037 : trois services UP, sans comparaison de SHA. Les crédits ont bloqué la revue automatique Claude, pas la sauvegarde des modifications.
