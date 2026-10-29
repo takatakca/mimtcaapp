@@ -1,6 +1,7 @@
 import twilio from "twilio";
 import type { PortInAddress, PortInCustomerType, PortInNumberStatus } from "@mimt/shared";
 import type { Config } from "../config.js";
+import { fallbackParams, type NumberFallbacks } from "./twilio.js";
 
 // Twilio Porting API (numbers.twilio.com/v1/Porting/...), behind one interface so tests use a fake.
 // Reference: https://www.twilio.com/docs/phone-numbers/port-in/port-in-request-api
@@ -59,7 +60,7 @@ export interface TwilioPortingGateway {
    * Once a number has ported, Twilio holds it as an IncomingPhoneNumber on the account: point it at
    * MIMT's webhooks (same as a purchased number) and attach the 9-1-1 address.
    */
-  configurePortedNumber(input: { e164: string; voiceUrl: string; smsUrl: string; statusCallback: string; emergencyAddressSid?: string }): Promise<{ sid: string }>;
+  configurePortedNumber(input: { e164: string; voiceUrl: string; smsUrl: string; statusCallback: string; emergencyAddressSid?: string } & NumberFallbacks): Promise<{ sid: string }>;
 }
 
 /**
@@ -172,7 +173,7 @@ export class TwilioRestPortingGateway implements TwilioPortingGateway {
     await this.call<void>("DELETE", `/PortIn/${this.sid(sid)}`);
   }
 
-  async configurePortedNumber(input: { e164: string; voiceUrl: string; smsUrl: string; statusCallback: string; emergencyAddressSid?: string }) {
+  async configurePortedNumber(input: { e164: string; voiceUrl: string; smsUrl: string; statusCallback: string; emergencyAddressSid?: string } & NumberFallbacks) {
     const [n] = await this.client.incomingPhoneNumbers.list({ phoneNumber: input.e164, limit: 1 });
     if (!n) throw new Error("ported number not found on the Twilio account yet");
     await this.client.incomingPhoneNumbers(n.sid).update({
@@ -182,6 +183,7 @@ export class TwilioRestPortingGateway implements TwilioPortingGateway {
       smsMethod: "POST",
       statusCallback: input.statusCallback,
       statusCallbackMethod: "POST",
+      ...fallbackParams(input),
       ...(input.emergencyAddressSid ? { emergencyAddressSid: input.emergencyAddressSid } : {}),
     });
     return { sid: n.sid };

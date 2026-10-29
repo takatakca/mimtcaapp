@@ -11,6 +11,7 @@
 // 9-1-1 address. The SDK is loaded lazily so the first page stays light.
 import type { Call, Device } from "@twilio/voice-sdk";
 import { isEmergencyNumber } from "@mimt/shared";
+import { summarizePreflight, type ConnectionTestResult } from "./connectionTest";
 import { IDLE_CALL, SnapshotStore, type AudioDeviceOption, type PhoneEngine, type PhoneErrorCode } from "./types";
 
 type Sdk = typeof import("@twilio/voice-sdk");
@@ -19,7 +20,12 @@ export interface TwilioEngineDeps {
   getToken: () => Promise<string>;
   /** Text of the "leave the page?" prompt while a call is up. */
   closeProtection?: string;
+  /** Twilio edges in fallback order (env.twilioEdges); the SDK tries the next one when an edge is unreachable. */
+  edges?: string[];
 }
+
+/** A preflight test lasts about 15 s; give up well after that. */
+const CONNECTION_TEST_TIMEOUT_MS = 45_000;
 
 const MIC_ERRORS = new Set([31401, 31402, 31208, 31201]);
 
@@ -66,6 +72,8 @@ export class TwilioEngine implements PhoneEngine {
       const token = await this.deps.getToken();
       const device = new DeviceCtor(token, {
         codecPreferences: [CallNs.Codec.Opus, CallNs.Codec.PCMU],
+        // No Canadian edge at Twilio: Ashburn first, then Umatilla (docs/MIMT-CALL-RELIABILITY.md).
+        ...(this.deps.edges?.length ? { edge: this.deps.edges } : {}),
         closeProtection: this.deps.closeProtection ?? true,
         // Ask for a new token one minute before expiry (tokens live 1 h).
         tokenRefreshMs: 60_000,
@@ -219,6 +227,32 @@ export class TwilioEngine implements PhoneEngine {
     await audio.speakerDevices.set(id);
     await audio.ringtoneDevices.set(id).catch(() => undefined);
     this.refreshDevices();
+  }
+
+  /**
+   * Twilio preflight on a fresh token: a short test call through our TwiML App (the API keeps the line open
+   * ~12 s and dials nothing). Preflight takes a single edge, so it tests the first one, the one calls use.
+   */
+  async runConnectionTest(): Promise<ConnectionTestResult> {
+    this.sdk ??= await import("@twilio/voice-sdk");
+    const { Device: DeviceCtor, Call: CallNs } = this.sdk;
+    const token = await this.deps.getToken();
+    const edge = this.deps.edges?.[0];
+    const test = DeviceCtor.runPreflight(token, { codecPreferences: [CallNs.Codec.Opus, CallNs.Codec.PCMU], ...(edge ? { edge } : {}) });
+    return new Promise<ConnectionTestResult>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        test.stop();
+        reject(new Error("timeout"));
+      }, CONNECTION_TEST_TIMEOUT_MS);
+      test.on("completed", (report: Parameters<typeof summarizePreflight>[0]) => {
+        clearTimeout(timer);
+        resolve(summarizePreflight(report));
+      });
+      test.on("failed", (e: unknown) => {
+        clearTimeout(timer);
+        reject(e instanceof Error ? e : new Error("preflight failed"));
+      });
+    });
   }
 
   dismiss(): void {

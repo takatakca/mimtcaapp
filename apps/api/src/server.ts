@@ -7,6 +7,7 @@ import { runAccountDeletion } from "./jobs/accountDeletion.js";
 import { runPointsExpiry } from "./jobs/pointsExpiry.js";
 import { runAffiliateMaintenance } from "./services/affiliates.js";
 import { runNumberLifecycle } from "./jobs/numberLifecycle.js";
+import { runFallbackBackfill } from "./jobs/numberFallback.js";
 import { pingHeartbeat } from "./monitoring/report.js";
 import { deliverOutbox } from "./services/outbox.js";
 import { deliverEmails } from "./services/email.js";
@@ -81,6 +82,18 @@ lifecycleFirst.unref();
 const lifecycleTimer = setInterval(lifecycle, 24 * 60 * 60 * 1000);
 lifecycleTimer.unref();
 
+// Twilio fallback URLs (docs/MIMT-CALL-RELIABILITY.md): once, 2 minutes after start, and only when one is set.
+// Only MIMT numbers created from 2026-10-23 (our table and Twilio's own date); older numbers are never touched.
+const fallbackFirst =
+  config.TWILIO_VOICE_FALLBACK_URL || config.TWILIO_SMS_FALLBACK_URL
+    ? setTimeout(() => {
+        runFallbackBackfill({ repo: deps.repo, twilio: deps.twilio, config, log: app.log }).catch((err) =>
+          app.log.error({ err }, "number fallback backfill failed"),
+        );
+      }, 2 * 60 * 1000)
+    : null;
+fallbackFirst?.unref();
+
 // Account deletion: personal data of accounts deleted 30 days ago is purged (jobs/accountDeletion.ts).
 // First run 15 minutes after start, then daily. ACCOUNT_DELETION=off pauses it (requests still close accounts at once).
 const accountDeletion = () => {
@@ -125,6 +138,7 @@ async function shutdown(signal: string) {
   clearInterval(mediaRetentionTimer);
   clearTimeout(lifecycleFirst);
   clearInterval(lifecycleTimer);
+  if (fallbackFirst) clearTimeout(fallbackFirst);
   clearTimeout(deletionFirst);
   clearInterval(deletionTimer);
   clearTimeout(pointsExpiryFirst);

@@ -1,4 +1,5 @@
 // The softphone's state, shared by the Twilio engine (WebRTC) and the demo engine (VITE_MOCK_API=1).
+import type { ConnectionTestResult } from "./connectionTest";
 
 export type CallStatus = "idle" | "incoming" | "connecting" | "ringing" | "connected" | "reconnecting" | "ended" | "failed";
 
@@ -88,6 +89,11 @@ export interface PhoneEngine {
   setOutputDevice(id: string): Promise<void>;
   /** Clears the ended/failed state shown after a call. */
   dismiss(): void;
+  /**
+   * « Tester ma connexion »: a short test call (Twilio preflight) on a fresh token. Optional: an engine without it
+   * hides the button.
+   */
+  runConnectionTest?(): Promise<ConnectionTestResult>;
 }
 
 /** Small observable store used by both engines. */

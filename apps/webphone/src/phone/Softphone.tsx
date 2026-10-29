@@ -11,6 +11,7 @@ import { useI18n } from "../i18n/I18nProvider";
 import type { TKey } from "../i18n/core";
 import { formatAsYouType, formatPhone, isDialKey, normalizeDialInput, type CallBlockReason } from "../lib/dial";
 import { formatDuration } from "../lib/format";
+import { needsNetworkTip, qualityLabelKey, type ConnectionTestResult } from "./connectionTest";
 import { DialPad } from "./DialPad";
 import { usePhone } from "./PhoneProvider";
 import type { CallStatus } from "./types";
@@ -349,7 +350,70 @@ function AudioSettings() {
         {!state.outputSelectionSupported ? <p className="field__hint">{t("phone.outputUnsupported")}</p> : null}
       </div>
       <p className="field__hint">{t("phone.micHint")}</p>
+      <ConnectionTest />
     </div>
+  );
+}
+
+type TestState = { kind: "idle" } | { kind: "running" } | { kind: "done"; result: ConnectionTestResult } | { kind: "failed" };
+
+/** « Tester ma connexion »: Twilio preflight on a fresh token. Hidden when the engine has no test (none today). */
+function ConnectionTest() {
+  const { t, lang } = useI18n();
+  const { engine, state } = usePhone();
+  const [test, setTest] = useState<TestState>({ kind: "idle" });
+  const busy = state.status !== "idle" && state.status !== "ended" && state.status !== "failed";
+  if (!engine?.runConnectionTest) return null;
+
+  const run = async () => {
+    setTest({ kind: "running" });
+    try {
+      setTest({ kind: "done", result: await engine.runConnectionTest!() });
+    } catch {
+      setTest({ kind: "failed" });
+    }
+  };
+  const num = (n: number | null, digits = 0) =>
+    n === null ? "—" : n.toLocaleString(lang === "fr" ? "fr-CA" : "en-CA", { maximumFractionDigits: digits });
+  const r = test.kind === "done" ? test.result : null;
+
+  return (
+    <section className="stack" aria-labelledby="conn-test-h">
+      <h3 id="conn-test-h" className="small-title">
+        {t("phone.test.title")}
+      </h3>
+      <p className="field__hint">{t("phone.test.hint")}</p>
+      <button type="button" className="btn btn--ghost btn--sm" onClick={() => void run()} disabled={busy || test.kind === "running"}>
+        {test.kind === "running" ? t("phone.test.running") : t("phone.test.button")}
+      </button>
+      {busy ? <p className="field__hint">{t("phone.test.busy")}</p> : null}
+      <div aria-live="polite" role="status">
+        {test.kind === "failed" ? <p className="note note--error">{t("phone.test.failed")}</p> : null}
+        {r ? (
+          <>
+            <dl className="dl">
+              <dt>{t("phone.test.quality")}</dt>
+              <dd>{t(qualityLabelKey(r.quality))}</dd>
+              <dt>{t("phone.test.jitter")}</dt>
+              <dd>{t("phone.test.ms", { value: num(r.jitterMs) })}</dd>
+              <dt>{t("phone.test.loss")}</dt>
+              <dd>{t("phone.test.pct", { value: num(r.packetLossPct, 1) })}</dd>
+              <dt>{t("phone.test.rtt")}</dt>
+              <dd>{t("phone.test.ms", { value: num(r.rttMs) })}</dd>
+              <dt>{t("phone.test.turn")}</dt>
+              <dd>{r.turnRequired === null ? "—" : t(r.turnRequired ? "phone.test.yes" : "phone.test.no")}</dd>
+              {r.edge ? (
+                <>
+                  <dt>{t("phone.test.edge")}</dt>
+                  <dd>{r.edge}</dd>
+                </>
+              ) : null}
+            </dl>
+            {needsNetworkTip(r) ? <p className="note note--warn">{t("phone.test.tip")}</p> : null}
+          </>
+        ) : null}
+      </div>
+    </section>
   );
 }
 

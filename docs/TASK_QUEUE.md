@@ -1,5 +1,13 @@
 # MIMT — File des tâches exécutables
 
+## Fiabilité des appels — 29 octobre 2026, Claude (branche `claude/call-reliability`, PR à ouvrir par le propriétaire)
+
+| ID | État | Prochaine preuve requise |
+| --- | --- | --- |
+| REL-EDGE | Code prêt : edge Twilio `ashburn,umatilla` (Web), `VITE_TWILIO_EDGE`; mobile inchangé (SDK RN sans option edge) | Appel réel depuis app.mimt.ca après déploiement du webphone |
+| REL-FALLBACK | Code prêt : `TWILIO_VOICE_FALLBACK_URL` / `TWILIO_SMS_FALLBACK_URL` à l'achat, au transfert et au démarrage (jamais avant le 2026-10-23) | Propriétaire : TwiML Bin + variable Coolify ([MIMT-CALL-RELIABILITY.md](MIMT-CALL-RELIABILITY.md)), puis journal `number fallback backfill done` |
+| REL-PREFLIGHT | Code prêt : « Tester ma connexion » (onglet Audio), jambe de test sans `To` dans l'API | Test réel dans un navigateur après déploiement API + webphone |
+
 ## Annuel 12 pour 11 + Missions MIMT — 27 octobre 2026, Claude (branche `claude/missions`, PR à ouvrir par le propriétaire)
 
 | ID | État | Prochaine preuve requise |
