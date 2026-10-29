@@ -1,5 +1,17 @@
 # MIMT — Relève du développeur principal
 
+## Statut de fusion vérifié — 29 octobre 2026, 16:13 HAE
+
+- **MON-ALERT-01 terminé et fusionné :** PR [#85](https://github.com/takatakca/mimtcaapp/pull/85) fusionnée le 29 octobre 2026 à 20:12:53 UTC, commit `540b295cae9a6540c28dc38e2a43ba839c0d60ba`. CI PR [#40946466956](https://github.com/takatakca/mimtcaapp/actions/runs/40946466956) et migration [#40946466884](https://github.com/takatakca/mimtcaapp/actions/runs/40946466884) réussies avant fusion. CI `main` [#40947007313](https://github.com/takatakca/mimtcaapp/actions/runs/40947007313) et migrations `main` [#40947007441](https://github.com/takatakca/mimtcaapp/actions/runs/40947007441) lancées; lire leur conclusion. Aucune preuve publique de publication du nouveau SHA recueillie à cet instant.
+- **Fichiers du correctif et tests :** `scripts/monitor/uptime.sh` et `apps/api/test/uptime-monitor.test.ts` (7 tests sans réseau). Documentation suivie dans `WORKLOG.md` et les cinq `docs/` obligatoires. Commits poussés de la branche : `0ae04b0`, `6fc35cf`, `ec21746`, `48555fb`; SHA de fusion `540b295c`.
+- **Google Drive réconcilié :** [fiche maître MIMT](https://docs.google.com/document/d/1kItULXAByYazVZm_LDXakQT5-ICIBBz5XgEzweCtHZc/edit) mise à jour et relue (dépôt actif `mimtcaapp`, site SHA `93d303d` confirmé le 29 octobre 09:07 UTC, API non certifiée au SHA exact).
+- **Tâche suivante :** vérifier CI/main et `Auto deploy MIMT website` pour le SHA actuel; vérifier `mimt-release.json` dans les journaux de confirmation. Continuer [issue #69](https://github.com/takatakca/mimtcaapp/issues/69) pour la preuve d'API et les vrais essais autorisés; ne pas toucher au retrait FTP déjà sur PR #77 ni à la checklist de PR #81, et ne jamais interpréter un healthcheck comme une validation 9-1-1. Secrets et données clients restent privés.
+
+Signé 16:13 HAE — GPT-6 · agent MIMT — relais après fusion.
+
+---
+
+
 ## Relève du 29 octobre 2026 — Vérification croisée GitHub / Drive et moniteur d'alertes
 
 - **Vérité du projet :** le dossier [Fiche maître MIMT](https://docs.google.com/document/d/1kItULXAByYazVZm_LDXakQT5-ICIBBz5XgEzweCtHZc/edit) désigne `takatakca/mimtcaapp` (privé) comme dépôt produit actif. `takatakca/mimt` (SHA `dc75a392`, 16 octobre) est une ancienne ligne de travail distincte; **ne pas y pousser de nouveaux correctifs de production** sans réconciliation. Au démarrage, `main` actuel = `93d303d0e3128652e5a0230edc2d61c77acd34c9`, fusion PR #84, CI [#40846622396](https://github.com/takatakca/mimtcaapp/actions/runs/40846622396) réussie et migrations [#40846622271](https://github.com/takatakca/mimtcaapp/actions/runs/40846622271) réussies.

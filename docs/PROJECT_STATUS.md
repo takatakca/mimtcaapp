@@ -2,7 +2,7 @@
 
 ## État vérifié le 29 octobre 2026
 
-Dépôt actif confirmé par le dossier maître Drive : `takatakca/mimtcaapp`, `main` SHA `93d303d0e3128652e5a0230edc2d61c77acd34c9` (PR #84 fusionnée). CI `40846622396`, migrations standalone `40846622271` réussies. Publication vitrine `40846814733` : le contrôle GitHub Actions a confirmé que `mimt.ca` servait le manifeste du **SHA exact** le 29 octobre à 09:07 UTC. Déploiement API `40846623390` réussi côté workflow, mais pas de preuve visible du SHA exact de l'API ou du fonctionnement réel des services télécom. Uptime `40935863819`: 3 services UP. Le moniteur avait un risque de perte silencieuse des notifications Github; correction MON-ALERT-01 sur branche, CI en attente. Voir `docs/AGENT_HANDOFF.md`. État commercial non certifié.
+Dépôt actif confirmé par le dossier maître Drive : `takatakca/mimtcaapp`, `main` SHA `93d303d0e3128652e5a0230edc2d61c77acd34c9` (PR #84 fusionnée). CI `40846622396`, migrations standalone `40846622271` réussies. Publication vitrine `40846814733` : le contrôle GitHub Actions a confirmé que `mimt.ca` servait le manifeste du **SHA exact** le 29 octobre à 09:07 UTC. Déploiement API `40846623390` réussi côté workflow, mais pas de preuve visible du SHA exact de l'API ou du fonctionnement réel des services télécom. Uptime `40935863819`: 3 services UP. Le moniteur avait un risque de perte silencieuse des notifications GitHub; correction MON-ALERT-01 fusionnée via PR #85 (merge SHA 540b295c, CI PR #40946466956 et migrations #40946466884 réussies). Le SHA public de cette fusion n'est pas encore confirmé. Voir `docs/AGENT_HANDOFF.md`. État commercial non certifié.
 
 ## Reprise vérifiée — 26 octobre 2026, Codex
 

@@ -2,7 +2,7 @@
 
 ## Vérification reprise du 29 octobre 2026
 
-Actions #40846814733 : vérification réussie du manifeste public `mimt-release.json` au SHA `93d303d0e3128652e5a0230edc2d61c77acd34c9` après plusieurs lectures anciennes; ce contrôle valide **la vitrine seulement**. Actions #40846623390 : déploiement API demandé à Coolify, `healthz` et `readyz` passés, sans API commit/version certifié dans les journaux. Surveillance #40935863819 : trois services UP. L'ancien workflow manuel `deploy.yml` garde encore des portées FTP obsolètes; la PR #77 les retire, ne pas utiliser ces portées. L'issue #69 reste le suivi des preuves. La correction MON-ALERT-01 (sur branche, non publiée) ajoute des erreurs de notification visibles et la vérification `schema=current` dans la surveillance, sans toucher aux déploiements ou aux données clients.
+Actions #40846814733 : vérification réussie du manifeste public `mimt-release.json` au SHA `93d303d0e3128652e5a0230edc2d61c77acd34c9` après plusieurs lectures anciennes; ce contrôle valide **la vitrine seulement**. Actions #40846623390 : déploiement API demandé à Coolify, `healthz` et `readyz` passés, sans API commit/version certifié dans les journaux. Surveillance #40935863819 : trois services UP. L'ancien workflow manuel `deploy.yml` garde encore des portées FTP obsolètes; la PR #77 les retire, ne pas utiliser ces portées. L'issue #69 reste le suivi des preuves. La correction MON-ALERT-01 (PR #85 fusionnée sur main au SHA 540b295c; publication exacte encore non démontrée) ajoute des erreurs de notification visibles et la vérification `schema=current` dans la surveillance, sans toucher aux déploiements ou aux données clients.
 
 ## Reprise vérifiée — 26 octobre 2026, Codex
 

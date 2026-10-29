@@ -1,6 +1,6 @@
 # MIMT — Décisions approuvées et contraintes
 
-## D-OPS-MON — Politique de surveillance fiable (29 octobre 2026, branche en revue)
+## D-OPS-MON — Politique de surveillance fiable (29 octobre 2026, PR #85 fusionnée, CI verte)
 
 Conserver le fonctionnement choisi du moniteur : une panne de service correctement signalée par une issue GitHub ne fait pas automatiquement échouer chaque exécution de cron. **Exception indispensable** : lorsqu'une issue d'incident ne peut être recherchée, ouverte, commentée ou fermée, l'exécution doit échouer et rendre l'échec visible. Exiger aussi `readyz.ok=true`, `db=up` et `schema=current`. Régression hermétique sur branche `agent/uptime-alert-delivery-20261029`, sans accès réel aux services. Ne jamais confondre un job UP avec une téléphonie conforme et certifiée.
 
