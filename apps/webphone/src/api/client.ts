@@ -9,6 +9,7 @@ import { portInEndpoints } from "./portIn";
 import { meetingEndpoints } from "./meetings";
 import { pilotEndpoints } from "./pilot";
 import { securityEndpoints } from "./security";
+import { adminEndpoints } from "./admin";
 import { calendarEndpoints } from "./calendar";
 import { coreEndpoints } from "./core";
 import { createHttpClient, type FetchLike } from "./http";
@@ -61,6 +62,7 @@ export const api = {
   ...pilotEndpoints(request),
   ...securityEndpoints(request),
   ...calendarEndpoints(request),
+  ...adminEndpoints(request),
 };
 
 export type Api = typeof api;

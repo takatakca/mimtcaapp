@@ -9,6 +9,7 @@ import { HttpError } from "./lib/errors.js";
 import { loggerOptions } from "./logger.js";
 import { setActivePlans } from "./plansConfig.js";
 import { adminCostRoutes } from "./routes/adminCosts.js";
+import { adminTwilioRoutes } from "./routes/adminTwilio.js";
 import { affiliateRoutes } from "./routes/affiliates.js";
 import { aiRoutes } from "./routes/ai.js";
 import { aiDemoRoutes } from "./routes/aiDemo.js";
@@ -120,6 +121,7 @@ export async function buildApp(deps: AppDeps) {
     portInRoutes,
     meetingRoutes,
     adminCostRoutes,
+    adminTwilioRoutes,
     affiliateRoutes,
     partnerRoutes,
     calendarRoutes,

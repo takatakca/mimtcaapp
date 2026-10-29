@@ -54,6 +54,10 @@ export interface TwilioGateway {
   fetchNumberConfig?(sid: string): Promise<TwilioNumberConfig>;
   /** Sets only the fallback URLs of one number; voice/SMS URLs and everything else stay as they are. */
   updateNumberFallbacks?(sid: string, fallbacks: NumberFallbacks): Promise<void>;
+  /** Finds one number in the API's own Twilio account (admin import, routes/adminTwilio.ts). Read-only. */
+  findIncomingNumber?(e164: string): Promise<TwilioIncomingNumber | null>;
+  /** Read-only account checks for MIMT staff (routes/adminTwilio.ts): never changes anything at Twilio. */
+  diagnostics?(): Promise<TwilioDiagnostics>;
   /** Places a call whose TwiML comes from `url` (used to record a voicemail greeting by phone). */
   createCall?(input: { to: string; from: string; url: string; statusCallback?: string }): Promise<{ sid: string }>;
 }
@@ -69,6 +73,31 @@ export interface TwilioNumberConfig {
   dateCreated: Date | null;
   voiceFallbackUrl: string | null;
   smsFallbackUrl: string | null;
+}
+
+/** A number as Twilio has it configured: the import checks it, never changes it. */
+export interface TwilioIncomingNumber {
+  sid: string;
+  e164: string;
+  dateCreated: Date | null;
+  voiceUrl: string | null;
+  smsUrl: string | null;
+  statusCallback: string | null;
+  voiceApplicationSid: string | null;
+}
+
+export interface TwilioDiagnostics {
+  /** Last 4 characters only: enough to tell two accounts apart without exposing the SID. */
+  accountSidEnd: string;
+  accountName: string | null;
+  accountStatus: string | null;
+  accountType: string | null;
+  balance: { amount: string; currency: string } | null;
+  twimlApp: { configured: boolean; voiceUrl: string | null } | null;
+  /** Countries with outbound voice enabled (low-risk numbers). */
+  voiceCountries: string[];
+  usageTriggers: Array<{ name: string; usageCategory: string; triggerValue: string; recurring: string | null }>;
+  numbers: Array<{ e164: string; voiceUrl: string | null; smsUrl: string | null }>;
 }
 
 /** Fallback fields from TWILIO_VOICE_FALLBACK_URL / TWILIO_SMS_FALLBACK_URL; empty when neither is set. */
@@ -166,6 +195,73 @@ export class TwilioRestGateway implements TwilioGateway {
       dateCreated: n.dateCreated ? new Date(n.dateCreated) : null,
       voiceFallbackUrl: n.voiceFallbackUrl || null,
       smsFallbackUrl: n.smsFallbackUrl || null,
+    };
+  }
+
+  async findIncomingNumber(e164: string): Promise<TwilioIncomingNumber | null> {
+    const [n] = await this.client.incomingPhoneNumbers.list({ phoneNumber: e164, limit: 1 });
+    if (!n || n.phoneNumber !== e164) return null;
+    return {
+      sid: n.sid,
+      e164: n.phoneNumber,
+      dateCreated: n.dateCreated ? new Date(n.dateCreated) : null,
+      voiceUrl: n.voiceUrl || null,
+      smsUrl: n.smsUrl || null,
+      statusCallback: n.statusCallback || null,
+      voiceApplicationSid: n.voiceApplicationSid || null,
+    };
+  }
+
+  async diagnostics(): Promise<TwilioDiagnostics> {
+    const c = this.config;
+    const sid = c.TWILIO_ACCOUNT_SID!;
+    // Each check stands alone: a missing permission on the API key leaves that field empty, not the whole report.
+    const safe = async <T,>(fn: () => Promise<T>, fallback: T): Promise<T> => {
+      try {
+        return await fn();
+      } catch {
+        return fallback;
+      }
+    };
+    const account = await safe(() => this.client.api.v2010.accounts(sid).fetch(), null);
+    const balance = await safe(async () => {
+      const b = await this.client.balance.fetch();
+      return { amount: b.balance, currency: b.currency };
+    }, null);
+    const twimlApp = c.TWILIO_TWIML_APP_SID
+      ? await safe(async () => ({ configured: true, voiceUrl: (await this.client.applications(c.TWILIO_TWIML_APP_SID!).fetch()).voiceUrl || null }), {
+          configured: true,
+          voiceUrl: null,
+        })
+      : { configured: false, voiceUrl: null };
+    const voiceCountries = await safe(
+      async () => (await this.client.voice.v1.dialingPermissions.countries.list({ lowRiskNumbersEnabled: true, limit: 300 })).map((x) => x.isoCode).sort(),
+      [] as string[],
+    );
+    const usageTriggers = await safe(
+      async () =>
+        (await this.client.usage.triggers.list({ limit: 50 })).map((t) => ({
+          name: t.friendlyName,
+          usageCategory: String(t.usageCategory),
+          triggerValue: t.triggerValue,
+          recurring: t.recurring ? String(t.recurring) : null,
+        })),
+      [],
+    );
+    const numbers = await safe(
+      async () => (await this.client.incomingPhoneNumbers.list({ limit: 200 })).map((n) => ({ e164: n.phoneNumber, voiceUrl: n.voiceUrl || null, smsUrl: n.smsUrl || null })),
+      [],
+    );
+    return {
+      accountSidEnd: sid.slice(-4),
+      accountName: account?.friendlyName ?? null,
+      accountStatus: account?.status ? String(account.status) : null,
+      accountType: account?.type ? String(account.type) : null,
+      balance,
+      twimlApp,
+      voiceCountries,
+      usageTriggers,
+      numbers,
     };
   }
 

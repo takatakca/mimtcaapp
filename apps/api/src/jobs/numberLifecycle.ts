@@ -70,6 +70,12 @@ export async function runNumberLifecycle(input: {
       }
 
       if (next === "released") {
+        // Second guard for the owner rule: Twilio's own creation date, so a number imported or re-attached in our
+        // table is never deleted at Twilio when it existed there before NUMBER_LIFECYCLE_FROM.
+        if (n.twilioSid && twilio?.fetchNumberConfig) {
+          const at = await twilio.fetchNumberConfig(n.twilioSid);
+          if (!at.dateCreated || at.dateCreated < input.since) continue;
+        }
         if (n.twilioSid && twilio) await twilio.releaseNumber(n.twilioSid);
         else if (n.twilioSid) continue; // cannot release without Twilio; retry on the next run
         await repo.purgeNumberContent(n.id, n.e164);
