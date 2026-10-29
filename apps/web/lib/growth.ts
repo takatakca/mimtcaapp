@@ -22,61 +22,66 @@ export function yearlyOfferLive(): boolean {
 
 export interface Mission {
   id: string;
-  minutes: number | null;
+  points: number | null;
   title: { fr: string; en: string };
   how: { fr: string; en: string };
   /** Where the visitor completes it. */
   path: string;
 }
 
-/** Same ids, triggers and rewards as the API. Minutes are one time per account, added to the current month. */
+/** Same ids, triggers and rewards as the API. Points are one time per account; 10 points = 1 minute in the Portefeuille. */
 export const MISSIONS: readonly Mission[] = [
   {
     id: "verify_phone",
-    minutes: 15,
+    points: 150,
     title: { fr: "Vérifiez votre cellulaire", en: "Verify your mobile" },
     how: { fr: "Connectez-vous avec le code reçu par texto.", en: "Sign in with the code we text you." },
     path: "/connexion/texto",
   },
   {
     id: "choose_handle",
-    minutes: 30,
+    points: 300,
     title: { fr: "Choisissez votre @nom", en: "Pick your @name" },
     how: { fr: "Votre nom MIMT pour texter et appeler gratuitement entre applications.", en: "Your MIMT name for free app-to-app texts and calls." },
     path: "/compte",
   },
   {
     id: "enable_push",
-    minutes: 15,
+    points: 150,
     title: { fr: "Activez les notifications", en: "Turn on notifications" },
     how: { fr: "Pour ne manquer aucun appel ni texto.", en: "So you never miss a call or a text." },
     path: "/compte",
   },
   {
     id: "install_app",
-    minutes: 30,
+    points: 300,
     title: { fr: "Installez l'app mobile", en: "Install the mobile app" },
     how: { fr: "Connectez-vous une première fois dans l'app iPhone ou Android.", en: "Sign in once in the iPhone or Android app." },
     path: "/missions",
   },
   {
     id: "first_number",
-    minutes: 60,
+    points: 600,
     title: { fr: "Obtenez votre numéro", en: "Get your number" },
     how: { fr: "Votre vrai numéro canadien, actif dès le paiement.", en: "Your real Canadian number, live as soon as you pay." },
     path: "/numero",
   },
   {
     id: "invite_friend",
-    minutes: null,
+    points: null,
     title: { fr: "Un ami s'abonne", en: "A friend subscribes" },
-    how: { fr: "Vous recevez tous les deux 1 mois Premium.", en: "You both get 1 month of Premium." },
+    how: { fr: "Vous recevez tous les deux 1 mois Premium, et vous gagnez 1 000 points.", en: "You both get 1 month of Premium, and you earn 1,000 points." },
     path: "/missions",
   },
 ];
 
-export function missionMinutesTotal(): number {
-  return MISSIONS.reduce((sum, m) => sum + (m.minutes ?? 0), 0);
+export function missionPointsTotal(): number {
+  return MISSIONS.reduce((sum, m) => sum + (m.points ?? 0), 0);
+}
+
+/** « 1 500 » / « 1,500 »: points as the visitor reads them. */
+export function formatPoints(n: number, lang: Lang): string {
+  return n.toLocaleString(lang === "fr" ? "fr-CA" : "en-CA");
 }
 
 /** Offers that rotate in the top banner. Only real ones; the yearly one appears once it is live. */
@@ -86,7 +91,9 @@ export function tickerOffers(lang: Lang): { strong: string; text: string; href: 
     { strong: fr ? "Lancement :" : "Launch:", text: fr ? "transfert de votre numéro gratuit, aucuns frais d'activation." : "free number transfer, no activation fee.", href: "#numero" },
     {
       strong: fr ? "Missions :" : "Missions:",
-      text: fr ? `gagnez jusqu'à ${missionMinutesTotal()} minutes bonus en configurant votre compte.` : `earn up to ${missionMinutesTotal()} bonus minutes by setting up your account.`,
+      text: fr
+        ? `gagnez jusqu'à ${formatPoints(missionPointsTotal(), lang)} points en configurant votre compte, à échanger contre des minutes ou des textos.`
+        : `earn up to ${formatPoints(missionPointsTotal(), lang)} points by setting up your account, to trade for minutes or texts.`,
       href: fr ? "/recompenses/" : "/en/rewards/",
     },
     { strong: fr ? "Parrainage :" : "Referral:", text: fr ? "un ami s'abonne, vous recevez tous les deux 1 mois Premium." : "a friend subscribes, you both get 1 month of Premium.", href: fr ? "/recompenses/" : "/en/rewards/" },

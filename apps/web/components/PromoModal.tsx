@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { isExitIntent, promptModeFor, scrolledEnough, type StoreGetter } from "@/lib/download-prompt";
-import { PROMO_DESKTOP_DELAY_MS, markPromoSeen, missionMinutesTotal, promoDue, yearlyOfferLive } from "@/lib/growth";
+import { PROMO_DESKTOP_DELAY_MS, formatPoints, markPromoSeen, missionPointsTotal, promoDue, yearlyOfferLive } from "@/lib/growth";
 import { href, type Lang } from "@/lib/site";
 
 const store: StoreGetter = () => window.localStorage;
@@ -56,14 +56,14 @@ export function PromoModal({ lang }: { lang: Lang }) {
   const yearly = yearlyOfferLive();
   const title = yearly
     ? fr ? "1 mois gratuit sur l'annuel" : "1 month free on yearly"
-    : fr ? `Jusqu'à ${missionMinutesTotal()} minutes bonus` : `Up to ${missionMinutesTotal()} bonus minutes`;
+    : fr ? `Jusqu'à ${formatPoints(missionPointsTotal(), "fr")} points` : `Up to ${formatPoints(missionPointsTotal(), "en")} points`;
   const text = yearly
     ? fr
       ? "Payez votre forfait à l'année : 12 mois pour le prix de 11. Votre numéro canadien, actif dès le paiement."
       : "Pay your plan yearly: 12 months for the price of 11. Your Canadian number, live as soon as you pay."
     : fr
-      ? "Configurez votre compte et gagnez des minutes : @nom, notifications, votre numéro. Vérifié, sans tirage."
-      : "Set up your account and earn minutes: @name, notifications, your number. Verified, no draw.";
+      ? "Configurez votre compte et gagnez des points : @nom, notifications, votre numéro. Vérifié, sans tirage."
+      : "Set up your account and earn points: @name, notifications, your number. Verified, no draw.";
 
   const body = (
     <div className={`promo promo--${mode}`} role="dialog" aria-modal={mode === "modal"} aria-labelledby={titleId}>
