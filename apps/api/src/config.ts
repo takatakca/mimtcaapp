@@ -172,6 +172,13 @@ const EnvSchema = z
      */
     MISSIONS: z.enum(["on", "off"]).default("on"),
     /**
+     * « MIMT Connect » partner platform (docs/MIMT-CONNECT.md) kill switch: "off" (default) answers 404 on every
+     * partner route, adds no hook to calls and sends no webhook. Data is kept while off.
+     */
+    PARTNERS: z.enum(["on", "off"]).default("off"),
+    /** Default partner credits per started minute answered by a member (each partner can override it). */
+    PARTNER_CREDIT_PER_MINUTE: z.coerce.number().int().min(0).max(10_000).default(1),
+    /**
      * « Programme d'agents affiliés » e-signature (docs/MIMT-AFFILIATES.md). All six (account, integration key, user,
      * RSA private key for JWT grant, REST base URL, template) or « send contract » answers in manual mode with the
      * filled contract text. DOCUSIGN_BASE_URL is the account's REST base, e.g. https://demo.docusign.net/restapi

@@ -29,6 +29,7 @@ function withBilling(): Billing {
     }),
     retrieveSubscription: vi.fn(),
     creditBalance: vi.fn(async () => {}),
+    invoiceIdForPayment: vi.fn(async (pi: string) => pi.replace("pi_", "in_")),
   } as unknown as Billing;
   ctx.deps.billing = billing;
   return billing;
@@ -184,6 +185,159 @@ describe("MIMT Points: earning (server-verified only)", () => {
     ctx.deps.config.points.enabled = true;
     expect((await get<PointsResponse>(u.auth, "/v1/points")).balance).toBe(300);
     expect((await get<PointsResponse>(u.auth, "/v1/points")).balance).toBe(300);
+  });
+});
+
+describe("MIMT Points: refunds and chargebacks (clawback)", () => {
+  // The invoice in_<x> was paid by the payment intent pi_<x> (withBilling's invoiceIdForPayment).
+  const refund = (x: string, amount: number, refunded: number) => stripeWebhook("charge.refunded", { id: `ch_${x}`, payment_intent: `pi_${x}`, amount, amount_refunded: refunded });
+  const dispute = (x: string) => stripeWebhook("charge.dispute.created", { id: `dp_${x}`, charge: `ch_${x}`, payment_intent: `pi_${x}` });
+  const balance = async (accountId: string) => (await ctx.repo.points.getAccount(accountId))?.balance;
+
+  it("a partial refund takes back points in proportion, then the rest; repeated webhooks change nothing", async () => {
+    ctx = await setup();
+    withBilling();
+    const u = await payingAccount();
+    await stripeWebhook("invoice.paid", invoice(u.account.id, "in_r1", 1299));
+    expect(await balance(u.account.id)).toBe(129);
+    // Half of the 14,94 $ charge refunded: 64 of the 129 points go back.
+    expect((await refund("r1", 1494, 747)).statusCode).toBe(200);
+    expect(await balance(u.account.id)).toBe(65);
+    // The same refund state again (another event id): nothing more.
+    await refund("r1", 1494, 747);
+    expect(await balance(u.account.id)).toBe(65);
+    // Then refunded in full (Stripe reports the cumulative amount): only the difference.
+    await refund("r1", 1494, 1494);
+    await refund("r1", 1494, 1494);
+    expect(await balance(u.account.id)).toBe(0);
+    const p = await get<PointsResponse>(u.auth, "/v1/points");
+    expect(p).toMatchObject({ balance: 0, owed: 0, lifetimeEarned: 129 });
+    expect(p.history.slice(0, 2)).toMatchObject([
+      { delta: -65, reason: "clawback", label: "clawback:invoice", balanceAfter: 0 },
+      { delta: -64, reason: "clawback", label: "clawback:invoice", balanceAfter: 65 },
+    ]);
+    // Audited with internal ids only: no Stripe id anywhere in the entry.
+    const audit = ctx.repo.auditLog.filter((e) => e.action === "points.clawed_back");
+    expect(audit).toHaveLength(2);
+    expect(audit[0]).toMatchObject({ targetType: "telecom_account", targetId: u.account.id, meta: { kind: "invoice", reason: "refund", points: 64, debited: 64, owedAdded: 0 } });
+    expect(JSON.stringify(audit)).not.toMatch(/in_r1|pi_r1|ch_r1|cus_/);
+    // A refund of an invoice that earned nothing (or of another customer) changes nothing.
+    expect((await refund("unknown", 1000, 1000)).statusCode).toBe(200);
+  });
+
+  it("a chargeback takes back every point of the invoice, campaign extras included, once", async () => {
+    ctx = await setup();
+    withBilling();
+    const u = await payingAccount();
+    await ctx.repo.points.createCampaign({
+      name: "Double points",
+      kind: "multiplier",
+      target: "purchase",
+      multiplier: 2,
+      bonusPoints: null,
+      startsAt: new Date(Date.now() - 86_400_000),
+      endsAt: new Date(Date.now() + 86_400_000),
+      budgetPoints: 10_000,
+      createdBy: null,
+    });
+    await stripeWebhook("invoice.paid", invoice(u.account.id, "in_d1", 1299));
+    await stripeWebhook("invoice.paid", invoice(u.account.id, "in_d2", 999));
+    expect(await balance(u.account.id)).toBe(258 + 198);
+    expect((await dispute("d1")).statusCode).toBe(200);
+    expect(await balance(u.account.id)).toBe(198);
+    await dispute("d1");
+    // A refund event after the chargeback: everything was already taken back.
+    await refund("d1", 1494, 1494);
+    expect(await balance(u.account.id)).toBe(198);
+    expect(ctx.repo.auditLog.filter((e) => e.action === "points.clawed_back")).toHaveLength(1);
+    expect(ctx.repo.auditLog.find((e) => e.action === "points.clawed_back")).toMatchObject({ meta: { reason: "chargeback", points: 258 } });
+  });
+
+  it("balance too low: debits to 0, the rest is owed, redemptions refused, repaid from the next points earned", async () => {
+    ctx = await setup();
+    withBilling();
+    const u = await payingAccount();
+    await stripeWebhook("invoice.paid", invoice(u.account.id, "in_low", 4499));
+    expect(await balance(u.account.id)).toBe(449);
+    // The customer spends the points, then disputes the payment.
+    expect((await redeem(u.auth, "minutes_out_30", "low-key-0001")).statusCode).toBe(200);
+    expect(await balance(u.account.id)).toBe(149);
+    await dispute("low");
+    let p = await get<PointsResponse>(u.auth, "/v1/points");
+    expect(p).toMatchObject({ balance: 0, owed: 300 });
+    expect(p.history[0]).toMatchObject({ delta: -149, reason: "clawback", balanceAfter: 0 });
+    expect(ctx.repo.auditLog.find((e) => e.action === "points.clawed_back")).toMatchObject({ meta: { points: 449, debited: 149, owedAdded: 300, owed: 300 } });
+    // Never negative, and no redemption while points are owed (refused before the balance check).
+    const refused = await redeem(u.auth, "minutes_out_30", "low-key-0002");
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json()).toMatchObject({ error: "points_owed" });
+    // The next invoice (129 points) repays part of it; the one after clears it and the rest is the customer's.
+    await stripeWebhook("invoice.paid", invoice(u.account.id, "in_next1", 1299));
+    expect(await ctx.repo.points.getAccount(u.account.id)).toMatchObject({ balance: 0, owed: 171 });
+    await stripeWebhook("invoice.paid", invoice(u.account.id, "in_next2", 4499));
+    expect(await ctx.repo.points.getAccount(u.account.id)).toMatchObject({ balance: 278, owed: 0 });
+    p = await get<PointsResponse>(u.auth, "/v1/points");
+    expect(p.history[0]).toMatchObject({ delta: -171, reason: "clawback", label: "owed", balanceAfter: 278 });
+    expect(p.history[1]).toMatchObject({ delta: 449, reason: "purchase", balanceAfter: 449 });
+  });
+
+  it("App Store REFUND and Google Play voided purchase take back that period's points, once", async () => {
+    const jws = (p: object) => `fake.${Buffer.from(JSON.stringify(p)).toString("base64url")}`;
+    let play = { expiry: Date.now() + 30 * 86_400_000 };
+    const store: StoreVerifier = {
+      appleJws: async (token: string) => JSON.parse(Buffer.from(token.slice(5), "base64url").toString("utf8")) as Record<string, unknown>,
+      google: async (productId: string, purchaseToken: string) => ({
+        plan: "premium",
+        transactionId: purchaseToken.slice(0, 120),
+        status: "active",
+        currentPeriodEnd: new Date(play.expiry),
+        accountToken: android.account.id,
+        acknowledged: true,
+        linkedPurchaseToken: null,
+      }),
+      googleAcknowledge: async () => {},
+    };
+    ctx = await setup({
+      config: {
+        APPLE_ROOT_CA_PEM: "-----BEGIN CERTIFICATE-----\nX\n-----END CERTIFICATE-----",
+        APPLE_BUNDLE_ID: "ca.mimt.app",
+        GOOGLE_PLAY_PACKAGE_NAME: "ca.mimt.app",
+        GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: "{}",
+        GOOGLE_PLAY_RTDN_TOKEN: "rtdn-token-000000000000000000",
+      },
+      store,
+    });
+    const ios = await makeUser(ctx);
+    const android = await makeUser(ctx);
+    // iOS: purchase (2000) and renewal (2001), then Apple refunds the renewal.
+    const tx = { bundleId: "ca.mimt.app", productId: "ca.mimt.app.premium.monthly", originalTransactionId: "2000", transactionId: "2000", expiresDate: Date.now() + 30 * 86_400_000, appAccountToken: ios.account.id };
+    await ctx.app.inject({ method: "POST", url: "/v1/billing/iap/verify", headers: ios.auth, payload: { platform: "ios", productId: tx.productId, transaction: jws(tx) } });
+    const note = (type: string, uuid: string, txId: string) => ({ notificationType: type, notificationUUID: uuid, data: { bundleId: "ca.mimt.app", signedTransactionInfo: jws({ ...tx, transactionId: txId }) } });
+    await ctx.app.inject({ method: "POST", url: "/webhooks/appstore", payload: { signedPayload: jws(note("DID_RENEW", "c-1", "2001")) } });
+    expect(await balance(ios.account.id)).toBe(598);
+    expect((await ctx.app.inject({ method: "POST", url: "/webhooks/appstore", payload: { signedPayload: jws(note("REFUND", "c-2", "2001")) } })).statusCode).toBe(200);
+    expect(await balance(ios.account.id)).toBe(299);
+    await ctx.app.inject({ method: "POST", url: "/webhooks/appstore", payload: { signedPayload: jws(note("REFUND", "c-3", "2001")) } });
+    expect(await balance(ios.account.id)).toBe(299);
+    // REVOKE (Family Sharing removed) is not a refund: nothing taken.
+    await ctx.app.inject({ method: "POST", url: "/webhooks/appstore", payload: { signedPayload: jws(note("REVOKE", "c-4", "2000")) } });
+    expect(await balance(ios.account.id)).toBe(299);
+
+    // Google Play: two paid periods of one purchase token, then the purchase is voided.
+    const token = "play-token-0000000000000000000001";
+    const rtdn = (data: object, id: string) =>
+      ctx.app.inject({ method: "POST", url: "/webhooks/google-play?token=rtdn-token-000000000000000000", payload: { message: { messageId: id, data: Buffer.from(JSON.stringify({ packageName: "ca.mimt.app", ...data })).toString("base64") } } });
+    await rtdn({ subscriptionNotification: { purchaseToken: token, subscriptionId: "ca.mimt.app.premium.monthly", notificationType: 4 } }, "m-1");
+    play = { expiry: play.expiry + 30 * 86_400_000 };
+    await rtdn({ subscriptionNotification: { purchaseToken: token, subscriptionId: "ca.mimt.app.premium.monthly", notificationType: 2 } }, "m-2");
+    expect(await balance(android.account.id)).toBe(598);
+    expect((await rtdn({ voidedPurchaseNotification: { purchaseToken: token } }, "m-3")).statusCode).toBe(200);
+    expect(await balance(android.account.id)).toBe(299);
+    await rtdn({ voidedPurchaseNotification: { purchaseToken: token } }, "m-4");
+    expect(await balance(android.account.id)).toBe(299);
+    const audit = ctx.repo.auditLog.filter((e) => e.action === "points.clawed_back");
+    expect(audit.map((e) => e.meta)).toMatchObject([{ kind: "store", points: 299 }, { kind: "store", points: 299 }]);
+    expect(JSON.stringify(audit)).not.toMatch(/2001|play-token/);
   });
 });
 

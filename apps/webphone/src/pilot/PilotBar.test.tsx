@@ -32,13 +32,15 @@ async function signIn() {
 describe("Pilote MIMT command bar (demo mode)", () => {
   it("opens with Ctrl+K and '/', closes with Escape, runs a confirmed action and navigates", async () => {
     await signIn();
+    // The bar mounts with the shell; wait for its button so the shortcut listener is attached on slow CI runners.
+    await screen.findByRole("button", { name: /Ouvrir le Pilote MIMT/ }, { timeout: 5000 });
     expect(screen.queryByRole("dialog", { name: /Pilote MIMT/ })).toBeNull();
 
     // Ctrl+K opens, Escape closes.
     await act(async () => {
       fireEvent.keyDown(window, { key: "k", ctrlKey: true });
     });
-    expect(await screen.findByRole("dialog", { name: /Pilote MIMT/ })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: /Pilote MIMT/ }, { timeout: 5000 })).toBeInTheDocument();
     await act(async () => {
       fireEvent.keyDown(window, { key: "Escape" });
     });

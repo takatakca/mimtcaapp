@@ -10,6 +10,7 @@ export const enPoints: Record<keyof typeof frPoints, string> = {
   "points.balanceLabel": "Balance // MIMT Points",
   "points.balance": "{points} points",
   "points.lifetime": "Earned so far: {points} points",
+  "points.owed": "Payment refunded: {points} points owed, taken from your next earnings. Exchanges paused until then.",
   "points.off": "MIMT Points are paused. Your balance is kept; nothing is earned or exchanged for now.",
   "points.campaign.multiplier": "×{multiplier}: {name}",
   "points.campaign.bonus": "+{points} points: {name}",
@@ -49,6 +50,7 @@ export const enPoints: Record<keyof typeof frPoints, string> = {
   "points.error.free_budget_reached": "The Free plan's reserve is full this month. Try again next month: your points stay yours.",
   "points.error.fulfilment_failed": "The reward could not be delivered. Your points were returned.",
   "points.error.points_paused": "MIMT Points are paused.",
+  "points.error.points_owed": "Points are owed after a refund: exchanges resume once they are repaid.",
   "points.error.rate_limited": "Too many exchanges at once. Try again in a moment.",
   "points.error.generic": "The exchange did not work. Try again.",
 

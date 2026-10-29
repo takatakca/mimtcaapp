@@ -4,7 +4,7 @@ import type { PointsEarnInput } from "../src/repo/points.js";
 import { PostgresRepository } from "../src/repo/postgres.js";
 import type { Repository } from "../src/repo/types.js";
 
-// Same behaviour from the memory and Postgres points ledgers (supabase/migrations/0018_points.sql).
+// Same behaviour from the memory and Postgres points ledgers (supabase/migrations/0018_points.sql, 0021_points_clawback.sql).
 const pgUrl = process.env.TEST_DATABASE_URL;
 const impls: Array<[string, () => Repository, boolean]> = [
   ["memory", () => new MemoryRepository(), true],
@@ -160,6 +160,76 @@ for (const [name, make, enabled] of impls) {
       expect((await repo.points.getAccount(a))?.balance).toBe(0);
     });
 
+    it("clawback: proportional refund, then the rest; the same key twice takes nothing; campaign extras and bonuses too", async () => {
+      const a = await account();
+      const c = await repo.points.createCampaign({
+        name: "Double points",
+        kind: "multiplier",
+        target: "purchase",
+        multiplier: 2,
+        bonusPoints: null,
+        startsAt: new Date("2026-10-27T00:00:00Z"),
+        endsAt: new Date("2026-11-03T00:00:00Z"),
+        budgetPoints: 10000,
+        createdBy: null,
+      });
+      await repo.points.earn(earn(a, { entries: [
+        { reason: "purchase", points: 100, idempotencyKey: "invoice:in_cb", reference: "invoice" },
+        { reason: "campaign", points: 100, idempotencyKey: `invoice:in_cb:c:${c.id}`, reference: "invoice", campaignId: c.id },
+        { reason: "campaign", points: 50, idempotencyKey: `campaign:bonus:${a}`, reference: "invoice", campaignId: c.id, meta: { bonus: true, trigger: "invoice:in_cb" } },
+        { reason: "purchase", points: 40, idempotencyKey: "invoice:in_other", reference: "invoice" },
+      ] }));
+      expect(await repo.points.accountOfKey("invoice:in_cb")).toBe(a);
+      const half = { telecomAccountId: a, at, source: "invoice:in_cb", share: { num: 500, den: 1000 }, idempotencyKey: "clawback:in_cb:500", reference: "clawback:invoice" };
+      expect(await repo.points.clawback(half)).toMatchObject({ status: "applied", earned: 250, points: 125, debited: 125, owedAdded: 0, balance: 165, owed: 0 });
+      expect(await repo.points.clawback(half)).toMatchObject({ status: "duplicate", points: 0, balance: 165 });
+      const full = await repo.points.clawback({ ...half, share: { num: 1, den: 1 }, idempotencyKey: "clawback:in_cb:dispute" });
+      expect(full).toMatchObject({ status: "applied", points: 125, debited: 125, balance: 40, owed: 0 });
+      expect(full.row).toMatchObject({ delta: -125, reason: "clawback", reference: "clawback:invoice", balanceAfter: 40 });
+      // Everything already taken back: a later refund event takes nothing more.
+      expect(await repo.points.clawback({ ...half, share: { num: 1000, den: 1000 }, idempotencyKey: "clawback:in_cb:1000" })).toMatchObject({ points: 0, debited: 0, balance: 40 });
+      expect(await repo.points.getAccount(a)).toMatchObject({ balance: 40, owed: 0 });
+    });
+
+    it("clawback past the balance: debits to 0, keeps the rest as owed, repaid first by the next credits; no redemption while owed", async () => {
+      const a = await account();
+      await repo.points.earn(earn(a, { entries: [{ reason: "purchase", points: 500, idempotencyKey: "invoice:in_low", reference: "invoice" }] }));
+      const r = await repo.points.redeem({ telecomAccountId: a, at, clientKey: "owed-redeem-1", rewardId: "texts_50", points: 250, monthlyLimit: 4, monthStart: caps.monthStart });
+      if (r.status !== "created") throw new Error("expected created");
+      const cb = await repo.points.clawback({ telecomAccountId: a, at, source: "invoice:in_low", share: { num: 1, den: 1 }, idempotencyKey: "clawback:in_low:dispute", reference: "clawback:invoice" });
+      expect(cb).toMatchObject({ status: "applied", points: 500, debited: 250, owedAdded: 250, balance: 0, owed: 250 });
+      // No redemption while points are owed (the balance is 0 anyway).
+      expect(await repo.points.redeem({ telecomAccountId: a, at, clientKey: "owed-redeem-2", rewardId: "texts_50", points: 250, monthlyLimit: 4, monthStart: caps.monthStart })).toEqual({ status: "owed", owed: 250, balance: 0 });
+      // The next credit repays what is owed first: 100 earned, 100 taken, 150 still owed.
+      expect(await repo.points.earn(earn(a, { entries: [{ reason: "mission", points: 100, idempotencyKey: "m-owed-1", reference: "mission:verify_phone" }] }))).toMatchObject({ repaid: 100, balance: 0 });
+      const ledger = await repo.points.listLedger(a, 2);
+      expect(ledger[0]).toMatchObject({ delta: -100, reason: "clawback", reference: "owed", balanceAfter: 0 });
+      expect(ledger[1]).toMatchObject({ delta: 100, reason: "mission", balanceAfter: 100 });
+      // The pending redemption then fails: its 250 points come back and pay the remaining 150 owed.
+      expect(await repo.points.refundRedemption(r.redemption.id, "boom", at)).toMatchObject({ balance: 100 });
+      expect(await repo.points.getAccount(a)).toMatchObject({ balance: 100, owed: 0 });
+      expect(await repo.points.redeem({ telecomAccountId: a, at, clientKey: "owed-redeem-3", rewardId: "minutes_on_net_60", points: 100, monthlyLimit: 4, monthStart: caps.monthStart })).toMatchObject({ status: "created", balance: 0 });
+    });
+
+    it("owed points are repaid across several credits, never below zero", async () => {
+      const a = await account();
+      await repo.points.earn(earn(a, { entries: [{ reason: "purchase", points: 300, idempotencyKey: "store:android:tok:1", reference: "store" }] }));
+      await repo.points.earn(earn(a, { entries: [{ reason: "purchase", points: 300, idempotencyKey: "store:android:tok:2", reference: "store" }] }));
+      expect(await repo.points.latestPurchaseKey(a, "store:android:tok:")).toBe("store:android:tok:2");
+      await repo.points.redeem({ telecomAccountId: a, at, clientKey: "owed-many-1", rewardId: "minutes_out_30", points: 600, monthlyLimit: 4, monthStart: caps.monthStart });
+      expect(await repo.points.clawback({ telecomAccountId: a, at, source: "store:android:tok:2", share: { num: 1, den: 1 }, idempotencyKey: "clawback:store:android:tok:2", reference: "clawback:store" })).toMatchObject({
+        points: 300,
+        debited: 0,
+        owedAdded: 300,
+        balance: 0,
+        owed: 300,
+      });
+      expect((await repo.points.listLedger(a, 1))[0]).toMatchObject({ delta: 0, reason: "clawback", balanceAfter: 0 });
+      expect(await repo.points.earn(earn(a, { entries: [{ reason: "mission", points: 120, idempotencyKey: "m-many-1", reference: "mission:verify_phone" }] }))).toMatchObject({ repaid: 120, balance: 0 });
+      expect(await repo.points.earn(earn(a, { entries: [{ reason: "mission", points: 200, idempotencyKey: "m-many-2", reference: "mission:choose_handle" }] }))).toMatchObject({ repaid: 180, balance: 20 });
+      expect(await repo.points.getAccount(a)).toMatchObject({ balance: 20, owed: 0 });
+    });
+
     if (name === "postgres") {
       it("the database itself refuses a negative balance, a ledger rewrite and a duplicate key", async () => {
         const pg = repo as PostgresRepository;
@@ -172,6 +242,9 @@ for (const [name, make, enabled] of impls) {
           pg.sql`insert into points_ledger (telecom_account_id, delta, reason, reference, idempotency_key, balance_after) values (${a}, 1, 'purchase', 'x', ${`invoice:in_${a.slice(0, 8)}`}, 1)`,
         ).rejects.toThrow();
         await expect(pg.sql`insert into points_ledger (telecom_account_id, delta, reason, reference, idempotency_key, balance_after) values (${a}, 5, 'redeem', 'x', 'neg', 1)`).rejects.toThrow();
+        // A clawback is a debit (or 0), never a credit; owed is never negative.
+        await expect(pg.sql`insert into points_ledger (telecom_account_id, delta, reason, reference, idempotency_key, balance_after) values (${a}, 5, 'clawback', 'x', 'cb-pos', 1)`).rejects.toThrow();
+        await expect(pg.sql`update points_accounts set owed = -1 where telecom_account_id = ${a}`).rejects.toThrow();
       });
     }
 

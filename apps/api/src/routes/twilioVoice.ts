@@ -14,6 +14,7 @@ import { scoreInboundCall } from "../ai/spam.js";
 import { processVoicemailTranscript } from "../ai/voicemail.js";
 import { transcribeVoicemail, transcriptLanguage, usesIntelligence } from "../services/voicemailTranscription.js";
 import { pbxInbound, pbxOutbound } from "../pbx/engine.js";
+import { partnerCallEnded, safeHook } from "../services/partners.js";
 import { getFeatures, HELD_STATES, outboundBlocked, setAccountStatus, usagePeriods } from "../services/accounts.js";
 import { planOf } from "../plansConfig.js";
 import { afterDialControls, inboundCallControls } from "../services/callControls.js";
@@ -328,7 +329,7 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
   app.post("/webhooks/twilio/voice/inbound", async (req, reply) => {
     const p = twilioParams(req);
     // Business DID: the PBX routes it (hours, IVR, ring groups…). Labels only; nothing here blocks a call.
-    const business = await pbxInbound(deps, { to: p.To, from: p.From, callSid: p.CallSid });
+    const business = await pbxInbound(deps, { to: p.To, from: p.From, callSid: p.CallSid, log: req.log });
     if (business) {
       const call = p.CallSid ? await repo.getCallBySid(p.CallSid) : null;
       if (call?.telecomAccountId && call.direction === "inbound") scheduleSpamScore(call.telecomAccountId, p.CallSid!, p.From, p.StirVerstat);
@@ -445,6 +446,8 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
     if (status === "completed" && !call.usageApplied && call.telecomAccountId) {
       await applyCallUsage(call, durationS ?? 0, ratedCad);
     }
+    // « MIMT Connect »: the caller's call is over → partner credit debit and call.completed (once; no-op otherwise).
+    if (terminal) await safeHook(req.log, "call-ended", () => partnerCallEnded(deps, req.log, { callSid: call.twilioCallSid }));
     return reply.code(204).send();
   });
 

@@ -69,7 +69,7 @@ import { e911Ready } from "./e911.js";
 
 /** Lifetime of the signed recording URLs. */
 export const RECORDING_URL_TTL_S = 15 * 60;
-const recordingResource = (id: string) => `business-recording:${id}`;
+export const recordingResource = (id: string) => `business-recording:${id}`;
 
 const Locale = z.enum(["fr-CA", "en-CA"]);
 const Role = z.enum(["admin", "member"]);

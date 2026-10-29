@@ -58,6 +58,11 @@ export interface PbxSnapshot {
   canRecord: boolean;
   /** Plan feature vm_transcription. */
   transcribe: boolean;
+  /**
+   * « MIMT Connect » partner business (PARTNERS=on): each member leg reports to the leg webhook, so we know who
+   * answered and for how long (services/partners.ts). Absent or false: TwiML is unchanged.
+   */
+  legEvents?: boolean;
 }
 
 export interface RouteContext {
@@ -163,11 +168,28 @@ function recordAttrs(ctx: RouteContext, extensionId?: string): DialAttrs {
 
 const ringable = (e: ExtensionRow) => Boolean(e.userId || (e.forwardToMobile && externalAllowed(e.forwardToMobile)));
 
+/**
+ * Status callbacks of a member leg (partner businesses only). App legs report "answered"; mobile legs report only
+ * "completed", their answer is the press-1 of the whisper (a carrier voicemail picking up is not an answer).
+ */
+function legCallbacks(ctx: RouteContext, ext: ExtensionRow, events: Array<"answered" | "completed">) {
+  if (!ctx.snap.legEvents) return {};
+  return {
+    statusCallback: pbxUrl(ctx.base, "leg", { b: ctx.snap.business.id, x: ext.id }),
+    statusCallbackMethod: "POST" as const,
+    statusCallbackEvent: events,
+  };
+}
+
 /** Adds the user's apps and (optionally) their mobile with the press-1 whisper to a <Dial>. */
 function addLegs(ctx: RouteContext, dial: ReturnType<VR["dial"]>, ext: ExtensionRow) {
-  if (ext.userId) dial.client(ext.userId);
+  if (ext.userId) {
+    if (ctx.snap.legEvents) dial.client(legCallbacks(ctx, ext, ["answered", "completed"]), ext.userId);
+    else dial.client(ext.userId);
+  }
   if (ext.forwardToMobile && externalAllowed(ext.forwardToMobile)) {
-    dial.number({ url: pbxUrl(ctx.base, "whisper", { b: ctx.snap.business.id }), method: "POST" }, ext.forwardToMobile);
+    const whisperUrl = pbxUrl(ctx.base, "whisper", { b: ctx.snap.business.id, ...(ctx.snap.legEvents ? { x: ext.id } : {}) });
+    dial.number({ url: whisperUrl, method: "POST", ...legCallbacks(ctx, ext, ["completed"]) }, ext.forwardToMobile);
   }
 }
 
@@ -355,9 +377,9 @@ export function dialResult(ctx: RouteContext, kind: "ext" | "rg", id: string, in
 }
 
 /** Played to the mobile leg of a forwarded call: press 1 to accept, so carrier voicemail never takes the call. */
-export function whisper(base: string, businessId: string): VR {
+export function whisper(base: string, businessId: string, extensionId?: string): VR {
   const vr = new VoiceResponse();
-  const gather = vr.gather({ numDigits: 1, timeout: 8, action: pbxUrl(base, "whisper-input", { b: businessId }), method: "POST" });
+  const gather = vr.gather({ numDigits: 1, timeout: 8, action: pbxUrl(base, "whisper-input", { b: businessId, x: extensionId }), method: "POST" });
   say(gather, PROMPTS.whisper);
   vr.hangup();
   return vr;

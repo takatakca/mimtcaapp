@@ -11,6 +11,7 @@ import { runNumberLifecycle } from "./jobs/numberLifecycle.js";
 import { runFallbackBackfill } from "./jobs/numberFallback.js";
 import { pingHeartbeat } from "./monitoring/report.js";
 import { deliverOutbox } from "./services/outbox.js";
+import { deliverPartnerWebhooks } from "./services/partners.js";
 import { deliverEmails } from "./services/email.js";
 import { purgeExpiredMedia } from "./services/media.js";
 
@@ -48,6 +49,12 @@ const outboxTimer = setInterval(() => {
   deliverOutbox({ repo: deps.repo, config, log: app.log }).catch((err) => app.log.error({ err }, "outbox delivery failed"));
 }, 15_000);
 outboxTimer.unref();
+
+// « MIMT Connect » partner webhooks (services/partners.ts): same poller model; does nothing while PARTNERS=off.
+const partnerWebhookTimer = setInterval(() => {
+  deliverPartnerWebhooks(deps, app.log).catch((err) => app.log.error({ err }, "partner webhook delivery failed"));
+}, 15_000);
+partnerWebhookTimer.unref();
 
 const heartbeatTimer = setInterval(() => {
   pingHeartbeat(config.BETTER_STACK_HEARTBEAT_URL).catch(() => app.log.warn("heartbeat failed"));
@@ -144,6 +151,7 @@ sessionRetentionTimer.unref();
 async function shutdown(signal: string) {
   app.log.info({ signal }, "shutting down");
   clearInterval(outboxTimer);
+  clearInterval(partnerWebhookTimer);
   clearInterval(heartbeatTimer);
   clearInterval(costTimer);
   clearInterval(emailTimer);

@@ -38,6 +38,7 @@ import { BusinessOverview } from "./pages/business/Overview";
 import { RingGroups } from "./pages/business/RingGroups";
 import { AiReceptionist } from "./pages/business/AiReceptionist";
 import { Recordings } from "./pages/business/Recordings";
+import { Partner } from "./pages/business/Partner";
 import { NewBusiness } from "./pages/business/NewBusiness";
 import { Offers } from "./pages/services/Offers";
 import { OrderDetail } from "./pages/services/OrderDetail";
@@ -127,6 +128,7 @@ export function AppRoutes() {
           <Route path="membres" element={<Members />} />
           <Route path="enregistrements" element={<Recordings />} />
           <Route path="receptionniste-ia" element={<AiReceptionist />} />
+          <Route path="partenaire" element={<Partner />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Route>

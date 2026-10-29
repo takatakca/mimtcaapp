@@ -8,6 +8,12 @@
 | SEC-PASSKEYS | Code prêt : WebAuthn (`@simplewebauthn` 13.3.x), connexion sans mot de passe et confirmation; `WEBAUTHN_RP_ID=mimt.ca`, `WEBAUTHN_ORIGINS=https://app.mimt.ca` par défaut | Ajout réel d'une clé d'accès sur app.mimt.ca (iPhone + Chrome) après déploiement |
 | SEC-STEPUP | Code prêt : renvoi vers un nouveau numéro externe, suppression du compte, clés d'accès, politique d'entreprise | Port-out et clés partenaires/API : brancher `requireRecentAuth` quand ces routes existeront |
 | SEC-BIZ-POLICY | Code prêt : `require_strong_auth` (défaut désactivé) | Test réel avec un compte Affaires |
+## MIMT Connect (plateforme partenaire) — 29 octobre 2026, Claude (branche `claude/partners`, PR à ouvrir par le propriétaire)
+
+| ID | État | Prochaine preuve requise |
+| --- | --- | --- |
+| CONNECT-API | Code prêt derrière `PARTNERS=off` : migration 0023, clés hachées, membres → postes, groupes de chasse → groupes d'appel, crédits (registre en ajout seulement), webhooks signés, section « Partenaire » de l'app Web ([MIMT-CONNECT.md](MIMT-CONNECT.md)) | CI Postgres; après fusion de 0021 (points-clawback) et 0022 (sécurité), déploiement API + webphone, puis `PARTNERS=on` |
+| CONNECT-BESOINAVOCAT | Pas commencé : entente de traitement (Loi 25) à signer, forfait Affaires Pro, numéro public | Appel réel sur le numéro du groupe « Trouver un avocat », webhooks reçus et vérifiés chez besoinavocat |
 
 ## Fiabilité des appels — 29 octobre 2026, Claude (branche `claude/call-reliability`, PR à ouvrir par le propriétaire)
 

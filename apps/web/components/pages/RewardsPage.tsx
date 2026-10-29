@@ -1,22 +1,22 @@
 import { PageHero, Shell } from "@/components/Shell";
 import { ShareButton } from "@/components/ShareButton";
-import { MISSIONS, missionMinutesTotal, yearlyOfferLive } from "@/lib/growth";
+import { MISSIONS, formatPoints, missionPointsTotal, yearlyOfferLive } from "@/lib/growth";
 import { APP_URL, href, type Lang } from "@/lib/site";
 
 /** Missions and rewards: every reward is verified by the server, once per account, with no draw. */
 export function RewardsPage({ lang }: { lang: Lang }) {
   const fr = lang === "fr";
-  const total = missionMinutesTotal();
+  const total = formatPoints(missionPointsTotal(), lang);
   return (
     <Shell lang={lang} page="rewards">
       <PageHero
         photo={{ name: "artisan-atelier", alt: fr ? "Un artisan content regarde son téléphone dans son atelier" : "A happy craftsman looks at his phone in his workshop" }}
         eyebrow={fr ? "Missions MIMT" : "MIMT missions"}
-        title={fr ? `Jusqu'à ${total} minutes bonus, juste pour bien démarrer` : `Up to ${total} bonus minutes, just for getting started`}
+        title={fr ? `Jusqu'à ${total} points, juste pour bien démarrer` : `Up to ${total} points, just for getting started`}
         lead={
           fr
-            ? "Chaque étape de configuration de votre compte vous donne des minutes. Un ami s'abonne avec votre lien : vous recevez tous les deux 1 mois Premium."
-            : "Each step of setting up your account earns you minutes. A friend subscribes with your link: you both get 1 month of Premium."
+            ? "Chaque étape de configuration de votre compte vous donne des points, à échanger contre des minutes, des textos ou une semaine sans pub. Un ami s'abonne avec votre lien : vous recevez tous les deux 1 mois Premium."
+            : "Each step of setting up your account earns you points, to trade for minutes, texts or an ad-free week. A friend subscribes with your link: you both get 1 month of Premium."
         }
       />
       <section className="section hud-tint" aria-labelledby="missions-title">
@@ -31,7 +31,7 @@ export function RewardsPage({ lang }: { lang: Lang }) {
                 <p className="mission__step hud-code">{`M-${String(i + 1).padStart(2, "0")}`}</p>
                 <h3>{fr ? m.title.fr : m.title.en}</h3>
                 <p>{fr ? m.how.fr : m.how.en}</p>
-                <p className="mission__reward">{m.minutes ? (fr ? `+${m.minutes} minutes` : `+${m.minutes} minutes`) : fr ? "1 mois Premium chacun" : "1 month Premium each"}</p>
+                <p className="mission__reward">{m.points ? `+${formatPoints(m.points, lang)} points` : fr ? "1 mois Premium chacun" : "1 month Premium each"}</p>
                 <a className="mission__go" href={`${APP_URL}${m.path}`} rel="noopener">
                   {fr ? "Commencer" : "Start"} <span aria-hidden="true">→</span>
                 </a>
@@ -65,7 +65,7 @@ export function RewardsPage({ lang }: { lang: Lang }) {
                   "C'est notre serveur qui confirme chaque mission. Rien n'est accordé sur simple déclaration.",
                   "Aucun tirage, aucun hasard : qui fait la mission reçoit la récompense.",
                   "Aucun achat requis, sauf pour « Obtenez votre numéro » et l'offre annuelle.",
-                  "Les minutes bonus s'ajoutent à votre mois en cours. Elles n'ont aucune valeur en argent.",
+                  "Les points vont dans votre Portefeuille (10 points = 1 minute). Ils n'ont aucune valeur en argent et ne s'échangent pas contre de l'argent.",
                   "Parrainage : la récompense arrive après le premier mois payé de votre ami.",
                   "Nous ne récompensons jamais un avis, une note ou un « J'aime » : nous voulons des avis honnêtes.",
                 ]
@@ -74,7 +74,7 @@ export function RewardsPage({ lang }: { lang: Lang }) {
                   "Our server confirms every mission. Nothing is granted on a simple claim.",
                   "No draw, no chance: whoever completes the mission gets the reward.",
                   "No purchase needed, except for « Get your number » and the yearly offer.",
-                  "Bonus minutes are added to your current month. They have no cash value.",
+                  "Points go to your Wallet (10 points = 1 minute). They have no cash value and cannot be exchanged for cash.",
                   "Referral: the reward arrives after your friend's first paid month.",
                   "We never reward a review, a rating or a « like »: we want honest reviews.",
                 ]

@@ -7,7 +7,8 @@ mouvement est écrit une seule fois dans un registre qu'on ne peut pas réécrir
 
 Code : `packages/shared/src/points.ts` (taux, catalogue, règle économique, types d'API),
 `apps/api/src/services/points.ts` (règles), `apps/api/src/repo/points*.ts` (registre),
-`supabase/migrations/0018_points.sql` (tables et contraintes), `apps/api/src/routes/points.ts` (API),
+`supabase/migrations/0018_points.sql` (tables et contraintes), `supabase/migrations/0021_points_clawback.sql` (reprise
+des points remboursés, points dus), `apps/api/src/routes/points.ts` (API),
 `apps/api/src/jobs/pointsExpiry.ts` (expiration), `apps/webphone/src/pages/Points.tsx` (page `/points`, « Portefeuille »).
 Économie : `docs/MIMT-UNIT-ECONOMICS.md`, section « Points ».
 
@@ -39,11 +40,51 @@ deux fois).
   des lignes hors taxes. Un crédit au solde Stripe (mois de parrainage, crédit acheté avec des points) diminue le montant
   payé, donc les points. Sans lignes : montant payé ÷ 1,14975.
 - **Magasins** : pas de points pour une offre gratuite (`price = 0` chez Apple), une période de grâce, une expiration
-  ou un remboursement. La commission d'Apple ou de Google n'est pas retirée : le client gagne sur le prix qu'il voit.
+  ou un remboursement (et les points d'une période remboursée sont repris : voir « Remboursements et
+  rétrofacturations »). La commission d'Apple ou de Google n'est pas retirée : le client gagne sur le prix qu'il voit.
 - **Parrainage : le mois Premium est conservé** pour les deux. Raisons : c'est la promesse déjà affichée sur mimt.ca et
   dans l'app (des codes circulent déjà), son coût est déjà compté dans `docs/MIMT-UNIT-ECONOMICS.md`, et le parrainage
   ne se déclenche qu'avec une première facture payée par l'ami. Les 1 000 points du parrain s'ajoutent (coût au pire
   2,52 $, voir l'économie).
+
+## Remboursements et rétrofacturations (reprise des points)
+
+Un client ne peut pas payer, échanger ses points, puis se faire rembourser en gardant la valeur : les points gagnés
+par un paiement remboursé ou contesté sont **repris** par une ligne de débit `clawback` du registre, avec une clé
+d'idempotence (un webhook rejoué ne reprend jamais deux fois). Code : `clawbackInvoicePoints`, `clawbackStorePoints`
+et `clawbackPoints` dans `apps/api/src/services/points.ts`; `clawback` dans `apps/api/src/repo/points*.ts`.
+
+| Événement | Où | Points repris | Clé (une fois) |
+| --- | --- | --- | --- |
+| Stripe `charge.refunded` (avec la reprise de commission d'affilié) | `routes/billing.ts` | au prorata : points de la facture × `amount_refunded ÷ amount` (montant cumulatif de Stripe), moins ce qui a déjà été repris | `clawback:<facture>:<cents remboursés>` |
+| Stripe `charge.dispute.created` (rétrofacturation) | `routes/billing.ts` | tous les points de la facture, moins ce qui a déjà été repris | `clawback:<facture>:dispute` |
+| App Store `REFUND` (notification signée V2) | `routes/billing.ts` | tous les points de la transaction remboursée (`store:ios:<transactionId>`) | `clawback:store:ios:<transactionId>` |
+| Google Play `voidedPurchaseNotification` (remboursement ou rétrofacturation) | `routes/billing.ts` | tous les points de la **dernière période payée** du jeton d'achat | `clawback:store:android:<jeton>:<fin de période>` |
+
+- **Ce qui est repris** : les points de base du paiement (clé `invoice:<id>` ou `store:…`), les extras de campagne
+  multiplicatrice (`<clé>:c:<campagne>`) et un bonus fixe de campagne déclenché par ce paiement (`meta.trigger`). Le
+  budget déjà dépensé d'une campagne n'est pas rendu (prudent). Un remboursement partiel puis total, ou une
+  contestation après un remboursement partiel, ne reprend que la différence (somme des reprises par paiement,
+  `meta.source`).
+- **Solde jamais négatif** (règle du registre, `CHECK balance >= 0` inchangé) : si le solde est plus bas que les
+  points à reprendre, il est débité jusqu'à 0 et **le reste est noté comme dû** (`points_accounts.owed`). La ligne
+  `clawback` est écrite même à 0 (trace, et la clé empêche une deuxième reprise).
+- **Points dus : retenus sur les gains suivants, et aucun échange d'ici là.** Choix fait parce qu'il garde les deux
+  règles du registre : pas de solde négatif, et chaque mouvement est une ligne. Après chaque crédit (gain, ou points
+  remis après un échange raté), dans la même transaction, une ligne `clawback` (référence `owed`, clé
+  `owed:<clé du crédit>`) retire du solde ce qui est dû. Tant qu'il reste des points dus, le solde est donc à 0 et
+  `POST /v1/points/redeem` répond `409 points_owed` (vérifié dans la transaction d'échange, sous le verrou du solde). Bloquer les échanges seul ne réglerait jamais la dette; retenir sur les gains seul la règle automatiquement.
+- **`POINTS=off`** n'empêche pas la reprise (reprendre des points d'un paiement remboursé n'attend jamais).
+- **Journal** : `points.clawed_back` avec identifiants internes seulement (compte, ligne du registre, type
+  `invoice`/`store`, `refund`/`chargeback`, points, débités, ajoutés aux points dus, solde) : aucun identifiant Stripe,
+  Apple ou Google. Un gain qui rembourse des points dus ajoute `repaidOwed` à `points.earned`.
+- **Client** : `GET /v1/points` renvoie `owed`; la page `/points` affiche les points dus, et l'historique « Paiement
+  remboursé : points retirés » ou « Points dus repris ».
+- **Limites connues** : (1) Google Play ne dit pas quelle période d'un abonnement est remboursée (le jeton suffit
+  pour annuler l'accès) : la dernière période payée est reprise (cas de loin le plus courant); un remboursement
+  partiel Play (`refundType` 2) est traité comme total. (2) Une contestation gagnée (`charge.dispute.closed`,
+  `won`) ou un `REFUND_REVERSED` d'Apple ne rend pas les points : à rendre à la main (crédit au besoin) si cela
+  arrive. (3) `REVOKE` d'Apple (partage familial retiré) n'est pas un remboursement : rien n'est repris.
 
 ## Échanger des points (catalogue)
 
@@ -65,7 +106,7 @@ de vie des numéros, pas comme un simple droit.
 ### `POST /v1/points/redeem { rewardId, idempotencyKey }`
 
 1. Refus sans rien débiter : points en pause, compte fermé, récompense inconnue, forfait non admissible, budget du
-   Gratuit atteint, limite du mois, solde insuffisant.
+   Gratuit atteint, points dus après un remboursement (`points_owed`), limite du mois, solde insuffisant.
 2. **Une transaction** : verrou sur le solde (`select … for update`), clé du client déjà vue → rejeu (rien de débité,
    même réponse), limite du mois, débit (`CHECK balance >= 0`), échange « en attente ».
 3. Livraison (minutes, textos, semaine sans pub, crédit Stripe).
@@ -112,7 +153,8 @@ Cibles : `purchase` (toute facture ou renouvellement), `purchase_yearly` (forfai
   (20 000 par mois). Au-delà, l'événement est quand même écrit avec 0 point (trace, et la même clé ne paie jamais
   plus tard). Les remboursements d'échanges ratés ne comptent pas.
 - **Registre en ajout seulement** : un déclencheur refuse `UPDATE` et `DELETE` sur `points_ledger`; chaque ligne porte
-  le solde après mouvement (`CHECK balance_after >= 0`).
+  le solde après mouvement (`CHECK balance_after >= 0`). Une ligne `clawback` est toujours un débit ou 0 (contrainte
+  de la base), et `owed` n'est jamais négatif.
 - **Conservé à la suppression du compte** (comme les missions, la fraude et le journal) : c'est la trace comptable et
   anti-abus. Aucune donnée personnelle dans ces tables.
 - Le parrainage garde ses contrôles (même appareil, même carte) : un parrainage refusé ne donne aucun point.
@@ -151,7 +193,7 @@ récompense et les chiffres dans l'erreur.
 
 ## API (client)
 
-- `GET /v1/points` : solde, cumul gagné, 30 derniers mouvements, campagnes actives, règles (taux, plafonds, expiration).
+- `GET /v1/points` : solde, cumul gagné, points dus (`owed`), 30 derniers mouvements, campagnes actives, règles (taux, plafonds, expiration).
 - `GET /v1/points/catalog` : récompenses, prix, disponibilité pour ce compte (`balance`, `plan`, `monthly_limit`,
   `paused`) et utilisation du mois.
 - `POST /v1/points/redeem` : voir plus haut. Types : `packages/shared/src/points.ts`.
@@ -160,7 +202,11 @@ récompense et les chiffres dans l'erreur.
 
 - `packages/shared/src/points.test.ts` : la règle économique du catalogue (échoue si un prix la casse), taux, cibles.
 - `apps/api/test/points.test.ts` : gains par événement vérifié, idempotence, plafonds, campagnes (admin, budget,
-  journal), échanges (rejeu, limite, budget du Gratuit, remboursement), coupe-circuit, configuration, expiration.
+  journal), échanges (rejeu, limite, budget du Gratuit, remboursement), coupe-circuit, configuration, expiration;
+  reprise : remboursement partiel au prorata, rétrofacturation totale (extras de campagne compris), webhooks rejoués
+  sans effet, solde insuffisant (points dus, échange refusé, retenue sur les gains suivants), App Store `REFUND` et
+  Google Play annulé.
 - `apps/api/test/points.repo.contract.test.ts` : même comportement en mémoire et sur Postgres (verrou, concurrence,
-  solde jamais négatif, déclencheur d'ajout seulement), lancé par la tâche CI `repo-contract-tests`.
+  solde jamais négatif, déclencheur d'ajout seulement, reprise et points dus), lancé par la tâche CI
+  `repo-contract-tests`.
 - `apps/webphone/src/pages/Points.test.tsx` : page Portefeuille en mode démo.

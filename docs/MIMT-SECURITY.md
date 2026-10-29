@@ -93,7 +93,7 @@ envoyé au cellulaire vérifié du compte) est exigée pour :
 | Ajout ou suppression d'une clé d'accès | `/v1/me/passkeys/*` | en place |
 | Politique de sécurité d'entreprise | `PUT /v1/business/:id/security` | en place |
 | Transfert sortant (port-out) | — | **n'existe pas encore** : à brancher sur `requireRecentAuth` |
-| Création de clés partenaires / API | — | **n'existe pas encore** (branche `claude/partners`) : à brancher sur `requireRecentAuth` |
+| Création, rotation de clés partenaires et adresse des avis (MIMT Connect) | `POST /v1/business/:id/partner/keys`, `…/rotate`, `PUT …/partner/webhook` | ✅ `requireRecentAuth` |
 
 * Réponse sans confirmation : `403 step_up_required`. L'app affiche « Confirmez votre identité » (clé d'accès ou
   code texto), puis relance l'action.
@@ -193,7 +193,7 @@ daily database backups with a weekly automated restore drill, RLS on every table
    business admin routes answer; only the owner can change it, with a recent passkey confirmation.
 4. **Step-up** — call forwarding to a new external number (consumer and business), account deletion, passkey
    add/remove and the business policy need an authentication within 10 minutes (passkey or fresh SMS code); answer
-   `403 step_up_required`. Port-out and partner/API keys do not exist yet and must call `requireRecentAuth`.
+   `403 step_up_required`. Partner key creation/rotation and the partner webhook are protected; port-out does not exist yet and must call `requireRecentAuth`.
 5. **Security events** in the audit log with internal ids only; optional « Nouvelle connexion à votre compte MIMT »
    web push / email on a new device.
 6. **Web UI** — Account › « Sécurité et appareils » (`/compte/securite`), French first.

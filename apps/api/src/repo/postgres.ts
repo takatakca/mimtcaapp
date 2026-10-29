@@ -14,6 +14,7 @@ import { PostgresSecurityRepository } from "./securityPostgres.js";
 import { PostgresMissionRepository } from "./missionsPostgres.js";
 import { PostgresPointsRepository } from "./pointsPostgres.js";
 import { PostgresAffiliateRepository } from "./affiliatesPostgres.js";
+import { PostgresPartnerRepository } from "./partnersPostgres.js";
 import { PostgresPortInRepository } from "./portInPostgres.js";
 import { PostgresMeetingRepository } from "./meetingsPostgres.js";
 import type {
@@ -117,6 +118,11 @@ export class PostgresRepository implements Repository {
   private securityRepo?: PostgresSecurityRepository;
   get security(): PostgresSecurityRepository {
     return (this.securityRepo ??= new PostgresSecurityRepository(this.sql));
+  }
+
+  private partnerRepo?: PostgresPartnerRepository;
+  get partners(): PostgresPartnerRepository {
+    return (this.partnerRepo ??= new PostgresPartnerRepository(this.sql));
   }
 
   private webPushRepo?: PostgresWebPushRepository;
