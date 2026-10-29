@@ -10,10 +10,10 @@ export const CALLBACK_PATH = "/auth/callback";
 /** An OAuth return route must stay inside this application, never be a protocol-relative URL. */
 export function safeReturnTo(value: unknown): string {
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || value.includes("\\") || /[\u0000-\u001f\u007f]/.test(value)) {
-    return "/messages";
+    return "/accueil";
   }
   // A direct callback/authentication loop is also an invalid post-login destination.
-  if (/^\/(?:auth\/|connexion(?:\/|$|\?|#))/.test(value)) return "/messages";
+  if (/^\/(?:auth\/|connexion(?:\/|$|\?|#))/.test(value)) return "/accueil";
   return value;
 }
 

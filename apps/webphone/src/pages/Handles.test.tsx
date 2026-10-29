@@ -22,7 +22,7 @@ describe("MIMT handle (demo mode)", () => {
     });
     const side = await screen.findByRole("complementary", { name: "Navigation principale" });
     await act(async () => {
-      fireEvent.click(within(side).getByRole("link", { name: "Compte" }));
+      fireEvent.click(within(side).getByRole("link", { name: "Mon compte" }));
     });
     const input = await screen.findByLabelText("Identifiant");
     fireEvent.change(input, { target: { value: "Matt.QC" } });

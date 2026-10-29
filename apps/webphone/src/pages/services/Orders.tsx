@@ -5,12 +5,14 @@ import { useI18n } from "../../i18n/I18nProvider";
 import { formatWhen } from "../../lib/format";
 import { useAsync } from "../../lib/useAsync";
 import { LINE_KEY, ORDER_STATE_KEY, orderTone, priceText } from "./catalogText";
+import { ShopTabs } from "../../components/SectionTabs";
 
 export function Orders() {
   const { t, lang, locale } = useI18n();
   const orders = useAsync(() => api.orders(), []);
   return (
     <div className="page">
+      <ShopTabs />
       <PageHeader
         title={t("orders.title")}
         actions={

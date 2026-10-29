@@ -36,10 +36,14 @@ describe("PortIn page (demo mode)", () => {
     await act(async () => {
       fireEvent.click(takatak);
     });
-    // From the sidebar ("Services" → number transfer).
+    // From the sidebar (« Boutique » → its « Transférer un numéro » tab).
     const side = await screen.findByRole("complementary", { name: "Navigation principale" });
     await act(async () => {
-      fireEvent.click(within(side).getByRole("link", { name: "Transférer un numéro" }));
+      fireEvent.click(within(side).getByRole("link", { name: "Boutique" }));
+    });
+    const tabs = await screen.findByRole("navigation", { name: "Sections de la boutique" });
+    await act(async () => {
+      fireEvent.click(within(tabs).getByRole("link", { name: "Transférer un numéro" }));
     });
 
     expect(await screen.findByRole("heading", { level: 1, name: "Transférer mon numéro" })).toBeInTheDocument();

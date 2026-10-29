@@ -46,7 +46,7 @@ export function clearPendingHold(): void {
 }
 
 /** Where to go after sign-in: back to the number if one is waiting. */
-export function afterSignIn(fallback = "/messages"): string {
+export function afterSignIn(fallback = "/accueil"): string {
   return pendingHold() ? "/numero" : fallback;
 }
 

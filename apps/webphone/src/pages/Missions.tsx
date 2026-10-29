@@ -13,6 +13,7 @@ import type { TKey } from "../i18n/core";
 import { celebrationsOf, celebrateMission, missionLabel, missionProgress, missionTarget } from "../lib/missions";
 import { formatPoints } from "../lib/points";
 import { useAsync } from "../lib/useAsync";
+import { WalletTabs } from "../components/SectionTabs";
 
 const STATUS_KEY: Record<MissionDto["status"], TKey> = { todo: "mission.status.todo", pending: "mission.status.pending", done: "mission.status.done" };
 const STATUS_TONE = { todo: "muted", pending: "warn", done: "ok" } as const;
@@ -28,6 +29,11 @@ export function Missions() {
   const data = useAsync(() => api.missions(), []);
 
   useEffect(() => {
+    // « Parrainer et gagner » (sidebar) opens this page at the invite box.
+    if (data.data && window.location.hash === "#inviter") document.getElementById("inviter")?.scrollIntoView?.({ block: "start" });
+  }, [data.data]);
+
+  useEffect(() => {
     // Grants made elsewhere (webhooks, SMS sign-in) are celebrated here too, once per browser.
     if (data.data?.enabled) celebrationsOf(data.data.missions).forEach(celebrateMission);
   }, [data.data]);
@@ -39,6 +45,7 @@ export function Missions() {
 
   return (
     <div className="page">
+      <WalletTabs />
       <PageHeader title={t("mission.title")} sub={t("mission.lead")} />
       {r.enabled ? null : <p className="note note--warn">{t("mission.off")}</p>}
 

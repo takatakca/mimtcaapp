@@ -8,7 +8,7 @@ export function NotFound() {
     <div className="page">
       <PageHeader title={t("notFound.title")} />
       <p className="muted">{t("notFound.body")}</p>
-      <Link to="/messages" className="btn btn--primary">
+      <Link to="/accueil" className="btn btn--primary">
         {t("notFound.home")}
       </Link>
     </div>

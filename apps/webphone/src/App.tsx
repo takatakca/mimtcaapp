@@ -1,4 +1,4 @@
-// Providers and routes. URLs are French first (app.mimt.ca/messages, /appels, /messagerie, /compte,
+// Providers and routes. URLs are French first (app.mimt.ca/accueil, /messages, /appels, /messagerie, /compte,
 // /services/…, /affaires/:id/…, /reunions, public guest links /reunion/:token). The static host serves index.html for every path (SPA fallback).
 import type { ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
@@ -13,6 +13,7 @@ import { AuthCallback } from "./pages/AuthCallback";
 import { CallSettings } from "./pages/CallSettings";
 import { Security } from "./pages/Security";
 import { Calls } from "./pages/Calls";
+import { Home } from "./pages/Home";
 import { Messages } from "./pages/Messages";
 import { Missions } from "./pages/Missions";
 import { Points } from "./pages/Points";
@@ -95,7 +96,8 @@ export function AppRoutes() {
           </RequireSession>
         }
       >
-        <Route index element={<Navigate to="/messages" replace />} />
+        <Route index element={<Navigate to="/accueil" replace />} />
+        <Route path="accueil" element={<Home />} />
         <Route path="messages" element={<Messages />} />
         <Route path="messages/:peer" element={<Messages />} />
         <Route path="appels" element={<Calls />} />

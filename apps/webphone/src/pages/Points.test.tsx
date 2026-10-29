@@ -28,7 +28,7 @@ describe("Portefeuille (demo mode)", () => {
     const side = await screen.findByRole("complementary", { name: "Navigation principale" });
     // A mission granted by the API's answer (the @nom), never by a claim.
     await act(async () => {
-      fireEvent.click(within(side).getByRole("link", { name: "Compte" }));
+      fireEvent.click(within(side).getByRole("link", { name: "Mon compte" }));
     });
     fireEvent.change(await screen.findByLabelText("Identifiant"), { target: { value: "Points.QC" } });
     await act(async () => {

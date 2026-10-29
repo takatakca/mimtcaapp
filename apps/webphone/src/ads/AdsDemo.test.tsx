@@ -22,6 +22,12 @@ describe("demo app, free account", () => {
     await act(async () => {
       fireEvent.click(takatak);
     });
+    // Home first (no ads there), then Messages.
+    await screen.findByRole("heading", { level: 1, name: "Bonjour, Camille" });
+    expect(screen.queryByRole("complementary", { name: "Publicité" })).toBeNull();
+    await act(async () => {
+      fireEvent.click(within(screen.getByRole("complementary", { name: "Navigation principale" })).getByRole("link", { name: "Messages" }));
+    });
     await screen.findByRole("heading", { level: 1, name: "Messages" });
     const ads = await screen.findAllByRole("complementary", { name: "Publicité" });
     expect(ads.map((a) => a.className)).toEqual(expect.arrayContaining(["ad ad--banner", "ad ad--sidebar"]));
@@ -29,7 +35,7 @@ describe("demo app, free account", () => {
 
     const side = screen.getByRole("complementary", { name: "Navigation principale" });
     await act(async () => {
-      fireEvent.click(within(side).getByRole("link", { name: "Compte" }));
+      fireEvent.click(within(side).getByRole("link", { name: "Mon compte" }));
     });
     await screen.findByRole("heading", { level: 1, name: "Compte" });
     expect(screen.queryByRole("complementary", { name: "Publicité" })).toBeNull();

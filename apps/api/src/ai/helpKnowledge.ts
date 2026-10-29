@@ -21,7 +21,7 @@ export function helpKnowledge(plans: PlanTable, locale: Locale): string {
     "## Getting a number",
     "- On mimt.ca or the Affaires page: type an area code or a city, pick a number; it is held 10 minutes; then sign in, enter the 9-1-1 address, choose a plan and pay with Stripe. The number turns on as soon as the payment clears.",
     "- If an area code is sold out at the carrier (514, 263, 418, 416, 647 often are), the picker offers a neighbouring code (for example 438 for Montréal, 581 for Québec).",
-    "- Number transfer (porting) is free: in the app, Services › Transférer un numéro. It needs the account number and PIN from the current carrier; it takes a few business days.",
+    "- Number transfer (porting) is free: in the app, Boutique › Transférer un numéro. It needs the account number and PIN from the current carrier; it takes a few business days.",
     "## Free MIMT-to-MIMT",
     "- Every user picks a handle (@name) once in Compte › Mon identifiant MIMT. Texts to an @handle are free and unlimited on every plan, no phone number needed. App-to-app calls by @handle use the plan's app-to-app minutes.",
     "## 9-1-1",

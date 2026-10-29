@@ -1,5 +1,5 @@
 // app.mimt.ca against the real API (in-memory data, fake Twilio). One signed-in journey:
-// sign in by SMS code → messages → voicemail → MIMT Affaires (create an extension) → services catalog.
+// sign in by SMS code → home (« Centre de contrôle ») → messages → voicemail → MIMT Affaires (create an extension) → services catalog.
 // Every API call the page makes is recorded; any 5xx, or a 404 on a route the app expects, fails the test,
 // so a path or shape disagreement between apps/webphone and apps/api shows up here.
 import { expect, test, type Page, type Response } from "@playwright/test";
@@ -64,11 +64,20 @@ test("sign in by SMS code, read messages and voicemail, add an extension, browse
   await page.getByRole("button", { name: "Envoyer le code" }).click();
   await page.getByLabel("Code reçu par texto").fill(E2E_OTP_CODE);
   await page.getByRole("button", { name: "Valider le code" }).click();
-  await expect(page).toHaveURL(/\/messages$/);
+  await expect(page).toHaveURL(/\/accueil$/);
 
-  // --- Messages: the inbound SMS seeded through the signed Twilio webhook --------------------------
+  // --- Accueil « Centre de contrôle »: the seeded SMS and voicemail are waiting in « À traiter » -------
   const peer = display(E2E_PEER);
   const main = page.locator("main");
+  await expect(page.getByRole("heading", { level: 1, name: /^Bonjour/ })).toBeVisible();
+  const todo = main.getByRole("region", { name: "À traiter" });
+  await expect(todo.getByText(peer).first()).toBeVisible();
+  await expect(todo.getByText(display(E2E_VOICEMAIL_FROM)).first()).toBeVisible();
+  await expect(main.getByRole("region", { name: "Vos appels vont vers…" })).toBeVisible();
+
+  // --- Messages: the inbound SMS seeded through the signed Twilio webhook --------------------------
+  await page.getByRole("complementary", { name: "Navigation principale" }).getByRole("link", { name: "Messages", exact: true }).click();
+  await expect(page).toHaveURL(/\/messages$/);
   await expect(main.getByText(peer).first()).toBeVisible();
   await expect(main.getByText(E2E_SMS_BODY).first()).toBeVisible();
   await main.getByText(peer).first().click();
