@@ -5,6 +5,7 @@ import { loadConfig } from "./config.js";
 import { runDailyCostReport } from "./jobs/dailyCost.js";
 import { runAccountDeletion } from "./jobs/accountDeletion.js";
 import { runPointsExpiry } from "./jobs/pointsExpiry.js";
+import { runSessionRetention } from "./jobs/sessionRetention.js";
 import { runAffiliateMaintenance } from "./services/affiliates.js";
 import { runNumberLifecycle } from "./jobs/numberLifecycle.js";
 import { runFallbackBackfill } from "./jobs/numberFallback.js";
@@ -129,6 +130,17 @@ affiliatesFirst.unref();
 const affiliatesTimer = setInterval(affiliates, 24 * 60 * 60 * 1000);
 affiliatesTimer.unref();
 
+// Session inventory retention (jobs/sessionRetention.ts): revoked or idle sessions deleted after 90 days. Daily.
+const sessionRetention = () => {
+  runSessionRetention(deps)
+    .then((res) => app.log.info(res, "session retention done"))
+    .catch((err) => app.log.error({ err }, "session retention failed"));
+};
+const sessionRetentionFirst = setTimeout(sessionRetention, 25 * 60 * 1000);
+sessionRetentionFirst.unref();
+const sessionRetentionTimer = setInterval(sessionRetention, 24 * 60 * 60 * 1000);
+sessionRetentionTimer.unref();
+
 async function shutdown(signal: string) {
   app.log.info({ signal }, "shutting down");
   clearInterval(outboxTimer);
@@ -145,6 +157,8 @@ async function shutdown(signal: string) {
   clearInterval(pointsExpiryTimer);
   clearTimeout(affiliatesFirst);
   clearInterval(affiliatesTimer);
+  clearTimeout(sessionRetentionFirst);
+  clearInterval(sessionRetentionTimer);
   await app.close();
   await deps.repo.close();
   process.exit(0);

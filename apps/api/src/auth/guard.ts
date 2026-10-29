@@ -7,6 +7,8 @@ import { ensureAccount } from "../services/accounts.js";
 declare module "fastify" {
   interface FastifyRequest {
     userId: string;
+    /** Session ("sid") of the access token; null for tokens minted before the session inventory. */
+    sessionId: string | null;
   }
 }
 
@@ -14,7 +16,9 @@ declare module "fastify" {
 export const requireUser = (deps: AppDeps) => async (req: FastifyRequest) => {
   const header = req.headers.authorization;
   if (!header?.startsWith("Bearer ")) throw unauthorized();
-  req.userId = await deps.sessions.verifyAccess(header.slice(7).trim());
+  const id = await deps.sessions.verifyAccessSession(header.slice(7).trim());
+  req.userId = id.userId;
+  req.sessionId = id.sessionId;
 };
 
 export interface UserContext {

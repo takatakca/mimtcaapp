@@ -10,6 +10,7 @@ import { PostgresReferralRepository } from "./referralsPostgres.js";
 import { PostgresNumberHoldRepository } from "./numberHoldsPostgres.js";
 import { PostgresHandleRepository } from "./handlesPostgres.js";
 import { PostgresWebPushRepository } from "./webPushPostgres.js";
+import { PostgresSecurityRepository } from "./securityPostgres.js";
 import { PostgresMissionRepository } from "./missionsPostgres.js";
 import { PostgresPointsRepository } from "./pointsPostgres.js";
 import { PostgresAffiliateRepository } from "./affiliatesPostgres.js";
@@ -113,6 +114,11 @@ export class PostgresRepository implements Repository {
     return (this.affiliateRepo ??= new PostgresAffiliateRepository(this.sql));
   }
 
+  private securityRepo?: PostgresSecurityRepository;
+  get security(): PostgresSecurityRepository {
+    return (this.securityRepo ??= new PostgresSecurityRepository(this.sql));
+  }
+
   private webPushRepo?: PostgresWebPushRepository;
   get webPush(): PostgresWebPushRepository {
     return (this.webPushRepo ??= new PostgresWebPushRepository(this.sql));
@@ -206,6 +212,8 @@ export class PostgresRepository implements Repository {
         await tx`delete from entitlements where telecom_account_id = ${accountId}`;
       }
       await tx`delete from refresh_tokens where user_id = ${userId}`;
+      await tx`delete from auth_sessions where user_id = ${userId}`;
+      await tx`delete from passkeys where user_id = ${userId}`;
       await tx`delete from push_tokens where user_id = ${userId}`;
       await tx`delete from web_push_subscriptions where user_id = ${userId}`;
       await tx`delete from attested_devices where user_id = ${userId}`;
@@ -237,8 +245,9 @@ export class PostgresRepository implements Repository {
   async revokeRefreshFamily(familyId: string) {
     await this.sql`update refresh_tokens set revoked_at = now() where family_id = ${familyId} and revoked_at is null`;
   }
-  async revokeUserRefreshTokens(userId: string) {
-    await this.sql`update refresh_tokens set revoked_at = now() where user_id = ${userId} and revoked_at is null`;
+  async revokeUserRefreshTokens(userId: string, exceptFamilyId?: string) {
+    await this.sql`update refresh_tokens set revoked_at = now() where user_id = ${userId} and revoked_at is null
+      and (${exceptFamilyId ?? null}::uuid is null or family_id <> ${exceptFamilyId ?? null}::uuid)`;
   }
 
   // accounts

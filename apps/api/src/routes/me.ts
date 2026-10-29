@@ -14,6 +14,8 @@ import {
 import { z } from "zod";
 import type { AppDeps } from "../deps.js";
 import { loadContext, requireUser } from "../auth/guard.js";
+import { requireRecentAuth } from "../auth/stepUp.js";
+import type { FastifyRequest } from "fastify";
 import { addDays, monthPeriod } from "../lib/time.js";
 import { parse } from "../lib/validate.js";
 import { badRequest, forbidden } from "../lib/errors.js";
@@ -108,7 +110,7 @@ export async function meRoutes(app: FastifyInstance, deps: AppDeps) {
     const body = parse(PatchBody, req.body);
     const { user, account } = await loadContext(deps, req);
     // Call settings first: a refused forwarding target leaves the whole request unapplied.
-    const callSettings = await updateCallSettings(account, body, user.id, req.ip);
+    const callSettings = await updateCallSettings(account, body, user.id, req);
     const updated = await repo.updateUser(user.id, {
       ...(body.locale ? { locale: body.locale } : {}),
       ...(body.displayName !== undefined ? { displayName: body.displayName } : {}),
@@ -117,7 +119,8 @@ export async function meRoutes(app: FastifyInstance, deps: AppDeps) {
   });
 
   /** Applies forwarding / do not disturb / blocked-call changes. Forwarding needs the call_forwarding plan feature. */
-  async function updateCallSettings(account: TelecomAccount, body: z.infer<typeof PatchBody>, userId: string, ip: string): Promise<CallSettings> {
+  async function updateCallSettings(account: TelecomAccount, body: z.infer<typeof PatchBody>, userId: string, req: FastifyRequest): Promise<CallSettings> {
+    const ip = req.ip;
     const current = await repo.callControls.getCallSettings(account.id);
     if (!body.forwarding && !body.dnd && !body.blockedCallAction) return current;
     const next: CallSettings = structuredClone(current);
@@ -136,6 +139,8 @@ export async function meRoutes(app: FastifyInstance, deps: AppDeps) {
           await repo.addFraudEvent({ telecomAccountId: account.id, rule: `forwarding_${check.reason}`, score: 50, action: "block", details: { target: rawTarget } });
           throw badRequest("forwarding_destination_not_allowed", check.reason);
         }
+        // Sensitive action (docs/MIMT-SECURITY.md): a new forwarding number sends calls outside MIMT.
+        if (check.target !== current.forwarding.target) await requireRecentAuth(deps, req);
         next.forwarding.target = check.target;
       }
     }
@@ -222,6 +227,8 @@ export async function meRoutes(app: FastifyInstance, deps: AppDeps) {
   // Schedules deletion; numbers go to quarantine (never handed to someone else before it ends).
   app.delete("/v1/me", auth, async (req, reply) => {
     const { user, account } = await loadContext(deps, req);
+    // Sensitive action: a recent authentication (passkey or SMS code, 10 minutes).
+    await requireRecentAuth(deps, req);
     const now = deps.now();
     await repo.updateUser(user.id, { status: "pending_deletion", deletionScheduledAt: addDays(now, DELETION_DELAY_DAYS) });
     for (const n of await repo.listNumbersByAccount(account.id)) {
@@ -229,7 +236,8 @@ export async function meRoutes(app: FastifyInstance, deps: AppDeps) {
       await repo.updateNumber(n.id, { state: "quarantine", stateChangedAt: now, quarantineUntil: addDays(now, QUARANTINE_DAYS) });
     }
     await setAccountStatus(repo, account, "CLOSED", "user_deletion_request");
-    await repo.revokeUserRefreshTokens(user.id);
+    // Every session and refresh token, this one included.
+    await deps.sessions.revokeOtherSessions(user.id, null);
     await repo.deletePushTokensForUser(user.id);
     await repo.audit({ actorUserId: user.id, action: "user.deletion_requested", targetType: "user", targetId: user.id, ip: req.ip });
     // Web (Stripe) subscriptions stop now. Store subscriptions are cancelled by the customer in the store (the app says so).

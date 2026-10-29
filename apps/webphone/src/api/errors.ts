@@ -70,6 +70,18 @@ const CODE_TO_KEY: Record<string, TKey> = {
   order_changed: "error.orderChanged",
   porting_exists: "error.portingExists",
   invalid_phone_number: "messages.invalidTo",
+  // Security (docs/MIMT-SECURITY.md).
+  step_up_required: "error.stepUpRequired",
+  step_up_failed: "security.stepUpFailed",
+  strong_auth_required: "error.strongAuthRequired",
+  strong_auth_setup_required: "error.strongAuthSetup",
+  passkey_required_by_business: "security.passkeyRequiredByBusiness",
+  passkey_not_verified: "security.passkeyFailed",
+  invalid_challenge: "security.passkeyFailed",
+  passkey_exists: "security.passkeyExists",
+  passkey_limit: "security.passkeyLimit",
+  no_verified_phone: "error.noVerifiedPhone",
+  session_revoked: "error.session",
   // Call controls and voicemail settings (callControls.ts, media.ts).
   cannot_block_emergency: "error.cannotBlockEmergency",
   block_limit: "error.blockLimit",

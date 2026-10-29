@@ -3,7 +3,9 @@ import type { BusinessMember, BusinessRole } from "@mimt/shared";
 import { useState, type FormEvent } from "react";
 import { api } from "../../api/client";
 import { toErrorKey } from "../../api/errors";
+import { Link } from "react-router";
 import { Icon } from "../../components/Icon";
+import { useStepUp } from "../../components/StepUp";
 import { Badge, Empty, ErrorNote, Field, Loading } from "../../components/ui";
 import { useI18n } from "../../i18n/I18nProvider";
 import type { TKey } from "../../i18n/core";
@@ -16,7 +18,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export function Members() {
   const { t } = useI18n();
-  const { id, canAdmin } = useBusiness();
+  const { id, canAdmin, biz } = useBusiness();
   const list = useAsync(() => api.members(id), [id]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<InvitableRole>("member");
@@ -57,6 +59,7 @@ export function Members() {
   };
 
   return (
+    <>
     <section className="card" aria-labelledby="mem-h">
       <h2 id="mem-h" className="card__title">
         {t("biz.nav.members")}
@@ -117,5 +120,61 @@ export function Members() {
         </p>
       ) : null}
     </section>
+    {biz.role === "owner" ? <BusinessSecurityCard businessId={id} /> : null}
+    </>
   );
 }
+
+/** « Exiger une clé d'accès » for owners and admins (require_strong_auth, docs/MIMT-SECURITY.md). Owner only. */
+function BusinessSecurityCard({ businessId }: { businessId: string }) {
+  const { t } = useI18n();
+  const policy = useAsync(() => api.businessSecurity(businessId), [businessId]);
+  const { guard, dialog } = useStepUp();
+  const [msg, setMsg] = useState<TKey | null>(null);
+  const [busy, setBusy] = useState(false);
+  const toggle = async (on: boolean) => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      await guard(() => api.setBusinessSecurity(businessId, { requireStrongAuth: on }));
+      policy.reload();
+      setMsg("security.business.saved");
+    } catch (e) {
+      setMsg(toErrorKey(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="card" aria-labelledby="bizsec-h">
+      <h2 id="bizsec-h" className="card__title">
+        {t("security.business.title")}
+      </h2>
+      <label className="switch-row">
+        <span>
+          <span className="switch-row__label">{t("security.business.toggle")}</span>
+          <span className="field__hint">{t("security.business.hint")}</span>
+        </span>
+        <input
+          type="checkbox"
+          role="switch"
+          className="switch"
+          checked={policy.data?.requireStrongAuth ?? false}
+          disabled={busy || !policy.data}
+          onChange={(e) => void toggle(e.target.checked)}
+        />
+      </label>
+      {msg ? (
+        <p className={msg === "security.business.saved" ? "ok-text" : "note note--error"} role="status">
+          {t(msg)}
+        </p>
+      ) : null}
+      <ErrorNote error={policy.error} />
+      <Link to="/compte/securite" className="btn btn--ghost btn--sm">
+        {t("security.open")}
+      </Link>
+      {dialog}
+    </section>
+  );
+}
+

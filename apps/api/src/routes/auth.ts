@@ -6,6 +6,8 @@ import { parse } from "../lib/validate.js";
 import { NANP_E164, type AuthTokensResponse, type OtpStartResponse } from "@mimt/shared";
 import { ensureAccount } from "../services/accounts.js";
 import { grantMission } from "../services/missions.js";
+import { completeSignIn } from "../services/signIn.js";
+import { clientInfo } from "../lib/clientInfo.js";
 
 const ExchangeBody = z.object({
   code: z.string().min(1).max(2048),
@@ -53,12 +55,12 @@ export async function authRoutes(app: FastifyInstance, deps: AppDeps) {
     if (id.workspaceId && !account.workspaceId) {
       await repo.updateAccount(account.id, { workspaceId: id.workspaceId, businessId: id.businessId ?? account.businessId });
     }
-    return sessions.issue(user.id);
+    return completeSignIn(deps, req, user, "takatak");
   });
 
   app.post("/v1/auth/refresh", { config: authRateLimit }, async (req): Promise<AuthTokensResponse> => {
     const { refreshToken } = parse(RefreshBody, req.body);
-    return sessions.refresh(refreshToken);
+    return sessions.refresh(refreshToken, clientInfo(req));
   });
 
   app.post("/v1/auth/logout", async (req, reply) => {
@@ -129,7 +131,7 @@ export async function authRoutes(app: FastifyInstance, deps: AppDeps) {
       user = await repo.updateUser(user.id, { phoneVerifiedAt: now });
     }
     const account = await ensureAccount(repo, user);
-    const tokens = await deps.sessions.issue(user.id);
+    const tokens = await completeSignIn(deps, req, user, "sms");
     // Mission « Vérifiez votre cellulaire »: Twilio Verify just approved this phone. Once per account AND per
     // phone number (keyed hash), so a second account on the same phone earns nothing.
     const missionGranted = await grantMission(deps, { account, user, mission: "verify_phone", sourceRef: "otp", log: req.log });

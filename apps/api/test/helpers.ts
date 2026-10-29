@@ -77,7 +77,7 @@ export async function setup(
   const deps: AppDeps = {
     config,
     repo,
-    sessions: new SessionService(repo, loadSigningKey(undefined).key, config.PUBLIC_BASE_URL),
+    sessions: new SessionService(repo, loadSigningKey(undefined).key, config.PUBLIC_BASE_URL, opts.now),
     takatak: new TakatakOidc(config, repo, { jwks: keys.jwks }),
     twilio,
     billing: null,
@@ -140,7 +140,8 @@ export async function makeUser(
       stateChangedAt: new Date(),
     });
   }
-  const { accessToken } = await ctx.deps.sessions.issue(user.id);
+  // Like a fresh SMS sign-in: the session counts as recently authenticated (step-up window, docs/MIMT-SECURITY.md).
+  const { accessToken } = await ctx.deps.sessions.issue(user.id, undefined, { method: "sms" });
   return { user, account: (await repo.getAccount(account.id))!, number, token: accessToken, auth: { authorization: `Bearer ${accessToken}` } };
 }
 

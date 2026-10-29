@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { api } from "../api/client";
-import { toErrorKey } from "../api/errors";
+import { ApiClientError, toErrorKey } from "../api/errors";
 import { useSession } from "../auth/SessionProvider";
 import { isTakatakConfigured, safeReturnTo, startTakatakSignIn } from "../auth/takatak";
 import { ErrorNote, Wordmark } from "../components/ui";
@@ -9,6 +9,7 @@ import { env } from "../env";
 import { useI18n } from "../i18n/I18nProvider";
 import type { TKey } from "../i18n/core";
 import { afterSignIn } from "../lib/numberHold";
+import { isPasskeyCancel, passkeysSupported, signWithPasskey } from "../lib/passkeys";
 import { LanguageSwitch } from "./LanguageSwitch";
 
 export function SignIn() {
@@ -38,6 +39,21 @@ export function SignIn() {
     }
   };
 
+  // Passwordless sign-in with a passkey (discoverable credential: nothing to type first).
+  const withPasskey = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      const options = await api.passkeySignInOptions();
+      const response = await signWithPasskey(options);
+      await signIn(await api.passkeySignInVerify({ challengeToken: options.challengeToken, response }));
+      navigate(returnTo, { replace: true });
+    } catch (e) {
+      if (!isPasskeyCancel(e)) setError(e instanceof ApiClientError && e.status === 401 ? "security.passkeyFailed" : toErrorKey(e));
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="auth">
       <div className="auth__card">
@@ -62,6 +78,11 @@ export function SignIn() {
           {t("signin.takatak")}
         </button>
         <p className="field__hint">{configured ? t("signin.takatakHint") : t("signin.notConfigured")}</p>
+        {passkeysSupported() ? (
+          <button type="button" className="btn btn--ghost btn--block" onClick={() => void withPasskey()} disabled={busy}>
+            {t("signin.passkey")}
+          </button>
+        ) : null}
         <ErrorNote error={error} />
         <p className="auth__legal">{t("signin.terms")}</p>
         <div className="auth__e911">

@@ -8,6 +8,7 @@ import { enPoints } from "./en.points";
 import { enAffiliate } from "./en.affiliate";
 import { enPilot } from "./en.pilot";
 import { enCallTest } from "./en.calltest";
+import { enSecurity } from "./en.security";
 
 export const en: Record<TKey, string> = {
   ...enExtra,
@@ -18,6 +19,7 @@ export const en: Record<TKey, string> = {
   ...enAffiliate,
   ...enPilot,
   ...enCallTest,
+  ...enSecurity,
   "account.billingPortal": "Manage billing",
   "account.complaints": "Complaints: CCTS (Commission for Complaints for Telecom-television Services)",
   "account.complaintsHint": "If we do not resolve your complaint, the CCTS can help you for free.",
