@@ -26,6 +26,9 @@ export function entryLabel(e: Pick<PointsEntryDto, "label" | "reason" | "campaig
   const pair = (head: string, tail: string) => (fr ? `${head} : ${tail}` : `${head}: ${tail}`);
   if (e.reason === "campaign") return pair(fr ? "Campagne" : "Campaign", e.campaignName ?? "promotion");
   if (e.reason === "expiry") return fr ? "Expiration (inactivité)" : "Expiry (inactivity)";
+  if (e.reason === "clawback") {
+    return e.label === "owed" ? (fr ? "Points dus repris" : "Owed points taken back") : fr ? "Paiement remboursé : points retirés" : "Payment refunded: points removed";
+  }
   const [kind, id = ""] = e.label.split(":");
   if (kind === "mission") return pair("Mission", MISSIONS.find((x) => x.id === id)?.label[lang] ?? id);
   if (kind === "reward") {

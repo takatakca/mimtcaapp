@@ -2,13 +2,16 @@
 //
 // The repository owns the money-grade guarantees, in ONE transaction per call, after a row lock on the account's
 // balance: idempotency keys (a key is used once, ever), balance never negative, daily/monthly earn caps, campaign
-// budgets never overspent. Memory and Postgres implementations behave the same (points.repo.contract.test.ts).
+// budgets never overspent, points of a refunded payment taken back (clawback) with any shortfall kept as `owed`
+// and repaid by the next credits. Memory and Postgres implementations behave the same (points.repo.contract.test.ts).
 import type { PointsCampaignTarget, PointsReason } from "@mimt/shared";
 
 export interface PointsAccountRow {
   telecomAccountId: string;
   balance: number;
   lifetimeEarned: number;
+  /** Points still owed after a clawback the balance could not cover (0021_points_clawback.sql). */
+  owed: number;
   lastActivityAt: Date;
 }
 
@@ -82,6 +85,8 @@ export interface PointsEarnInput {
 export interface PointsEarnResult {
   /** Rows written by this call (a row with delta 0 = over a cap or budget, kept so a retry earns nothing later). */
   written: PointsLedgerRow[];
+  /** Points owed taken from the balance after the credits (a "clawback" debit, key "owed:<last credit key>"). */
+  repaid: number;
   /** Entries whose key was already used: nothing written for them. */
   duplicates: number;
   balance: number;
@@ -103,7 +108,41 @@ export type PointsRedeemResult =
   | { status: "created"; redemption: PointsRedemptionRow; balance: number }
   | { status: "replay"; redemption: PointsRedemptionRow; balance: number }
   | { status: "insufficient"; balance: number }
-  | { status: "monthly_limit"; used: number };
+  | { status: "monthly_limit"; used: number }
+  /** Points are owed after a refund or chargeback: no redemption until they are repaid by later earnings. */
+  | { status: "owed"; owed: number; balance: number };
+
+export interface PointsClawbackInput {
+  telecomAccountId: string;
+  at: Date;
+  /**
+   * The earn key of the payment: "invoice:<id>", "store:ios:<transactionId>", "store:android:<token>:<period end>".
+   * Its points are the ledger credits with that key, its campaign extras ("<source>:c:<campaign>") and the campaign
+   * bonuses it triggered (meta.trigger = source).
+   */
+  source: string;
+  /** Share of the source's points to have taken back IN TOTAL after this call: refunded / amount, 1/1 for a chargeback. */
+  share: { num: number; den: number };
+  /** One key per refund state, e.g. "clawback:<invoice>:<cumulative refunded cents>" or "clawback:<invoice>:dispute". */
+  idempotencyKey: string;
+  /** Ledger reference (no personal data): "clawback:invoice", "clawback:store". */
+  reference: string;
+  meta?: Record<string, unknown>;
+}
+
+export interface PointsClawbackResult {
+  /** applied: a row was written (its delta may be 0 when everything went to owed); duplicate: key already used. */
+  status: "applied" | "duplicate";
+  /** Points the source earned (credits) and points to take back by this call. */
+  earned: number;
+  points: number;
+  /** Taken from the balance now (≤ balance) and added to `owed` (the rest). */
+  debited: number;
+  owedAdded: number;
+  balance: number;
+  owed: number;
+  row: PointsLedgerRow | null;
+}
 
 export interface PointsRepository {
   getAccount(accountId: string): Promise<PointsAccountRow | null>;
@@ -114,11 +153,25 @@ export interface PointsRepository {
   /** Credits entries atomically (see PointsEarnInput). */
   earn(input: PointsEarnInput): Promise<PointsEarnResult>;
 
+  /**
+   * Takes back the points of a refunded or charged-back payment, atomically after the balance lock: target =
+   * floor(earned × share), minus what earlier clawbacks of the same source already took. The balance is debited to
+   * 0 at most and the rest goes to `owed`. Same idempotency key = duplicate, nothing written.
+   */
+  clawback(input: PointsClawbackInput): Promise<PointsClawbackResult>;
+  /** Account of the ledger row with this idempotency key (e.g. the "invoice:<id>" credit), or null. */
+  accountOfKey(key: string): Promise<string | null>;
+  /** The newest credit key (reason "purchase") starting with `prefix` on this account (a Play period), or null. */
+  latestPurchaseKey(accountId: string, prefix: string): Promise<string | null>;
+
   /** Debits the reward's price and records a pending redemption, atomically. Same clientKey = replay, no debit. */
   redeem(input: PointsRedeemInput): Promise<PointsRedeemResult>;
   /** pending → fulfilled. Null when it was not pending. */
   finishRedemption(id: string, fulfilmentRef: string | null, at: Date): Promise<PointsRedemptionRow | null>;
-  /** pending → refunded, with the compensating credit (reason "refund"), atomically. Null when it was not pending. */
+  /**
+   * pending → refunded, with the compensating credit (reason "refund"), atomically. Points owed are then taken from
+   * the balance first, as after any credit. Null when it was not pending.
+   */
   refundRedemption(id: string, error: string, at: Date): Promise<{ redemption: PointsRedemptionRow; balance: number } | null>;
   /** Non-refunded redemptions per reward since `since`. */
   countRedemptions(accountId: string, since: Date): Promise<Record<string, number>>;
@@ -136,5 +189,5 @@ export interface PointsRepository {
   expire(accountId: string, before: Date, at: Date): Promise<PointsLedgerRow | null>;
 }
 
-/** Points credited by an earn call (sum of written deltas). */
+/** Points credited by an earn call (sum of written deltas; points owed that it repaid not deducted). */
 export const creditedPoints = (r: PointsEarnResult) => r.written.reduce((s, w) => s + w.delta, 0);

@@ -5,6 +5,8 @@ import type {
   PointsAccountRow,
   PointsCampaignPatch,
   PointsCampaignRow,
+  PointsClawbackInput,
+  PointsClawbackResult,
   PointsEarnInput,
   PointsEarnResult,
   PointsLedgerRow,
@@ -26,7 +28,7 @@ export class MemoryPointsRepository implements PointsRepository {
   private account(id: string, at: Date): PointsAccountRow {
     let a = this.accounts.get(id);
     if (!a) {
-      a = { telecomAccountId: id, balance: 0, lifetimeEarned: 0, lastActivityAt: at };
+      a = { telecomAccountId: id, balance: 0, lifetimeEarned: 0, owed: 0, lastActivityAt: at };
       this.accounts.set(id, a);
     }
     return a;
@@ -92,13 +94,61 @@ export class MemoryPointsRepository implements PointsRepository {
       if (grant < e.points) meta.requested = e.points;
       written.push(this.write(a, { delta: grant, reason: e.reason, reference: e.reference, campaignId: e.campaignId ?? null, idempotencyKey: e.idempotencyKey, meta, createdAt: input.at }));
     }
-    return { written, duplicates, balance: a.balance };
+    const credit = written.filter((w) => w.delta > 0).at(-1);
+    const repaid = credit ? this.repayOwed(a, credit.idempotencyKey, input.at) : 0;
+    return { written, repaid, balance: a.balance, duplicates };
+  }
+
+  /** After a credit (key `creditKey`), points owed are taken from the balance first (one "clawback" debit). */
+  private repayOwed(a: PointsAccountRow, creditKey: string, at: Date): number {
+    const repay = Math.min(a.owed, a.balance);
+    if (repay <= 0) return 0;
+    this.write(a, { delta: -repay, reason: "clawback", reference: "owed", campaignId: null, idempotencyKey: `owed:${creditKey}`, meta: { repaid: repay }, createdAt: at });
+    a.owed -= repay;
+    return repay;
+  }
+
+  async clawback(input: PointsClawbackInput): Promise<PointsClawbackResult> {
+    const a = this.account(input.telecomAccountId, input.at);
+    if (this.ledger.some((l) => l.idempotencyKey === input.idempotencyKey)) {
+      return { status: "duplicate", earned: 0, points: 0, debited: 0, owedAdded: 0, balance: a.balance, owed: a.owed, row: null };
+    }
+    const mine = this.ledger.filter((l) => l.telecomAccountId === input.telecomAccountId);
+    const earned = mine
+      .filter((l) => EARN_REASONS.includes(l.reason) && (l.idempotencyKey === input.source || l.idempotencyKey.startsWith(`${input.source}:`) || l.meta.trigger === input.source))
+      .reduce((s, l) => s + l.delta, 0);
+    const taken = mine.filter((l) => l.reason === "clawback" && l.meta.source === input.source).reduce((s, l) => s + Number(l.meta.points ?? 0), 0);
+    const target = input.share.den > 0 ? Math.floor((earned * Math.min(input.share.num, input.share.den)) / input.share.den) : earned;
+    const points = Math.max(0, target - taken);
+    const debited = Math.min(points, a.balance);
+    const owedAdded = points - debited;
+    const row = this.write(a, {
+      delta: debited > 0 ? -debited : 0,
+      reason: "clawback",
+      reference: input.reference,
+      campaignId: null,
+      idempotencyKey: input.idempotencyKey,
+      meta: { ...(input.meta ?? {}), source: input.source, points, debited, owed: owedAdded },
+      createdAt: input.at,
+    });
+    a.owed += owedAdded;
+    return { status: "applied", earned, points, debited, owedAdded, balance: a.balance, owed: a.owed, row };
+  }
+
+  async accountOfKey(key: string) {
+    return this.ledger.find((l) => l.idempotencyKey === key)?.telecomAccountId ?? null;
+  }
+
+  async latestPurchaseKey(accountId: string, prefix: string) {
+    const rows = this.ledger.filter((l) => l.telecomAccountId === accountId && l.reason === "purchase" && l.idempotencyKey.startsWith(prefix));
+    return rows.length ? rows[rows.length - 1]!.idempotencyKey : null;
   }
 
   async redeem(input: PointsRedeemInput): Promise<PointsRedeemResult> {
     const a = this.account(input.telecomAccountId, input.at);
     const existing = this.redemptions.find((r) => r.telecomAccountId === input.telecomAccountId && r.clientKey === input.clientKey);
     if (existing) return { status: "replay", redemption: copy(existing), balance: a.balance };
+    if (a.owed > 0) return { status: "owed", owed: a.owed, balance: a.balance };
     const used = this.redemptions.filter(
       (r) => r.telecomAccountId === input.telecomAccountId && r.rewardId === input.rewardId && r.status !== "refunded" && r.createdAt.getTime() >= input.monthStart.getTime(),
     ).length;
@@ -133,6 +183,7 @@ export class MemoryPointsRepository implements PointsRepository {
     if (!r) return null;
     const a = this.account(r.telecomAccountId, at);
     this.write(a, { delta: r.points, reason: "refund", reference: `reward:${r.rewardId}`, campaignId: null, idempotencyKey: `refund:${r.id}`, meta: { redemptionId: r.id }, createdAt: at });
+    this.repayOwed(a, `refund:${r.id}`, at);
     Object.assign(r, { status: "refunded", error: error.slice(0, 200), updatedAt: at });
     return { redemption: copy(r), balance: a.balance };
   }
