@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { isSipHost } from "./lib/cuba.js";
 import { plansFromEnv, type PlanTable } from "./plansConfig.js";
+import { pointsFromEnv, type PointsConfig } from "./pointsConfig.js";
 
 const optional = z.string().min(1).optional();
 
@@ -275,6 +276,8 @@ const EnvSchema = z
 export type Config = z.infer<typeof EnvSchema> & {
   /** Plan prices and quotas (shared defaults + PLAN_* overrides), checked against the unit-economics rule. */
   plans: PlanTable;
+  /** « MIMT Points » switches and catalog (pointsConfig.ts: POINTS, POINTS_*), checked against the economics rule. */
+  points: PointsConfig;
 };
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
@@ -289,7 +292,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     throw new Error(`Invalid configuration: ${issues}`);
   }
-  return { ...parsed.data, plans: plansFromEnv(cleaned, parsed.data.USD_TO_CAD) };
+  return { ...parsed.data, plans: plansFromEnv(cleaned, parsed.data.USD_TO_CAD), points: pointsFromEnv(cleaned, parsed.data.USD_TO_CAD) };
 }
 
 export const twilioRestConfigured = (c: Config) => Boolean(c.TWILIO_ACCOUNT_SID && c.TWILIO_API_KEY_SID && c.TWILIO_API_KEY_SECRET);

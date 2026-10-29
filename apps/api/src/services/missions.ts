@@ -5,15 +5,17 @@
 //    grantMission(); no route lets the client claim a mission;
 //  - at most once per account and mission, once per owner (phone number hash, else TAKATAK id hash) so deleting the
 //    account and signing up again earns nothing, and install_app once per attested device;
-//  - the reward and its minutes are written in one transaction; every grant is in the audit log (no personal data);
-//  - bonus minutes go to the CURRENT usage month (no carry-over): paid plans' outbound minutes, the free plan's
-//    app-to-app (on-net) minutes. Total per account ≤ MISSION_MINUTES_CAP (150 min);
-//  - free-plan minutes respect the free tier's monthly budget (FREE_TIER_MONTHLY_BUDGET_CAD): when it is reached the
-//    reward is recorded as "pending" and its minutes are added on a later month, once the budget allows it;
+//  - since 2026-10-28 a mission rewards MIMT Points (services/points.ts, 10 points = 1 minute equivalent), at most
+//    MISSION_POINTS_CAP (1 500) per account. The reward row is written first, then its points with the idempotency
+//    key "mission:<account>:<mission>"; a crash between the two is healed by settleMissionPoints on the next read;
+//  - rewards granted BEFORE keep their bonus minutes (current month then, no carry-over); legacy "pending" rows (free
+//    tier budget reached) still get their minutes once the budget allows it (creditPendingMissions);
+//  - every grant is in the audit log (no personal data);
 //  - MISSIONS=off (config.ts) grants nothing new;
 //  - a mission never breaks the route that triggered it: failures are logged and swallowed.
 import {
   MISSION_MINUTES_CAP,
+  MISSION_POINTS_CAP,
   MISSIONS,
   missionDef,
   type MissionBucket,
@@ -29,6 +31,7 @@ import type { TelecomAccount, User } from "../repo/types.js";
 import { planOf } from "../plansConfig.js";
 import { getPlan, usagePeriods } from "./accounts.js";
 import { freeTierSpendCad } from "./freeTier.js";
+import { settleMissionPoints } from "./points.js";
 
 /** USD per app-leg minute (Twilio Voice SDK), the cost of one on-net minute: docs/MIMT-UNIT-ECONOMICS.md. */
 const APP_LEG_USD_PER_MIN = 0.004;
@@ -85,6 +88,7 @@ function ownerHash(deps: AppDeps, user: User): string | null {
 
 const toDto = (row: MissionRewardRow): MissionGrantedDto => ({
   id: row.missionId,
+  points: row.points ?? 0,
   minutes: row.minutes,
   bucket: row.bucket,
   status: row.status === "pending" ? "pending" : "granted",
@@ -115,19 +119,19 @@ async function grant(deps: AppDeps, input: GrantMissionInput): Promise<MissionGr
   const existing = await repo.missions.listForAccount(account.id);
   if (existing.some((r) => r.missionId === mission)) return null;
   const def = missionDef(mission);
-  const earned = existing.reduce((sum, r) => sum + r.minutes, 0);
-  const minutes = Math.max(0, Math.min(def.minutes, MISSION_MINUTES_CAP - earned));
+  // Missions already rewarded in minutes count toward the points cap at 10 points per minute.
+  const earned = existing.reduce((sum, r) => sum + (r.points ?? 0) + r.minutes * 10, 0);
+  const points = Math.max(0, Math.min(def.points, MISSION_POINTS_CAP - earned));
 
   const now = deps.now();
-  const bucket = minutes > 0 ? await missionBucket(deps, account.id) : null;
-  const pending = bucket === "on_net" && !(await freeBudgetAllows(deps, minutes, now));
   const row = await repo.missions.grant({
     telecomAccountId: account.id,
     missionId: mission,
-    minutes,
-    bucket,
-    status: pending ? "pending" : "granted",
-    period: !pending && minutes > 0 ? monthPeriod(now) : null,
+    minutes: 0,
+    points,
+    bucket: null,
+    status: "granted",
+    period: null,
     ownerHash: ownerHash(deps, user),
     deviceHash: input.deviceKey ? deps.cipher.subjectHash("device", input.deviceKey) : null,
     sourceRef: input.sourceRef.slice(0, 200),
@@ -141,9 +145,10 @@ async function grant(deps: AppDeps, input: GrantMissionInput): Promise<MissionGr
     action: "mission.granted",
     targetType: "telecom_account",
     targetId: account.id,
-    meta: { mission, minutes, bucket, status: row.status, period: row.period, source: input.sourceRef.split(":")[0] },
+    meta: { mission, points, status: row.status, source: input.sourceRef.split(":")[0] },
     at: now,
   });
+  await settleMissionPoints(deps, account, [row], input.log);
   return toDto(row);
 }
 
@@ -181,6 +186,8 @@ export async function creditPendingMissions(deps: AppDeps, account: TelecomAccou
 export async function missionsView(deps: AppDeps, account: TelecomAccount, user: User, log?: Log): Promise<MissionsResponse> {
   const now = deps.now();
   const rows = await creditPendingMissions(deps, account, await deps.repo.missions.listForAccount(account.id), log);
+  // Points still owed for a mission (granted while POINTS was off, or a crash between the two writes): credited now.
+  await settleMissionPoints(deps, account, rows, log);
   const byId = new Map(rows.map((r) => [r.missionId, r]));
   const rewardedReferral = byId.has("invite_friend")
     ? null
@@ -191,8 +198,10 @@ export async function missionsView(deps: AppDeps, account: TelecomAccount, user:
     return {
       id: def.id,
       status: row?.status === "pending" ? "pending" : grantedAt ? "done" : "todo",
-      rewardKind: def.rewardKind,
-      minutes: def.minutes,
+      // A mission granted in minutes before points shows its minutes; every other one shows its points.
+      rewardKind: row && row.minutes > 0 ? "minutes" : def.rewardKind,
+      points: row ? (row.points ?? 0) : def.points,
+      minutes: row?.minutes ?? 0,
       needsPurchase: def.needsPurchase,
       grantedAt: grantedAt ? grantedAt.toISOString() : null,
     };
@@ -200,6 +209,8 @@ export async function missionsView(deps: AppDeps, account: TelecomAccount, user:
   return {
     enabled: deps.config.MISSIONS === "on",
     missions,
+    totalPoints: rows.reduce((sum, r) => sum + (r.points ?? 0), 0),
+    capPoints: MISSION_POINTS_CAP,
     totalMinutes: rows.filter((r) => r.status === "granted").reduce((sum, r) => sum + r.minutes, 0),
     capMinutes: MISSION_MINUTES_CAP,
     bucket: await missionBucket(deps, account.id),

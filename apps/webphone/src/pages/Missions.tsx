@@ -3,7 +3,7 @@
 // through the referral program (a friend who subscribes), never for a like, a review or a post.
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import type { MissionDto, ReferralsResponse } from "@mimt/shared";
+import { REFERRAL_POINTS, type MissionDto, type ReferralsResponse } from "@mimt/shared";
 import { api } from "../api/client";
 import { toErrorKey } from "../api/errors";
 import { Icon } from "../components/Icon";
@@ -11,18 +11,20 @@ import { Badge, ErrorNote, Loading, PageHeader } from "../components/ui";
 import { useI18n } from "../i18n/I18nProvider";
 import type { TKey } from "../i18n/core";
 import { celebrationsOf, celebrateMission, missionLabel, missionProgress, missionTarget } from "../lib/missions";
+import { formatPoints } from "../lib/points";
 import { useAsync } from "../lib/useAsync";
 
 const STATUS_KEY: Record<MissionDto["status"], TKey> = { todo: "mission.status.todo", pending: "mission.status.pending", done: "mission.status.done" };
 const STATUS_TONE = { todo: "muted", pending: "warn", done: "ok" } as const;
 
-function rewardText(m: MissionDto, t: (k: TKey, v?: Record<string, string | number>) => string): string {
+function rewardText(m: MissionDto, t: (k: TKey, v?: Record<string, string | number>) => string, lang: "fr" | "en"): string {
+  if (m.rewardKind === "points") return t("mission.reward.points", { points: formatPoints(m.points, lang) });
   if (m.rewardKind === "minutes") return t("mission.reward.minutes", { minutes: m.minutes });
   return t(m.rewardKind === "premium_month" ? "mission.reward.premium_month" : "mission.reward.free_month");
 }
 
 export function Missions() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const data = useAsync(() => api.missions(), []);
 
   useEffect(() => {
@@ -47,8 +49,12 @@ export function Missions() {
         <div className="usage__track mission-progress" role="progressbar" aria-label={t("mission.progressLabel")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent}>
           <div className="usage__fill" style={{ width: `${progress.percent}%` }} />
         </div>
-        <p className="mission-earned">{t("mission.earned", { minutes: r.totalMinutes, cap: r.capMinutes })}</p>
-        <p className="muted small">{t(r.bucket === "on_net" ? "mission.bucket.on_net" : "mission.bucket.outbound")}</p>
+        <p className="mission-earned">{t("mission.earned", { points: formatPoints(r.totalPoints ?? 0, lang), cap: formatPoints(r.capPoints ?? 0, lang) })}</p>
+        <p className="muted small">{t("mission.bucket.outbound")}</p>
+        {r.totalMinutes > 0 ? <p className="muted small">{t("mission.bucket.on_net", { minutes: r.totalMinutes })}</p> : null}
+        <Link to="/points" className="btn btn--ghost btn--sm">
+          {t("mission.wallet")}
+        </Link>
       </section>
 
       <ul className="mission-list">
@@ -90,7 +96,7 @@ function MissionItem({ mission: m }: { mission: MissionDto }) {
           {label} <Badge tone={STATUS_TONE[m.status]}>{t(STATUS_KEY[m.status])}</Badge>
         </p>
         <p className="mission__reward">
-          {rewardText(m, t)}
+          {rewardText(m, t, lang)}
           {m.needsPurchase ? <span className="muted small"> · {t("mission.needsPurchase")}</span> : null}
         </p>
         <p className="muted small">{m.status === "pending" ? t("mission.pendingHint") : t(`mission.hint.${m.id}` as TKey)}</p>
@@ -152,7 +158,7 @@ function InviteFriend() {
       <h2 id="invite-h" className="card__title">
         {t("mission.invite.title")}
       </h2>
-      <p>{t("mission.invite.lead")}</p>
+      <p>{t("mission.invite.lead", { points: REFERRAL_POINTS })}</p>
       {ref ? (
         <>
           <p>

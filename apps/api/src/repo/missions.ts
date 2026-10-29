@@ -5,7 +5,10 @@ export interface MissionRewardRow {
   id: string;
   telecomAccountId: string;
   missionId: MissionId;
+  /** Bonus minutes: rewards granted before missions switched to points (2026-10-28); 0 for every new grant. */
   minutes: number;
+  /** MIMT Points of the reward, credited to points_ledger with the key "mission:<account>:<mission>". */
+  points: number;
   bucket: MissionBucket | null;
   status: "granted" | "pending";
   /** "YYYY-MM" the minutes were added to (null while pending or without minutes). */
@@ -19,7 +22,7 @@ export interface MissionRewardRow {
   creditedAt: Date | null;
 }
 
-export type NewMissionReward = Omit<MissionRewardRow, "id" | "creditedAt">;
+export type NewMissionReward = Omit<MissionRewardRow, "id" | "creditedAt" | "points"> & { points?: number };
 
 export interface MissionRepository {
   listForAccount(accountId: string): Promise<MissionRewardRow[]>;

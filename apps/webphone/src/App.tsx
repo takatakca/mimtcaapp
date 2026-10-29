@@ -14,6 +14,7 @@ import { CallSettings } from "./pages/CallSettings";
 import { Calls } from "./pages/Calls";
 import { Messages } from "./pages/Messages";
 import { Missions } from "./pages/Missions";
+import { Points } from "./pages/Points";
 import { Affiliate } from "./pages/Affiliate";
 import { NotFound } from "./pages/NotFound";
 import { HelpAssistant } from "./pages/HelpAssistant";
@@ -101,6 +102,7 @@ export function AppRoutes() {
         <Route path="compte/appels" element={<CallSettings />} />
         <Route path="aide" element={<HelpAssistant />} />
         <Route path="missions" element={<Missions />} />
+        <Route path="points" element={<Points />} />
         <Route path="affilie" element={<Affiliate />} />
         <Route path="billing/success" element={<BillingResult outcome="success" />} />
         <Route path="billing/cancel" element={<BillingResult outcome="cancel" />} />

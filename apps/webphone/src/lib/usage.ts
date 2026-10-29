@@ -34,6 +34,8 @@ export interface MonthUsage {
   /** Extra minutes of this month (Missions MIMT, rewarded ads, minute packs): they raise this month's cap. */
   bonusOutboundMinutes?: number;
   bonusOnNetMinutes?: number;
+  /** Extra texts of this month (MIMT Points): they raise this month's messages cap. */
+  bonusMessages?: number;
 }
 
 export function usageRows(plan: PlanCode, usage: MonthUsage, multiplier = 1): UsageRow[] {
@@ -45,7 +47,7 @@ export function usageRows(plan: PlanCode, usage: MonthUsage, multiplier = 1): Us
   // A zero cap is not in the plan (Gratuit has no phone-network minutes or texts): no row for it.
   const rows = (["outboundMinutes", "inboundMinutes", "messages"] as const)
     .filter((key) => caps[key] > 0)
-    .map((key) => row(key, usage[key], caps[key] * multiplier + (key === "outboundMinutes" ? (usage.bonusOutboundMinutes ?? 0) : 0)));
+    .map((key) => row(key, usage[key], caps[key] * multiplier + (key === "outboundMinutes" ? (usage.bonusOutboundMinutes ?? 0) : key === "messages" ? (usage.bonusMessages ?? 0) : 0)));
   // The free plan's app-to-app pool (paid plans draw app-to-app calls from outbound minutes).
   if (caps.onNetMinutes !== null) rows.push(row("onNetMinutes", usage.onNetMinutes ?? 0, caps.onNetMinutes * multiplier + (usage.bonusOnNetMinutes ?? 0)));
   return rows;

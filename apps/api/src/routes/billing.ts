@@ -5,6 +5,7 @@ import {
   FREE_PLAN_INTL_LIMITS,
   formatCad,
   PLANS,
+  storeAddOnProduct,
   storeProduct,
   SUBSCRIPTION_ADD_ONS,
   TRIAL_DAYS,
@@ -38,6 +39,7 @@ import { BUSINESS_PLANS, businessSubscription } from "../pbx/engine.js";
 import { checkHoldForCheckout } from "../services/numberHoldCheckout.js";
 import { provisionHeldNumber } from "../services/numberProvisioning.js";
 import { grantMission } from "../services/missions.js";
+import { earnInvoicePoints, earnStorePoints, storePeriodPriceCents } from "../services/points.js";
 import {
   attributeAccount,
   attributeFromHold,
@@ -224,8 +226,12 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     transaction: z.string().min(20).max(20_000),
   });
 
-  /** Writes a verified store purchase on `account`. Refuses a purchase already linked to another MIMT account. */
-  async function saveStorePurchase(account: TelecomAccount, platform: "ios" | "android", purchase: StorePurchase, productId: string) {
+  /**
+   * Writes a verified store purchase on `account`. Refuses a purchase already linked to another MIMT account.
+   * `paidKey`: set when this verification is a PAID period (a purchase or a renewal, not a grace period or a free
+   * offer): MIMT Points are credited once per key (services/points.ts).
+   */
+  async function saveStorePurchase(account: TelecomAccount, platform: "ios" | "android", purchase: StorePurchase, productId: string, paidKey?: string | null) {
     const sku = purchase.plan ? { kind: "plan" as const, code: purchase.plan } : purchase.addon ? { kind: "addon" as const, code: purchase.addon } : null;
     if (!sku) throw badRequest("unknown_product", "Ce produit n'est pas un forfait MIMT.");
     const rowId = storeRowId(platform, purchase.transactionId);
@@ -247,7 +253,20 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     if (sku.kind === "plan" && purchase.status === "active" && storeProduct(productId)?.interval === "year") {
       await grantMission(deps, { account, mission: "go_yearly", sourceRef: `${platform}:yearly`, log: app.log });
     }
+    // MIMT Points for a verified paid period, at MIMT's list price of the SKU (before taxes).
+    const interval = storeProduct(productId)?.interval ?? storeAddOnProduct(productId)?.interval;
+    if (paidKey && purchase.status === "active" && interval) {
+      const priceCents = storePeriodPriceCents(sku.kind, sku.code, interval, sku.kind === "addon" && sku.code in SUBSCRIPTION_ADD_ONS ? SUBSCRIPTION_ADD_ONS[sku.code as keyof typeof SUBSCRIPTION_ADD_ONS] : null);
+      await earnStorePoints(deps, account, { key: paidKey, priceCents, interval }, app.log);
+    }
   }
+
+  /** Points key of a paid App Store transaction (each renewal has its own transactionId); null for a free offer. */
+  const applePaidKey = (tx: Record<string, unknown>): string | null =>
+    typeof tx.transactionId === "string" && tx.transactionId && tx.price !== 0 ? `store:ios:${tx.transactionId}` : null;
+  /** Points key of a Google Play period: the purchase token prefix and the period end (one per renewal). */
+  const googlePaidKey = (purchase: StorePurchase): string | null =>
+    purchase.currentPeriodEnd ? `store:android:${purchase.transactionId}:${purchase.currentPeriodEnd.getTime()}` : null;
 
   async function cancelLinkedGoogleRow(accountId: string, linkedPurchaseToken: string) {
     const old = await repo.findSubscriptionByExternalId(storeRowId("android", googleTransactionId(linkedPurchaseToken)));
@@ -260,6 +279,7 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     const body = parse(IapBody, req.body);
     const { account } = await loadContext(deps, req);
     let purchase: StorePurchase | GooglePurchase | null;
+    let paidKey: string | null = null;
     if (body.platform === "ios") {
       if (!config.APPLE_ROOT_CA_PEM) throw notConfigured("App Store");
       let payload: Record<string, unknown>;
@@ -270,6 +290,7 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       }
       purchase = purchaseFromApplePayload(payload, deps.now(), config.APPLE_BUNDLE_ID);
       if (purchase && payload.productId !== body.productId) purchase = null;
+      if (purchase) paidKey = applePaidKey(payload);
     } else {
       if (!config.GOOGLE_PLAY_PACKAGE_NAME || !config.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON) throw notConfigured("Google Play");
       purchase = await store.google(body.productId, body.transaction);
@@ -279,7 +300,8 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     if (purchase.accountToken && purchase.accountToken !== account.id.toLowerCase()) {
       throw conflict("store_purchase_linked", "Cet achat est déjà lié à un autre compte MIMT.");
     }
-    await saveStorePurchase(account, body.platform, purchase, body.productId);
+    if (body.platform === "android") paidKey = googlePaidKey(purchase);
+    await saveStorePurchase(account, body.platform, purchase, body.productId, paidKey);
     if ("acknowledged" in purchase) {
       // An upgrade or downgrade replaces the previous Play subscription: that row stops counting.
       if (purchase.linkedPurchaseToken) {
@@ -310,9 +332,9 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
   }
 
   /** A notification for a purchase linked to another account changes nothing (409 from saveStorePurchase). */
-  async function saveNotified(account: TelecomAccount, platform: "ios" | "android", purchase: StorePurchase, productId: string): Promise<boolean> {
+  async function saveNotified(account: TelecomAccount, platform: "ios" | "android", purchase: StorePurchase, productId: string, paidKey?: string | null): Promise<boolean> {
     try {
-      await saveStorePurchase(account, platform, purchase, productId);
+      await saveStorePurchase(account, platform, purchase, productId, paidKey);
       return true;
     } catch (err) {
       if (err instanceof HttpError && err.statusCode === 409) return false;
@@ -360,7 +382,9 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     }
     const account = await storeAccount(storeRowId("ios", purchase.transactionId), purchase.accountToken);
     if (!account) return { received: true, ignored: "unknown_account" };
-    if (!(await saveNotified(account, "ios", purchase, String(tx.productId ?? "")))) return { received: true, ignored: "linked_elsewhere" };
+    // Points only for a paid period: a first purchase or a renewal (not a grace period, an expiry or a refund).
+    const paid = type === "SUBSCRIBED" || type === "DID_RENEW" ? applePaidKey(tx) : null;
+    if (!(await saveNotified(account, "ios", purchase, String(tx.productId ?? ""), paid))) return { received: true, ignored: "linked_elsewhere" };
     return { received: true };
   });
 
@@ -377,7 +401,7 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     const { message } = parse(PubSubPush, req.body);
     let data: {
       packageName?: string;
-      subscriptionNotification?: { purchaseToken?: string; subscriptionId?: string };
+      subscriptionNotification?: { purchaseToken?: string; subscriptionId?: string; notificationType?: number };
       voidedPurchaseNotification?: { purchaseToken?: string };
     };
     try {
@@ -406,7 +430,9 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     if (!purchase) return { received: true, ignored: "product" };
     const account = await storeAccount(storeRowId("android", purchase.transactionId), purchase.accountToken);
     if (!account) return { received: true, ignored: "unknown_account" };
-    if (!(await saveNotified(account, "android", purchase, sub.subscriptionId))) return { received: true, ignored: "linked_elsewhere" };
+    // Points only for a paid period: SUBSCRIPTION_RENEWED (2) or SUBSCRIPTION_PURCHASED (4).
+    const paid = sub.notificationType === 2 || sub.notificationType === 4 ? googlePaidKey(purchase) : null;
+    if (!(await saveNotified(account, "android", purchase, sub.subscriptionId, paid))) return { received: true, ignored: "linked_elsewhere" };
     if (purchase.linkedPurchaseToken) {
       await cancelLinkedGoogleRow(account.id, purchase.linkedPurchaseToken);
       await recomputeEntitlements(repo, account);
@@ -551,6 +577,9 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
           const outcome = await settleReferralOnPaidPlan(deps, { account, fingerprint });
           if (outcome) app.log.info({ account: account.id, outcome }, "referral settled");
         }
+        // MIMT Points: 10 points per dollar paid before taxes, once per invoice (key: the invoice id).
+        const interval = meta?.interval === "year" || meta?.interval === "month" ? meta.interval : undefined;
+        await earnInvoicePoints(deps, account, inv, interval, app.log);
         // Affiliate program: commission on every paid subscription invoice of a referred customer (net of taxes).
         if (inv.id) {
           const paidAt = inv.status_transitions?.paid_at ? new Date(inv.status_transitions.paid_at * 1000) : deps.now();

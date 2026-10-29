@@ -39,7 +39,8 @@ export function checkInboundCaps(input: { caps: PlanCaps; usage: Usage }): CapRe
 
 /** Messages count both directions (Twilio bills receiving). MMS also have their own, smaller cap. */
 export function checkSmsCaps(input: { caps: PlanCaps; usage: Usage; segments: number; mms?: boolean }): CapResult {
-  const remaining = input.caps.messages - messagesUsed(input.usage);
+  // Bonus texts (MIMT Points) raise the SMS allowance of the period; MMS keep their own cap.
+  const remaining = input.caps.messages + (input.usage.bonusMessages ?? 0) - messagesUsed(input.usage);
   if (remaining < input.segments) return { ok: false, reason: "sms_exhausted" };
   if (input.mms && input.usage.mmsOut >= input.caps.mms) return { ok: false, reason: "mms_exhausted" };
   return { ok: true, remaining: remaining - input.segments };

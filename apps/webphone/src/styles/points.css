@@ -1,0 +1,257 @@
+/* Portefeuille — MIMT Points (pages/Points.tsx, components/PointsNav.tsx).
+   Brand (docs/BRAND.md): electric blue #1F8BFF and cyan #29C3FF on deep navy #060D1F, monospace labels;
+   green only for status (a credit in the history). Tokens come from styles.css. */
+
+.pts-mono {
+  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  margin: 0;
+}
+.pts-muted {
+  color: var(--silver);
+}
+
+.pts-hero {
+  position: relative;
+  overflow: hidden;
+  margin: 0 0 24px;
+  padding: 24px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(31, 139, 255, 0.28), transparent 55%),
+    radial-gradient(80% 120% at 0% 100%, rgba(41, 195, 255, 0.14), transparent 60%),
+    var(--navy);
+  box-shadow: var(--shadow);
+}
+.pts-hero::before {
+  /* Scan grid: a quiet futuristic texture, not decoration that moves. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(41, 195, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(41, 195, 255, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(180deg, #000 0%, transparent 85%);
+  pointer-events: none;
+}
+.pts-hero > * {
+  position: relative;
+}
+.pts-balance {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 8px 0 4px;
+  font-family: var(--font-h);
+  font-weight: 800;
+  font-size: clamp(2.6rem, 9vw, 4.2rem);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--white);
+  text-shadow: 0 0 28px rgba(31, 139, 255, 0.55);
+}
+.pts-balance__unit {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--electric);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.pts-campaigns {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pts-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(41, 195, 255, 0.45);
+  background: rgba(41, 195, 255, 0.1);
+  color: var(--white);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.pts-h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 28px 0 12px;
+  font-size: 1.15rem;
+}
+.pts-grid {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+}
+.pts-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--midnight);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.pts-card:hover {
+  border-color: var(--electric);
+}
+.pts-card > .btn,
+.pts-card > .row {
+  margin-top: auto;
+}
+.pts-card__title {
+  margin: 0;
+  font-weight: 700;
+  color: var(--white);
+}
+.pts-card p {
+  margin: 0;
+}
+.pts-reward__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pts-price {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--white);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.pts-reward.is-locked .pts-price {
+  background: var(--line);
+  color: var(--silver);
+}
+.pts-confirm {
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--cyan);
+  background: rgba(41, 195, 255, 0.06);
+}
+.pts-confirm p {
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.pts-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.pts-history li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "label delta" "date delta";
+  gap: 2px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.pts-history li:last-child {
+  border-bottom: 0;
+}
+.pts-history__label {
+  grid-area: label;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pts-history time {
+  grid-area: date;
+}
+.pts-delta {
+  grid-area: delta;
+  align-self: center;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-weight: 700;
+  color: var(--ok);
+}
+.pts-delta--neg {
+  color: var(--silver);
+}
+.pts-rules ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.pts-badge {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(31, 139, 255, 0.18);
+  border: 1px solid rgba(31, 139, 255, 0.5);
+  color: var(--white);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.pts-toast-region {
+  top: auto;
+  bottom: calc(var(--bottomnav-h) + 88px);
+}
+.pts-toast__icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--electric), var(--cyan));
+  color: var(--navy);
+  animation: pts-pop 0.6s ease-out;
+}
+.pts-toast__text {
+  flex: 1;
+  min-width: 0;
+  color: var(--white);
+  font-weight: 600;
+  text-decoration: none;
+}
+@keyframes pts-pop {
+  0% {
+    transform: scale(0.4);
+  }
+  70% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pts-toast__icon {
+    animation: none;
+  }
+  .pts-card {
+    transition: none;
+  }
+}
+@media (min-width: 900px) {
+  .pts-toast-region {
+    bottom: 104px;
+  }
+}

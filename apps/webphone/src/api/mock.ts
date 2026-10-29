@@ -65,12 +65,14 @@ import {
   type VoicemailSettingsDto,
   type Weekday,
   MISSION_MINUTES_CAP,
+  MISSION_POINTS_CAP,
   MISSIONS,
   type MissionGrantedDto,
   type MissionId,
   type MissionsResponse,
 } from "@mimt/shared";
 import { meetingMockRoutes, resetMeetingsMock } from "./mock.meetings";
+import { earnMockPoints, pointsMockRoutes, resetPointsMock } from "./mock.points";
 
 const OUR = "+15145550100";
 const USER_ID = "user-demo";
@@ -468,19 +470,22 @@ function grantMockMission(id: MissionId): MissionGrantedDto | null {
   if (mockMissions.has(id)) return null;
   mockMissions.set(id, new Date().toISOString());
   const def = MISSIONS.find((m) => m.id === id)!;
-  const bucket = def.minutes > 0 ? (PLANS[state.me.account.plan].caps.onNetMinutes !== null ? "on_net" : "outbound") : null;
-  return { id, minutes: def.minutes, bucket, status: "granted", period: bucket ? new Date().toISOString().slice(0, 7) : null };
+  // Missions reward MIMT Points (mock.points.ts), like apps/api services/missions.ts.
+  earnMockPoints(def.points, `mission:${id}`);
+  return { id, points: def.points, minutes: 0, bucket: null, status: "granted", period: null };
 }
 
 function missionsResponse(): MissionsResponse {
   const missions = MISSIONS.map((def) => {
     const grantedAt = mockMissions.get(def.id) ?? null;
-    return { id: def.id, status: grantedAt ? ("done" as const) : ("todo" as const), rewardKind: def.rewardKind, minutes: def.minutes, needsPurchase: def.needsPurchase, grantedAt };
+    return { id: def.id, status: grantedAt ? ("done" as const) : ("todo" as const), rewardKind: def.rewardKind, points: def.points, minutes: 0, needsPurchase: def.needsPurchase, grantedAt };
   });
   return {
     enabled: true,
     missions,
-    totalMinutes: missions.filter((m) => m.status === "done").reduce((s, m) => s + m.minutes, 0),
+    totalPoints: missions.filter((m) => m.status === "done").reduce((s, m) => s + m.points, 0),
+    capPoints: MISSION_POINTS_CAP,
+    totalMinutes: 0,
     capMinutes: MISSION_MINUTES_CAP,
     bucket: PLANS[state.me.account.plan].caps.onNetMinutes !== null ? "on_net" : "outbound",
     period: new Date().toISOString().slice(0, 7),
@@ -493,6 +498,7 @@ export function resetMockState(): void {
   mockHandle = null;
   mockMissions = new Map();
   resetMeetingsMock();
+  resetPointsMock();
 }
 
 const nextId = (prefix: string) => `${prefix}-${++state.seq}`;
@@ -1528,6 +1534,9 @@ routes.push(
     businessId: BIZ_ID,
   }),
 );
+
+// MIMT Points (mock.points.ts).
+routes.push(...pointsMockRoutes({ ok, fail }, () => state.me.account.plan));
 
 const latencyMs = () => (import.meta.env.MODE === "test" ? 0 : 150);
 

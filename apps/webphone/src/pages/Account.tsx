@@ -1,4 +1,4 @@
-import { AI_CONSENT_KIND, MISSION_MINUTES_CAP, PLANS, SUBSCRIPTION_ADD_ONS, adFreeFor, formatCad, type AiStatusResponse, type E911NoticeResponse, type PaidPlanCode, type UserConsentKind } from "@mimt/shared";
+import { AI_CONSENT_KIND, MISSION_POINTS_CAP, PLANS, SUBSCRIPTION_ADD_ONS, adFreeFor, formatCad, type AiStatusResponse, type E911NoticeResponse, type PaidPlanCode, type UserConsentKind } from "@mimt/shared";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { api } from "../api/client";
@@ -82,7 +82,7 @@ export function Account() {
         <Icon name="sparkle" size={22} />
         <span>
           <strong>{t("account.missions")}</strong>
-          <span className="muted small"> {t("account.missionsLead", { cap: MISSION_MINUTES_CAP })}</span>
+          <span className="muted small"> {t("account.missionsLead", { cap: MISSION_POINTS_CAP.toLocaleString(lang === "fr" ? "fr-CA" : "en-CA") })}</span>
         </span>
       </Link>
 

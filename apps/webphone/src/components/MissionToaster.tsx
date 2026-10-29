@@ -44,8 +44,8 @@ export function MissionToaster() {
   const label = missionLabel(current.id, lang);
   const text = current.pending
     ? t("mission.toastPending", { label, minutes: current.minutes })
-    : current.minutes > 0
-      ? t("mission.toast", { label, minutes: current.minutes })
+    : (current.points ?? 0) > 0
+      ? t("mission.toast", { label, points: (current.points ?? 0).toLocaleString(lang === "fr" ? "fr-CA" : "en-CA") })
       : t("mission.toastNoMinutes", { label });
   return (
     <div className="toast-region mission-toast-region" role="status" aria-live="polite">

@@ -25,7 +25,7 @@ export class MemoryMissionRepository implements MissionRepository {
           (row.deviceHash !== null && r.deviceHash === row.deviceHash)),
     );
     if (taken) return null;
-    const created: MissionRewardRow = { ...row, id: randomUUID(), creditedAt: row.status === "granted" && row.minutes > 0 ? row.grantedAt : null };
+    const created: MissionRewardRow = { ...row, points: row.points ?? 0, id: randomUUID(), creditedAt: row.status === "granted" && row.minutes > 0 ? row.grantedAt : null };
     this.rows.push(created);
     if (created.creditedAt) await this.addUsage(row.telecomAccountId, usagePeriods, bucketDelta(row.bucket, row.minutes));
     return { ...created };
