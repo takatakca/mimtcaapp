@@ -12,6 +12,7 @@ import type { TKey } from "../../i18n/core";
 import { PROVINCES } from "../../lib/address";
 import { useAsync } from "../../lib/useAsync";
 import { LINE_KEY, offerFeatures, priceText, termText } from "./catalogText";
+import { ShopTabs } from "../../components/SectionTabs";
 
 type Filter = "all" | "mobile" | "internet" | "other";
 const FILTERS: Array<{ id: Filter; label: TKey }> = [
@@ -53,6 +54,7 @@ export function Offers() {
   const list = (offers.data?.offers ?? []).filter((o) => matches(o.productLine, filter));
   return (
     <div className="page page--wide">
+      <ShopTabs />
       <PageHeader title={t("offers.title")} sub={t("offers.sub")} />
       <form className="row row--wrap row--end" onSubmit={search} noValidate>
         <Field id="offers-postal" label={t("address.postalCode")} error={postalError ? t("address.invalidPostal") : null}>
