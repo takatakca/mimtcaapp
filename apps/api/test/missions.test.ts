@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type Stripe from "stripe";
-import { MISSION_MINUTES_CAP, PLANS, type MissionsResponse } from "@mimt/shared";
+import { MISSION_POINTS_CAP, PLANS, type MissionsResponse } from "@mimt/shared";
 import type { BillingGateway } from "../src/gateways/billing.js";
 import { monthPeriod } from "../src/lib/time.js";
 import { makeUser, setup, type Ctx } from "./helpers.js";
@@ -51,22 +51,22 @@ const planEvent = (accountId: string, code: string, interval: "month" | "year", 
 });
 
 describe("Missions MIMT: server-verified, once, logged", () => {
-  it("lists the 7 missions, all to do, with the 150-minute cap and the current month", async () => {
+  it("lists the 7 missions, all to do, with the 1 500-point cap", async () => {
     ctx = await setup();
     const u = await makeUser(ctx);
     const m = await missions(u.auth);
     expect(m.enabled).toBe(true);
-    expect(m.missions.map((x) => [x.id, x.status, x.minutes])).toEqual([
-      ["verify_phone", "todo", 15],
-      ["choose_handle", "todo", 30],
-      ["enable_push", "todo", 15],
-      ["install_app", "todo", 30],
-      ["first_number", "todo", 60],
-      ["invite_friend", "todo", 0],
-      ["go_yearly", "todo", 0],
+    expect(m.missions.map((x) => [x.id, x.status, x.rewardKind, x.points])).toEqual([
+      ["verify_phone", "todo", "points", 150],
+      ["choose_handle", "todo", "points", 300],
+      ["enable_push", "todo", "points", 150],
+      ["install_app", "todo", "points", 300],
+      ["first_number", "todo", "points", 600],
+      ["invite_friend", "todo", "premium_month", 0],
+      ["go_yearly", "todo", "free_month", 0],
     ]);
-    expect(m).toMatchObject({ totalMinutes: 0, capMinutes: 150, bucket: "on_net", period: monthPeriod(new Date()) });
-    expect(MISSION_MINUTES_CAP).toBe(150);
+    expect(m).toMatchObject({ totalPoints: 0, capPoints: 1500, totalMinutes: 0, capMinutes: 150, period: monthPeriod(new Date()) });
+    expect(MISSION_POINTS_CAP).toBe(1500);
   });
 
   it("has no route to claim or complete a mission: the client can never say it is done", async () => {
@@ -77,59 +77,64 @@ describe("Missions MIMT: server-verified, once, logged", () => {
     }
   });
 
-  it("choose_handle: free plan gets 30 app-to-app minutes in the current month, once; a second handle is refused anyway", async () => {
+  it("choose_handle: 300 MIMT Points, once, no minutes; a second handle is refused anyway", async () => {
     ctx = await setup();
     const u = await makeUser(ctx);
     const res = await ctx.app.inject({ method: "PUT", url: "/v1/me/handle", headers: u.auth, payload: { handle: "@camille" } });
     expect(res.json()).toEqual({
       handle: "@camille",
-      missionGranted: { id: "choose_handle", minutes: 30, bucket: "on_net", status: "granted", period: monthPeriod(new Date()) },
+      missionGranted: { id: "choose_handle", points: 300, minutes: 0, bucket: null, status: "granted", period: null },
     });
     const usage = await ctx.repo.getUsage(u.account.id, monthPeriod(new Date()));
-    expect(usage.bonusMinutesOnNet).toBe(30);
-    expect(usage.bonusMinutesOut).toBe(0);
+    expect(usage.bonusMinutesOnNet + usage.bonusMinutesOut).toBe(0);
+    expect((await ctx.repo.points.getAccount(u.account.id))?.balance).toBe(300);
     // Same handle again: nothing new.
     const again = await ctx.app.inject({ method: "PUT", url: "/v1/me/handle", headers: u.auth, payload: { handle: "@camille" } });
     expect(again.json()).toEqual({ handle: "@camille" });
-    expect((await ctx.repo.getUsage(u.account.id, monthPeriod(new Date()))).bonusMinutesOnNet).toBe(30);
+    expect((await ctx.repo.points.getAccount(u.account.id))?.balance).toBe(300);
     const m = await missions(u.auth);
     expect(statusOf(m, "choose_handle")).toBe("done");
-    expect(m.totalMinutes).toBe(30);
+    expect(m.totalPoints).toBe(300);
     // Audited, without personal data.
     const audit = ctx.repo.auditLog.filter((e) => e.action === "mission.granted");
     expect(audit).toHaveLength(1);
-    expect(audit[0]).toMatchObject({ actorUserId: null, targetType: "telecom_account", targetId: u.account.id, meta: { mission: "choose_handle", minutes: 30, bucket: "on_net" } });
+    expect(audit[0]).toMatchObject({ actorUserId: null, targetType: "telecom_account", targetId: u.account.id, meta: { mission: "choose_handle", points: 300 } });
     expect(JSON.stringify(audit[0]!.meta)).not.toMatch(/camille/);
+    expect(ctx.repo.auditLog.filter((e) => e.action === "points.earned")).toHaveLength(1);
   });
 
-  it("free plan: the extra app-to-app minutes really extend the on-net pool", async () => {
+  it("a mission rewarded in minutes before points keeps its minutes and shows them", async () => {
     ctx = await setup();
     const u = await makeUser(ctx);
-    const { checkOnNetCaps } = await import("../src/fraud/caps.js");
-    await ctx.repo.addUsage(u.account.id, [monthPeriod(new Date())], { minutesOnNet: PLANS.free.caps.onNetMinutes! });
-    const caps = PLANS.free.caps;
-    expect(checkOnNetCaps({ caps, usage: await ctx.repo.getUsage(u.account.id, monthPeriod(new Date())) }).ok).toBe(false);
-    await ctx.app.inject({ method: "PUT", url: "/v1/me/handle", headers: u.auth, payload: { handle: "@pool" } });
-    expect(checkOnNetCaps({ caps, usage: await ctx.repo.getUsage(u.account.id, monthPeriod(new Date())) })).toEqual({ ok: true, remaining: 30 });
-  });
-
-  it("paid plans get outbound minutes instead", async () => {
-    ctx = await setup();
-    withBilling();
-    const u = await makeUser(ctx);
-    await stripeWebhook(planEvent(u.account.id, "premium", "month"));
-    await ctx.app.inject({ method: "PUT", url: "/v1/me/handle", headers: u.auth, payload: { handle: "@payant" } });
-    const usage = await ctx.repo.getUsage(u.account.id, monthPeriod(new Date()));
-    expect(usage.bonusMinutesOut).toBe(30);
-    expect(usage.bonusMinutesOnNet).toBe(0);
-    expect((await missions(u.auth)).bucket).toBe("outbound");
+    const now = new Date();
+    await ctx.repo.missions.grant({
+      telecomAccountId: u.account.id,
+      missionId: "choose_handle",
+      minutes: 30,
+      bucket: "on_net",
+      status: "granted",
+      period: monthPeriod(now),
+      ownerHash: null,
+      deviceHash: null,
+      sourceRef: "handle",
+      grantedAt: now,
+      usagePeriods: [monthPeriod(now)],
+    });
+    const m = await missions(u.auth);
+    expect(m.missions.find((x) => x.id === "choose_handle")).toMatchObject({ status: "done", rewardKind: "minutes", minutes: 30, points: 0 });
+    expect(m).toMatchObject({ totalMinutes: 30, totalPoints: 0 });
+    expect((await ctx.repo.points.getAccount(u.account.id))?.balance ?? 0).toBe(0);
+    // The old minutes count toward the cap at 10 points per minute: 1 500 - 300 left for the other missions.
+    const { grantMission } = await import("../src/services/missions.js");
+    for (const mission of ["verify_phone", "enable_push", "install_app", "first_number"] as const) await grantMission(ctx.deps, { account: u.account, mission, sourceRef: "test" });
+    expect((await missions(u.auth)).totalPoints).toBe(1200);
   });
 
   it("verify_phone: once per account AND once per phone number, even after the account is deleted", async () => {
     ctx = await setup();
     const phone = "+15145550123";
     const first = await ctx.app.inject({ method: "POST", url: "/v1/auth/otp/verify", payload: { phone, code: "123456" } });
-    expect(first.json().missionGranted).toMatchObject({ id: "verify_phone", minutes: 15, bucket: "on_net", status: "granted" });
+    expect(first.json().missionGranted).toMatchObject({ id: "verify_phone", points: 150, minutes: 0, status: "granted" });
     const second = await ctx.app.inject({ method: "POST", url: "/v1/auth/otp/verify", payload: { phone, code: "123456" } });
     expect(second.statusCode).toBe(200);
     expect(second.json().missionGranted).toBeUndefined();
@@ -176,7 +181,7 @@ describe("Missions MIMT: server-verified, once, logged", () => {
     expect(real.statusCode).toBe(204);
     expect(statusOf(await missions(u.auth), "enable_push")).toBe("done");
     await ctx.app.inject({ method: "POST", url: "/v1/push/web/subscribe", headers: u.auth, payload: { endpoint: `${FCM}-2`, keys: pushKeys } });
-    expect((await missions(u.auth)).totalMinutes).toBe(15);
+    expect((await missions(u.auth)).totalPoints).toBe(150);
   });
 
   it("install_app: on a successful attestation, once per device across accounts", async () => {
@@ -187,7 +192,7 @@ describe("Missions MIMT: server-verified, once, logged", () => {
       return ctx.app.inject({ method: "POST", url: "/v1/devices/attest", headers: auth, payload: { platform: "ios", deviceKey, challenge, challengeToken, assertion: `dev:${challenge}` } });
     };
     const ok = await attest(a.auth, "device-key-mission-1");
-    expect(ok.json()).toMatchObject({ verified: true, missionGranted: { id: "install_app", minutes: 30 } });
+    expect(ok.json()).toMatchObject({ verified: true, missionGranted: { id: "install_app", points: 300 } });
     const again = await attest(a.auth, "device-key-mission-1");
     expect(again.json()).toEqual({ verified: true });
     expect(JSON.stringify(ctx.repo.missions.rows)).not.toContain("device-key-mission-1");
@@ -200,8 +205,9 @@ describe("Missions MIMT: server-verified, once, logged", () => {
     await stripeWebhook(planEvent(u.account.id, "lock", "month"));
     const res = await ctx.app.inject({ method: "POST", url: "/v1/numbers/claim", headers: u.auth, payload: { e164: "+15145550199" } });
     expect(res.statusCode).toBe(201);
-    expect(res.json().missionGranted).toMatchObject({ id: "first_number", minutes: 60, bucket: "outbound" });
-    expect((await ctx.repo.getUsage(u.account.id, monthPeriod(new Date()))).bonusMinutesOut).toBe(60);
+    expect(res.json().missionGranted).toMatchObject({ id: "first_number", points: 600, minutes: 0 });
+    expect((await ctx.repo.getUsage(u.account.id, monthPeriod(new Date()))).bonusMinutesOut).toBe(0);
+    expect((await ctx.repo.points.getAccount(u.account.id))?.balance).toBe(600);
   });
 
   it("go_yearly: a yearly plan paid through Stripe completes it, with no extra minutes (the free month is the reward)", async () => {
@@ -232,11 +238,23 @@ describe("Missions MIMT: server-verified, once, logged", () => {
     }
   });
 
-  it("free-tier budget reached: the reward is recorded as pending, then credited once the budget allows it", async () => {
+  it("a legacy pending reward (free-tier budget reached, before points) is credited once the budget allows it", async () => {
     ctx = await setup({ config: { FREE_TIER_MONTHLY_BUDGET_CAD: "0" } });
     const u = await makeUser(ctx);
-    const res = await ctx.app.inject({ method: "PUT", url: "/v1/me/handle", headers: u.auth, payload: { handle: "@attente" } });
-    expect(res.json().missionGranted).toMatchObject({ status: "pending", period: null, minutes: 30 });
+    const now = new Date();
+    await ctx.repo.missions.grant({
+      telecomAccountId: u.account.id,
+      missionId: "choose_handle",
+      minutes: 30,
+      bucket: "on_net",
+      status: "pending",
+      period: null,
+      ownerHash: null,
+      deviceHash: null,
+      sourceRef: "handle",
+      grantedAt: now,
+      usagePeriods: [],
+    });
     expect((await ctx.repo.getUsage(u.account.id, monthPeriod(new Date()))).bonusMinutesOnNet).toBe(0);
     let m = await missions(u.auth);
     expect(statusOf(m, "choose_handle")).toBe("pending");
@@ -263,7 +281,7 @@ describe("Missions MIMT: server-verified, once, logged", () => {
     expect(ctx.repo.missions.rows).toHaveLength(0);
   });
 
-  it("never more than 150 minutes per account, whatever happens", async () => {
+  it("never more than 1 500 points per account, whatever happens", async () => {
     ctx = await setup();
     const u = await makeUser(ctx);
     const { grantMission } = await import("../src/services/missions.js");
@@ -272,8 +290,10 @@ describe("Missions MIMT: server-verified, once, logged", () => {
       await grantMission(ctx.deps, { account: u.account, mission, sourceRef: "test" });
     }
     const m = await missions(u.auth);
-    expect(m.totalMinutes).toBe(150);
+    expect(m.totalPoints).toBe(1500);
+    expect(m.totalMinutes).toBe(0);
     expect(m.missions.every((x) => x.status === "done")).toBe(true);
-    expect((await ctx.repo.getUsage(u.account.id, monthPeriod(new Date()))).bonusMinutesOnNet).toBe(150);
+    expect((await ctx.repo.points.getAccount(u.account.id))?.balance).toBe(1500);
+    expect((await ctx.repo.getUsage(u.account.id, monthPeriod(new Date()))).bonusMinutesOnNet).toBe(0);
   });
 });

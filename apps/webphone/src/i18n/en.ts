@@ -4,6 +4,7 @@ import { enExtra } from "./en.extra";
 import { enMeet } from "./en.meet";
 import { enBiz } from "./en.biz";
 import { enMissions } from "./en.missions";
+import { enPoints } from "./en.points";
 import { enAffiliate } from "./en.affiliate";
 import { enPilot } from "./en.pilot";
 
@@ -12,6 +13,7 @@ export const en: Record<TKey, string> = {
   ...enMeet,
   ...enBiz,
   ...enMissions,
+  ...enPoints,
   ...enAffiliate,
   ...enPilot,
   "account.billingPortal": "Manage billing",

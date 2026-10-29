@@ -33,6 +33,10 @@ import type {
   MessageDto,
   MessagesResponse,
   MissionsResponse,
+  PointsCatalogResponse,
+  PointsRedeemRequest,
+  PointsRedeemResponse,
+  PointsResponse,
   NumberHoldResponse,
   OtpStartResponse,
   ReferralsResponse,
@@ -143,6 +147,10 @@ export function coreEndpoints(request: HttpClient["request"]) {
     /** My referral code and share link (the « Un ami s'abonne » mission). */
     referrals: () => request<ReferralsResponse>("GET", "/v1/referrals"),
 
+    // MIMT Points (earned by the API from verified events; redeeming is the only write).
+    points: () => request<PointsResponse>("GET", "/v1/points"),
+    pointsCatalog: () => request<PointsCatalogResponse>("GET", "/v1/points/catalog"),
+    redeemPoints: (body: PointsRedeemRequest) => request<PointsRedeemResponse>("POST", "/v1/points/redeem", { body }),
     // Programme d'agents affiliés (docs/MIMT-AFFILIATES.md).
     /** 404 not_affiliate unless this user is an active (or suspended) affiliate. */
     affiliateDashboard: () => request<AffiliateDashboardResponse>("GET", "/v1/affiliates/me"),

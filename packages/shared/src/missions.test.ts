@@ -1,18 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { MISSION_MINUTES_CAP, MISSIONS, isMissionId, missionDef } from "./missions.js";
+import { MISSION_MINUTES_CAP, MISSION_POINTS_CAP, MISSIONS, isMissionId, missionDef } from "./missions.js";
 
 describe("Missions MIMT", () => {
-  it("the table is the owner's: 7 missions, 150 bonus minutes at most per account", () => {
-    expect(MISSIONS.map((m) => [m.id, m.minutes])).toEqual([
-      ["verify_phone", 15],
-      ["choose_handle", 30],
-      ["enable_push", 15],
-      ["install_app", 30],
-      ["first_number", 60],
+  it("the table is the owner's: 7 missions, 1 500 points at most per account (the old 150 minutes)", () => {
+    expect(MISSIONS.map((m) => [m.id, m.points])).toEqual([
+      ["verify_phone", 150],
+      ["choose_handle", 300],
+      ["enable_push", 150],
+      ["install_app", 300],
+      ["first_number", 600],
       ["invite_friend", 0],
       ["go_yearly", 0],
     ]);
+    expect(MISSION_POINTS_CAP).toBe(1500);
     expect(MISSION_MINUTES_CAP).toBe(150);
+    // The minute equivalent the site still shows is exactly what the points buy (10 points = 1 minute).
+    for (const m of MISSIONS) expect(m.minutes * 10, m.id).toBe(m.points);
   });
 
   it("the referral and yearly missions give their month, not minutes", () => {

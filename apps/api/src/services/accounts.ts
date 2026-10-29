@@ -3,6 +3,9 @@ import type { AccountStatus, Repository, Subscription, TelecomAccount, User } fr
 import { dayPeriod, monthPeriod } from "../lib/time.js";
 import { STORE_RENEWAL_MARGIN_MS } from "../billing/iap.js";
 
+/** Features granted by subscription add-ons ("Sans pub" → no_ads): always read from the live add-ons. */
+const SUBSCRIPTION_ADD_ON_FEATURES = new Set<Feature>(Object.values(SUBSCRIPTION_ADD_ONS).flatMap((a) => [...a.features]));
+
 const PLAN_RANK: PlanCode[] = ["free", "lock", "premium", "business", "business_pro"];
 const LIVE_STATUSES = new Set<Subscription["status"]>(["active", "trialing", "past_due"]);
 const STORE_SOURCES = new Set<Subscription["source"]>(["iap_apple", "iap_google"]);
@@ -98,6 +101,9 @@ export async function getFeatures(repo: Repository, accountId: string): Promise<
   for (const e of ents) {
     // Plan features come from the live plan above: a stored "plan" row can be stale (e.g. an expired referral month).
     if (e.source === "plan") continue;
+    // Subscription add-on features come from the live add-ons above: a stored row can outlive a grant with an end date
+    // (e.g. a week without ads bought with MIMT Points).
+    if (e.source === "addon" && e.feature !== "extra_number" && SUBSCRIPTION_ADD_ON_FEATURES.has(e.feature)) continue;
     features.add(e.feature);
     if (e.feature === "extra_number") extraNumbers += e.limit ?? 1;
   }

@@ -27,18 +27,18 @@ describe("Missions MIMT (demo mode)", () => {
     await act(async () => {
       fireEvent.click(within(side).getByRole("link", { name: "Compte" }));
     });
-    expect(await screen.findByRole("link", { name: /Missions : gagnez des minutes/ })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Missions : gagnez des points/ })).toBeInTheDocument();
     fireEvent.change(await screen.findByLabelText("Identifiant"), { target: { value: "Matt.QC" } });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Choisir cet identifiant" }));
     });
-    expect(await screen.findByText(/Mission accomplie : Choisissez votre @nom! \+30 min ajoutées au mois en cours\./)).toBeInTheDocument();
+    expect(await screen.findByText(/Mission accomplie : Choisissez votre @nom! \+300 points dans votre Portefeuille\./)).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(within(side).getByRole("link", { name: "Missions" }));
     });
     expect(await screen.findByRole("heading", { level: 2, name: "1 sur 7 missions accomplies" })).toBeInTheDocument();
-    expect(screen.getByText("30 min gagnées sur 150 possibles")).toBeInTheDocument();
+    expect(screen.getByText(/^300 points gagnés sur 1\s500 possibles$/)).toBeInTheDocument();
     expect(screen.getByRole("progressbar", { name: "Progression des missions" })).toHaveAttribute("aria-valuenow", "14");
     const items = screen.getAllByRole("listitem").filter((li) => li.classList.contains("mission"));
     expect(items).toHaveLength(7);
@@ -49,6 +49,7 @@ describe("Missions MIMT (demo mode)", () => {
     expect(screen.getByText(/Aucun tirage, aucun hasard/)).toBeInTheDocument();
     expect(screen.getByText(/aucune valeur en argent/)).toBeInTheDocument();
     expect(screen.getByText(/s'ajoutent au mois en cours/)).toBeInTheDocument();
+    expect(within(items[1]!).getByText("+300 points")).toBeInTheDocument();
     expect(screen.getByText(/ne récompense jamais un avis/)).toBeInTheDocument();
 
     // Invite: no navigator.share in this browser → the link is copied.

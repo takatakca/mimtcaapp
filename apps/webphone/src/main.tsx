@@ -6,6 +6,7 @@ import { registerServiceWorker } from "./pwa";
 import { captureAffiliate } from "./lib/affiliate";
 import "./styles.css";
 import "./styles/missions.css";
+import "./styles/points.css";
 import "./styles/affiliate.css";
 import "./styles/pilot.css";
 

@@ -7,6 +7,7 @@ import { frExtra } from "./fr.extra";
 import { frMeet } from "./fr.meet";
 import { frBiz } from "./fr.biz";
 import { frMissions } from "./fr.missions";
+import { frPoints } from "./fr.points";
 import { frAffiliate } from "./fr.affiliate";
 import { frPilot } from "./fr.pilot";
 
@@ -15,6 +16,7 @@ export const fr = {
   ...frMeet,
   ...frBiz,
   ...frMissions,
+  ...frPoints,
   ...frAffiliate,
   ...frPilot,
   "account.billingPortal": "Gérer la facturation",
