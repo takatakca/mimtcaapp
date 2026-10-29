@@ -35,6 +35,7 @@ const PATHS = {
   wallet: "M3 7h15a3 3 0 0 1 3 3v9H3zM3 7l11-4 2 4M16 14h.01",
   copy: "M9 9h11v11H9zM5 15H4V4h11v1",
   lock: "M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4M12 15v2",
+  calendar: "M4 6h16v15H4zM4 10h16M8 3v5m8-5v5M8 14h3",
 } as const;
 
 export type IconName = keyof typeof PATHS;

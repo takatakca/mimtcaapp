@@ -112,6 +112,9 @@ export function Account() {
           <Link to="/compte/securite" className="btn btn--ghost">
             <Icon name="lock" size={16} /> {t("security.open")}
           </Link>
+          <Link to="/compte/integrations" className="btn btn--ghost">
+            <Icon name="calendar" size={16} /> {t("integrations.open")}
+          </Link>
           <DataSection />
           <button type="button" className="btn btn--ghost" onClick={() => void signOut()}>
             <Icon name="logout" size={16} /> {t("account.logout")}

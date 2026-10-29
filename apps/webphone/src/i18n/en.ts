@@ -10,6 +10,7 @@ import { enPilot } from "./en.pilot";
 import { enCallTest } from "./en.calltest";
 import { enSecurity } from "./en.security";
 import { enPartner } from "./en.partner";
+import { enCalendar } from "./en.calendar";
 
 export const en: Record<TKey, string> = {
   ...enExtra,
@@ -22,6 +23,7 @@ export const en: Record<TKey, string> = {
   ...enCallTest,
   ...enSecurity,
   ...enPartner,
+  ...enCalendar,
   "account.billingPortal": "Manage billing",
   "account.complaints": "Complaints: CCTS (Commission for Complaints for Telecom-television Services)",
   "account.complaintsHint": "If we do not resolve your complaint, the CCTS can help you for free.",
