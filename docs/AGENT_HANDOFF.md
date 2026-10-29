@@ -1,5 +1,19 @@
 # MIMT — Relève du développeur principal
 
+## Relève du 29 octobre 2026 — Vérification croisée GitHub / Drive et moniteur d'alertes
+
+- **Vérité du projet :** le dossier [Fiche maître MIMT](https://docs.google.com/document/d/1kItULXAByYazVZm_LDXakQT5-ICIBBz5XgEzweCtHZc/edit) désigne `takatakca/mimtcaapp` (privé) comme dépôt produit actif. `takatakca/mimt` (SHA `dc75a392`, 16 octobre) est une ancienne ligne de travail distincte; **ne pas y pousser de nouveaux correctifs de production** sans réconciliation. Au démarrage, `main` actuel = `93d303d0e3128652e5a0230edc2d61c77acd34c9`, fusion PR #84, CI [#40846622396](https://github.com/takatakca/mimtcaapp/actions/runs/40846622396) réussie et migrations [#40846622271](https://github.com/takatakca/mimtcaapp/actions/runs/40846622271) réussies.
+- **Publication vérifiée dans les journaux Actions :** Auto deploy website [#40846814733](https://github.com/takatakca/mimtcaapp/actions/runs/40846814733) a vu `mimt.ca/mimt-release.json` servir le SHA complet `93d303d0...` le 29 octobre à 09:07 UTC; API Deploy [#40846623390](https://github.com/takatakca/mimtcaapp/actions/runs/40846623390) a demandé le déploiement Coolify et exécuté des contrôles `healthz`/`readyz`, sans preuve du SHA exact de l'API ni d'appel téléphonique réel. Uptime [#40935863819](https://github.com/takatakca/mimtcaapp/actions/runs/40935863819) a journalisé 3 services UP et `services down: 0`; une issue non publiée ne pouvait cependant pas faire échouer le job.
+- **Travail actif :** `MON-ALERT-01`, branche `agent/uptime-alert-delivery-20261029`. `scripts/monitor/uptime.sh` doit refuser de passer silencieusement au vert quand `gh issue list/create/comment/close` échoue; `/readyz` doit annoncer `schema=current`. Les incidents correctement publiés restent traités comme prévu, sans créer une série de runs rouges pour chaque panne. `apps/api/test/uptime-monitor.test.ts` fournit 7 tests avec faux curl/gh sans accès réseau ni issues réelles.
+- **Commits poussés de cette branche :** revendication `0ae04b0fd2053b3fd4e3cd2af57cbc8af14c15c1`, code `6fc35cf6b5b0945abac7bd9f910d5ddb4063cd73`, tests `ec21746b78365e78812536f0417724625803aab6`. Le commit documentaire modifie aussi les cinq fichiers obligatoires et `WORKLOG.md`; lire le HEAD du PR et ses checks avant de prétendre une CI verte. Les fichiers des PR ouvertes [#77](https://github.com/takatakca/mimtcaapp/pull/77) (anciens déploiements FTP) et [#81](https://github.com/takatakca/mimtcaapp/pull/81) (actions du propriétaire) ne sont pas remplacés.
+- **État réel et limites :** pas de déploiement déclenché par cette branche, pas de secret lu, aucun test 9-1-1, appel, SMS, achat ni migration en production. La fiche Drive datée du 28 octobre est historique sur certains points (elle cite `a619f2f` tandis que GitHub et la preuve du site montrent `93d303d`). L'homologation mobile, la facturation réelle, la conformité et les sauvegardes hors serveur restent à prouver séparément.
+- **Prochaine action exacte :** ouvrir/contrôler la PR MON-ALERT-01, corriger d'éventuels tests, valider CI `check` et `e2e`, mettre la note Drive à jour avec les preuves, demander la revue/fusion plutôt que de contourner la branche `main`; ensuite reprendre l'issue [#69](https://github.com/takatakca/mimtcaapp/issues/69) sur preuves de publication avec les opérateurs Coolify et le propriétaire.
+
+Signé : 16:01 HAE — GPT-6 · agent MIMT (reprise croisée) — travail sur branche isolée.
+
+---
+
+
 ## Reprise vérifiée — 26 octobre 2026, Codex
 
 PR #63–#68 fusionnées, main vérifié c308dd8; CI 40420964736 réussie. Publication 40421110321 échouée : manifeste 8d38458 pendant 60 essais. Surveillance 40438511037 : trois services UP, sans comparaison de SHA. Les crédits ont bloqué la revue automatique Claude, pas la sauvegarde des modifications.

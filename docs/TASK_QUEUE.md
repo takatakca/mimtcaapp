@@ -1,5 +1,11 @@
 # MIMT — File des tâches exécutables
 
+## Réconciliation et surveillance — 29 octobre 2026
+
+- **MON-ALERT-01 — code et tests sur branche :** échouer explicitement si le moniteur ne peut pas signaler/mettre à jour une issue d'incident; exiger `schema=current` pour la disponibilité API; 7 tests hermétiques (aucune issue réelle). Branch `agent/uptime-alert-delivery-20261029`, vérification CI/PR à terminer. Respecter les deux PR ouvertes #77 (FTP) et #81 (actions propriétaire).
+- **DEP-VERIFY — partiellement vérifié :** manifeste public du site du SHA `93d303d` confirmé par Actions #40846814733, mais preuve SHA exacte API et appels/SMS/achats réels absents. Ne jamais transformer `UP` en certification 9-1-1.
+- **Source de vérité :** `takatakca/mimtcaapp` est le dépôt actif selon la fiche maître Drive; l'ancien `takatakca/mimt` du 16 octobre ne doit pas être utilisé pour la publication.
+
 ## Sécurité : sessions, clés d'accès, confirmation — 29 octobre 2026, Claude (branche `claude/security-sessions`, PR à ouvrir par le propriétaire)
 
 | ID | État | Prochaine preuve requise |

@@ -1,5 +1,9 @@
 # MIMT — Déploiement et preuve de publication
 
+## Vérification reprise du 29 octobre 2026
+
+Actions #40846814733 : vérification réussie du manifeste public `mimt-release.json` au SHA `93d303d0e3128652e5a0230edc2d61c77acd34c9` après plusieurs lectures anciennes; ce contrôle valide **la vitrine seulement**. Actions #40846623390 : déploiement API demandé à Coolify, `healthz` et `readyz` passés, sans API commit/version certifié dans les journaux. Surveillance #40935863819 : trois services UP. L'ancien workflow manuel `deploy.yml` garde encore des portées FTP obsolètes; la PR #77 les retire, ne pas utiliser ces portées. L'issue #69 reste le suivi des preuves. La correction MON-ALERT-01 (sur branche, non publiée) ajoute des erreurs de notification visibles et la vérification `schema=current` dans la surveillance, sans toucher aux déploiements ou aux données clients.
+
 ## Reprise vérifiée — 26 octobre 2026, Codex
 
 PR #63–#68 fusionnées, main vérifié c308dd8; CI 40420964736 réussie. Publication 40421110321 échouée : manifeste 8d38458 pendant 60 essais. Surveillance 40438511037 : trois services UP, sans comparaison de SHA. Les crédits ont bloqué la revue automatique Claude, pas la sauvegarde des modifications.

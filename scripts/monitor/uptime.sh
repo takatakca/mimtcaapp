@@ -17,7 +17,7 @@ check_site() { get "https://mimt.ca/?uptime=$RANDOM" >/dev/null && [[ "$(get "ht
 check_app() { get "https://app.mimt.ca/?uptime=$RANDOM" | grep -qi "MIMT"; }
 check_api() {
   get https://api.mimt.ca/healthz | jq -e '.ok == true' >/dev/null &&
-    get https://api.mimt.ca/readyz | jq -e '.ok == true and .db == "up"' >/dev/null
+    get https://api.mimt.ca/readyz | jq -e '.ok == true and .db == "up" and .schema == "current"' >/dev/null
 }
 
 # name|function|what is checked
@@ -44,6 +44,7 @@ open_issue_number() {
 now="$(date -u '+%Y-%m-%d %H:%M UTC')"
 run_url="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-takatakca/mimtcaapp}/actions/runs/${GITHUB_RUN_ID:-0}"
 down=0
+alert_errors=0
 if [[ -z "${DRY_RUN:-}" ]]; then
   gh label create incident --color B60205 --description "Panne détectée par la surveillance" >/dev/null 2>&1 || true
 fi
@@ -59,7 +60,11 @@ for entry in "${SERVICES[@]}"; do
     down=$((down + 1))
   fi
   [[ -n "${DRY_RUN:-}" ]] && continue
-  issue="$(open_issue_number "$name")"
+  if ! issue="$(open_issue_number "$name")"; then
+    echo "::error::Unable to inspect existing incident issues for $name." >&2
+    alert_errors=$((alert_errors + 1))
+    continue
+  fi
   if [[ "$status" == down && -z "$issue" ]]; then
     gh issue create --label incident --title "Panne: $name" \
       --body "**$name est en panne** depuis $now (après $ATTEMPTS essais à ${PAUSE} s d'intervalle).
@@ -67,12 +72,26 @@ for entry in "${SERVICES[@]}"; do
 Vérifié : $what.
 Exécution : $run_url
 
-Cette fiche se ferme toute seule quand le service répond de nouveau." >/dev/null && echo "      issue opened"
+Cette fiche se ferme toute seule quand le service répond de nouveau." >/dev/null && echo "      issue opened" || {
+      echo "::error::Unable to open outage issue for $name." >&2
+      alert_errors=$((alert_errors + 1))
+    }
   elif [[ "$status" == up && -n "$issue" ]]; then
-    gh issue comment "$issue" --body "✅ $name répond de nouveau ($now). Exécution : $run_url" >/dev/null
-    gh issue close "$issue" >/dev/null && echo "      issue #$issue closed (recovered)"
+    if ! gh issue comment "$issue" --body "✅ $name répond de nouveau ($now). Exécution : $run_url" >/dev/null; then
+      echo "::error::Unable to comment on recovery issue for $name." >&2
+      alert_errors=$((alert_errors + 1))
+    elif gh issue close "$issue" >/dev/null; then
+      echo "      issue #$issue closed (recovered)"
+    else
+      echo "::error::Unable to close recovery issue for $name." >&2
+      alert_errors=$((alert_errors + 1))
+    fi
   fi
 done
 
-# The job stays green: alerts are the issues, not red runs (a red cron run every 10 minutes is noise).
+# A successfully created incident remains green; failed notification delivery must be red.
 echo "services down: $down"
+if (( alert_errors > 0 )); then
+  echo "::error::Monitoring could not reconcile $alert_errors incident alert(s)." >&2
+  exit 1
+fi
