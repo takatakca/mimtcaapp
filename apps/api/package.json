@@ -29,6 +29,7 @@
     "@fastify/rate-limit": "^11.2.1",
     "@fastify/websocket": "^11.3.4",
     "@mimt/shared": "workspace:*",
+    "@simplewebauthn/server": "13.3.3",
     "fastify": "^5.12.6",
     "jose": "^6.2.12",
     "livekit-server-sdk": "^2.19.1",

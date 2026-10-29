@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { businessEndpoints } from "./business";
 import { catalogEndpoints } from "./catalog";
 import { meetingEndpoints } from "./meetings";
+import { securityEndpoints } from "./security";
 import type { HttpClient, Method } from "./http";
 
 const ROUTES_DIR = join(__dirname, "../../../api/src/routes");
@@ -30,7 +31,7 @@ function calledRoutes(): Map<string, string> {
     seen.set(current, shape(method, path.replace(/\bP-ID\b/g, ":")));
     return Promise.resolve(undefined);
   }) as HttpClient["request"];
-  const endpoints = { ...businessEndpoints(request), ...catalogEndpoints(request), ...meetingEndpoints(request) } as Record<string, (...args: unknown[]) => Promise<unknown>>;
+  const endpoints = { ...businessEndpoints(request), ...catalogEndpoints(request), ...meetingEndpoints(request), ...securityEndpoints(request) } as Record<string, (...args: unknown[]) => Promise<unknown>>;
   for (const [name, fn] of Object.entries(endpoints)) {
     current = name;
     void fn("P-ID", "P-ID", {});

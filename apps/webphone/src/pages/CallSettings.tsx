@@ -22,6 +22,7 @@ import { api, uploadFile } from "../api/client";
 import { toErrorKey } from "../api/errors";
 import { useSession } from "../auth/SessionProvider";
 import { Icon } from "../components/Icon";
+import { useStepUp } from "../components/StepUp";
 import { Badge, Empty, ErrorNote, Field, Loading, PageHeader } from "../components/ui";
 import { useI18n } from "../i18n/I18nProvider";
 import type { TKey } from "../i18n/core";
@@ -58,13 +59,15 @@ export function CallSettings() {
 /** Saves a call-settings patch with PATCH /v1/me, then refreshes the session's copy. */
 function useSaveCallSettings() {
   const { refreshMe } = useSession();
+  // A new forwarding number is a sensitive action: the API may ask for a recent confirmation (docs/MIMT-SECURITY.md).
+  const { guard, dialog } = useStepUp();
   const [status, setStatus] = useState<TKey | null>(null);
   const [busy, setBusy] = useState(false);
   const save = async (patch: CallSettingsPatch): Promise<boolean> => {
     setBusy(true);
     setStatus(null);
     try {
-      await api.updateMe(patch);
+      await guard(() => api.updateMe(patch));
       await refreshMe();
       setStatus("settings.saved");
       return true;
@@ -75,7 +78,7 @@ function useSaveCallSettings() {
       setBusy(false);
     }
   };
-  return { status, busy, save };
+  return { status, busy, save, dialog };
 }
 
 function SaveStatus({ status }: { status: TKey | null }) {
@@ -99,7 +102,7 @@ function ForwardingSection() {
   const [target, setTarget] = useState(current.target ? formatPhone(current.target) : "");
   const [timeoutS, setTimeoutS] = useState(String(current.timeoutS));
   const [fieldError, setFieldError] = useState<TKey | null>(null);
-  const { status, busy, save } = useSaveCallSettings();
+  const { status, busy, save, dialog } = useSaveCallSettings();
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -162,6 +165,7 @@ function ForwardingSection() {
           <SaveStatus status={status} />
         </div>
       </form>
+      {dialog}
     </section>
   );
 }

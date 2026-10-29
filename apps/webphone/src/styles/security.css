@@ -1,0 +1,19 @@
+/* Paramètres › Sécurité and the step-up dialog (pages/Security.tsx, components/StepUp.tsx).
+   Brand (docs/BRAND.md): electric blue on deep navy; tokens come from styles.css. */
+
+.stepup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(6, 13, 31, 0.78);
+}
+.stepup {
+  width: min(440px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  border: 1px solid var(--electric);
+  box-shadow: var(--shadow);
+}

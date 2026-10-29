@@ -13,6 +13,7 @@ import type { AffiliateRepository } from "./affiliates.js";
 import type { PartnerRepository } from "./partners.js";
 import type { PortInRepository } from "./portIn.js";
 import type { MeetingRepository } from "./meetings.js";
+import type { SecurityRepository } from "./security.js";
 
 export type UserStatus = "active" | "suspended" | "pending_deletion" | "deleted";
 export type AccountStatus = "ACTIVE_MANAGED" | "ACTIVE_INDEPENDENT" | "OUTBOUND_SUSPENDED" | "SUSPENDED" | "CLOSED";
@@ -340,6 +341,8 @@ export interface Repository {
   readonly portIns: PortInRepository;
   /** Réunions MIMT (video meetings) storage: src/repo/meetings.ts. */
   readonly meetings: MeetingRepository;
+  /** Session inventory, passkeys, business strong-auth policy: src/repo/security.ts. */
+  readonly security: SecurityRepository;
   ping(): Promise<void>;
   /** Names of applied migrations (Postgres only; absent in memory). Lets /readyz report schema drift. */
   appliedMigrations?(): Promise<string[]>;
@@ -364,7 +367,8 @@ export interface Repository {
   findRefreshToken(tokenHash: string): Promise<RefreshToken | null>;
   revokeRefreshToken(id: string): Promise<boolean>;
   revokeRefreshFamily(familyId: string): Promise<void>;
-  revokeUserRefreshTokens(userId: string): Promise<void>;
+  /** Every refresh token of the user, except those of `exceptFamilyId` (the session that asked). */
+  revokeUserRefreshTokens(userId: string, exceptFamilyId?: string): Promise<void>;
 
   createAccount(a: New<TelecomAccount, "workspaceId" | "businessId" | "twilioSubaccountSid" | "stripeCustomerId" | "intlCreditCents">): Promise<TelecomAccount>;
   getAccount(id: string): Promise<TelecomAccount | null>;

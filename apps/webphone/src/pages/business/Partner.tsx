@@ -5,6 +5,7 @@ import type { PartnerApiKeyCreated, PartnerCallBilling, PartnerOverviewResponse 
 import { useState, type FormEvent } from "react";
 import { api } from "../../api/client";
 import { ApiClientError, toErrorKey } from "../../api/errors";
+import { useStepUp } from "../../components/StepUp";
 import { Badge, Empty, ErrorNote, Field, Loading } from "../../components/ui";
 import { useI18n } from "../../i18n/I18nProvider";
 import type { TKey } from "../../i18n/core";
@@ -63,6 +64,8 @@ export function Partner() {
   const [secret, setSecret] = useState<string | null>(null);
   const [msg, setMsg] = useState<TKey | null>(null);
   const [busy, setBusy] = useState(false);
+  // Keys and the webhook secret need a recent passkey or SMS confirmation (API: 403 step_up_required).
+  const { guard, dialog } = useStepUp();
 
   async function run(fn: () => Promise<void>) {
     setBusy(true);
@@ -80,11 +83,11 @@ export function Partner() {
   const createKey = (e: FormEvent) => {
     e.preventDefault();
     void run(async () => {
-      setNewKey(await api.createPartnerKey(id, label.trim() || null));
+      setNewKey(await guard(() => api.createPartnerKey(id, label.trim() || null)));
       setLabel("");
     });
   };
-  const rotateKey = (keyId: string) => void run(async () => setNewKey(await api.rotatePartnerKey(id, keyId)));
+  const rotateKey = (keyId: string) => void run(async () => setNewKey(await guard(() => api.rotatePartnerKey(id, keyId))));
   const revokeKey = (keyId: string) => {
     if (!window.confirm(t("partner.keys.revokeConfirm"))) return;
     void run(() => api.revokePartnerKey(id, keyId));
@@ -93,7 +96,7 @@ export function Partner() {
     e.preventDefault();
     const target = remove ? null : (url ?? data.data?.partner.webhookUrl ?? "").trim() || null;
     void run(async () => {
-      const res = await api.setPartnerWebhook(id, target, rotateSecret);
+      const res = await guard(() => api.setPartnerWebhook(id, target, rotateSecret));
       setSecret(res.secret);
       setRotateSecret(false);
       setUrl(null);
@@ -117,6 +120,7 @@ export function Partner() {
 
   return (
     <div className="stack">
+      {dialog}
       <section className="card" aria-labelledby="pt-credits">
         <h2 id="pt-credits" className="card__title">
           {t("partner.title")} · {t("partner.credits.title")}

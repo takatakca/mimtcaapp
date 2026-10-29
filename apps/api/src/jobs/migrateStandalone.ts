@@ -32,6 +32,7 @@ export const MIGRATION_ORDER = [
   "0019_affiliates.sql",
   "0020_ai_pilot.sql",
   "0021_points_clawback.sql",
+  "0022_security_sessions.sql",
   "0023_partners.sql",
 ] as const;
 

@@ -16,6 +16,7 @@ import type { Notifier } from "./services/notifier.js";
 import type { EmailSender } from "./services/email.js";
 import type { VideoGateway } from "./video/gateway.js";
 import type { ContractGateway } from "./gateways/docusign.js";
+import type { WebAuthnGateway } from "./auth/webauthn.js";
 
 export interface AppDeps {
   config: Config;
@@ -51,4 +52,6 @@ export interface AppDeps {
   video?: VideoGateway | null;
   /** DocuSign (affiliate agreement). Absent or null: « send contract » answers in manual mode with the filled text. */
   contracts?: ContractGateway | null;
+  /** Passkeys (WebAuthn). Absent: @simplewebauthn/server with WEBAUTHN_RP_ID / WEBAUTHN_ORIGINS. Tests inject a fake. */
+  webauthn?: WebAuthnGateway;
 }

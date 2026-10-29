@@ -8,6 +8,7 @@ import { MemoryReferralRepository } from "./referralsMemory.js";
 import { MemoryNumberHoldRepository } from "./numberHoldsMemory.js";
 import { MemoryHandleRepository } from "./handlesMemory.js";
 import { MemoryWebPushRepository } from "./webPushMemory.js";
+import { MemorySecurityRepository } from "./securityMemory.js";
 import { MemoryMissionRepository } from "./missionsMemory.js";
 import { MemoryPointsRepository } from "./pointsMemory.js";
 import { MemoryAffiliateRepository } from "./affiliatesMemory.js";
@@ -77,6 +78,7 @@ export class MemoryRepository implements Repository {
   readonly numberHolds = new MemoryNumberHoldRepository();
   readonly handles = new MemoryHandleRepository();
   readonly webPush = new MemoryWebPushRepository();
+  readonly security = new MemorySecurityRepository();
   // Kept on account deletion (purgeUserData): the anti-abuse record of who already earned what.
   readonly missions = new MemoryMissionRepository((id, periods, d) => this.addUsage(id, periods, d));
   // Kept on account deletion too: the points ledger is the accounting and anti-abuse trail.
@@ -158,6 +160,7 @@ export class MemoryRepository implements Repository {
       this.entitlements = this.entitlements.filter((e) => !mine(e));
     }
     dropMap(this.refreshTokens, (t) => t.userId === userId);
+    this.security.dropUser(userId);
     this.pushTokens = this.pushTokens.filter((t) => t.userId !== userId);
     dropMap(this.webPush.subs, (s) => s.userId === userId);
     this.devices = this.devices.filter((d) => d.userId !== userId);
@@ -204,8 +207,8 @@ export class MemoryRepository implements Repository {
   async revokeRefreshFamily(familyId: string) {
     for (const t of this.refreshTokens.values()) if (t.familyId === familyId && !t.revokedAt) t.revokedAt = new Date();
   }
-  async revokeUserRefreshTokens(userId: string) {
-    for (const t of this.refreshTokens.values()) if (t.userId === userId && !t.revokedAt) t.revokedAt = new Date();
+  async revokeUserRefreshTokens(userId: string, exceptFamilyId?: string) {
+    for (const t of this.refreshTokens.values()) if (t.userId === userId && !t.revokedAt && t.familyId !== exceptFamilyId) t.revokedAt = new Date();
   }
 
   // accounts

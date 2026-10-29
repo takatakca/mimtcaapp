@@ -11,6 +11,7 @@ import type { Lang } from "./i18n/core";
 import { Account } from "./pages/Account";
 import { AuthCallback } from "./pages/AuthCallback";
 import { CallSettings } from "./pages/CallSettings";
+import { Security } from "./pages/Security";
 import { Calls } from "./pages/Calls";
 import { Messages } from "./pages/Messages";
 import { Missions } from "./pages/Missions";
@@ -101,6 +102,7 @@ export function AppRoutes() {
         <Route path="messagerie" element={<Voicemail />} />
         <Route path="compte" element={<Account />} />
         <Route path="compte/appels" element={<CallSettings />} />
+        <Route path="compte/securite" element={<Security />} />
         <Route path="aide" element={<HelpAssistant />} />
         <Route path="missions" element={<Missions />} />
         <Route path="points" element={<Points />} />

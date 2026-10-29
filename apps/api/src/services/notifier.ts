@@ -13,7 +13,9 @@ export type NotificationTemplate =
   /** data.from: number or @handle of the sender. Never the text itself. */
   | "message_received"
   /** The app is ringing. data.from: @handle or E.164 only. Never a user id or message text. */
-  | "incoming_call";
+  | "incoming_call"
+  /** « Nouvelle connexion à votre compte MIMT ». data.device: coarse label ("Chrome · Windows") only. */
+  | "new_sign_in";
 
 /** Push/email delivery. A placeholder is NOT delivery; never log notification payloads. */
 export interface Notifier {

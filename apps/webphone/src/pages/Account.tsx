@@ -6,6 +6,7 @@ import { ApiClientError, toErrorKey } from "../api/errors";
 import { useAds } from "../ads/Ads";
 import { useSession } from "../auth/SessionProvider";
 import { Icon } from "../components/Icon";
+import { useStepUp } from "../components/StepUp";
 import { Badge, ErrorNote, Field, Loading, PageHeader, UsageBar } from "../components/ui";
 import { useI18n } from "../i18n/I18nProvider";
 import type { TKey } from "../i18n/core";
@@ -107,6 +108,9 @@ export function Account() {
           </div>
           <Link to="/compte/appels" className="btn btn--ghost">
             <Icon name="settings" size={16} /> {t("settings.title")}
+          </Link>
+          <Link to="/compte/securite" className="btn btn--ghost">
+            <Icon name="lock" size={16} /> {t("security.open")}
           </Link>
           <DataSection />
           <button type="button" className="btn btn--ghost" onClick={() => void signOut()}>
@@ -524,6 +528,8 @@ function ConsentsSection() {
 function DataSection() {
   const { t } = useI18n();
   const [status, setStatus] = useState<TKey | null>(null);
+  // Deleting the account needs a recent confirmation (passkey or SMS code, docs/MIMT-SECURITY.md).
+  const { guard, dialog } = useStepUp();
   return (
     <div className="stack">
       <button
@@ -552,7 +558,7 @@ function DataSection() {
         onClick={async () => {
           if (!window.confirm(t("account.deleteConfirm"))) return;
           try {
-            await api.deleteAccount();
+            await guard(() => api.deleteAccount());
             setStatus("account.deleted");
             await api.logout();
           } catch (e) {
@@ -567,6 +573,7 @@ function DataSection() {
           {t(status)}
         </p>
       ) : null}
+      {dialog}
     </div>
   );
 }

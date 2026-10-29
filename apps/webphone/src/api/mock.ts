@@ -1565,6 +1565,13 @@ export async function mockFetch(input: string, init: RequestInit = {}): Promise<
     const { pilotMock } = await import("./mock.pilot");
     return pilotMock(url.pathname, body, (m, p, b) => mockFetch(p, { method: m, headers: init.headers, ...(b === undefined ? {} : { body: JSON.stringify(b) }) }));
   }
+  // Paramètres › Sécurité (mock.security.ts).
+  if (url.pathname.match(/^\/v1\/(me\/(sessions|security|passkeys)|auth\/(passkeys|step-up)\/|business\/[^/]+\/security$)/)) {
+    const publicRoute = url.pathname.startsWith("/v1/auth/passkeys/");
+    if (!publicRoute && !(new Headers(init.headers).get("Authorization") ?? "").startsWith(`Bearer ${ACCESS_PREFIX}`)) return fail(401, "unauthorized");
+    const { securityMock } = await import("./mock.security");
+    return securityMock(method, url.pathname, body, (m, p, b) => mockFetch(p, { method: m, headers: init.headers, ...(b === undefined ? {} : { body: JSON.stringify(b) }) }));
+  }
   const pathMatches = routes.filter(([, re]) => re.test(url.pathname));
   if (pathMatches.length === 0) return fail(404, "not_found", `${method} ${url.pathname}`);
   const route = pathMatches.find(([m]) => m === method);

@@ -15,6 +15,7 @@ import {
 import { z } from "zod";
 import type { AppDeps } from "../deps.js";
 import { loadContext, type UserContext } from "../auth/guard.js";
+import { assertBusinessStrongAuth } from "../auth/stepUp.js";
 import { badRequest, forbidden, notFound } from "../lib/errors.js";
 import type { BusinessMemberRow, BusinessRow, DidRouteRow, ExtensionRow, IvrMenuRow, RingGroupRow } from "../repo/pbxTypes.js";
 import { externalAllowed } from "./router.js";
@@ -32,13 +33,20 @@ export interface BusinessContext extends UserContext {
  * Loads the business and the caller's active membership. Not a member → 404 (no existence leak);
  * a member below `minRole` → 403 business_role_required.
  */
-export async function businessAccess(deps: AppDeps, req: FastifyRequest, minRole: BusinessRole = "member"): Promise<BusinessContext> {
+export async function businessAccess(
+  deps: AppDeps,
+  req: FastifyRequest,
+  minRole: BusinessRole = "member",
+  opts: { skipStrongAuth?: boolean } = {},
+): Promise<BusinessContext> {
   const { id } = parseId(req.params);
   const ctx = await loadContext(deps, req);
   const business = await deps.repo.pbx.getBusiness(id);
   const member = business ? await deps.repo.pbx.getMembership(business.id, ctx.user.id) : null;
   if (!business || !member) throw notFound();
   if (RANK[member.role] < RANK[minRole]) throw forbidden("business_role_required", `Requires the ${minRole} role`);
+  // Business « require_strong_auth » (auth/stepUp.ts): owners and admins need a passkey confirmation in this session.
+  if (!opts.skipStrongAuth && isAdmin(member)) await assertBusinessStrongAuth(deps, req, business.id, ctx.user.id);
   return { ...ctx, business, member };
 }
 

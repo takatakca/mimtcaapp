@@ -28,11 +28,13 @@ import {
   type IvrMenusResponse,
   type MembersResponse,
   type RingGroupsResponse,
+  type RouteTarget,
   type SeatsResponse,
 } from "@mimt/shared";
 import { z } from "zod";
 import type { AppDeps } from "../deps.js";
 import { loadContext, requireUser } from "../auth/guard.js";
+import { requireRecentAuth } from "../auth/stepUp.js";
 import { numberFallbacks, recordingAccountSid } from "../gateways/twilio.js";
 import { decodeCursor, encodeCursor } from "../lib/cursor.js";
 import { badRequest, conflict, forbidden, HttpError, notConfigured, notFound } from "../lib/errors.js";
@@ -121,6 +123,9 @@ const RecordingPolicyBody = z.object({
 });
 const PageQuery = z.object({ cursor: z.string().max(200).optional(), limit: z.coerce.number().int().min(1).max(100).default(50) });
 
+/** External numbers (forwarding outside MIMT) among route targets. */
+const externals = (...targets: Array<RouteTarget | null | undefined>) => targets.flatMap((t) => (t?.type === "external" ? [t.number] : []));
+
 /** Default hours when none are stored: Mon-Fri 9-17, Quebec holidays, voicemail either way. */
 export function defaultHours(businessId: string): BusinessHours {
   return {
@@ -190,6 +195,15 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
     if (!(await pbx.getMembership(businessId, userId))) throw badRequest("user_not_member", "The user is not an active member of the business");
   }
 
+  /**
+   * Sensitive action (docs/MIMT-SECURITY.md): sending calls to an external number that was not configured before needs
+   * a recent authentication (passkey or SMS code, 10 minutes). Unchanged numbers do not ask again.
+   */
+  async function stepUpForNewExternal(req: FastifyRequest, next: Array<string | null | undefined>, before: Array<string | null | undefined> = []) {
+    const known = new Set(before.filter(Boolean));
+    if (next.some((n) => n && !known.has(n))) await requireRecentAuth(deps, req);
+  }
+
   async function ownExtension(ctx: BusinessContext, extId: string): Promise<ExtensionRow> {
     const ext = await pbx.getExtension(extId);
     if (!ext || ext.businessId !== ctx.business.id) throw notFound();
@@ -224,7 +238,8 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
   });
 
   app.get("/v1/business/:id", auth, async (req): Promise<BusinessResponse> => {
-    const ctx = await businessAccess(deps, req);
+    // The overview answers without the strong-auth check so the app can explain what is needed.
+    const ctx = await businessAccess(deps, req, "member", { skipStrongAuth: true });
     return response(ctx.business, ctx.member.role);
   });
 
@@ -328,6 +343,7 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
     await assertMemberUser(ctx.business.id, body.userId);
     if (body.did) await businessNumber(ctx.business, body.did);
     if (body.forwardToMobile) assertForwardable(body.forwardToMobile);
+    await stepUpForNewExternal(req, [body.forwardToMobile]);
     const ext = await pbx.createExtension({
       businessId: ctx.business.id,
       number: body.number,
@@ -351,6 +367,7 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
     await assertMemberUser(ctx.business.id, body.userId);
     if (body.did) await businessNumber(ctx.business, body.did);
     if (body.forwardToMobile) assertForwardable(body.forwardToMobile);
+    await stepUpForNewExternal(req, [body.forwardToMobile], [ext.forwardToMobile]);
     const updated = await pbx.updateExtension(ext.id, body);
     await audit(ctx, req, "business.extension_updated", ext.id);
     return extensionDto(updated);
@@ -391,6 +408,7 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
     const ctx = await businessAccess(deps, req, "admin");
     await requireFeature(ctx.business, "ring_groups");
     const fields = await ringGroupFields(ctx, parse(RingGroupBody, req.body));
+    await stepUpForNewExternal(req, externals(fields.overflow));
     const group = await pbx.createRingGroup({ businessId: ctx.business.id, ...fields });
     await audit(ctx, req, "business.ring_group_created", group.id);
     return reply.code(201).send(ringGroupDto(group));
@@ -402,6 +420,7 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
     const group = await pbx.getRingGroup(rgId);
     if (!group || group.businessId !== ctx.business.id) throw notFound();
     const fields = await ringGroupFields(ctx, parse(RingGroupBody, req.body), group.id);
+    await stepUpForNewExternal(req, externals(fields.overflow), externals(group.overflow));
     const updated = await pbx.updateRingGroup(group.id, fields);
     await audit(ctx, req, "business.ring_group_updated", group.id);
     return ringGroupDto(updated);
@@ -435,6 +454,9 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
     };
   }
 
+  const ivrExternals = (m: { options: Array<{ target: RouteTarget }>; timeoutTarget: RouteTarget | null; invalidTarget: RouteTarget | null }) =>
+    externals(...m.options.map((o) => o.target), m.timeoutTarget, m.invalidTarget);
+
   app.get("/v1/business/:id/ivr", auth, async (req): Promise<IvrMenusResponse> => {
     const ctx = await businessAccess(deps, req);
     return { menus: (await pbx.listIvrMenus(ctx.business.id)).map(ivrDto) };
@@ -443,7 +465,9 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
   app.post("/v1/business/:id/ivr", auth, async (req, reply) => {
     const ctx = await businessAccess(deps, req, "admin");
     await requireFeature(ctx.business, "auto_attendant");
-    const menu = await pbx.createIvrMenu({ businessId: ctx.business.id, ...(await ivrFields(ctx, parse(IvrBody, req.body))) });
+    const fields = await ivrFields(ctx, parse(IvrBody, req.body));
+    await stepUpForNewExternal(req, ivrExternals(fields));
+    const menu = await pbx.createIvrMenu({ businessId: ctx.business.id, ...fields });
     await audit(ctx, req, "business.ivr_created", menu.id);
     return reply.code(201).send(ivrDto(menu));
   });
@@ -453,7 +477,9 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
     const { menuId } = parse(Sub("menuId"), req.params);
     const menu = await pbx.getIvrMenu(menuId);
     if (!menu || menu.businessId !== ctx.business.id) throw notFound();
-    const updated = await pbx.updateIvrMenu(menu.id, await ivrFields(ctx, parse(IvrBody, req.body)));
+    const fields = await ivrFields(ctx, parse(IvrBody, req.body));
+    await stepUpForNewExternal(req, ivrExternals(fields), ivrExternals(menu));
+    const updated = await pbx.updateIvrMenu(menu.id, fields);
     await audit(ctx, req, "business.ivr_updated", menu.id);
     return ivrDto(updated);
   });
@@ -482,6 +508,8 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
     // "schedule" here would loop back into the hours.
     await assertTarget(deps, ctx.business.id, body.openTarget);
     await assertTarget(deps, ctx.business.id, body.closedTarget);
+    const before = await pbx.getHours(ctx.business.id);
+    await stepUpForNewExternal(req, externals(body.openTarget, body.closedTarget), before ? externals(before.openTarget, before.closedTarget) : []);
     const hours = await pbx.putHours({ businessId: ctx.business.id, timezone: BUSINESS_TIMEZONE, ...body });
     await audit(ctx, req, "business.hours_updated", ctx.business.id);
     return { hours, open: isOpen(hours, deps.now()) };
@@ -499,6 +527,8 @@ export async function businessRoutes(app: FastifyInstance, deps: AppDeps) {
     const body = parse(DidBody, req.body);
     const number = await businessNumber(ctx.business, body.e164);
     await assertTarget(deps, ctx.business.id, body.target, { allowSchedule: true });
+    const previous = (await pbx.listDidRoutes(ctx.business.id)).find((r) => r.e164 === number.e164);
+    await stepUpForNewExternal(req, externals(body.target), previous ? externals(previous.target) : []);
     const route = await pbx.upsertDidRoute({ businessId: ctx.business.id, phoneNumberId: number.id, e164: number.e164, target: body.target });
     await audit(ctx, req, "business.did_routed", route.id, { e164: number.e164, target: body.target.type });
     return didDto(route);

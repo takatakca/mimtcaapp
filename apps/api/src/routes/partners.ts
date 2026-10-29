@@ -20,6 +20,7 @@ import {
 import { z } from "zod";
 import type { AppDeps } from "../deps.js";
 import { requireUser } from "../auth/guard.js";
+import { requireRecentAuth } from "../auth/stepUp.js";
 import { conflict, forbidden, HttpError, notFound } from "../lib/errors.js";
 import { parse } from "../lib/validate.js";
 import { businessAccess, Nanp } from "../pbx/access.js";
@@ -319,6 +320,8 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
 
   app.post("/v1/business/:id/partner/keys", owner, async (req, reply): Promise<PartnerApiKeyCreated> => {
     const { p } = await ownerPartner(req);
+    // A key or a signing secret opens the business's call data: recent passkey or SMS confirmation first.
+    await requireRecentAuth(deps, req);
     const body = parse(KeyBody, req.body ?? {});
     void reply.header("cache-control", "no-store");
     return reply.code(201).send(await issueApiKey(deps, p, { label: body.label ?? null, ...actor(req) }));
@@ -333,6 +336,8 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
 
   app.post("/v1/business/:id/partner/keys/:keyId/rotate", owner, async (req, reply): Promise<PartnerApiKeyCreated> => {
     const { p } = await ownerPartner(req);
+    // A key or a signing secret opens the business's call data: recent passkey or SMS confirmation first.
+    await requireRecentAuth(deps, req);
     const { keyId } = parse(z.object({ id: z.uuid(), keyId: z.uuid() }), req.params);
     const created = await rotateApiKey(deps, p, keyId, actor(req));
     if (!created) throw notFound("key_not_found", "Clé introuvable ou déjà révoquée.");
@@ -342,6 +347,8 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
 
   app.put("/v1/business/:id/partner/webhook", owner, async (req, reply): Promise<PartnerWebhookResponse> => {
     const { p } = await ownerPartner(req);
+    // A key or a signing secret opens the business's call data: recent passkey or SMS confirmation first.
+    await requireRecentAuth(deps, req);
     void reply.header("cache-control", "no-store");
     return setWebhook(deps, p, parse(WebhookBody, req.body), actor(req));
   });

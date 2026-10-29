@@ -201,6 +201,17 @@ const EnvSchema = z
      * POST /v1/ai/command answers 503 pilot_disabled. Default "on".
      */
     AI_COMMANDS: z.enum(["on", "rules", "off"]).default("on"),
+    /**
+     * Passkeys (WebAuthn, docs/MIMT-SECURITY.md). WEBAUTHN_RP_ID is the domain passkeys are bound to: "mimt.ca" also
+     * covers app.mimt.ca. WEBAUTHN_ORIGINS: exact origins allowed to use them (comma list). PASSKEYS=off hides the
+     * feature (options routes answer 503); sessions and step-up by SMS code keep working.
+     */
+    WEBAUTHN_RP_ID: z.string().regex(/^[a-z0-9.-]{1,253}$/, "a bare domain such as mimt.ca").default("mimt.ca"),
+    WEBAUTHN_ORIGINS: csv(["https://app.mimt.ca"]),
+    WEBAUTHN_RP_NAME: z.string().min(1).max(64).default("MIMT"),
+    PASSKEYS: z.enum(["on", "off"]).default("on"),
+    /** « Nouvelle connexion à votre compte MIMT » by web push / email on a sign-in from a new device. Sent only through services that are configured. */
+    SECURITY_SIGNIN_NOTICE: z.enum(["on", "off"]).default("on"),
     DEVICE_ATTESTATION_REQUIRED: z
       .enum(["true", "false"])
       .optional()
@@ -218,6 +229,18 @@ const EnvSchema = z
     }
     if (env.DOCUSIGN_BASE_URL && !env.DOCUSIGN_BASE_URL.startsWith("https://")) {
       ctx.addIssue({ code: "custom", path: ["DOCUSIGN_BASE_URL"], message: "DOCUSIGN_BASE_URL must be https" });
+    }
+    for (const origin of env.WEBAUTHN_ORIGINS) {
+      let host: string | null = null;
+      try {
+        const u = new URL(origin);
+        if (u.origin === origin && (u.protocol === "https:" || u.hostname === "localhost")) host = u.hostname;
+      } catch {
+        host = null;
+      }
+      if (!host || (host !== env.WEBAUTHN_RP_ID && !host.endsWith(`.${env.WEBAUTHN_RP_ID}`))) {
+        ctx.addIssue({ code: "custom", path: ["WEBAUTHN_ORIGINS"], message: `${origin} must be an https origin on ${env.WEBAUTHN_RP_ID} (WEBAUTHN_RP_ID)` });
+      }
     }
     if (env.EMAIL_PROVIDER === "resend" && !env.EMAIL_API_KEY) {
       ctx.addIssue({ code: "custom", path: ["EMAIL_API_KEY"], message: "EMAIL_API_KEY is required when EMAIL_PROVIDER=resend" });

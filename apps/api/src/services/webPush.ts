@@ -80,6 +80,16 @@ export function pushPayload(template: NotificationTemplate, data: Record<string,
         ttl: INCOMING_CALL_TTL_S,
       };
     }
+    case "new_sign_in": {
+      // Coarse device label only ("Chrome · Windows"); anything longer or odd is dropped.
+      const device = typeof data.device === "string" && /^[\w .·-]{1,40}$/u.test(data.device) ? data.device : null;
+      return {
+        title: fr ? "Nouvelle connexion à votre compte MIMT" : "New sign-in to your MIMT account",
+        body: device ? (fr ? `Depuis ${device}. Ce n'est pas vous ? Touchez pour sécuriser votre compte.` : `From ${device}. Not you? Tap to secure your account.`) : fr ? "Ce n'est pas vous ? Touchez pour sécuriser votre compte." : "Not you? Tap to secure your account.",
+        url: "/compte/securite",
+        tag: "signin",
+      };
+    }
     default:
       return null;
   }

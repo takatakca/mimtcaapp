@@ -46,6 +46,8 @@ describe("isolated self-hosted MIMT migration guard", () => {
     expect(MIGRATION_ORDER[17]).toBe("0017_missions.sql");
     expect(MIGRATION_ORDER[18]).toBe("0018_points.sql");
     expect(MIGRATION_ORDER).toContain("0019_affiliates.sql");
+    expect(MIGRATION_ORDER).toContain("0022_security_sessions.sql");
+    expect(MIGRATION_ORDER.indexOf("0022_security_sessions.sql")).toBeGreaterThan(MIGRATION_ORDER.indexOf("0020_ai_pilot.sql"));
     expect(MIGRATION_ORDER[20]).toBe("0020_ai_pilot.sql");
     // 0021 (points clawback) and 0022 (security) come from other branches; MIMT Connect is 0023 and runs after them.
     expect(MIGRATION_ORDER).toContain("0023_partners.sql");

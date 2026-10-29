@@ -1,5 +1,13 @@
 # MIMT — File des tâches exécutables
 
+## Sécurité : sessions, clés d'accès, confirmation — 29 octobre 2026, Claude (branche `claude/security-sessions`, PR à ouvrir par le propriétaire)
+
+| ID | État | Prochaine preuve requise |
+| --- | --- | --- |
+| SEC-SESSIONS | Code prêt : migration 0022, inventaire des sessions (`sid` vérifié à chaque requête), « Déconnecter » / « Déconnecter partout ailleurs », rétention 90 jours | CI Postgres (`security.repo.contract`), migration 0022 appliquée, puis `/compte/securite` sur app.mimt.ca |
+| SEC-PASSKEYS | Code prêt : WebAuthn (`@simplewebauthn` 13.3.x), connexion sans mot de passe et confirmation; `WEBAUTHN_RP_ID=mimt.ca`, `WEBAUTHN_ORIGINS=https://app.mimt.ca` par défaut | Ajout réel d'une clé d'accès sur app.mimt.ca (iPhone + Chrome) après déploiement |
+| SEC-STEPUP | Code prêt : renvoi vers un nouveau numéro externe, suppression du compte, clés d'accès, politique d'entreprise | Port-out et clés partenaires/API : brancher `requireRecentAuth` quand ces routes existeront |
+| SEC-BIZ-POLICY | Code prêt : `require_strong_auth` (défaut désactivé) | Test réel avec un compte Affaires |
 ## MIMT Connect (plateforme partenaire) — 29 octobre 2026, Claude (branche `claude/partners`, PR à ouvrir par le propriétaire)
 
 | ID | État | Prochaine preuve requise |

@@ -44,6 +44,7 @@ import { missionRoutes } from "./routes/missions.js";
 import { pointsRoutes } from "./routes/points.js";
 import { partnerRoutes } from "./routes/partners.js";
 import { voicemailSettingsRoutes } from "./routes/voicemailSettings.js";
+import { securityRoutes } from "./routes/security.js";
 
 type Routes = (app: import("fastify").FastifyInstance, deps: AppDeps) => Promise<void>;
 
@@ -100,6 +101,7 @@ export async function buildApp(deps: AppDeps) {
     messageRoutes,
     billingRoutes,
     meRoutes,
+    securityRoutes,
     blockRoutes,
     pushRoutes,
     rewardRoutes,
