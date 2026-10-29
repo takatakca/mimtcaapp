@@ -10,6 +10,7 @@ export const frPoints = {
   "points.balanceLabel": "Solde // Points MIMT",
   "points.balance": "{points} points",
   "points.lifetime": "Cumul gagné : {points} points",
+  "points.owed": "Paiement remboursé : {points} points dus, repris sur vos prochains gains. Échanges suspendus d'ici là.",
   "points.off": "Les Points MIMT sont en pause. Votre solde est conservé; rien n'est gagné ni échangé pour le moment.",
   "points.campaign.multiplier": "×{multiplier} : {name}",
   "points.campaign.bonus": "+{points} points : {name}",
@@ -49,6 +50,7 @@ export const frPoints = {
   "points.error.free_budget_reached": "La réserve du forfait Gratuit est pleine ce mois-ci. Réessayez le mois prochain : vos points restent à vous.",
   "points.error.fulfilment_failed": "La récompense n'a pas pu être livrée. Vos points ont été remis.",
   "points.error.points_paused": "Les Points MIMT sont en pause.",
+  "points.error.points_owed": "Des points sont dus après un remboursement : les échanges reprendront une fois repris.",
   "points.error.rate_limited": "Trop d'échanges d'un coup. Réessayez dans un instant.",
   "points.error.generic": "L'échange n'a pas fonctionné. Réessayez.",
 

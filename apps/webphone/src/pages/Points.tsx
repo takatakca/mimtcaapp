@@ -41,7 +41,7 @@ function AnimatedNumber({ value, lang }: { value: number; lang: "fr" | "en" }) {
   return <span aria-hidden="true">{formatPoints(shown, lang)}</span>;
 }
 
-const ERROR_KEYS = new Set(["insufficient_points", "monthly_limit", "not_eligible", "free_budget_reached", "fulfilment_failed", "points_paused", "rate_limited"]);
+const ERROR_KEYS = new Set(["insufficient_points", "monthly_limit", "not_eligible", "free_budget_reached", "fulfilment_failed", "points_paused", "points_owed", "rate_limited"]);
 
 function errorKey(e: unknown): TKey {
   const code = e instanceof ApiClientError ? e.code : null;
@@ -79,6 +79,11 @@ export function Points() {
           </span>
         </p>
         <p className="pts-mono pts-muted">{t("points.lifetime", { points: formatPoints(w.lifetimeEarned, lang) })}</p>
+        {w.owed > 0 ? (
+          <p className="pts-mono pts-muted" role="status">
+            {t("points.owed", { points: formatPoints(w.owed, lang) })}
+          </p>
+        ) : null}
         {w.campaigns.length ? (
           <ul className="pts-campaigns">
             {w.campaigns.map((c) => (

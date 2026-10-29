@@ -59,6 +59,7 @@ export function pointsMockRoutes(h: Pick<MockHelpers, "ok" | "fail">, plan: () =
     enabled: true,
     balance: state.balance,
     lifetimeEarned: state.lifetime,
+    owed: 0,
     history: state.history.slice(0, 30),
     campaigns: [
       {

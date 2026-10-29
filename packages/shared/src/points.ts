@@ -25,8 +25,11 @@ export const MAX_CAMPAIGN_MULTIPLIER = 3;
 /** Highest fixed campaign bonus, per account and campaign. */
 export const MAX_CAMPAIGN_BONUS = 2000;
 
-/** Why points moved. Credits: mission, referral, purchase, campaign, refund. Debits: redeem, expiry. */
-export type PointsReason = "mission" | "referral" | "purchase" | "campaign" | "refund" | "redeem" | "expiry";
+/**
+ * Why points moved. Credits: mission, referral, purchase, campaign, refund. Debits: redeem, expiry, clawback (points
+ * of a payment that was refunded or charged back, or points owed taken from a later credit).
+ */
+export type PointsReason = "mission" | "referral" | "purchase" | "campaign" | "refund" | "redeem" | "expiry" | "clawback";
 /** Reasons that count toward the daily / monthly earn caps (a refund of a failed redemption does not). */
 export const EARN_REASONS: readonly PointsReason[] = ["mission", "referral", "purchase", "campaign"];
 
@@ -256,7 +259,7 @@ export function pointsCatalogViolations(catalog: readonly PointsReward[], rates:
 
 export interface PointsEntryDto {
   id: string;
-  /** Positive: earned or refunded. Negative: redeemed or expired. 0: earned but over a cap (kept for the record). */
+  /** Positive: earned or refunded. Negative: redeemed, expired or clawed back. 0: earned over a cap, or a clawback with nothing left to take (kept for the record). */
   delta: number;
   reason: PointsReason;
   /** Where it came from, without personal data: "mission:choose_handle", "invoice", "store", "reward:texts_50"… */
@@ -302,6 +305,8 @@ export interface PointsResponse {
   enabled: boolean;
   balance: number;
   lifetimeEarned: number;
+  /** Points still owed after a refund or chargeback the balance could not cover: taken from the next points earned. */
+  owed: number;
   history: PointsEntryDto[];
   campaigns: PointsCampaignDto[];
   rules: {

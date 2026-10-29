@@ -8,7 +8,12 @@
 // Redeeming (POST /v1/points/redeem): the price is debited and the redemption recorded atomically; then the reward is
 // delivered; if delivery fails the points are given back by a compensating credit. Every step is audited.
 //
-// POINTS=off (pointsConfig.ts): nothing is earned or redeemed; balances and history stay readable.
+// Refunds and chargebacks (clawbackInvoicePoints, clawbackStorePoints): the points of the payment are taken back by a
+// "clawback" debit, never below a zero balance; the shortfall is kept as `owed`, repaid first by the next points
+// earned, and no redemption is possible while anything is owed.
+//
+// POINTS=off (pointsConfig.ts): nothing is earned or redeemed; balances and history stay readable. Clawbacks still
+// apply (taking back points of a refunded payment is never a reason to wait).
 import {
   campaignMatches,
   MISSION_POINTS_CAP,
@@ -30,7 +35,7 @@ import type { AppDeps } from "../deps.js";
 import { conflict, forbidden, HttpError, notFound } from "../lib/errors.js";
 import { addDays, dayPeriod, monthPeriod } from "../lib/time.js";
 import type { MissionRewardRow } from "../repo/missions.js";
-import type { PointsCampaignRow, PointsEarnEntry, PointsLedgerRow } from "../repo/points.js";
+import type { PointsCampaignRow, PointsClawbackResult, PointsEarnEntry, PointsLedgerRow } from "../repo/points.js";
 import { creditedPoints } from "../repo/points.js";
 import type { Subscription, TelecomAccount, User } from "../repo/types.js";
 import { planOf } from "../plansConfig.js";
@@ -75,7 +80,8 @@ export function earnEntries(input: { account: TelecomAccount; event: PointsEarnE
       if (extra > 0) entries.push({ reason: "campaign", points: extra, idempotencyKey: `${input.key}:c:${c.id}`, reference, campaignId: c.id, meta: { multiplier: c.multiplier } });
     } else if (c.kind === "bonus" && c.bonusPoints) {
       // A fixed bonus is paid once per account and campaign, whatever the number of matching events.
-      entries.push({ reason: "campaign", points: c.bonusPoints, idempotencyKey: `campaign:${c.id}:${input.account.id}`, reference, campaignId: c.id, meta: { bonus: true } });
+      // meta.trigger: the event that paid it, so a refund of that payment takes the bonus back too.
+      entries.push({ reason: "campaign", points: c.bonusPoints, idempotencyKey: `campaign:${c.id}:${input.account.id}`, reference, campaignId: c.id, meta: { bonus: true, trigger: input.key } });
     }
   }
   return entries;
@@ -112,6 +118,7 @@ export async function earnPoints(deps: AppDeps, input: EarnPointsInput): Promise
         points,
         requested: entries.filter((e) => result.written.some((w) => w.idempotencyKey === e.idempotencyKey)).reduce((s, e) => s + e.points, 0),
         campaigns: result.written.filter((w) => w.campaignId).map((w) => ({ id: w.campaignId, points: w.delta })),
+        ...(result.repaid ? { repaidOwed: result.repaid } : {}),
         balance: result.balance,
       },
       at: now,
@@ -188,6 +195,102 @@ export function earnStorePoints(deps: AppDeps, account: TelecomAccount, input: {
   return earnPoints(deps, { account, event: { reason: "purchase", action: "store", interval: input.interval }, points: Math.floor((input.priceCents * POINTS_PER_DOLLAR) / 100), key: input.key, log });
 }
 
+// ------------------------------------------------------------------------------------------- clawback
+
+export interface ClawbackInput {
+  accountId: string;
+  /** Earn key of the payment ("invoice:<id>", "store:ios:<transactionId>", "store:android:<token>:<period end>"). */
+  source: string;
+  /** refund: share = refunded / amount (cumulative, as Stripe reports it); chargeback: everything. */
+  reason: "refund" | "chargeback";
+  share: { num: number; den: number };
+  key: string;
+  reference: "clawback:invoice" | "clawback:store";
+  log?: Log;
+}
+
+/**
+ * Takes back the points of a refunded or charged-back payment (repo clawback: balance never negative, shortfall
+ * kept as owed). Idempotent by key. Audited with internal ids only (account, ledger row). Never throws: the webhook
+ * goes on and the error is logged.
+ */
+export async function clawbackPoints(deps: AppDeps, input: ClawbackInput): Promise<PointsClawbackResult | null> {
+  try {
+    const now = deps.now();
+    const result = await deps.repo.points.clawback({
+      telecomAccountId: input.accountId,
+      at: now,
+      source: input.source,
+      share: input.share,
+      idempotencyKey: input.key,
+      reference: input.reference,
+      meta: { reason: input.reason },
+    });
+    if (result.status === "applied" && result.points > 0) {
+      await deps.repo.audit({
+        actorUserId: null,
+        action: "points.clawed_back",
+        targetType: "telecom_account",
+        targetId: input.accountId,
+        meta: {
+          ledgerEntryId: result.row?.id ?? null,
+          kind: input.reference === "clawback:invoice" ? "invoice" : "store",
+          reason: input.reason,
+          points: result.points,
+          debited: result.debited,
+          owedAdded: result.owedAdded,
+          owed: result.owed,
+          balance: result.balance,
+        },
+        at: now,
+      });
+    }
+    return result;
+  } catch (err) {
+    input.log?.warn({ err: { message: (err as Error).message }, kind: input.reference, reason: input.reason }, "points clawback failed");
+    return null;
+  }
+}
+
+/**
+ * Stripe charge.refunded (share = amount_refunded / amount, cumulative) or charge.dispute.created (everything) on the
+ * invoice that earned points. Keys: "clawback:<invoice>:<refunded cents>" and "clawback:<invoice>:dispute", so a
+ * replayed webhook changes nothing and a second partial refund only takes the difference.
+ */
+export async function clawbackInvoicePoints(
+  deps: AppDeps,
+  input: { invoiceId: string; reason: "refund" | "chargeback"; refundedCents?: number; amountCents?: number },
+  log?: Log,
+): Promise<PointsClawbackResult | null> {
+  const source = `invoice:${input.invoiceId}`;
+  const accountId = await deps.repo.points.accountOfKey(source);
+  if (!accountId) return null;
+  const partial = input.reason === "refund" && input.amountCents && input.amountCents > 0 && input.refundedCents !== undefined;
+  const share = partial ? { num: Math.max(0, input.refundedCents!), den: input.amountCents! } : { num: 1, den: 1 };
+  const key = input.reason === "refund" ? `clawback:${input.invoiceId}:${partial ? input.refundedCents : "full"}` : `clawback:${input.invoiceId}:dispute`;
+  return clawbackPoints(deps, { accountId, source, reason: input.reason, share, key, reference: "clawback:invoice", log });
+}
+
+/**
+ * App Store REFUND (the refunded transaction's own points key) or Google Play voided purchase (the newest paid
+ * period of that purchase token: Play's notification does not say which renewal, and a refund is almost always the
+ * latest one). Everything that period earned is taken back.
+ */
+export async function clawbackStorePoints(
+  deps: AppDeps,
+  input: { platform: "ios"; transactionId: string } | { platform: "android"; accountId: string; transactionId: string },
+  log?: Log,
+): Promise<PointsClawbackResult | null> {
+  const source =
+    input.platform === "ios"
+      ? `store:ios:${input.transactionId}`
+      : await deps.repo.points.latestPurchaseKey(input.accountId, `store:android:${input.transactionId}:`);
+  // The account that earned the points (the ledger row of that period).
+  const accountId = source ? await deps.repo.points.accountOfKey(source) : null;
+  if (!source || !accountId) return null;
+  return clawbackPoints(deps, { accountId, source, reason: "refund", share: { num: 1, den: 1 }, key: `clawback:${source}`, reference: "clawback:store", log });
+}
+
 // ------------------------------------------------------------------------------------------- reading
 
 const campaignDto = (c: PointsCampaignRow): PointsCampaignDto => ({
@@ -230,6 +333,7 @@ export async function pointsView(deps: AppDeps, account: TelecomAccount, log?: L
     enabled: points.enabled,
     balance: acct?.balance ?? 0,
     lifetimeEarned: acct?.lifetimeEarned ?? 0,
+    owed: acct?.owed ?? 0,
     history: ledger.map(entryDto),
     campaigns: points.enabled ? campaigns.map(campaignDto) : [],
     rules: {
@@ -394,6 +498,9 @@ export async function redeemReward(deps: AppDeps, input: RedeemInput): Promise<P
     monthStart: startOfMonth(now),
   });
   if (result.status === "insufficient") throw conflict("insufficient_points", "Vous n'avez pas assez de points pour cette récompense.");
+  if (result.status === "owed") {
+    throw conflict("points_owed", `Un paiement a été remboursé : ${result.owed} points sont dus et seront repris sur vos prochains gains. Les échanges reprendront ensuite.`);
+  }
   if (result.status === "monthly_limit") throw conflict("monthly_limit", "Vous avez atteint la limite de cette récompense pour ce mois-ci.");
   if (result.status === "replay") {
     const r = result.redemption;

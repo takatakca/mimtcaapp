@@ -5,6 +5,8 @@ import type {
   PointsAccountRow,
   PointsCampaignPatch,
   PointsCampaignRow,
+  PointsClawbackInput,
+  PointsClawbackResult,
   PointsEarnInput,
   PointsEarnResult,
   PointsLedgerRow,
@@ -18,7 +20,7 @@ type Sql = postgres.Sql<{}>;
 type Tx = postgres.TransactionSql<{}>;
 type Json = postgres.JSONValue;
 
-const ACCOUNT_COLS = "telecom_account_id, balance, lifetime_earned::float8 as lifetime_earned, last_activity_at";
+const ACCOUNT_COLS = "telecom_account_id, balance, lifetime_earned::float8 as lifetime_earned, owed, last_activity_at";
 const LEDGER_COLS = "id, telecom_account_id, delta, reason, reference, campaign_id, idempotency_key, balance_after, meta, created_at";
 const CAMPAIGN_COLS =
   "id, name, kind, target, multiplier::float8 as multiplier, bonus_points, starts_at, ends_at, budget_points, spent_points, active, created_by, created_at, updated_at";
@@ -110,9 +112,69 @@ export class PostgresPointsRepository implements PointsRepository {
           }),
         );
       }
+      const credit = written.filter((w) => w.delta > 0).at(-1);
+      const repaid = credit ? await this.repayOwed(tx, input.telecomAccountId, credit.idempotencyKey, input.at) : 0;
       const acct = first<PointsAccountRow>(await tx.unsafe(`select ${ACCOUNT_COLS} from points_accounts where telecom_account_id = $1`, [input.telecomAccountId]))!;
-      return { written, duplicates, balance: acct.balance };
+      return { written, repaid, duplicates, balance: acct.balance };
     })) as PointsEarnResult;
+  }
+
+  /**
+   * After a credit (key `creditKey`), points owed are taken from the balance first (one "clawback" debit, same
+   * transaction, row already locked).
+   */
+  private async repayOwed(tx: Tx, accountId: string, creditKey: string, at: Date): Promise<number> {
+    const acct = first<PointsAccountRow>(await tx.unsafe(`select ${ACCOUNT_COLS} from points_accounts where telecom_account_id = $1`, [accountId]))!;
+    const repay = Math.min(acct.owed, acct.balance);
+    if (repay <= 0) return 0;
+    await this.write(tx, accountId, { delta: -repay, reason: "clawback", reference: "owed", campaignId: null, idempotencyKey: `owed:${creditKey}`, meta: { repaid: repay }, at });
+    await tx`update points_accounts set owed = owed - ${repay} where telecom_account_id = ${accountId}`;
+    return repay;
+  }
+
+  async clawback(input: PointsClawbackInput): Promise<PointsClawbackResult> {
+    return (await this.sql.begin(async (tx) => {
+      const acct = await this.lock(tx, input.telecomAccountId, input.at);
+      if ((await tx`select 1 from points_ledger where idempotency_key = ${input.idempotencyKey}`).length) {
+        return { status: "duplicate", earned: 0, points: 0, debited: 0, owedAdded: 0, balance: acct.balance, owed: acct.owed, row: null };
+      }
+      const reasons = [...EARN_REASONS];
+      const [sums] = await tx`
+        select coalesce(sum(delta) filter (where reason = any(${reasons})
+                 and (idempotency_key = ${input.source} or starts_with(idempotency_key, ${`${input.source}:`}) or meta->>'trigger' = ${input.source})), 0)::int as earned,
+               coalesce(sum((meta->>'points')::int) filter (where reason = 'clawback' and meta->>'source' = ${input.source}), 0)::int as taken
+        from points_ledger where telecom_account_id = ${input.telecomAccountId}`;
+      const { earned, taken } = sums as { earned: number; taken: number };
+      const target = input.share.den > 0 ? Math.floor((earned * Math.min(input.share.num, input.share.den)) / input.share.den) : earned;
+      const points = Math.max(0, target - taken);
+      const debited = Math.min(points, acct.balance);
+      const owedAdded = points - debited;
+      const row = await this.write(tx, input.telecomAccountId, {
+        delta: debited > 0 ? -debited : 0,
+        reason: "clawback",
+        reference: input.reference,
+        campaignId: null,
+        idempotencyKey: input.idempotencyKey,
+        meta: { ...(input.meta ?? {}), source: input.source, points, debited, owed: owedAdded },
+        at: input.at,
+      });
+      const [after] = (await tx`
+        update points_accounts set owed = owed + ${owedAdded} where telecom_account_id = ${input.telecomAccountId} returning balance, owed`) as unknown as [{ balance: number; owed: number }];
+      return { status: "applied", earned, points, debited, owedAdded, balance: after.balance, owed: after.owed, row };
+    })) as PointsClawbackResult;
+  }
+
+  async accountOfKey(key: string) {
+    const [row] = (await this.sql`select telecom_account_id from points_ledger where idempotency_key = ${key}`) as unknown as { telecomAccountId: string }[];
+    return row?.telecomAccountId ?? null;
+  }
+
+  async latestPurchaseKey(accountId: string, prefix: string) {
+    const [row] = (await this.sql`
+      select idempotency_key from points_ledger
+      where telecom_account_id = ${accountId} and reason = 'purchase' and starts_with(idempotency_key, ${prefix})
+      order by created_at desc, seq desc limit 1`) as unknown as { idempotencyKey: string }[];
+    return row?.idempotencyKey ?? null;
   }
 
   async redeem(input: PointsRedeemInput): Promise<PointsRedeemResult> {
@@ -122,6 +184,7 @@ export class PostgresPointsRepository implements PointsRepository {
         await tx.unsafe(`select ${REDEMPTION_COLS} from points_redemptions where telecom_account_id = $1 and client_key = $2`, [input.telecomAccountId, input.clientKey]),
       );
       if (existing) return { status: "replay", redemption: existing, balance: acct.balance };
+      if (acct.owed > 0) return { status: "owed", owed: acct.owed, balance: acct.balance };
       const [{ used }] = (await tx`
         select count(*)::int as used from points_redemptions
         where telecom_account_id = ${input.telecomAccountId} and reward_id = ${input.rewardId} and status <> 'refunded'
@@ -178,7 +241,8 @@ export class PostgresPointsRepository implements PointsRepository {
         meta: { redemptionId: r.id },
         at,
       });
-      return { redemption, balance: row.balanceAfter };
+      const repaid = await this.repayOwed(tx, r.telecomAccountId, `refund:${r.id}`, at);
+      return { redemption, balance: row.balanceAfter - repaid };
     })) as { redemption: PointsRedemptionRow; balance: number } | null;
   }
 
