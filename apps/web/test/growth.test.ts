@@ -1,16 +1,16 @@
 // The site's missions page and promo must say exactly what the API grants (packages/shared missions).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { MISSIONS as SERVER, MISSION_MINUTES_CAP } from "@mimt/shared";
-import { MISSIONS, missionMinutesTotal, promoDue, markPromoSeen, PROMO_EVERY_MS, tickerOffers, yearlyOfferLive } from "../lib/growth.ts";
+import { MISSIONS as SERVER, MISSION_POINTS_CAP } from "@mimt/shared";
+import { MISSIONS, missionPointsTotal, promoDue, markPromoSeen, PROMO_EVERY_MS, tickerOffers, yearlyOfferLive } from "../lib/growth.ts";
 
-test("site missions match the API's missions and minutes", () => {
+test("site missions match the API's missions and points", () => {
   for (const m of MISSIONS) {
     const s = SERVER.find((x) => x.id === m.id);
     assert.ok(s, m.id);
-    assert.equal(m.minutes ?? 0, s.minutes, m.id);
+    assert.equal(m.points ?? 0, s.points, m.id);
   }
-  assert.equal(missionMinutesTotal(), MISSION_MINUTES_CAP);
+  assert.equal(missionPointsTotal(), MISSION_POINTS_CAP);
 });
 
 test("the yearly offer is announced only when plans carry a yearly price", () => {

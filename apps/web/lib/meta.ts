@@ -139,8 +139,8 @@ export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; descripti
     en: { title: "About MIMT", description: "Who is behind MIMT: a Québec company of GROUPE TAKATAK offering Canadian numbers, calls and texts over the internet." },
   },
   rewards: {
-    fr: { title: "Missions et récompenses", description: "Gagnez des minutes bonus en configurant votre compte MIMT, et 1 mois Premium chacun quand un ami s'abonne. Vérifié, sans tirage." },
-    en: { title: "Missions and rewards", description: "Earn bonus minutes by setting up your MIMT account, and 1 month of Premium each when a friend subscribes. Verified, no draw." },
+    fr: { title: "Missions et récompenses", description: "Gagnez des points en configurant votre compte MIMT, à échanger contre des minutes ou des textos, et 1 mois Premium chacun quand un ami s'abonne. Vérifié, sans tirage." },
+    en: { title: "Missions and rewards", description: "Earn points by setting up your MIMT account, to trade for minutes or texts, and 1 month of Premium each when a friend subscribes. Verified, no draw." },
   },
   affiliates: {
     fr: {

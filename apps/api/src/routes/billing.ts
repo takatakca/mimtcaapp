@@ -39,7 +39,7 @@ import { BUSINESS_PLANS, businessSubscription } from "../pbx/engine.js";
 import { checkHoldForCheckout } from "../services/numberHoldCheckout.js";
 import { provisionHeldNumber } from "../services/numberProvisioning.js";
 import { grantMission } from "../services/missions.js";
-import { earnInvoicePoints, earnStorePoints, storePeriodPriceCents } from "../services/points.js";
+import { clawbackInvoicePoints, clawbackStorePoints, earnInvoicePoints, earnStorePoints, storePeriodPriceCents } from "../services/points.js";
 import {
   attributeAccount,
   attributeFromHold,
@@ -375,6 +375,11 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     if (!purchase) return { received: true, ignored: "product" };
     const type = String(note.notificationType ?? "");
     if (APPLE_ENDED.has(type)) purchase.status = "canceled";
+    // Refunded by Apple: the points of that transaction are taken back (REVOKE is Family Sharing removed, not a
+    // refund: the purchaser paid, nothing to take back).
+    if (type === "REFUND" && typeof tx.transactionId === "string" && tx.transactionId) {
+      await clawbackStorePoints(deps, { platform: "ios", transactionId: tx.transactionId }, app.log);
+    }
     // Billing retry inside Apple's grace period: access continues until gracePeriodExpiresDate.
     if (type === "DID_FAIL_TO_RENEW" && note.subtype === "GRACE_PERIOD" && typeof renewal?.gracePeriodExpiresDate === "number") {
       purchase.status = "active";
@@ -416,6 +421,8 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     if (voided) {
       // Refund or chargeback: that purchase gives no access any more.
       const row = await repo.findSubscriptionByExternalId(storeRowId("android", googleTransactionId(voided)));
+      // MIMT Points of the latest paid period of that purchase are taken back (once: key per period).
+      if (row) await clawbackStorePoints(deps, { platform: "android", accountId: row.telecomAccountId, transactionId: googleTransactionId(voided) }, app.log);
       if (row && row.status !== "canceled") {
         const { id: _id, createdAt: _createdAt, ...fields } = row;
         await repo.upsertSubscription({ ...fields, status: "canceled" });
@@ -589,7 +596,8 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       }
       case "charge.refunded":
       case "charge.dispute.created": {
-        // Affiliate program: a refund reverses the commission in proportion, a chargeback reverses all of it.
+        // A refund reverses in proportion, a chargeback reverses everything: the affiliate commission and the MIMT
+        // Points the invoice earned (services/points.ts clawbackInvoicePoints, idempotent per refund state).
         const obj = event.data.object;
         const pi = typeof obj.payment_intent === "string" ? obj.payment_intent : (obj.payment_intent?.id ?? null);
         if (!pi || !deps.billing?.invoiceIdForPayment) return;
@@ -598,8 +606,10 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
         if (event.type === "charge.refunded") {
           const charge = event.data.object;
           await reverseAffiliateCommission(deps, { invoiceId, reason: "refund", refundedCents: charge.amount_refunded, amountCents: charge.amount });
+          await clawbackInvoicePoints(deps, { invoiceId, reason: "refund", refundedCents: charge.amount_refunded, amountCents: charge.amount }, app.log);
         } else {
           await reverseAffiliateCommission(deps, { invoiceId, reason: "chargeback" });
+          await clawbackInvoicePoints(deps, { invoiceId, reason: "chargeback" }, app.log);
         }
         return;
       }
