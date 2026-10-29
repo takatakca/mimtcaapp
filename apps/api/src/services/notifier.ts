@@ -15,7 +15,9 @@ export type NotificationTemplate =
   /** The app is ringing. data.from: @handle or E.164 only. Never a user id or message text. */
   | "incoming_call"
   /** « Nouvelle connexion à votre compte MIMT ». data.device: coarse label ("Chrome · Windows") only. */
-  | "new_sign_in";
+  | "new_sign_in"
+  /** « Google Agenda » stopped (token revoked or expired): reconnect in Compte › Intégrations. Sent once per break. */
+  | "calendar_reconnect";
 
 /** Push/email delivery. A placeholder is NOT delivery; never log notification payloads. */
 export interface Notifier {

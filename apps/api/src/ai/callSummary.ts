@@ -4,6 +4,7 @@ import type { BusinessRow, RecordingRow } from "../repo/pbxTypes.js";
 import { getFeatures } from "../services/accounts.js";
 import { transcribeRecording, transcriptLanguage, usesIntelligence } from "../services/voicemailTranscription.js";
 import { aiBudget, hasAiConsent, recordAiUsage } from "./service.js";
+import { calendarSummarySaved } from "../services/calendar.js";
 
 export type CallSummaryResult = "done" | "not_configured" | "not_entitled" | "no_consent" | "budget_exhausted" | "no_transcript" | "refusal" | "max_tokens" | "invalid_output";
 
@@ -45,6 +46,8 @@ export async function summarizeBusinessCall(
     locale: business.locale,
     model: out.usage.model,
   });
+  // « Google Agenda »: an event for the summary (content only with the user's opt-in). Never throws.
+  await calendarSummarySaved(deps, undefined, recording, account.ownerUserId);
   return "done";
 }
 

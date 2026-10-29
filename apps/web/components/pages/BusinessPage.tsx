@@ -7,7 +7,7 @@ import { PlanCard } from "@/components/PlanCard";
 import { Offers } from "@/components/Offers";
 import { FaqList } from "@/components/FaqList";
 import { Icon, type IconName } from "@/components/Visuals";
-import { DEFAULT_RECORDING_POLICY, quebecHolidaysCurrentAndNext } from "@mimt/shared";
+import { DEFAULT_RECORDING_POLICY, SUBSCRIPTION_ADD_ONS, quebecHolidaysCurrentAndNext } from "@mimt/shared";
 import { BUSINESS_PLANS, PLANS, formatCad } from "@/lib/plans-view";
 import { faqByTopic } from "@/lib/faq";
 import { serviceLd } from "@/lib/seo";
@@ -69,6 +69,20 @@ const FEATURES: { icon: IconName; status: Status; fr: [string, string]; en: [str
     status: "launch",
     fr: ["App Web et portail administrateur", "Appels et textos dans le navigateur à app.mimt.ca, et un portail pour gérer postes, menus, horaires et membres de l'équipe."],
     en: ["Web app and admin portal", "Calls and texts in the browser at app.mimt.ca, and a portal to manage extensions, menus, hours and team members."],
+  },
+  {
+    // « Google Agenda » (docs/MIMT-CALENDAR.md): ships behind CALENDAR=off until Google's verification; switch to
+    // "launch" the day it is on.
+    icon: "admin",
+    status: "planned",
+    fr: [
+      "Google Agenda",
+      `Vos appels, appels manqués, messages vocaux et résumés d'appel IA dans Google Agenda. Inclus dans Affaires et Affaires Pro; option à ${formatCad(SUBSCRIPTION_ADD_ONS.google_calendar.monthlyPriceCents, "fr")}/mois pour Essentiel et Premium.`,
+    ],
+    en: [
+      "Google Calendar",
+      `Your calls, missed calls, voicemails and AI call summaries in Google Calendar. Included in Business and Business Pro; a ${formatCad(SUBSCRIPTION_ADD_ONS.google_calendar.monthlyPriceCents, "en")}/month option for Essential and Premium.`,
+    ],
   },
   {
     icon: "chat",

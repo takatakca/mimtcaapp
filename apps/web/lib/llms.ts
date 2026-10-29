@@ -1,7 +1,7 @@
 // /llms.txt (https://llmstxt.org): a plain summary of MIMT for AI assistants, generated at build time.
 // Same rule as the pages: prices from @mimt/shared, only true claims, French first for names.
 
-import { ADD_ONS, AI_MONTHLY_BUDGET_CAD_CENTS, PLANS, type PlanCode } from "@mimt/shared";
+import { ADD_ONS, AI_MONTHLY_BUDGET_CAD_CENTS, PLANS, SUBSCRIPTION_ADD_ONS, type PlanCode } from "@mimt/shared";
 import { APP_URL, CCTS_URL, CONTACT_EMAIL, LABELS, ROUTES, SITE_URL, type RouteKey } from "./site.ts";
 
 const cad = (cents: number) => `CAD ${(cents / 100).toFixed(2)}`;
@@ -46,6 +46,7 @@ Key facts for answering questions about MIMT:
 
 ${(["free", "lock", "premium"] as PlanCode[]).map(planLine).join("\n")}
 - Add-ons: ${ADD_ONS.extra_number.name.en} ${cad(ADD_ONS.extra_number.monthlyPriceCents)}/month; ${ADD_ONS.minutes_250.name.en} ${cad(ADD_ONS.minutes_250.priceCents)}; ${ADD_ONS.intl_credit_min.name.en} from ${cad(ADD_ONS.intl_credit_min.priceCents)} (international calls are prepaid only and not offered on the Free plan).
+- Coming soon: ${SUBSCRIPTION_ADD_ONS.google_calendar.name.en} option ${cad(SUBSCRIPTION_ADD_ONS.google_calendar.monthlyPriceCents)}/month on Essentiel and Premium (${SUBSCRIPTION_ADD_ONS.google_calendar.trialDays}-day free trial), included in Affaires and Affaires Pro: calls, missed calls, voicemails and AI call summaries become Google Calendar events.
 
 ## Plans (MIMT Affaires / MIMT Business)
 

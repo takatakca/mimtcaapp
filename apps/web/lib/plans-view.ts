@@ -1,7 +1,7 @@
-import { ADD_ONS, PLANS, formatCad, type Feature, type Plan, type PlanCode } from "@mimt/shared";
+import { ADD_ONS, PLANS, SUBSCRIPTION_ADD_ONS, formatCad, type Feature, type Plan, type PlanCode } from "@mimt/shared";
 import type { Lang } from "./site";
 
-export { ADD_ONS, PLANS, formatCad };
+export { ADD_ONS, PLANS, SUBSCRIPTION_ADD_ONS, formatCad };
 export type { Feature, Plan, PlanCode };
 
 export const CONSUMER_PLANS: PlanCode[] = ["free", "lock", "premium"];
@@ -42,13 +42,15 @@ export const FEATURE_LABELS: Record<Feature, { fr: string; en: string }> = {
   vm_greeting: { fr: "Message d'accueil personnalisé", en: "Custom voicemail greeting" },
   vm_email: { fr: "Messages vocaux par courriel", en: "Voicemail to email" },
   video_meetings: { fr: "Réunions vidéo (partage d'écran, invités par lien)", en: "Video meetings (screen sharing, guest links)" },
+  calendar_sync: { fr: "Google Agenda (appels et messages vocaux dans votre agenda)", en: "Google Calendar (calls and voicemails in your calendar)" },
 };
 
 /**
  * Features in PLANS whose service is not live yet: shown with « bientôt » / "coming soon".
  * Remove a feature from this list on the day it ships.
  */
-export const SOON_FEATURES: readonly Feature[] = ["video_meetings"];
+// calendar_sync: behind CALENDAR=off until Google's OAuth verification (docs/MIMT-CALENDAR.md).
+export const SOON_FEATURES: readonly Feature[] = ["video_meetings", "calendar_sync"];
 
 export function featureLabel(f: Feature, lang: Lang): string {
   const base = FEATURE_LABELS[f][lang];

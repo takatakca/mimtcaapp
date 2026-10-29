@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { summarizeBusinessCall } from "../ai/callSummary.js";
+import { calendarVoicemailRecorded } from "../services/calendar.js";
 import { z } from "zod";
 import type { AppDeps } from "../deps.js";
 import { addDays } from "../lib/time.js";
@@ -139,7 +140,7 @@ export async function twilioPbxWebhooks(app: FastifyInstance, deps: AppDeps) {
     const ext = q.data.x ? await repo.pbx.getExtension(q.data.x) : null;
     const owner = ext?.businessId === business.id && ext.userId ? await repo.getAccountByOwner(ext.userId) : null;
     const call = await repo.getCallBySid(p.CallSid);
-    await repo.createVoicemail({
+    const vm = await repo.createVoicemail({
       telecomAccountId: owner?.id ?? business.telecomAccountId,
       phoneNumberId: number.id,
       callSid: p.CallSid,
@@ -148,6 +149,7 @@ export async function twilioPbxWebhooks(app: FastifyInstance, deps: AppDeps) {
       audioUrl: p.RecordingUrl ?? null,
       durationS: p.RecordingDuration ? Number(p.RecordingDuration) : null,
     });
+    await calendarVoicemailRecorded(deps, req.log, vm);
     return reply.code(204).send();
   });
 

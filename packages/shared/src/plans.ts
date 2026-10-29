@@ -20,7 +20,9 @@ export type Feature =
   /** Voicemail to email (courriel): transcript + a signed, expiring audio link. */
   | "vm_email"
   /** Réunions MIMT: video meetings (LiveKit). Participant caps by plan in meetings.ts. */
-  | "video_meetings";
+  | "video_meetings"
+  /** « Google Agenda »: calls, voicemails and AI call summaries as events in the user's Google Calendar (calendar.ts). */
+  | "calendar_sync";
 
 export type PlanCode = "free" | "lock" | "premium" | "business" | "business_pro";
 
@@ -134,7 +136,7 @@ export const PLANS: Record<PlanCode, Plan> = {
     monthlyPriceCents: 3499,
     yearlyPriceCents: yearlyPriceFor(3499),
     perLine: true,
-    features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "auto_attendant", "ring_groups", "admin_portal", "ai_assist", "vm_greeting", "vm_email", "video_meetings"],
+    features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "auto_attendant", "ring_groups", "admin_portal", "ai_assist", "vm_greeting", "vm_email", "video_meetings", "calendar_sync"],
     caps: {
       hasNumber: true,
       outboundMinutes: 300,
@@ -154,7 +156,7 @@ export const PLANS: Record<PlanCode, Plan> = {
     monthlyPriceCents: 4499,
     yearlyPriceCents: yearlyPriceFor(4499),
     perLine: true,
-    features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "auto_attendant", "ring_groups", "admin_portal", "call_recording", "ai_assist", "vm_greeting", "vm_email", "video_meetings"],
+    features: ["no_ads", "number_lock", "vm_transcription", "mms", "call_forwarding", "auto_attendant", "ring_groups", "admin_portal", "call_recording", "ai_assist", "vm_greeting", "vm_email", "video_meetings", "calendar_sync"],
     caps: {
       hasNumber: true,
       outboundMinutes: 350,

@@ -5,6 +5,7 @@ import { Offers } from "@/components/Offers";
 import {
   ADD_ONS,
   ALL_PLANS,
+  SUBSCRIPTION_ADD_ONS,
   BUSINESS_PLANS,
   CONSUMER_PLANS,
   featureLabel,
@@ -234,6 +235,20 @@ export function PlansPage({ lang }: { lang: Lang }) {
                 {fr
                   ? "Appels internationaux payés d'avance, au tarif affiché dans l'app. Aucune facture surprise."
                   : "Prepaid international calls at the rate shown in the app. No surprise bills."}
+              </p>
+            </li>
+            <li className="card addon">
+              <h3>
+                {SUBSCRIPTION_ADD_ONS.google_calendar.name[lang]} — {fr ? "bientôt" : "coming soon"}
+              </h3>
+              <p className="addon__price">
+                {formatCad(SUBSCRIPTION_ADD_ONS.google_calendar.monthlyPriceCents, lang)}
+                {fr ? "/mois" : "/month"}
+              </p>
+              <p>
+                {fr
+                  ? `Vos appels, appels manqués, messages vocaux et résumés d'appel IA dans votre Google Agenda. Option pour Essentiel et Premium, essai gratuit ${SUBSCRIPTION_ADD_ONS.google_calendar.trialDays} jours; inclus dans Affaires.`
+                  : `Your calls, missed calls, voicemails and AI call summaries in your Google Calendar. Option for Essential and Premium, ${SUBSCRIPTION_ADD_ONS.google_calendar.trialDays}-day free trial; included in Business.`}
               </p>
             </li>
           </ul>

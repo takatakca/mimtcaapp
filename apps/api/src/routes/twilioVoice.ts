@@ -15,6 +15,7 @@ import { processVoicemailTranscript } from "../ai/voicemail.js";
 import { transcribeVoicemail, transcriptLanguage, usesIntelligence } from "../services/voicemailTranscription.js";
 import { pbxInbound, pbxOutbound } from "../pbx/engine.js";
 import { partnerCallEnded, safeHook } from "../services/partners.js";
+import { calendarCallEnded, calendarVoicemailRecorded } from "../services/calendar.js";
 import { getFeatures, HELD_STATES, outboundBlocked, setAccountStatus, usagePeriods } from "../services/accounts.js";
 import { planOf } from "../plansConfig.js";
 import { afterDialControls, inboundCallControls } from "../services/callControls.js";
@@ -448,6 +449,8 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
     }
     // « MIMT Connect »: the caller's call is over → partner credit debit and call.completed (once; no-op otherwise).
     if (terminal) await safeHook(req.log, "call-ended", () => partnerCallEnded(deps, req.log, { callSid: call.twilioCallSid }));
+    // « Google Agenda »: one event per finished call (answered or missed), if the user connected a calendar. Never throws.
+    if (terminal) await calendarCallEnded(deps, req.log, { ...call, status, endedAt: call.endedAt ?? deps.now(), durationS });
     return reply.code(204).send();
   });
 
@@ -529,6 +532,7 @@ export async function twilioVoiceWebhooks(app: FastifyInstance, deps: AppDeps) {
       }
     }
     await queueVoicemailEmail(deps, number.telecomAccountId, vm.id, req.log);
+    await calendarVoicemailRecorded(deps, req.log, vm);
     return reply.code(204).send();
   });
 

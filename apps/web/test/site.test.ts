@@ -200,3 +200,12 @@ test("the AI call demo says the businesses are fictional and who processes the v
   const privacy = readFileSync(join(web, "components", "pages", "PrivacyPage.tsx"), "utf8");
   assert.match(privacy, /Appelez notre IA/);
 });
+
+test("Google Agenda add-on: price from the shared catalog on /forfaits and /affaires, included in Affaires", () => {
+  for (const page of ["PlansPage.tsx", "BusinessPage.tsx"]) {
+    const src = readFileSync(join(web, "components", "pages", page), "utf8");
+    assert.match(src, /formatCad\(SUBSCRIPTION_ADD_ONS\.google_calendar\.monthlyPriceCents/, page);
+    assert.match(src, /inclus dans Affaires|Inclus dans Affaires/, page);
+    assert.doesNotMatch(src, /3,95|3\.95/, page);
+  }
+});

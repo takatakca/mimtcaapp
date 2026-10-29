@@ -50,6 +50,14 @@ export class MessageCipher {
     return createHmac("sha256", this.subjectKey).update(`${kind}:${value.trim()}`).digest("base64url");
   }
 
+  /**
+   * Secret derived from the key for one purpose and value (base64url, 43 characters), e.g. the OAuth PKCE
+   * code_verifier of a « Google Agenda » connection: recomputed at the callback instead of being stored.
+   */
+  derivedSecret(purpose: string, value: string): string {
+    return createHmac("sha256", this.subjectKey).update(`derived:${purpose}:${value}`).digest("base64url");
+  }
+
   /** Keyed hash of the normalized body, used to spot bulk-identical sends without decrypting. */
   fingerprint(body: string): string {
     const normalized = body.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
