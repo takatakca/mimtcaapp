@@ -12,6 +12,7 @@ import { normalizePostalCode, PROVINCES } from "../lib/address";
 import { formatPhone, toDialable } from "../lib/dial";
 import { formatDateTime } from "../lib/format";
 import { useAsync } from "../lib/useAsync";
+import { ShopTabs } from "../components/SectionTabs";
 
 export const PORT_STATUS_KEY: Record<PortInStatus, TKey> = {
   pending_signature: "port.status.pendingSignature",
@@ -59,6 +60,7 @@ export function PortIn() {
 
   return (
     <div className="page">
+      <ShopTabs />
       <PageHeader
         title={t("port.title")}
         sub={t("port.sub")}

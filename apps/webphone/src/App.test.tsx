@@ -24,13 +24,20 @@ describe("App (demo mode)", () => {
       fireEvent.click(takatak);
     });
 
+    // Home: the « Centre de contrôle ».
+    expect(await screen.findByRole("heading", { level: 1, name: "Bonjour, Camille" })).toBeInTheDocument();
+    const side = screen.getByRole("complementary", { name: "Navigation principale" });
+    expect(within(side).getByRole("link", { name: "Accueil" })).toHaveAttribute("aria-current", "page");
+
     // Messages with the demo conversation.
+    await act(async () => {
+      fireEvent.click(within(side).getByRole("link", { name: "Messages" }));
+    });
     expect(await screen.findByRole("heading", { level: 1, name: "Messages" })).toBeInTheDocument();
     expect(await screen.findAllByText("438 555-0142")).not.toHaveLength(0);
     expect(screen.getByText(/Mode démo/)).toBeInTheDocument();
 
     // Business portal from the sidebar.
-    const side = screen.getByRole("complementary", { name: "Navigation principale" });
     await act(async () => {
       fireEvent.click(within(side).getByRole("link", { name: "Café Lumière inc." }));
     });

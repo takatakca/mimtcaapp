@@ -933,7 +933,7 @@ const routes: Route[] = [
     const q = (msgs[msgs.length - 1]?.text ?? "").toLowerCase();
     if (!state.consents[AI_CONSENT_KIND]) return fail(403, "ai_consent_required");
     const answer = q.includes("transf")
-      ? "Dans l'app : Services › Transférer un numéro. C'est gratuit; il faut le numéro de compte et le NIP de votre fournisseur actuel."
+      ? "Dans l'app : Boutique › Transférer un numéro. C'est gratuit; il faut le numéro de compte et le NIP de votre fournisseur actuel."
       : "Mode démo : posez une question sur les forfaits, le transfert de numéro ou le 9-1-1.";
     return ok({ answer, needsHuman: false });
   }],

@@ -25,7 +25,7 @@ describe("Missions MIMT (demo mode)", () => {
     });
     const side = await screen.findByRole("complementary", { name: "Navigation principale" });
     await act(async () => {
-      fireEvent.click(within(side).getByRole("link", { name: "Compte" }));
+      fireEvent.click(within(side).getByRole("link", { name: "Mon compte" }));
     });
     expect(await screen.findByRole("link", { name: /Missions : gagnez des points/ })).toBeInTheDocument();
     fireEvent.change(await screen.findByLabelText("Identifiant"), { target: { value: "Matt.QC" } });
@@ -34,8 +34,13 @@ describe("Missions MIMT (demo mode)", () => {
     });
     expect(await screen.findByText(/Mission accomplie : Choisissez votre @nom! \+300 points dans votre Portefeuille\./)).toBeInTheDocument();
 
+    // Missions live in « Portefeuille » (its « Gagner : missions » tab).
     await act(async () => {
-      fireEvent.click(within(side).getByRole("link", { name: "Missions" }));
+      fireEvent.click(within(side).getByRole("link", { name: /^Portefeuille/ }));
+    });
+    const tabs = await screen.findByRole("navigation", { name: "Sections du portefeuille" });
+    await act(async () => {
+      fireEvent.click(within(tabs).getByRole("link", { name: "Gagner : missions" }));
     });
     expect(await screen.findByRole("heading", { level: 2, name: "1 sur 7 missions accomplies" })).toBeInTheDocument();
     expect(screen.getByText(/^300 points gagnés sur 1\s500 possibles$/)).toBeInTheDocument();

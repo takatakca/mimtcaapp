@@ -11,6 +11,7 @@ import { enCallTest } from "./en.calltest";
 import { enSecurity } from "./en.security";
 import { enPartner } from "./en.partner";
 import { enCalendar } from "./en.calendar";
+import { enHome } from "./en.home";
 
 export const en: Record<TKey, string> = {
   ...enExtra,
@@ -24,6 +25,7 @@ export const en: Record<TKey, string> = {
   ...enSecurity,
   ...enPartner,
   ...enCalendar,
+  ...enHome,
   "account.billingPortal": "Manage billing",
   "account.complaints": "Complaints: CCTS (Commission for Complaints for Telecom-television Services)",
   "account.complaintsHint": "If we do not resolve your complaint, the CCTS can help you for free.",
@@ -340,7 +342,7 @@ export const en: Record<TKey, string> = {
   "nav.skip": "Skip to content",
 
   "notFound.body": "This address does not exist in MIMT Web.",
-  "notFound.home": "Go to my messages",
+  "notFound.home": "Back to home",
   "notFound.title": "Page not found",
 
   "offer.cable": "Cable",

@@ -2,7 +2,7 @@
 // for points earned elsewhere (a paid bill, a store renewal, a friend who subscribed, a campaign). Missions have
 // their own toast (MissionToaster). Reads GET /v1/points when the app opens and after a redemption (POINTS_EVENT).
 import { useEffect, useState } from "react";
-import { Link, NavLink } from "react-router";
+import { Link, NavLink, useLocation } from "react-router";
 import type { PointsEntryDto } from "@mimt/shared";
 import { api } from "../api/client";
 import { useI18n } from "../i18n/I18nProvider";
@@ -69,6 +69,9 @@ function usePointsFeed() {
 export function usePointsShell() {
   const { t, lang } = useI18n();
   const { balance, credits, setCredits } = usePointsFeed();
+  // « Portefeuille » covers the balance (/points) and the missions (/missions, its « Gagner » side).
+  const { pathname } = useLocation();
+  const inWallet = pathname === "/points" || pathname === "/missions";
   const current = credits[0];
   useEffect(() => {
     if (!current) return;
@@ -77,7 +80,7 @@ export function usePointsShell() {
   }, [current, setCredits]);
   return {
     side: (
-      <NavLink to="/points" className={({ isActive }) => `side__link${isActive ? " is-active" : ""}`}>
+      <Link to="/points" className={`side__link${inWallet ? " is-active" : ""}`} aria-current={inWallet ? "page" : undefined}>
         <Icon name="wallet" />
         <span>{t("nav.points")}</span>
         {balance !== null ? (
@@ -85,7 +88,7 @@ export function usePointsShell() {
             {formatPoints(balance, lang)}
           </span>
         ) : null}
-      </NavLink>
+      </Link>
     ),
     top: (
       <NavLink to="/points" className="icon-btn" aria-label={t("nav.points")}>

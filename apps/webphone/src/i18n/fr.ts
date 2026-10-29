@@ -14,6 +14,7 @@ import { frCallTest } from "./fr.calltest";
 import { frSecurity } from "./fr.security";
 import { frPartner } from "./fr.partner";
 import { frCalendar } from "./fr.calendar";
+import { frHome } from "./fr.home";
 
 export const fr = {
   ...frExtra,
@@ -27,6 +28,7 @@ export const fr = {
   ...frSecurity,
   ...frPartner,
   ...frCalendar,
+  ...frHome,
   "account.billingPortal": "Gérer la facturation",
   "account.complaints": "Plaintes : CPRST (Commission des plaintes relatives aux services de télécom-télévision)",
   "account.complaintsHint": "Si nous ne réglons pas votre plainte, la CPRST peut vous aider gratuitement.",
@@ -343,7 +345,7 @@ export const fr = {
   "nav.skip": "Aller au contenu",
 
   "notFound.body": "Cette adresse n'existe pas dans MIMT Web.",
-  "notFound.home": "Aller à mes messages",
+  "notFound.home": "Retour à l'accueil",
   "notFound.title": "Page introuvable",
 
   "offer.cable": "Câble",

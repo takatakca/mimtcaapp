@@ -13,6 +13,7 @@ import { useI18n } from "../i18n/I18nProvider";
 import type { TKey } from "../i18n/core";
 import { announcePoints, entryLabel, formatPoints, newRedeemKey } from "../lib/points";
 import { useAsync } from "../lib/useAsync";
+import { WalletTabs } from "../components/SectionTabs";
 
 const reducedMotion = () => typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -64,6 +65,7 @@ export function Points() {
 
   return (
     <div className="page pts-page">
+      <WalletTabs />
       <PageHeader title={t("points.title")} sub={t("points.lead")} />
       {w.enabled ? null : <p className="note note--warn">{t("points.off")}</p>}
 

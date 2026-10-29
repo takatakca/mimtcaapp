@@ -10,6 +10,7 @@ import "./styles/points.css";
 import "./styles/affiliate.css";
 import "./styles/pilot.css";
 import "./styles/security.css";
+import "./styles/hud.css";
 
 // Affiliate link (?aff=CODE): kept as first touch before anything else (lib/affiliate.ts).
 captureAffiliate(window.location.search);

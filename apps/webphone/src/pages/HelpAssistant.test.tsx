@@ -35,6 +35,6 @@ describe("Help assistant (demo mode)", () => {
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Envoyer" }));
     });
-    expect(await screen.findByText(/Services › Transférer un numéro/)).toBeInTheDocument();
+    expect(await screen.findByText(/Boutique › Transférer un numéro/)).toBeInTheDocument();
   });
 });

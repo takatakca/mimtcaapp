@@ -21,7 +21,7 @@ describe("OAuth post-login navigation", () => {
       null,
       {},
     ]) {
-      expect(safeReturnTo(input)).toBe("/messages");
+      expect(safeReturnTo(input)).toBe("/accueil");
     }
   });
 });

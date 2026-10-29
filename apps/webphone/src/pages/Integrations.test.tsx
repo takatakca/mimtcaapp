@@ -23,7 +23,7 @@ describe("Intégrations (demo mode)", () => {
     });
     const side = await screen.findByRole("complementary", { name: "Navigation principale" });
     await act(async () => {
-      fireEvent.click(within(side).getByRole("link", { name: "Compte" }));
+      fireEvent.click(within(side).getByRole("link", { name: "Mon compte" }));
     });
     await act(async () => {
       fireEvent.click(await screen.findByRole("link", { name: "Intégrations (Google Agenda)" }));

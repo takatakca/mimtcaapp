@@ -36,6 +36,10 @@ const PATHS = {
   copy: "M9 9h11v11H9zM5 15H4V4h11v1",
   lock: "M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4M12 15v2",
   calendar: "M4 6h16v15H4zM4 10h16M8 3v5m8-5v5M8 14h3",
+  home: "M3 11l9-7 9 7M5 9.5V20h14V9.5M10 20v-5h4v5",
+  gift: "M4 11h16v9H4zM3 7h18v4H3zM12 7v13M12 7C11 4 7 3 7 5.5S10 7 12 7zm0 0c1-3 5-4 5-1.5S14 7 12 7z",
+  bot: "M6 8h12v10H6zM12 4v4M9.5 13h.01M14.5 13h.01M3 12v3M21 12v3",
+  help: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01",
 } as const;
 
 export type IconName = keyof typeof PATHS;
