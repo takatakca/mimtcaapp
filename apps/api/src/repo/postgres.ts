@@ -15,6 +15,7 @@ import { PostgresMissionRepository } from "./missionsPostgres.js";
 import { PostgresPointsRepository } from "./pointsPostgres.js";
 import { PostgresAffiliateRepository } from "./affiliatesPostgres.js";
 import { PostgresPartnerRepository } from "./partnersPostgres.js";
+import { PostgresCalendarRepository } from "./calendarPostgres.js";
 import { PostgresPortInRepository } from "./portInPostgres.js";
 import { PostgresMeetingRepository } from "./meetingsPostgres.js";
 import type {
@@ -125,6 +126,11 @@ export class PostgresRepository implements Repository {
     return (this.partnerRepo ??= new PostgresPartnerRepository(this.sql));
   }
 
+  private calendarRepo?: PostgresCalendarRepository;
+  get calendar(): PostgresCalendarRepository {
+    return (this.calendarRepo ??= new PostgresCalendarRepository(this.sql));
+  }
+
   private webPushRepo?: PostgresWebPushRepository;
   get webPush(): PostgresWebPushRepository {
     return (this.webPushRepo ??= new PostgresWebPushRepository(this.sql));
@@ -220,6 +226,8 @@ export class PostgresRepository implements Repository {
       await tx`delete from refresh_tokens where user_id = ${userId}`;
       await tx`delete from auth_sessions where user_id = ${userId}`;
       await tx`delete from passkeys where user_id = ${userId}`;
+      await tx`delete from calendar_sync_jobs where user_id = ${userId}`;
+      await tx`delete from calendar_connections where user_id = ${userId}`;
       await tx`delete from push_tokens where user_id = ${userId}`;
       await tx`delete from web_push_subscriptions where user_id = ${userId}`;
       await tx`delete from attested_devices where user_id = ${userId}`;

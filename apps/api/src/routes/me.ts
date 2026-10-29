@@ -22,6 +22,7 @@ import { badRequest, forbidden } from "../lib/errors.js";
 import type { TelecomAccount } from "../repo/types.js";
 import { billingSourceOf, getFeatures, HELD_STATES, setAccountStatus } from "../services/accounts.js";
 import { checkForwardTarget } from "../services/callControls.js";
+import { disconnectCalendar } from "../services/calendar.js";
 import { cancelWebSubscriptions, DELETION_DELAY_DAYS } from "../jobs/accountDeletion.js";
 import { blockDto } from "./blocks.js";
 import { messageDto } from "./messages.js";
@@ -239,6 +240,8 @@ export async function meRoutes(app: FastifyInstance, deps: AppDeps) {
     // Every session and refresh token, this one included.
     await deps.sessions.revokeOtherSessions(user.id, null);
     await repo.deletePushTokensForUser(user.id);
+    // « Google Agenda »: access revoked at Google now, connection and queued events dropped (nothing more is sent).
+    await disconnectCalendar(deps, user.id, req.log).catch(() => req.log.warn({}, "calendar disconnect on deletion failed"));
     await repo.audit({ actorUserId: user.id, action: "user.deletion_requested", targetType: "user", targetId: user.id, ip: req.ip });
     // Web (Stripe) subscriptions stop now. Store subscriptions are cancelled by the customer in the store (the app says so).
     // jobs/accountDeletion.ts deletes the personal data DELETION_DELAY_DAYS later.

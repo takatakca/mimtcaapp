@@ -54,4 +54,6 @@ export interface AppDeps {
   contracts?: ContractGateway | null;
   /** Passkeys (WebAuthn). Absent: @simplewebauthn/server with WEBAUTHN_RP_ID / WEBAUTHN_ORIGINS. Tests inject a fake. */
   webauthn?: WebAuthnGateway;
+  /** fetch used for Google OAuth and Calendar calls (« Google Agenda »). Absent: global fetch. Tests inject a mock. */
+  googleFetch?: typeof fetch;
 }

@@ -52,7 +52,7 @@ import type { CheckoutLine } from "../gateways/billing.js";
 const CheckoutBody = z
   .object({
     plan: z.enum(["lock", "premium", "business", "business_pro"]).optional(),
-    addon: z.enum(["extra_number", "minutes_250", "intl_credit", "no_ads"]).optional(),
+    addon: z.enum(["extra_number", "minutes_250", "intl_credit", "no_ads", "google_calendar"]).optional(),
     interval: z.enum(["month", "year"]).default("month"),
     quantity: z.number().int().min(1).max(50).default(1),
     /** International credit amount, CAD cents. */
@@ -84,6 +84,8 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     let line: CheckoutLine;
     let mode: "subscription" | "payment";
     let code: string;
+    /** Add-on free trial (Google Agenda: 14 days, once per account). */
+    let addOnTrialDays: number | null = null;
     if (body.trial) {
       // Optional 7-day Essentiel trial: off unless TRIAL_ENABLED, monthly only, once per account (any past plan).
       if (!config.TRIAL_ENABLED) throw badRequest("trial_unavailable", "Aucun essai gratuit n'est offert en ce moment.");
@@ -131,6 +133,27 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       };
       mode = "subscription";
       code = "no_ads";
+    } else if (body.addon === "google_calendar") {
+      // « Google Agenda » (docs/MIMT-CALENDAR.md): included in Affaires / Affaires Pro, sold on Essentiel and Premium,
+      // 14-day free trial on the first checkout of this add-on on the account (Stripe trial_period_days).
+      const a = SUBSCRIPTION_ADD_ONS.google_calendar;
+      const { plan, addOns } = await getFeatures(repo, account.id);
+      if ((a.includedIn ?? []).includes(plan)) throw conflict("already_included", "Google Agenda est déjà inclus dans votre forfait.");
+      if (addOns.includes("google_calendar")) throw conflict("already_subscribed", "Vous avez déjà l'option Google Agenda.");
+      if (!(a.availableOn ?? []).includes(plan)) throw conflict("plan_required", "L'option Google Agenda s'ajoute aux forfaits Essentiel et Premium.");
+      if (body.quantity !== 1) throw badRequest("quantity_not_allowed");
+      const yearly = body.interval === "year";
+      line = {
+        name: fr ? `MIMT ${a.name.fr}` : `MIMT ${a.name.en}`,
+        description: taxNote,
+        unitAmountCents: yearly ? a.yearlyPriceCents : a.monthlyPriceCents,
+        quantity: 1,
+        recurring: body.interval,
+      };
+      mode = "subscription";
+      code = "google_calendar";
+      const tried = (await repo.listSubscriptions(account.id)).some((s) => s.kind === "addon" && s.code === "google_calendar");
+      if (!tried && a.trialDays) addOnTrialDays = a.trialDays;
     } else {
       const amountCents = body.amountCents ?? ADD_ONS.intl_credit_min.priceCents;
       if ((await getPlan(repo, account.id)) === "free") await checkFreeIntlTopUp(account, user, amountCents);
@@ -177,7 +200,7 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       cancelUrl: `${appUrl}/billing/cancel`,
       locale: user.locale,
       ...(hold ? { expiresAt: hold.checkoutExpiresAt } : {}),
-      ...(body.trial ? { trialDays: TRIAL_DAYS } : {}),
+      ...(body.trial ? { trialDays: TRIAL_DAYS } : addOnTrialDays ? { trialDays: addOnTrialDays } : {}),
     });
     if (hold && !(await repo.numberHolds.startCheckout(hold.id, { telecomAccountId: account.id, checkoutSessionId: session.id, expiresAt: hold.checkoutExpiresAt, now: deps.now() }))) {
       throw conflict("hold_expired", "La réservation de ce numéro a expiré. Choisissez-en un autre.");

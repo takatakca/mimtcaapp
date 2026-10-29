@@ -13,6 +13,7 @@ import { MemoryMissionRepository } from "./missionsMemory.js";
 import { MemoryPointsRepository } from "./pointsMemory.js";
 import { MemoryAffiliateRepository } from "./affiliatesMemory.js";
 import { MemoryPartnerRepository } from "./partnersMemory.js";
+import { MemoryCalendarRepository } from "./calendarMemory.js";
 import { MemoryPortInRepository } from "./portInMemory.js";
 import { MemoryMeetingRepository } from "./meetingsMemory.js";
 import { planFromSubscriptions } from "../services/accounts.js";
@@ -85,6 +86,7 @@ export class MemoryRepository implements Repository {
   readonly points = new MemoryPointsRepository();
   readonly affiliates = new MemoryAffiliateRepository();
   readonly partners = new MemoryPartnerRepository();
+  readonly calendar = new MemoryCalendarRepository();
 
   async ping() {}
   async close() {}
@@ -161,6 +163,7 @@ export class MemoryRepository implements Repository {
     }
     dropMap(this.refreshTokens, (t) => t.userId === userId);
     this.security.dropUser(userId);
+    this.calendar.dropUser(userId);
     this.pushTokens = this.pushTokens.filter((t) => t.userId !== userId);
     dropMap(this.webPush.subs, (s) => s.userId === userId);
     this.devices = this.devices.filter((d) => d.userId !== userId);

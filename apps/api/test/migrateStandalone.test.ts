@@ -55,6 +55,11 @@ describe("isolated self-hosted MIMT migration guard", () => {
     for (const earlier of MIGRATION_ORDER.filter((m) => m.startsWith("0021_") || m.startsWith("0022_"))) {
       expect(MIGRATION_ORDER.indexOf(earlier)).toBeLessThan(MIGRATION_ORDER.indexOf("0023_partners.sql"));
     }
+    // « Google Agenda » is 0024: after every earlier migration (it references users, voicemails and recordings ids).
+    expect(MIGRATION_ORDER).toContain("0024_calendar.sql");
+    for (const earlier of MIGRATION_ORDER.filter((m) => m < "0024_")) {
+      expect(MIGRATION_ORDER.indexOf(earlier)).toBeLessThan(MIGRATION_ORDER.indexOf("0024_calendar.sql"));
+    }
   });
   it("lists every migration file in supabase/migrations", () => {
     const files = readdirSync(join(__dirname, "../../../supabase/migrations")).filter((f) => f.endsWith(".sql"));

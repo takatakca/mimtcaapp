@@ -176,6 +176,16 @@ const EnvSchema = z
      * partner route, adds no hook to calls and sends no webhook. Data is kept while off.
      */
     PARTNERS: z.enum(["on", "off"]).default("off"),
+    /**
+     * « Google Agenda » connector (docs/MIMT-CALENDAR.md) kill switch: "off" (default) answers 404 on every
+     * /v1/integrations/google-calendar route, queues nothing and sends nothing to Google. Data is kept while off.
+     */
+    CALENDAR: z.enum(["on", "off"]).default("off"),
+    /** Google Cloud OAuth 2.0 « Web application » client. Without all three, the card says « non configuré ». */
+    GOOGLE_OAUTH_CLIENT_ID: optional,
+    GOOGLE_OAUTH_CLIENT_SECRET: optional,
+    /** Must match an authorized redirect URI of the client, e.g. https://api.mimt.ca/v1/integrations/google-calendar/callback */
+    GOOGLE_OAUTH_REDIRECT_URI: z.url().optional(),
     /** Default partner credits per started minute answered by a member (each partner can override it). */
     PARTNER_CREDIT_PER_MINUTE: z.coerce.number().int().min(0).max(10_000).default(1),
     /**
@@ -298,6 +308,9 @@ const EnvSchema = z
     if (env.LIVEKIT_URL && !env.LIVEKIT_URL.startsWith("wss://")) {
       ctx.addIssue({ code: "custom", path: ["LIVEKIT_URL"], message: "LIVEKIT_URL must be wss:// in production" });
     }
+    if (env.GOOGLE_OAUTH_REDIRECT_URI && !env.GOOGLE_OAUTH_REDIRECT_URI.startsWith("https://")) {
+      ctx.addIssue({ code: "custom", path: ["GOOGLE_OAUTH_REDIRECT_URI"], message: "GOOGLE_OAUTH_REDIRECT_URI must be https in production" });
+    }
     if (!env.PUBLIC_BASE_URL.startsWith("https://")) {
       ctx.addIssue({ code: "custom", path: ["PUBLIC_BASE_URL"], message: "PUBLIC_BASE_URL must be https in production" });
     }
@@ -328,5 +341,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
 export const twilioRestConfigured = (c: Config) => Boolean(c.TWILIO_ACCOUNT_SID && c.TWILIO_API_KEY_SID && c.TWILIO_API_KEY_SECRET);
 export const stripeConfigured = (c: Config) => Boolean(c.STRIPE_SECRET_KEY && c.STRIPE_WEBHOOK_SECRET);
 export const aiConfigured = (c: Config) => Boolean(c.ANTHROPIC_API_KEY);
+export const googleOAuthConfigured = (c: Config) => Boolean(c.GOOGLE_OAUTH_CLIENT_ID && c.GOOGLE_OAUTH_CLIENT_SECRET && c.GOOGLE_OAUTH_REDIRECT_URI);
 export const docusignConfigured = (c: Config) =>
   Boolean(c.DOCUSIGN_ACCOUNT_ID && c.DOCUSIGN_INTEGRATION_KEY && c.DOCUSIGN_USER_ID && c.DOCUSIGN_PRIVATE_KEY && c.DOCUSIGN_BASE_URL && c.DOCUSIGN_TEMPLATE_ID);

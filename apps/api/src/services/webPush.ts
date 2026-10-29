@@ -90,6 +90,13 @@ export function pushPayload(template: NotificationTemplate, data: Record<string,
         tag: "signin",
       };
     }
+    case "calendar_reconnect":
+      return {
+        title: fr ? "Google Agenda est déconnecté" : "Google Calendar is disconnected",
+        body: fr ? "Reconnectez-le pour que vos appels continuent d'y apparaître." : "Reconnect it so your calls keep showing up there.",
+        url: "/compte/integrations",
+        tag: "calendar",
+      };
     default:
       return null;
   }

@@ -11,6 +11,7 @@ import type { MissionRepository } from "./missions.js";
 import type { PointsRepository } from "./points.js";
 import type { AffiliateRepository } from "./affiliates.js";
 import type { PartnerRepository } from "./partners.js";
+import type { CalendarRepository } from "./calendar.js";
 import type { PortInRepository } from "./portIn.js";
 import type { MeetingRepository } from "./meetings.js";
 import type { SecurityRepository } from "./security.js";
@@ -337,6 +338,8 @@ export interface Repository {
   readonly affiliates: AffiliateRepository;
   /** « MIMT Connect » partners: API keys, members, hunt groups, credit ledger, calls, webhook outbox: src/repo/partners.ts. */
   readonly partners: PartnerRepository;
+  /** « Google Agenda » connections and the calendar sync outbox: src/repo/calendar.ts. */
+  readonly calendar: CalendarRepository;
   /** Number port-in (landline/VoIP into MIMT) storage: src/repo/portIn.ts. */
   readonly portIns: PortInRepository;
   /** Réunions MIMT (video meetings) storage: src/repo/meetings.ts. */

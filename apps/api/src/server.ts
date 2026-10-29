@@ -12,6 +12,7 @@ import { runFallbackBackfill } from "./jobs/numberFallback.js";
 import { pingHeartbeat } from "./monitoring/report.js";
 import { deliverOutbox } from "./services/outbox.js";
 import { deliverPartnerWebhooks } from "./services/partners.js";
+import { runCalendarSync } from "./services/calendar.js";
 import { deliverEmails } from "./services/email.js";
 import { purgeExpiredMedia } from "./services/media.js";
 
@@ -55,6 +56,13 @@ const partnerWebhookTimer = setInterval(() => {
   deliverPartnerWebhooks(deps, app.log).catch((err) => app.log.error({ err }, "partner webhook delivery failed"));
 }, 15_000);
 partnerWebhookTimer.unref();
+
+// « Google Agenda » (services/calendar.ts): calendar_sync_jobs → Google Calendar events.insert, every minute; does
+// nothing while CALENDAR=off or without GOOGLE_OAUTH_* credentials.
+const calendarTimer = setInterval(() => {
+  runCalendarSync(deps, app.log).catch((err) => app.log.error({ err: { message: (err as Error).message } }, "calendar sync failed"));
+}, 60_000);
+calendarTimer.unref();
 
 const heartbeatTimer = setInterval(() => {
   pingHeartbeat(config.BETTER_STACK_HEARTBEAT_URL).catch(() => app.log.warn("heartbeat failed"));

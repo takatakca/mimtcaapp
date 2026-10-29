@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SUBSCRIPTION_ADD_ONS } from "./addons.js";
 import { ADD_ONS, PLANS, TRIAL_CAPS, YEARLY_MONTHS_PAID } from "./plans.js";
 import {
   DEFAULT_ASSUMPTIONS,
@@ -66,6 +67,13 @@ describe("PLANS never drift from the rule", () => {
   it("paid add-ons pass too: 250 extra minutes, extra number", () => {
     expect(planEconomics(ADD_ONS.minutes_250.priceCents, usageQuota({ hasNumber: false, outboundMinutes: 250 })).ok).toBe(true);
     expect(planEconomics(ADD_ONS.extra_number.monthlyPriceCents, usageQuota({})).ok).toBe(true);
+  });
+
+  it("« Google Agenda » add-on passes: no carrier usage (Google Calendar API is free within quota)", () => {
+    const a = SUBSCRIPTION_ADD_ONS.google_calendar;
+    expect(planEconomics(a.monthlyPriceCents, usageQuota({ hasNumber: false })).ok).toBe(true);
+    expect(yearlyPlanEconomics(a.yearlyPriceCents, usageQuota({ hasNumber: false })).ok).toBe(true);
+    expect(a.yearlyPriceCents).toBe(a.monthlyPriceCents * YEARLY_MONTHS_PAID);
   });
 });
 

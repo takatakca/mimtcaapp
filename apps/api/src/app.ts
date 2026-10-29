@@ -45,6 +45,7 @@ import { pointsRoutes } from "./routes/points.js";
 import { partnerRoutes } from "./routes/partners.js";
 import { voicemailSettingsRoutes } from "./routes/voicemailSettings.js";
 import { securityRoutes } from "./routes/security.js";
+import { calendarRoutes } from "./routes/calendar.js";
 
 type Routes = (app: import("fastify").FastifyInstance, deps: AppDeps) => Promise<void>;
 
@@ -121,6 +122,7 @@ export async function buildApp(deps: AppDeps) {
     adminCostRoutes,
     affiliateRoutes,
     partnerRoutes,
+    calendarRoutes,
   ];
   for (const r of routes) await app.register(async (scope) => r(scope, deps));
   return app;

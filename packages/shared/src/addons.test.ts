@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { adFreeFor, ADDON_STORE_PRODUCTS, isSubscriptionAddOn, storeAddOnProduct, SUBSCRIPTION_ADD_ONS } from "./addons.js";
-import { ADD_ONS, PLANS, STORE_PRODUCTS } from "./plans.js";
+import { adFreeFor, ADDON_STORE_PRODUCTS, calendarEntitled, calendarIncludedIn, isSubscriptionAddOn, storeAddOnProduct, SUBSCRIPTION_ADD_ONS } from "./addons.js";
+import { ADD_ONS, PLANS, STORE_PRODUCTS, YEARLY_MONTHS_PAID } from "./plans.js";
 import { FREE_PLAN_INTL_LIMITS, INTL_RATES, intlRateFor } from "./rates.js";
 
 describe("Sans pub add-on", () => {
@@ -30,6 +30,40 @@ describe("Sans pub add-on", () => {
     expect(adFreeFor("free", ["no_ads"])).toBe(true);
     expect(adFreeFor("premium")).toBe(true);
     expect(adFreeFor(undefined, ["no_ads"])).toBe(true);
+  });
+});
+
+describe("Google Agenda add-on", () => {
+  const a = SUBSCRIPTION_ADD_ONS.google_calendar;
+  it("costs 3,95 $/mo, 11 × monthly per year, with a 14-day trial", () => {
+    expect(a).toMatchObject({ monthlyPriceCents: 395, yearlyPriceCents: 395 * YEARLY_MONTHS_PAID, trialDays: 14, features: ["calendar_sync"] });
+    expect(a.name.fr).toBe("Google Agenda");
+    expect(isSubscriptionAddOn("google_calendar")).toBe(true);
+  });
+
+  it("is included in Affaires and Affaires Pro, sold on Essentiel and Premium", () => {
+    expect(a.includedIn).toEqual(["business", "business_pro"]);
+    expect(a.availableOn).toEqual(["lock", "premium"]);
+    for (const p of ["business", "business_pro"] as const) expect(PLANS[p].features).toContain("calendar_sync");
+    for (const p of ["free", "lock", "premium"] as const) expect(PLANS[p].features).not.toContain("calendar_sync");
+  });
+
+  it("entitlement matrix: plan or live add-on", () => {
+    expect(calendarIncludedIn("business")).toBe(true);
+    expect(calendarIncludedIn("premium")).toBe(false);
+    expect(calendarEntitled("free")).toBe(false);
+    expect(calendarEntitled("lock")).toBe(false);
+    expect(calendarEntitled("premium")).toBe(false);
+    expect(calendarEntitled("lock", ["google_calendar"])).toBe(true);
+    expect(calendarEntitled("premium", ["no_ads", "google_calendar"])).toBe(true);
+    expect(calendarEntitled("premium", ["no_ads"])).toBe(false);
+    expect(calendarEntitled("business")).toBe(true);
+    expect(calendarEntitled("business_pro")).toBe(true);
+    expect(calendarEntitled(undefined)).toBe(false);
+  });
+
+  it("has no store SKU (web-only add-on)", () => {
+    expect(Object.values(ADDON_STORE_PRODUCTS).some((p) => (p.addon as string) === "google_calendar")).toBe(false);
   });
 });
 
