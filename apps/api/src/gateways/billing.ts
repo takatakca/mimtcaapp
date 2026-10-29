@@ -37,6 +37,8 @@ export interface BillingGateway {
    * referral anti-fraud check. Null when unknown (not a card, not paid yet). Optional: absent = no check.
    */
   paymentFingerprint?(ref: { invoiceId?: string; paymentIntentId?: string }): Promise<string | null>;
+  /** Invoice paid by a payment intent (affiliate refunds/chargebacks). Null for one-time payments without invoice. */
+  invoiceIdForPayment?(paymentIntentId: string): Promise<string | null>;
   /** Adds a credit to the customer's Stripe balance (taken off the next invoice). Used for referral rewards. */
   creditBalance?(input: { customerId: string; amountCents: number; description: string; idempotencyKey: string }): Promise<void>;
   /** Resale (catalog): adds the offer's monthly price to the customer's services subscription on activation. */
@@ -169,6 +171,12 @@ export class StripeGateway implements BillingGateway {
     const intent = await this.stripe.paymentIntents.retrieve(paymentIntentId, { expand: ["payment_method"] });
     const method = intent.payment_method;
     return typeof method === "object" && method ? (method.card?.fingerprint ?? null) : null;
+  }
+
+  async invoiceIdForPayment(paymentIntentId: string): Promise<string | null> {
+    const payments = await this.stripe.invoicePayments.list({ payment: { type: "payment_intent", payment_intent: paymentIntentId }, limit: 1 });
+    const invoice = payments.data[0]?.invoice;
+    return typeof invoice === "string" ? invoice : (invoice?.id ?? null);
   }
 
   async creditBalance(input: { customerId: string; amountCents: number; description: string; idempotencyKey: string }) {

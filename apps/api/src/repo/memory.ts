@@ -10,6 +10,7 @@ import { MemoryHandleRepository } from "./handlesMemory.js";
 import { MemoryWebPushRepository } from "./webPushMemory.js";
 import { MemoryMissionRepository } from "./missionsMemory.js";
 import { MemoryPointsRepository } from "./pointsMemory.js";
+import { MemoryAffiliateRepository } from "./affiliatesMemory.js";
 import { MemoryPortInRepository } from "./portInMemory.js";
 import { MemoryMeetingRepository } from "./meetingsMemory.js";
 import { planFromSubscriptions } from "../services/accounts.js";
@@ -79,6 +80,7 @@ export class MemoryRepository implements Repository {
   readonly missions = new MemoryMissionRepository((id, periods, d) => this.addUsage(id, periods, d));
   // Kept on account deletion too: the points ledger is the accounting and anti-abuse trail.
   readonly points = new MemoryPointsRepository();
+  readonly affiliates = new MemoryAffiliateRepository();
 
   async ping() {}
   async close() {}

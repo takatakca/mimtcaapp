@@ -73,6 +73,7 @@ ${link("help", "Frequently asked questions.")}
 ${link("contact", "Contact form.")}
 ${link("about", "Who runs MIMT.")}
 ${link("rewards", "Missions: bonus minutes for verified account setup steps, and 1 month of Premium each when a referred friend subscribes. No draw, no reward for reviews.")}
+${link("affiliates", "Affiliate agent program: apply online, sign the agreement electronically, earn 20% of the net revenue of each referred customer for 12 months (paid monthly from CAD 50, after a 30-day hold). Paid relationship must be disclosed in every promotion.")}
 ${link("useVirtual", "What a Canadian virtual phone number is and how MIMT provides one.")}
 ${link("useSecond", "A second number on the same mobile phone.")}
 ${link("useVoip", "Business VoIP for Québec companies (MIMT Affaires).")}

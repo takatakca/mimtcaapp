@@ -1,0 +1,57 @@
+// English (Canada) — affiliate agent area. Same keys as fr.affiliate.ts.
+import type { frAffiliate } from "./fr.affiliate";
+
+export const enAffiliate: Record<keyof typeof frAffiliate, string> = {
+  "aff.title": "Affiliate agent area",
+  "aff.lead": "Your link, the customers you bring and your commissions.",
+  "aff.notAffiliate": "This area is for MIMT affiliate agents with a signed agreement. To become an affiliate agent, apply at mimt.ca/en/affiliates/.",
+  "aff.apply": "Apply",
+  "aff.suspended": "Your link is suspended during a review. Commissions are still recorded, but payouts are withheld.",
+
+  "aff.link.title": "Your link and code",
+  "aff.link.lead": "A customer counts for you if they pay their first plan within {days} days of their first click. The first link used wins.",
+  "aff.link.code": "Code: {code}",
+  "aff.link.copy": "Copy link",
+  "aff.link.copyCode": "Copy code",
+  "aff.link.share": "Share",
+  "aff.link.copied": "Copied.",
+  "aff.link.shareText": "MIMT: a Canadian number in an app, calls and texts over Wi-Fi. Affiliate link: I earn a commission if you subscribe.",
+
+  "aff.stats.signups": "Sign-ups",
+  "aff.stats.paying": "Paying customers",
+  "aff.stats.rate": "Commission",
+  "aff.stats.rateValue": "{pct}% of net revenue",
+  "aff.stats.duration": "Duration per customer",
+  "aff.stats.durationValue": "{months} months",
+
+  "aff.payout.title": "Next payout",
+  "aff.payout.progress": "{payable} payable out of a {threshold} threshold",
+  "aff.payout.progressLabel": "Progress toward the payout threshold",
+  "aff.payout.reached": "Threshold reached: you will be paid by the 15th of next month.",
+  "aff.payout.missing": "{missing} more before the payout threshold.",
+  "aff.payout.hold": "Each commission is on hold for {days} days (refunds and chargebacks), then becomes payable.",
+  "aff.totals.pending": "On hold",
+  "aff.totals.payable": "Payable",
+  "aff.totals.paid": "Paid",
+
+  "aff.ledger.title": "Commission ledger",
+  "aff.ledger.empty": "No commissions yet. They show up here as soon as your customers pay.",
+  "aff.ledger.date": "Date",
+  "aff.ledger.net": "Net revenue",
+  "aff.ledger.rate": "Rate",
+  "aff.ledger.amount": "Commission",
+  "aff.ledger.status": "Status",
+  "aff.ledger.clawback": "Clawback",
+  "aff.status.pending": "On hold",
+  "aff.status.payable": "Payable",
+  "aff.status.paid": "Paid",
+  "aff.status.reversed": "Reversed",
+
+  "aff.rules.title": "The rules, briefly",
+  "aff.rules.disclose": "Say it in every post, before the link: “Affiliate link: I earn a commission” or #paidpartnership (Competition Act).",
+  "aff.rules.casl": "No email, text or direct message without consent, and always a way to unsubscribe (Canada's Anti-Spam Legislation).",
+  "aff.rules.claims": "No promise MIMT does not make: no “unlimited”, only the prices and limits published on mimt.ca.",
+  "aff.rules.brand": "No paid ads on the MIMT or GROUPE TAKATAK name, no fake reviews, no reward for a review or a like.",
+  "aff.rules.self": "No self-referral: your own accounts earn no commission.",
+  "aff.rules.privacy": "You never see who your customers are, only totals (Law 25).",
+};

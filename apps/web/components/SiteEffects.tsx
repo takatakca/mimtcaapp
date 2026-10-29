@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import { captureAffiliateTouch, readAffiliateTouch, withAffiliateParam } from "@/lib/affiliate-link";
+import { APP_URL } from "@/lib/site";
 
 /**
  * Small progressive enhancements, all in one place (≈1 kB): shrinking sticky header, scroll reveal,
@@ -10,6 +12,14 @@ import { useEffect } from "react";
 export function SiteEffects() {
   useEffect(() => {
     const root = document.documentElement;
+    // Affiliate link (?aff=CODE): first touch kept for the number picker and the web app (lib/affiliate-link.ts).
+    const store = () => window.localStorage;
+    captureAffiliateTouch(window.location.search, store);
+    const onAppLink = (e: MouseEvent) => {
+      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (a && a.href.startsWith(APP_URL)) a.href = withAffiliateParam(a.href, readAffiliateTouch(store));
+    };
+    document.addEventListener("click", onAppLink, true);
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     // Header shrinks once the page scrolls; a thin bar at the top shows how far down the page you are.
@@ -109,6 +119,7 @@ export function SiteEffects() {
     return () => {
       window.removeEventListener("scroll", onScroll);
       document.removeEventListener("keydown", onKey);
+      document.removeEventListener("click", onAppLink, true);
       document.removeEventListener("pointerdown", onDown);
       io?.disconnect();
       spots.forEach((el) => el.removeEventListener("pointermove", spot));

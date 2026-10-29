@@ -5,6 +5,7 @@ import { loadConfig } from "./config.js";
 import { runDailyCostReport } from "./jobs/dailyCost.js";
 import { runAccountDeletion } from "./jobs/accountDeletion.js";
 import { runPointsExpiry } from "./jobs/pointsExpiry.js";
+import { runAffiliateMaintenance } from "./services/affiliates.js";
 import { runNumberLifecycle } from "./jobs/numberLifecycle.js";
 import { pingHeartbeat } from "./monitoring/report.js";
 import { deliverOutbox } from "./services/outbox.js";
@@ -103,6 +104,17 @@ const pointsExpiryFirst = setTimeout(pointsExpiry, 20 * 60 * 1000);
 pointsExpiryFirst.unref();
 const pointsExpiryTimer = setInterval(pointsExpiry, 24 * 60 * 60 * 1000);
 pointsExpiryTimer.unref();
+// Affiliate program: commissions past their 30-day hold become payable; rejected applications are deleted after
+// 90 days (services/affiliates.ts). First run 20 minutes after start, then daily.
+const affiliates = () => {
+  runAffiliateMaintenance(deps)
+    .then((res) => app.log.info(res, "affiliate maintenance done"))
+    .catch((err) => app.log.error({ err }, "affiliate maintenance failed"));
+};
+const affiliatesFirst = setTimeout(affiliates, 20 * 60 * 1000);
+affiliatesFirst.unref();
+const affiliatesTimer = setInterval(affiliates, 24 * 60 * 60 * 1000);
+affiliatesTimer.unref();
 
 async function shutdown(signal: string) {
   app.log.info({ signal }, "shutting down");
@@ -117,6 +129,8 @@ async function shutdown(signal: string) {
   clearInterval(deletionTimer);
   clearTimeout(pointsExpiryFirst);
   clearInterval(pointsExpiryTimer);
+  clearTimeout(affiliatesFirst);
+  clearInterval(affiliatesTimer);
   await app.close();
   await deps.repo.close();
   process.exit(0);

@@ -1,0 +1,108 @@
+/* « Espace agent affilié » (pages/Affiliate.tsx). Brand: navy #060D1F, electric blue #1F8BFF, cyan #29C3FF; green only
+   for the « paid » status badge. Tokens come from styles.css. */
+
+.affiliate__url {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--navy);
+  border: 1px solid var(--line);
+  color: var(--cyan);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.affiliate__stats {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.affiliate__stat {
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--midnight);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 0 0 1px rgba(31, 139, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.affiliate__stat-label {
+  color: var(--silver);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.affiliate__stat-value {
+  font-family: var(--font-h);
+  font-weight: 800;
+  font-size: 1.35rem;
+  color: var(--white);
+}
+
+.affiliate__progress {
+  margin: 8px 0;
+}
+.affiliate__progress .usage__fill {
+  background: linear-gradient(90deg, var(--electric), var(--cyan));
+}
+
+.affiliate__totals {
+  margin: 12px 0 8px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.affiliate__totals div {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--navy);
+  border: 1px solid var(--line);
+}
+.affiliate__totals dt {
+  color: var(--silver);
+  font-size: 0.8rem;
+}
+.affiliate__totals dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+}
+
+.affiliate__table-wrap {
+  overflow-x: auto;
+}
+.affiliate__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.affiliate__table th,
+.affiliate__table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.affiliate__table th {
+  color: var(--silver);
+  font-weight: 600;
+}
+.affiliate__neg {
+  color: var(--warn);
+}
+
+.affiliate__rules ul {
+  margin: 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: 6px;
+}
+
+@media (max-width: 520px) {
+  .affiliate__totals {
+    grid-template-columns: 1fr;
+  }
+}

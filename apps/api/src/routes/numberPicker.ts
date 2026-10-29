@@ -16,6 +16,7 @@ import { z } from "zod";
 import type { AppDeps } from "../deps.js";
 import { badRequest, conflict, HttpError, notConfigured, notFound } from "../lib/errors.js";
 import { parse } from "../lib/validate.js";
+import { recordHoldTouch } from "../services/affiliates.js";
 import type { RateRule } from "../fraud/rateLimiter.js";
 import type { NumberHoldRow } from "../repo/numberHolds.js";
 
@@ -134,7 +135,15 @@ export async function numberPickerRoutes(app: FastifyInstance, deps: AppDeps) {
   });
 
   app.post("/v1/public/numbers/holds", async (req, reply) => {
-    const { e164 } = parse(z.object({ e164: z.string().regex(NANP_E164) }), req.body);
+    const { e164, affiliateCode, affiliateTouchedAt } = parse(
+      z.object({
+        e164: z.string().regex(NANP_E164),
+        // Affiliate link the visitor arrived on mimt.ca with (services/affiliates.ts): kept with the hold, used at checkout.
+        affiliateCode: z.string().min(4).max(32).optional(),
+        affiliateTouchedAt: z.iso.datetime().optional(),
+      }),
+      req.body,
+    );
     if (!CANADIAN_AREA_CODES[e164.slice(2, 5)]) throw badRequest("canadian_numbers_only");
     const ipHash = holdIpHash(ipOf(req));
     if (!(await deps.rateLimiter.take(`pick:hold:${ipHash}`, HOLD_RULE))) throw tooMany();
@@ -156,6 +165,7 @@ export async function numberPickerRoutes(app: FastifyInstance, deps: AppDeps) {
       now,
     });
     if (!hold) throw conflict("number_held", "Quelqu'un réserve déjà ce numéro. Choisissez-en un autre.");
+    if (affiliateCode) await recordHoldTouch(deps, hold.id, affiliateCode, affiliateTouchedAt ? new Date(affiliateTouchedAt) : null);
     return reply.code(201).send(holdView(hold, now, token));
   });
 

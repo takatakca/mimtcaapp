@@ -777,6 +777,37 @@ function toE164(raw: string): string | null {
 }
 
 const ok = (body: unknown) => json(200, body);
+
+/** Demo affiliate dashboard (same shape as apps/api services/affiliates.ts affiliateDashboard). */
+function mockAffiliateDashboard() {
+  const day = 86_400_000;
+  const at = (daysAgo: number) => new Date(Date.now() - daysAgo * day).toISOString();
+  const row = (id: string, status: "pending" | "payable" | "paid", daysAgo: number, net: number) => ({
+    id,
+    kind: "invoice" as const,
+    status,
+    netRevenueCents: net,
+    commissionBps: 2000,
+    amountCents: Math.floor(net * 0.2),
+    earnedAt: at(daysAgo),
+    payableAt: new Date(Date.now() - (daysAgo - 30) * day).toISOString(),
+    paidAt: status === "paid" ? at(daysAgo - 35) : null,
+  });
+  const commissions = [row("c4", "pending", 3, 2999), row("c3", "pending", 12, 1299), row("c2", "payable", 40, 2999), row("c1", "paid", 70, 2999)];
+  const sum = (s: string) => commissions.filter((c) => c.status === s).reduce((t, c) => t + c.amountCents, 0);
+  return {
+    status: "active",
+    code: "DEMO2345",
+    link: "https://app.mimt.ca/?aff=DEMO2345",
+    terms: { commissionBps: 2000, durationMonths: 12, payoutThresholdCents: 5000 },
+    holdDays: 30,
+    attributionDays: 60,
+    signups: 7,
+    payingCustomers: 3,
+    totals: { pendingCents: sum("pending"), payableCents: sum("payable"), paidCents: sum("paid") },
+    commissions,
+  };
+}
 const created = (body: unknown) => json(201, body);
 const B = "/v1/business/([^/]+)";
 
@@ -866,6 +897,9 @@ const routes: Route[] = [
   ["GET", /^\/v1\/missions$/, () => ok(missionsResponse())],
   ["GET", /^\/v1\/referrals$/, () =>
     ok({ code: "DEMO2345", shareUrl: "https://mimt.ca/invitation/DEMO2345", reward: { months: 1, plan: "premium" }, referrals: [], referredBy: null })],
+  // Programme d'agents affiliés: the demo user is an active affiliate (sample ledger, no real customers).
+  ["GET", /^\/v1\/affiliates\/me$/, () => ok(mockAffiliateDashboard())],
+  ["POST", /^\/v1\/affiliates\/attribution$/, () => ok({ attributed: false })],
   ["GET", /^\/v1\/push\/web\/key$/, () => ok({ publicKey: "BDemoPublicKeyForTheMockApiOnly" }), false],
   ["POST", /^\/v1\/push\/web\/subscribe$/, () => {
     grantMockMission("enable_push");
@@ -1519,6 +1553,12 @@ export async function mockFetch(input: string, init: RequestInit = {}): Promise<
     } catch {
       return fail(400, "invalid_request", "invalid JSON");
     }
+  }
+  // « Pilote MIMT » (mock.pilot.ts): plans with the shared parser, runs confirmed actions against this fixture API.
+  if (url.pathname.startsWith("/v1/ai/command")) {
+    if (!(new Headers(init.headers).get("Authorization") ?? "").startsWith(`Bearer ${ACCESS_PREFIX}`)) return fail(401, "unauthorized");
+    const { pilotMock } = await import("./mock.pilot");
+    return pilotMock(url.pathname, body, (m, p, b) => mockFetch(p, { method: m, headers: init.headers, ...(b === undefined ? {} : { body: JSON.stringify(b) }) }));
   }
   const pathMatches = routes.filter(([, re]) => re.test(url.pathname));
   if (pathMatches.length === 0) return fail(404, "not_found", `${method} ${url.pathname}`);

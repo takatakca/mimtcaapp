@@ -12,6 +12,7 @@ import { PostgresHandleRepository } from "./handlesPostgres.js";
 import { PostgresWebPushRepository } from "./webPushPostgres.js";
 import { PostgresMissionRepository } from "./missionsPostgres.js";
 import { PostgresPointsRepository } from "./pointsPostgres.js";
+import { PostgresAffiliateRepository } from "./affiliatesPostgres.js";
 import { PostgresPortInRepository } from "./portInPostgres.js";
 import { PostgresMeetingRepository } from "./meetingsPostgres.js";
 import type {
@@ -105,6 +106,9 @@ export class PostgresRepository implements Repository {
   private pointsRepo?: PostgresPointsRepository;
   get points(): PostgresPointsRepository {
     return (this.pointsRepo ??= new PostgresPointsRepository(this.sql));
+  private affiliateRepo?: PostgresAffiliateRepository;
+  get affiliates(): PostgresAffiliateRepository {
+    return (this.affiliateRepo ??= new PostgresAffiliateRepository(this.sql));
   }
 
   private webPushRepo?: PostgresWebPushRepository;
