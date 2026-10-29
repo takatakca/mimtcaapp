@@ -1,5 +1,12 @@
 # MIMT — File des tâches exécutables
 
+## MIMT Connect (plateforme partenaire) — 29 octobre 2026, Claude (branche `claude/partners`, PR à ouvrir par le propriétaire)
+
+| ID | État | Prochaine preuve requise |
+| --- | --- | --- |
+| CONNECT-API | Code prêt derrière `PARTNERS=off` : migration 0023, clés hachées, membres → postes, groupes de chasse → groupes d'appel, crédits (registre en ajout seulement), webhooks signés, section « Partenaire » de l'app Web ([MIMT-CONNECT.md](MIMT-CONNECT.md)) | CI Postgres; après fusion de 0021 (points-clawback) et 0022 (sécurité), déploiement API + webphone, puis `PARTNERS=on` |
+| CONNECT-BESOINAVOCAT | Pas commencé : entente de traitement (Loi 25) à signer, forfait Affaires Pro, numéro public | Appel réel sur le numéro du groupe « Trouver un avocat », webhooks reçus et vérifiés chez besoinavocat |
+
 ## Fiabilité des appels — 29 octobre 2026, Claude (branche `claude/call-reliability`, PR à ouvrir par le propriétaire)
 
 | ID | État | Prochaine preuve requise |

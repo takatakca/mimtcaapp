@@ -34,6 +34,9 @@ import type {
   RingGroupsResponse,
   SeatsResponse,
   UpdateMemberRequest,
+  PartnerApiKeyCreated,
+  PartnerOverviewResponse,
+  PartnerWebhookResponse,
 } from "@mimt/shared";
 import type { HttpClient } from "./http";
 
@@ -99,5 +102,15 @@ export function businessEndpoints(request: HttpClient["request"]) {
     aiReceptionist: (id: string) => request<AiReceptionistConfigDto>("GET", `${b(id)}/ai-receptionist`),
     putAiReceptionist: (id: string, body: AiReceptionistConfigRequest) =>
       request<AiReceptionistConfigDto>("PUT", `${b(id)}/ai-receptionist`, { body }),
+
+    /** « MIMT Connect » (owner only; 404 partner_not_found until MIMT makes the business a partner). */
+    partner: (id: string) => request<PartnerOverviewResponse>("GET", `${b(id)}/partner`),
+    /** The full key is in this response only. */
+    createPartnerKey: (id: string, label: string | null) => request<PartnerApiKeyCreated>("POST", `${b(id)}/partner/keys`, { body: { label } }),
+    rotatePartnerKey: (id: string, keyId: string) => request<PartnerApiKeyCreated>("POST", `${b(id)}/partner/keys/${seg(keyId)}/rotate`),
+    revokePartnerKey: (id: string, keyId: string) => request<void>("DELETE", `${b(id)}/partner/keys/${seg(keyId)}`),
+    /** The signing secret comes back once: first URL, or rotateSecret: true. */
+    setPartnerWebhook: (id: string, url: string | null, rotateSecret = false) =>
+      request<PartnerWebhookResponse>("PUT", `${b(id)}/partner/webhook`, { body: { url, rotateSecret } }),
   };
 }

@@ -73,6 +73,7 @@ import {
 } from "@mimt/shared";
 import { meetingMockRoutes, resetMeetingsMock } from "./mock.meetings";
 import { earnMockPoints, pointsMockRoutes, resetPointsMock } from "./mock.points";
+import { partnerMockRoutes, resetPartnerMock } from "./mock.partner";
 
 const OUR = "+15145550100";
 const USER_ID = "user-demo";
@@ -499,6 +500,7 @@ export function resetMockState(): void {
   mockMissions = new Map();
   resetMeetingsMock();
   resetPointsMock();
+  resetPartnerMock();
 }
 
 const nextId = (prefix: string) => `${prefix}-${++state.seq}`;
@@ -1537,6 +1539,9 @@ routes.push(
 
 // MIMT Points (mock.points.ts).
 routes.push(...pointsMockRoutes({ ok, fail }, () => state.me.account.plan));
+
+// « MIMT Connect » owner view (mock.partner.ts).
+routes.push(...partnerMockRoutes({ ok, created, fail, nextId }));
 
 const latencyMs = () => (import.meta.env.MODE === "test" ? 0 : 150);
 

@@ -9,7 +9,7 @@ import { formatPhone } from "../../lib/dial";
 import { needsBusinessSetup } from "../../lib/bizSetup";
 import type { BusinessCtx } from "./shared";
 
-const SECTIONS: Array<{ to: string; label: TKey; end?: boolean }> = [
+const SECTIONS: Array<{ to: string; label: TKey; end?: boolean; ownerOnly?: boolean }> = [
   { to: "", label: "biz.nav.overview", end: true },
   { to: "postes", label: "biz.nav.extensions" },
   { to: "groupes", label: "biz.nav.ringGroups" },
@@ -19,6 +19,8 @@ const SECTIONS: Array<{ to: string; label: TKey; end?: boolean }> = [
   { to: "membres", label: "biz.nav.members" },
   { to: "enregistrements", label: "biz.nav.recordings" },
   { to: "receptionniste-ia", label: "biz.nav.ai" },
+  // « MIMT Connect » keys and webhook: owner only (the API refuses anyone else).
+  { to: "partenaire", label: "biz.nav.partner", ownerOnly: true },
 ];
 
 const ROLE_KEY: Record<BusinessCtx["biz"]["role"], TKey> = {
@@ -66,7 +68,7 @@ export function BusinessLayout() {
         }
       />
       <nav className="subnav" aria-label={t("biz.nav.label")}>
-        {SECTIONS.map((s) => (
+        {SECTIONS.filter((s) => !s.ownerOnly || biz.role === "owner").map((s) => (
           <NavLink key={s.to} to={s.to ? `${base}/${s.to}` : base} end={s.end} className={({ isActive }) => `subnav__link${isActive ? " is-active" : ""}`}>
             {t(s.label)}
           </NavLink>

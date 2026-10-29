@@ -15,6 +15,7 @@ import type { Subscription, TelecomAccount, User } from "../repo/types.js";
 import { getFeatures, HELD_STATES, isLiveSubscription, outboundBlocked, setAccountStatus } from "../services/accounts.js";
 import { e911Ready } from "../routes/e911.js";
 import { NOT_IN_SERVICE, sayBilingual, VoiceResponse } from "../routes/twiml.js";
+import { activePartner, partnerCallRinging, safeHook } from "../services/partners.js";
 import * as router from "./router.js";
 
 type VR = twilio.twiml.VoiceResponse;
@@ -92,14 +93,16 @@ export async function businessPlan(deps: AppDeps, business: BusinessRow) {
 
 export async function loadSnapshot(deps: AppDeps, business: BusinessRow, features?: Set<string>): Promise<router.PbxSnapshot> {
   const { pbx } = deps.repo;
-  const [extensions, ringGroups, ivrMenus, hours, f] = await Promise.all([
+  const [extensions, ringGroups, ivrMenus, hours, f, partner] = await Promise.all([
     pbx.listExtensions(business.id),
     pbx.listRingGroups(business.id),
     pbx.listIvrMenus(business.id),
     pbx.getHours(business.id),
     features ? Promise.resolve({ features }) : getFeatures(deps.repo, business.telecomAccountId),
+    activePartner(deps, business.id),
   ]);
   return {
+    ...(partner ? { legEvents: true } : {}),
     business,
     extensions,
     ringGroups,
@@ -130,7 +133,7 @@ function notInService(): VR {
  */
 export async function pbxInbound(
   deps: AppDeps,
-  input: { to: string | undefined; from: string | undefined; callSid: string | undefined; fromApp?: { userId: string; callerId?: string } },
+  input: { to: string | undefined; from: string | undefined; callSid: string | undefined; fromApp?: { userId: string; callerId?: string }; log?: Log },
 ): Promise<VR | null> {
   if (!input.to) return null;
   const { repo } = deps;
@@ -159,6 +162,13 @@ export async function pbxInbound(
   }
   const snap = await loadSnapshot(deps, business, info.features);
   const ctx: router.RouteContext = { snap, now, base: baseUrl(deps), numberId: number.id, ...(input.fromApp ? { callerId: number.e164 } : {}) };
+  // « MIMT Connect »: outside callers to a partner business are tracked (call.ringing). Never changes the routing.
+  if (snap.legEvents && input.callSid && !input.fromApp) {
+    const callSid = input.callSid;
+    await safeHook(input.log, "ringing", () =>
+      partnerCallRinging(deps, { business, callSid, from: input.from ?? "unknown", to: number.e164, target: route.target }),
+    );
+  }
 
   // Pooled inbound minutes (per-line cap × seats): past the pool, callers go straight to voicemail.
   const caps = planOf(info.active ? info.plan : "business").caps;
