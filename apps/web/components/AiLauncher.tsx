@@ -65,7 +65,7 @@ export function AiLauncher({ lang }: { lang: Lang }) {
               <a href={href(lang, "plans")}>{fr ? "Comparer les forfaits" : "Compare plans"}</a>
             </li>
             <li>
-              <a href={href(lang, "rewards")}>{fr ? "Missions et minutes bonus" : "Missions and bonus minutes"}</a>
+              <a href={href(lang, "rewards")}>{fr ? "Missions et points" : "Missions and points"}</a>
             </li>
             <li>
               <a href={href(lang, "help")}>{fr ? "Questions fréquentes" : "Common questions"}</a>
