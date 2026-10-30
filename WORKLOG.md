@@ -3,6 +3,8 @@
 Newest first, one line per piece of work. Rule: `AGENTS.md` › Work log rule.
 Format: `YYYY-MM-DD | agent | branch → PR | status | what | next step`
 
+- 2026-10-29 | twilo (MIMT purchase-time auth flow) | twilo/purchase-auth-flow → PR #92 | done | Purchase-time flow (greenfield, additive): users.onboarding_stage (signed_up → phone_verified → passkey_enrolled → full), migration 0026; purchase gate in provisionHeldNumber (defers to "awaiting_verification" when owner phone unverified, hold stays live); POST /v1/numbers/provision/resume (428 phone_verification_required + resume token); OTP verify links phone to signed-in user, advances stage, signals passkeyEnrollmentRequired; passkey register advances stage; 10 new tests green | owner: review + merge (no merge by agent)
+
 - 2026-10-29 | twilo (MIMT Google sign-in CI fix) | twilo/google-signin → PR #90 | done | CI "pnpm typecheck" failed: webphone Security.tsx METHOD map (Record<AuthMethod, TKey>) missing google/email after AuthMethod += google/email; added both entries + security.method.google/email keys in en/fr i18n; webphone tsc --noEmit green | CI re-run on PR #90
 
 - 2026-10-29 | twilo (MIMT Google sign-in) | twilo/google-signin → PR | active | Google sign-in (greenfield, additive): POST /v1/auth/google/exchange, GoogleOidc (accounts.google.com OIDC, jose JWKS, nonce + jti replay guard), findUserByEmail, migration 0025 (google_sub, email_verified_at, partial unique email index), AuthMethod += google/email, deps.google | finish implementation + tests, open PR (no merge)

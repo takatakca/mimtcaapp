@@ -101,6 +101,7 @@ export class MemoryRepository implements Repository {
       phoneE164: null,
       phoneVerifiedAt: null,
       deviceVerifiedAt: null,
+      onboardingStage: "signed_up",
       deletionScheduledAt: null,
       status: "active",
       ...u,
