@@ -48,6 +48,14 @@ for (const [name, make, enabled] of impls) {
       expect((await repo.getAccountByOwner(user.id))?.id).toBe(account.id);
     });
 
+    it("findUserByEmail matches case-insensitively", async () => {
+      const { user } = await seed();
+      await repo.updateUser(user.id, { email: "Test@Example.ca" });
+      expect((await repo.findUserByEmail("test@example.ca"))?.id).toBe(user.id);
+      expect((await repo.findUserByEmail("TEST@EXAMPLE.CA"))?.id).toBe(user.id);
+      expect(await repo.findUserByEmail("nobody@example.ca")).toBeNull();
+    });
+
     it("refresh tokens", async () => {
       const { user } = await seed();
       const fam = crypto.randomUUID();
@@ -296,13 +304,13 @@ for (const [name, make, enabled] of impls) {
 
       await repo.createMessage({
         telecomAccountId: account.id, direction: "outbound", ourNumber: "+15145550100", peer: "+15145550200",
-        bodyEncrypted: "x", bodyFingerprint: "f", status: "sent", segments: 1, numMedia: 0,
+        bodyEncrypted: "x", bodyFingerprint: "f", status: "sent", segments: 1, numMedia: 0, twilioSid: null,
       });
       expect(await repo.countMessagesSince(new Date(now.getTime() - 1000))).toBe(1);
 
       await repo.createVoicemail({
         telecomAccountId: account.id, phoneNumberId: "pn_dash", callSid: "CA_dash",
-        recordingSid: "RE_dash", fromNumber: "+15145550200",
+        recordingSid: "RE_dash", fromNumber: "+15145550200", audioUrl: null, durationS: null,
       });
       expect(await repo.countVoicemailsSince(new Date(now.getTime() - 1000))).toBe(1);
 
