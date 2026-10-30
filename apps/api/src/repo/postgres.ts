@@ -35,11 +35,13 @@ import type {
   RefreshToken,
   Repository,
   Subscription,
+  SubscriptionStatus,
   TelecomAccount,
   Usage,
   UsageDelta,
   PurgeResult,
   User,
+  UserStatus,
   Voicemail,
 } from "./types.js";
 
@@ -192,6 +194,25 @@ export class PostgresRepository implements Repository {
     return (await this.sql`select * from users where status = 'pending_deletion' and deletion_scheduled_at <= ${now}
       order by deletion_scheduled_at limit ${limit}`) as unknown as User[];
   }
+  async countUsersSince(since: Date) {
+    return one<{ n: number }>(await this.sql`select count(*)::int as n from users where created_at >= ${since}`).n;
+  }
+  async countUsersByStatus(status: UserStatus) {
+    return one<{ n: number }>(await this.sql`select count(*)::int as n from users where status = ${status}`).n;
+  }
+  async searchUsers(query: string, limit: number) {
+    // Escape the LIKE wildcards so the query is matched literally; "!" is the escape character.
+    const q = `%${query.replace(/[!%_]/g, (c) => `!${c}`)}%`;
+    return (await this.sql`select * from users
+      where ${query} = ''
+        or email ilike ${q} escape '!'
+        or phone_e164 ilike ${q} escape '!'
+        or display_name ilike ${q} escape '!'
+      order by created_at desc limit ${limit}`) as unknown as User[];
+  }
+  async listRecentUsers(limit: number) {
+    return (await this.sql`select * from users order by created_at desc limit ${limit}`) as unknown as User[];
+  }
   async purgeUserData(userId: string, accountId: string | null): Promise<PurgeResult> {
     return this.sql.begin(async (tx) => {
       const result: PurgeResult = { mediaPaths: [], twilioMediaUrls: [], recordingSids: [] };
@@ -282,6 +303,9 @@ export class PostgresRepository implements Repository {
   async findAccountByStripeCustomer(customerId: string) {
     return maybe<TelecomAccount>(await this.sql`select * from telecom_accounts where stripe_customer_id = ${customerId}`);
   }
+  async listAccountsPage(limit: number, offset: number) {
+    return (await this.sql`select * from telecom_accounts order by created_at desc limit ${limit} offset ${offset}`) as unknown as TelecomAccount[];
+  }
   async updateAccount(id: string, patch: Partial<TelecomAccount>) {
     return one<TelecomAccount>(await this.sql`update telecom_accounts set ${this.sql(defined(patch))} where id = ${id} returning *`);
   }
@@ -310,6 +334,9 @@ export class PostgresRepository implements Repository {
   async findSubscriptionByExternalId(externalId: string) {
     const [row] = (await this.sql`select * from subscriptions where stripe_subscription_id = ${externalId} limit 1`) as unknown as Subscription[];
     return row ?? null;
+  }
+  async listSubscriptionsByStatus(statuses: SubscriptionStatus[]) {
+    return (await this.sql`select * from subscriptions where status = any(${statuses}) order by created_at desc`) as unknown as Subscription[];
   }
   async listEntitlements(accountId: string) {
     return (await this.sql`select * from entitlements where telecom_account_id = ${accountId}`) as unknown as Entitlement[];
@@ -394,6 +421,9 @@ export class PostgresRepository implements Repository {
     );
     return row.n;
   }
+  async countCallsSince(since: Date) {
+    return one<{ n: number }>(await this.sql`select count(*)::int as n from calls where started_at >= ${since}`).n;
+  }
   async listCalls(accountId: string, limit: number) {
     return (await this.sql`select * from calls where telecom_account_id = ${accountId} order by started_at desc limit ${limit}`) as unknown as Call[];
   }
@@ -458,6 +488,9 @@ export class PostgresRepository implements Repository {
           and not exists (select 1 from messages p where p.telecom_account_id = m.telecom_account_id and p.peer = m.peer and p.created_at < ${since})`,
     ).n;
   }
+  async countMessagesSince(since: Date) {
+    return one<{ n: number }>(await this.sql`select count(*)::int as n from messages where created_at >= ${since}`).n;
+  }
 
   // voicemail
   async createVoicemail(v: Parameters<Repository["createVoicemail"]>[0]) {
@@ -479,6 +512,9 @@ export class PostgresRepository implements Repository {
   async deleteVoicemail(id: string) {
     const rows = await this.sql`delete from voicemails where id = ${id} returning id`;
     return rows.length > 0;
+  }
+  async countVoicemailsSince(since: Date) {
+    return one<{ n: number }>(await this.sql`select count(*)::int as n from voicemails where created_at >= ${since}`).n;
   }
 
   // push tokens
@@ -579,6 +615,9 @@ export class PostgresRepository implements Repository {
   async listFraudEvents(accountId: string) {
     return (await this.sql`select * from fraud_events where telecom_account_id = ${accountId} order by at desc`) as unknown as FraudEvent[];
   }
+  async listRecentFraudEvents(limit: number) {
+    return (await this.sql`select * from fraud_events order by at desc limit ${limit}`) as unknown as FraudEvent[];
+  }
 
   // handoffs & single-use keys
   async createHandoff(h: Parameters<Repository["createHandoff"]>[0]) {
@@ -629,6 +668,14 @@ export class PostgresRepository implements Repository {
     await this.sql`insert into audit_log (actor_user_id, action, target_type, target_id, ip, meta, at)
       values (${e.actorUserId}, ${e.action}, ${e.targetType ?? null}, ${e.targetId ?? null}, ${e.ip ?? null},
               ${this.sql.json((e.meta ?? {}) as postgres.JSONValue)}, coalesce(${e.at ?? null}::timestamptz, now()))`;
+  }
+  async listAuditEntries(opts: { actorUserId?: string; limit: number }) {
+    const rows = opts.actorUserId
+      ? await this.sql`select actor_user_id, action, target_type, target_id, ip, meta, at from audit_log
+          where actor_user_id = ${opts.actorUserId} order by at desc limit ${opts.limit}`
+      : await this.sql`select actor_user_id, action, target_type, target_id, ip, meta, at from audit_log
+          order by at desc limit ${opts.limit}`;
+    return rows as unknown as Array<AuditEntry & { at: Date }>;
   }
 
   async bindDevice(input: { platform: "ios" | "android"; deviceKey: string; userId: string; verifiedAt: Date }) {
