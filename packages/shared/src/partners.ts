@@ -2,7 +2,16 @@
 // system through API keys and signed webhooks. besoinavocat.ca is the first partner; nothing here is specific to it.
 
 /** Webhook events sent to a partner. Payloads carry ids and call metadata only: never audio, never a transcript. */
-export const PARTNER_EVENTS = ["call.ringing", "call.answered", "call.completed", "recording.ready"] as const;
+export const PARTNER_EVENTS = [
+  "call.ringing",
+  "call.answered",
+  "call.completed",
+  "recording.ready",
+  // Account link (issue #97, lot A): a member tied to a real MIMT user with that user's consent, and the line they chose.
+  "member.linked",
+  "member.unlinked",
+  "member.number_changed",
+] as const;
 export type PartnerEventType = (typeof PARTNER_EVENTS)[number];
 
 /** Header carrying `t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<raw body>">`. */
@@ -30,6 +39,12 @@ export interface PartnerMemberDto {
   active: boolean;
   /** Internal extension number in the business PBX. */
   extension: string | null;
+  /** True when a MIMT user approved the link to this member (their MIMT apps then ring for it). */
+  linked: boolean;
+  /** « Ligne » of the member: one of the linked user's own MIMT numbers, caller ID of click-to-call. */
+  lineNumber: string | null;
+  /** Where to send the person to choose and pay for a number in MIMT (null once linked with a line). */
+  chooseNumberUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -68,7 +83,10 @@ export interface PartnerHuntGroupDto {
 
 export interface PartnerCallDto {
   id: string;
+  /** inbound: a caller to a hunt group; outbound: click-to-call placed for a member. */
   direction: "inbound" | "outbound";
+  /** The partner's own reference for a click-to-call (null for inbound calls). */
+  reference: string | null;
   huntGroup: string | null;
   /** externalId of the member who answered; null when nobody did. */
   externalId: string | null;
@@ -145,4 +163,86 @@ export interface PartnerOverviewResponse {
 export interface PartnerWebhookResponse {
   webhookUrl: string | null;
   secret: string | null;
+}
+
+// ------------------------------------------------------------------------------------------------ account link
+
+/**
+ * One-time link code: 8 characters from an alphabet without look-alikes (no 0/O, 1/I/L). Valid 15 minutes, stored
+ * hashed, single use, and dead after 5 wrong attempts on its request.
+ */
+export const PARTNER_LINK_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+export const PARTNER_LINK_CODE_LENGTH = 8;
+export const PARTNER_LINK_CODE_TTL_S = 15 * 60;
+export const PARTNER_LINK_MAX_ATTEMPTS = 5;
+
+/** Upper-cases and drops spaces and dashes (people type « abcd-2345 »). */
+export const normalizeLinkCode = (raw: string) => raw.toUpperCase().replace(/[\s-]/g, "");
+
+/** POST /v1/partner/members/:externalId/link-requests (partner API). */
+export interface PartnerLinkRequestCreated {
+  requestId: string;
+  /** Shown to the member by the partner; never stored in clear by MIMT. */
+  code: string;
+  /** Page of the MIMT web app where the signed-in member approves the link. */
+  url: string;
+  expiresAt: string;
+}
+
+/** What the partner can see and do once linked (shown on the /lier consent page). */
+export const PARTNER_LINK_PERMISSIONS = ["calls", "click_to_call", "number"] as const;
+export type PartnerLinkPermission = (typeof PARTNER_LINK_PERMISSIONS)[number];
+
+/** POST /v1/me/partner-links/preview: what the person is about to approve. */
+export interface PartnerLinkPreview {
+  requestId: string;
+  partnerName: string;
+  externalId: string;
+  memberName: string;
+  permissions: PartnerLinkPermission[];
+  expiresAt: string;
+}
+
+export interface PartnerLinkCodeRequest {
+  code: string;
+  /** From the link URL (`r=`): wrong codes then count against this request (5 → expired). */
+  requestId?: string;
+}
+
+/** A link as its MIMT user sees it (Compte › Intégrations › Partenaires). */
+export interface MyPartnerLinkDto {
+  id: string;
+  partnerName: string;
+  externalId: string;
+  memberName: string;
+  /** The line the partner uses as caller ID (one of the user's numbers), if one was attached. */
+  lineNumber: string | null;
+  permissions: PartnerLinkPermission[];
+  createdAt: string;
+}
+
+export interface MyPartnerLinksResponse {
+  links: MyPartnerLinkDto[];
+}
+
+/** GET /v1/partner/members/:externalId/numbers. */
+export interface PartnerMemberNumbersResponse {
+  /** The linked user's active MIMT numbers. */
+  numbers: Array<{ e164: string }>;
+  /** The number attached as the member's line, if any. */
+  current: string | null;
+  /** Set when no number is attached: the page where the person chooses and pays for one in MIMT. */
+  chooseNumberUrl: string | null;
+}
+
+/** POST /v1/partner/members/:externalId/calls. */
+export interface PartnerClickToCallRequest {
+  to: string;
+  reference?: string;
+  /** app (default): the member's MIMT apps ring first; mobile: their cellphone, with the « appuyez sur 1 ». */
+  via?: "app" | "mobile";
+}
+
+export interface PartnerClickToCallResponse {
+  callId: string;
 }

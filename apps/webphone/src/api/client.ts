@@ -11,6 +11,7 @@ import { pilotEndpoints } from "./pilot";
 import { securityEndpoints } from "./security";
 import { adminEndpoints } from "./admin";
 import { calendarEndpoints } from "./calendar";
+import { partnerLinkEndpoints } from "./partnerLinks";
 import { coreEndpoints } from "./core";
 import { createHttpClient, type FetchLike } from "./http";
 import { createTokenStore } from "./tokens";
@@ -62,6 +63,7 @@ export const api = {
   ...pilotEndpoints(request),
   ...securityEndpoints(request),
   ...calendarEndpoints(request),
+  ...partnerLinkEndpoints(request),
   ...adminEndpoints(request),
 };
 

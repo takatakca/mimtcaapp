@@ -9,6 +9,8 @@ export interface PartnerRow {
   id: string;
   businessId: string;
   name: string;
+  /** Short name in links sent to members (…/numero?partner=<slug>); null: the partner id is used. */
+  slug: string | null;
   status: "active" | "suspended";
   /** Null: PARTNER_CREDIT_PER_MINUTE. */
   creditPerMinute: number | null;
@@ -21,7 +23,7 @@ export interface PartnerRow {
   updatedAt: Date;
 }
 
-export type PartnerPatch = Partial<Pick<PartnerRow, "name" | "status" | "creditPerMinute" | "webhookUrl" | "webhookSecretEncrypted" | "creditsExhaustedAt">>;
+export type PartnerPatch = Partial<Pick<PartnerRow, "name" | "slug" | "status" | "creditPerMinute" | "webhookUrl" | "webhookSecretEncrypted" | "creditsExhaustedAt">>;
 
 export interface PartnerApiKeyRow {
   id: string;
@@ -112,11 +114,15 @@ export interface PartnerCallRow {
   creditsCharged: number;
   billing: PartnerCallBilling;
   recordingId: string | null;
+  /** Click-to-call: the partner's own reference. */
+  reference: string | null;
   finalizedAt: Date | null;
   createdAt: Date;
 }
 
-export type NewPartnerCall = Pick<PartnerCallRow, "partnerId" | "callSid" | "direction" | "fromNumber" | "toNumber" | "huntGroupKey" | "startedAt">;
+/** Outbound (click-to-call) calls know their member from the start; inbound ones learn it when someone answers. */
+export type NewPartnerCall = Pick<PartnerCallRow, "partnerId" | "callSid" | "direction" | "fromNumber" | "toNumber" | "huntGroupKey" | "startedAt"> &
+  Partial<Pick<PartnerCallRow, "memberId" | "externalId" | "reference">>;
 export type PartnerCallPatch = Partial<Pick<PartnerCallRow, "endedAt" | "talkS" | "creditsCharged" | "billing" | "recordingId">>;
 
 export interface PartnerWebhookEventRow {
@@ -131,8 +137,42 @@ export interface PartnerWebhookEventRow {
   createdAt: Date;
 }
 
+/** One-time link code (0027_partner_links.sql): stored hashed, single use, 15 minutes, 5 wrong attempts. */
+export interface PartnerLinkRequestRow {
+  id: string;
+  partnerId: string;
+  memberId: string;
+  codeSha256: string;
+  expiresAt: Date;
+  attempts: number;
+  usedAt: Date | null;
+  invalidatedAt: Date | null;
+  createdAt: Date;
+}
+
+/** A member tied to a MIMT user with that user's consent. Revoked, never deleted. */
+export interface PartnerMemberLinkRow {
+  id: string;
+  partnerId: string;
+  memberId: string;
+  userId: string;
+  /** The member's line: one of the user's own numbers. */
+  numberId: string | null;
+  requestId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  revokedAt: Date | null;
+  revokedBy: "user" | "partner" | "system" | null;
+}
+
+export type PartnerLinkCreateResult =
+  | { status: "created"; link: PartnerMemberLinkRow }
+  | { status: "member_taken" }
+  | { status: "user_taken" };
+
 export interface PartnerRepository {
-  createPartner(p: { businessId: string; name: string; creditPerMinute: number | null; createdBy: string | null }): Promise<PartnerRow>;
+  createPartner(p: { businessId: string; name: string; slug?: string | null; creditPerMinute: number | null; createdBy: string | null }): Promise<PartnerRow>;
+  getPartnerBySlug(slug: string): Promise<PartnerRow | null>;
   getPartner(id: string): Promise<PartnerRow | null>;
   getPartnerByBusiness(businessId: string): Promise<PartnerRow | null>;
   listPartners(): Promise<PartnerRow[]>;
@@ -175,6 +215,29 @@ export interface PartnerRepository {
   listCalls(partnerId: string, opts: { since?: Date; externalId?: string; limit: number }): Promise<PartnerCallRow[]>;
   /** Newest first (owner dashboard). */
   listRecentCalls(partnerId: string, limit: number): Promise<PartnerCallRow[]>;
+  /** Outbound calls of a member not finalized yet, started after `since` (one click-to-call at a time). */
+  countOpenOutboundCalls(memberId: string, since: Date): Promise<number>;
+
+  /** New link request; every earlier pending request of the member is invalidated in the same step. */
+  createLinkRequest(r: { partnerId: string; memberId: string; codeSha256: string; expiresAt: Date; at: Date }): Promise<PartnerLinkRequestRow>;
+  getLinkRequest(id: string): Promise<PartnerLinkRequestRow | null>;
+  findLinkRequestByHash(codeSha256: string): Promise<PartnerLinkRequestRow | null>;
+  /** One wrong code on this request: attempts + 1, invalidated at `maxAttempts`. Null when unknown. */
+  recordLinkRequestFailure(id: string, maxAttempts: number, at: Date): Promise<PartnerLinkRequestRow | null>;
+  /** Marks the request used once: false when already used, invalidated or expired at `at`. */
+  consumeLinkRequest(id: string, at: Date): Promise<boolean>;
+
+  /** Refused (no row) when the member or the user (for this partner) already has an active link. */
+  createLink(l: { partnerId: string; memberId: string; userId: string; requestId: string | null; at: Date }): Promise<PartnerLinkCreateResult>;
+  getLink(id: string): Promise<PartnerMemberLinkRow | null>;
+  getActiveLinkByMember(memberId: string): Promise<PartnerMemberLinkRow | null>;
+  getActiveLinkByUser(partnerId: string, userId: string): Promise<PartnerMemberLinkRow | null>;
+  /** Active links of a user, every partner, newest first. */
+  listActiveLinksByUser(userId: string): Promise<PartnerMemberLinkRow[]>;
+  /** Null when the link is unknown or already revoked. */
+  revokeLink(id: string, by: "user" | "partner" | "system", at: Date): Promise<PartnerMemberLinkRow | null>;
+  /** Only on an active link; null otherwise. */
+  setLinkNumber(id: string, numberId: string | null): Promise<PartnerMemberLinkRow | null>;
 
   enqueueEvent(e: { partnerId: string; eventType: PartnerEventType; payload: Record<string, unknown>; at: Date }): Promise<PartnerWebhookEventRow>;
   listDueEvents(now: Date, limit: number): Promise<PartnerWebhookEventRow[]>;

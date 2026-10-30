@@ -75,6 +75,7 @@ import { meetingMockRoutes, resetMeetingsMock } from "./mock.meetings";
 import { earnMockPoints, pointsMockRoutes, resetPointsMock } from "./mock.points";
 import { partnerMockRoutes, resetPartnerMock } from "./mock.partner";
 import { calendarMockRoutes, resetCalendarMock } from "./mock.calendar";
+import { partnerLinksMockRoutes, resetPartnerLinksMock } from "./mock.partnerLinks";
 
 const OUR = "+15145550100";
 const USER_ID = "user-demo";
@@ -503,6 +504,7 @@ export function resetMockState(): void {
   resetPointsMock();
   resetPartnerMock();
   resetCalendarMock();
+  resetPartnerLinksMock();
 }
 
 const nextId = (prefix: string) => `${prefix}-${++state.seq}`;
@@ -1553,6 +1555,9 @@ routes.push(
 
 // « Google Agenda » (mock.calendar.ts).
 routes.push(...calendarMockRoutes({ ok, fail }, () => state.me.account.plan));
+
+// « MIMT Connect » account links, the MIMT user's side (mock.partnerLinks.ts).
+routes.push(...partnerLinksMockRoutes({ ok, created, fail, nextId }));
 
 const latencyMs = () => (import.meta.env.MODE === "test" ? 0 : 150);
 

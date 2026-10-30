@@ -13,7 +13,7 @@ interface State {
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 const fresh = (): State => ({
   keys: [{ id: "pk-1", prefix: "mimt_pk_Q3x9aB", label: "Site besoinavocat.ca", createdAt: ago(60 * 24 * 3), lastUsedAt: ago(4), revokedAt: null }],
-  webhookUrl: "https://besoinavocat.ca/api/mimt/webhook",
+  webhookUrl: "https://portail.besoinavocat.ca/api/mimt/webhook",
   hasSecret: true,
 });
 let state = fresh();
@@ -23,8 +23,8 @@ export function resetPartnerMock() {
 }
 
 const demoCalls = (): PartnerCallDto[] => [
-  { id: "pc-2", direction: "inbound", huntGroup: "trouver-un-avocat", externalId: "avocat-42", from: "+14385550199", to: "+15145550100", startedAt: ago(12), answeredAt: ago(12), endedAt: ago(5), durationS: 412, credits: 14, billing: "billed", recordingUrl: null, recordingUrlExpiresAt: null },
-  { id: "pc-1", direction: "inbound", huntGroup: "trouver-un-avocat", externalId: null, from: "+15145550123", to: "+15145550100", startedAt: ago(90), answeredAt: null, endedAt: ago(89), durationS: 0, credits: 0, billing: "free", recordingUrl: null, recordingUrlExpiresAt: null },
+  { id: "pc-2", direction: "inbound", huntGroup: "trouver-un-avocat", externalId: "avocat-42", from: "+14385550199", to: "+15145550100", startedAt: ago(12), answeredAt: ago(12), endedAt: ago(5), durationS: 412, credits: 14, billing: "billed", reference: null, recordingUrl: null, recordingUrlExpiresAt: null },
+  { id: "pc-1", direction: "inbound", huntGroup: "trouver-un-avocat", externalId: null, from: "+15145550123", to: "+15145550100", startedAt: ago(90), answeredAt: null, endedAt: ago(89), durationS: 0, credits: 0, billing: "free", reference: null, recordingUrl: null, recordingUrlExpiresAt: null },
 ];
 
 const randomKey = () => `mimt_pk_${Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => (b % 36).toString(36)).join("")}`;

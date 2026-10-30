@@ -3,6 +3,8 @@ export class HttpError extends Error {
     readonly statusCode: number,
     readonly code: string,
     message?: string,
+    /** Extra fields of the JSON error body (e.g. chooseNumberUrl), next to error and message. */
+    readonly details?: Record<string, unknown>,
   ) {
     super(message ?? code);
   }

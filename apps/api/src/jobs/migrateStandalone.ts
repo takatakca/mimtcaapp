@@ -37,6 +37,7 @@ export const MIGRATION_ORDER = [
   "0024_calendar.sql",
   "0025_google_signin.sql",
   "0026_onboarding_stage.sql",
+  "0027_partner_links.sql",
 ] as const;
 
 export function assertPrivateMimtDatabase(databaseUrl: string, confirmation: string | undefined, nodeEnv: string | undefined) {

@@ -72,6 +72,11 @@ const CODE_TO_KEY: Record<string, TKey> = {
   invalid_phone_number: "messages.invalidTo",
   // Security (docs/MIMT-SECURITY.md).
   step_up_required: "error.stepUpRequired",
+  // « MIMT Connect » account links (docs/MIMT-CONNECT.md).
+  invalid_link_code: "partnerLink.error.invalid",
+  link_code_expired: "partnerLink.error.expired",
+  member_already_linked: "partnerLink.error.memberTaken",
+  already_linked_to_partner: "partnerLink.error.alreadyLinked",
   step_up_failed: "security.stepUpFailed",
   strong_auth_required: "error.strongAuthRequired",
   strong_auth_setup_required: "error.strongAuthSetup",

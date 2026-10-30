@@ -24,7 +24,8 @@ import { badRequest, conflict, forbidden, HttpError, unauthorized } from "../lib
 import { randomToken, sha256Hex, signWebhook } from "../lib/crypto.js";
 import { externalAllowed, isOpen } from "../pbx/router.js";
 import type { BusinessRow, RecordingRow } from "../repo/pbxTypes.js";
-import type { PartnerApiKeyRow, PartnerCallRow, PartnerLedgerRow, PartnerMemberRow, PartnerRow } from "../repo/partners.js";
+import type { PartnerApiKeyRow, PartnerCallRow, PartnerLedgerRow, PartnerMemberLinkRow, PartnerMemberRow, PartnerRow } from "../repo/partners.js";
+import type { PhoneNumber } from "../repo/types.js";
 import { RECORDING_URL_TTL_S, recordingResource } from "../routes/business.js";
 import { getFeatures, HELD_STATES } from "./accounts.js";
 
@@ -90,8 +91,25 @@ export const ledgerDto = (l: PartnerLedgerRow): PartnerLedgerEntryDto => ({
   createdAt: l.createdAt.toISOString(),
 });
 
+/** Where a member chooses and pays for a number in MIMT (MIMT never buys one on the partner's say-so). */
+export const chooseNumberUrl = (deps: Pick<AppDeps, "config">, p: PartnerRow) =>
+  `${deps.config.APP_BASE_URL.replace(/\/$/, "")}/numero?partner=${encodeURIComponent(p.slug ?? p.id)}`;
+
+/**
+ * The member's line: the attached number, only while it is still one of the linked user's own ACTIVE numbers
+ * (checked on every read, so a number given up or moved stops being used as caller ID at once).
+ */
+export async function linkLine(deps: AppDeps, link: PartnerMemberLinkRow | null): Promise<PhoneNumber | null> {
+  if (!link?.numberId) return null;
+  const [n, account] = await Promise.all([deps.repo.getNumber(link.numberId), deps.repo.getAccountByOwner(link.userId)]);
+  return n && account && n.telecomAccountId === account.id && n.state === "active" ? n : null;
+}
+
 export async function memberDto(deps: AppDeps, m: PartnerMemberRow): Promise<PartnerMemberDto> {
   const ext = m.extensionId ? await deps.repo.pbx.getExtension(m.extensionId) : null;
+  const link = await deps.repo.partners.getActiveLinkByMember(m.id);
+  const line = await linkLine(deps, link);
+  const partner = line ? null : await deps.repo.partners.getPartner(m.partnerId);
   return {
     externalId: m.externalId,
     name: m.name,
@@ -101,6 +119,9 @@ export async function memberDto(deps: AppDeps, m: PartnerMemberRow): Promise<Par
     language: m.language,
     active: m.active,
     extension: ext?.number ?? null,
+    linked: Boolean(link),
+    lineNumber: line?.e164 ?? null,
+    chooseNumberUrl: partner ? chooseNumberUrl(deps, partner) : null,
     createdAt: m.createdAt.toISOString(),
     updatedAt: m.updatedAt.toISOString(),
   };
@@ -123,6 +144,7 @@ export async function callDto(deps: AppDeps, p: PartnerRow, c: PartnerCallRow): 
   return {
     id: c.id,
     direction: c.direction,
+    reference: c.reference,
     huntGroup: c.huntGroupKey,
     externalId: c.externalId,
     from: c.fromNumber,
@@ -313,6 +335,29 @@ async function handleUser(deps: AppDeps, business: BusinessRow, raw: string | nu
 }
 
 /**
+ * Whose MIMT apps ring for a member: the user who approved the account link (consent replaces the business
+ * membership needed for an @handle), else the @handle's user. Null when neither.
+ */
+export async function memberRingUser(deps: AppDeps, business: BusinessRow, m: Pick<PartnerMemberRow, "id" | "handle">): Promise<string | null> {
+  const link = await deps.repo.partners.getActiveLinkByMember(m.id);
+  if (link) return link.userId;
+  try {
+    return (await handleUser(deps, business, m.handle))?.userId ?? null;
+  } catch {
+    return null; // The @handle's user left the business since: nobody's apps ring.
+  }
+}
+
+/** Points the member's extension at its ring user again (after a link or an unlink). The mobile stays as it is. */
+export async function syncMemberRing(deps: AppDeps, p: PartnerRow, m: PartnerMemberRow) {
+  if (!m.active || !m.extensionId) return;
+  const business = await deps.repo.pbx.getBusiness(p.businessId);
+  const ext = await deps.repo.pbx.getExtension(m.extensionId);
+  if (!business || !ext || ext.businessId !== business.id) return;
+  await deps.repo.pbx.updateExtension(ext.id, { userId: await memberRingUser(deps, business, m) });
+}
+
+/**
  * PUT /v1/partner/members/:externalId. Idempotent: the same body twice changes nothing and keeps the same
  * extension. An inactive member keeps their extension, but it rings nobody (removed from every hunt).
  */
@@ -321,9 +366,11 @@ export async function upsertMember(deps: AppDeps, p: PartnerRow, business: Busin
   const user = await handleUser(deps, business, body.handle);
   const active = body.active ?? true;
   const existing = await deps.repo.partners.getMember(p.id, externalId);
+  // A linked member rings the apps of the user who approved the link, whatever the @handle says.
+  const link = existing ? await deps.repo.partners.getActiveLinkByMember(existing.id) : null;
   const extFields = {
     displayName: body.name.slice(0, 80),
-    userId: active ? (user?.userId ?? null) : null,
+    userId: active ? (link?.userId ?? user?.userId ?? null) : null,
     forwardToMobile: active ? (body.phone ?? null) : null,
   };
   let ext = existing?.extensionId ? await deps.repo.pbx.getExtension(existing.extensionId) : null;
@@ -492,6 +539,7 @@ export async function partnerCallRinging(deps: AppDeps, input: { business: Busin
   });
   await emitPartnerEvent(deps, p, "call.ringing", {
     call_id: call.id,
+    direction: "inbound",
     hunt_group: call.huntGroupKey,
     from: call.fromNumber,
     to: call.toNumber,
@@ -513,6 +561,7 @@ export async function partnerLegAnswered(deps: AppDeps, input: { parentCallSid: 
   if (!p || !answered) return;
   await emitPartnerEvent(deps, p, "call.answered", {
     call_id: call.id,
+    direction: call.direction,
     member_external_id: member.externalId,
     hunt_group: call.huntGroupKey,
     answered_at: answered.answeredAt!.toISOString(),
@@ -563,6 +612,8 @@ export async function partnerCallEnded(deps: AppDeps, log: Log | undefined, inpu
   await deps.repo.partners.updateCall(call.id, { endedAt: at, talkS, creditsCharged: charged, billing });
   await emitPartnerEvent(deps, p, "call.completed", {
     call_id: call.id,
+    direction: call.direction,
+    ...(call.direction === "outbound" ? { reference: call.reference, from: call.fromNumber, to: call.toNumber } : {}),
     member_external_id: call.externalId,
     hunt_group: call.huntGroupKey,
     answered_at: call.answeredAt?.toISOString() ?? null,

@@ -33,6 +33,7 @@ export const PROMPTS = {
   directory: { fr: "Entrez le numéro de poste, suivi du carré.", en: "Enter the extension number, followed by the pound key." },
   notAllowed: { fr: "Ce transfert n'est pas permis.", en: "This transfer is not allowed." },
   whisper: { fr: "Appel MIMT Affaires, appuyez sur 1.", en: "MIMT Business call, press 1 to accept." },
+  clickToCall: { fr: "Appel sortant pour votre client. Appuyez sur 1 pour le joindre.", en: "Outgoing call to your client. Press 1 to connect." },
 } satisfies Record<string, BilingualText>;
 
 export function defaultVoicemailGreeting(name: string | null): BilingualText {
@@ -389,5 +390,49 @@ export function whisperInput(digits: string | undefined): VR {
   const vr = new VoiceResponse();
   // An empty response connects the call; anything else drops this leg only.
   if (digits !== "1") vr.hangup();
+  return vr;
+}
+
+// ------------------------------------------------------------------------------- MIMT Connect click-to-call
+
+/**
+ * « MIMT Connect » click-to-call (services/partnerLinks.ts): Twilio first calls the member (apps or cellphone); these
+ * steps run when they pick up. Every value comes from the signed URL we wrote: business, destination, caller ID (the
+ * member's own line), time limit (what the partner's credits pay for) and whether the member is on a cellphone.
+ */
+export interface ClickToCallStep {
+  b: string;
+  to: string;
+  cid: string;
+  tl: number;
+  /** 1: the member is on a cellphone and must press 1 (a carrier voicemail never places the call). */
+  w: 0 | 1;
+}
+
+const c2cParams = (s: ClickToCallStep) => ({ b: s.b, to: s.to, cid: s.cid, tl: s.tl, w: s.w });
+
+/** The member picked up: on a cellphone, the press-1 whisper first; in the apps, the destination is dialed at once. */
+export function clickToCallAnswer(base: string, s: ClickToCallStep): VR {
+  if (s.w !== 1) return clickToCallConnect(base, s);
+  const vr = new VoiceResponse();
+  const gather = vr.gather({ numDigits: 1, timeout: 8, action: pbxUrl(base, "c2c-connect", c2cParams(s)), method: "POST" });
+  say(gather, PROMPTS.clickToCall);
+  vr.hangup();
+  return vr;
+}
+
+/** Dials the destination with the member's line as caller ID; the leg reports answered/completed (talk time). */
+export function clickToCallConnect(base: string, s: ClickToCallStep): VR {
+  const vr = new VoiceResponse();
+  if (!externalAllowed(s.to)) {
+    say(vr, PROMPTS.notAllowed);
+    vr.hangup();
+    return vr;
+  }
+  const dial = vr.dial({ callerId: s.cid, timeLimit: s.tl, timeout: 30, answerOnBridge: true });
+  dial.number(
+    { statusCallback: pbxUrl(base, "c2c-leg", { b: s.b }), statusCallbackMethod: "POST", statusCallbackEvent: ["answered", "completed"] },
+    s.to,
+  );
   return vr;
 }

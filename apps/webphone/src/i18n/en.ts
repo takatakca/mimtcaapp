@@ -12,6 +12,7 @@ import { enSecurity } from "./en.security";
 import { enPartner } from "./en.partner";
 import { enAdmin } from "./en.admin";
 import { enCalendar } from "./en.calendar";
+import { enPartnerLinks } from "./en.partnerLinks";
 import { enHome } from "./en.home";
 
 export const en: Record<TKey, string> = {
@@ -26,6 +27,7 @@ export const en: Record<TKey, string> = {
   ...enSecurity,
   ...enPartner,
   ...enCalendar,
+  ...enPartnerLinks,
   ...enAdmin,
   ...enHome,
   "account.billingPortal": "Manage billing",
