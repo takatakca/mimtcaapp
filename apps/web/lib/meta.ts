@@ -3,7 +3,8 @@
 // Titles stay under ~60 characters and descriptions under ~160 (search result snippets).
 
 import type { Metadata } from "next";
-import { pageMeta, type Lang, type RouteKey } from "./site.ts";
+import type { Guide } from "./guides.ts";
+import { pageMeta, pathMeta, ROUTES, type Lang, type RouteKey } from "./site.ts";
 
 export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; description: string }>> = {
   home: {
@@ -74,12 +75,12 @@ export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; descripti
   },
   soon: {
     fr: {
-      title: "Bientôt : Internet et cellulaire",
-      description: "Internet résidentiel, cellulaire et téléphone maison MIMT : en préparation, sans date ni prix annoncés. Inscrivez-vous pour être avisé.",
+      title: "Feuille de route : ce que MIMT prépare",
+      description: "Ce que MIMT offre aujourd'hui et ce qui est en préparation : apps iPhone et Android, Google Agenda, Internet et cellulaire. Sans date promise.",
     },
     en: {
-      title: "Coming soon: internet and mobile",
-      description: "MIMT home internet, mobile and home phone: in preparation, with no date or price announced. Sign up to be notified.",
+      title: "Roadmap: what MIMT is working on",
+      description: "What MIMT offers today and what is in preparation: iPhone and Android apps, Google Calendar, internet and mobile. No promised dates.",
     },
   },
   e911: {
@@ -180,6 +181,16 @@ export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; descripti
     fr: { title: "Deuxième numéro sur votre cellulaire", description: "Ajoutez un deuxième numéro canadien à votre cellulaire : travail, revente en ligne ou rencontres, sans changer de forfait ni de téléphone." },
     en: { title: "Second phone number on your mobile", description: "Add a second Canadian number to your mobile for work, online selling or dating, without changing plan or phone." },
   },
+  guides: {
+    fr: {
+      title: "Guides pratiques : numéros, 9-1-1 et arnaques",
+      description: "Des guides clairs pour le Québec : garder son numéro, choisir un numéro virtuel, le 9-1-1 par Internet, un deuxième numéro, l'IA au téléphone, les arnaques.",
+    },
+    en: {
+      title: "Practical guides: numbers, 9-1-1 and scams",
+      description: "Clear guides for Québec: keeping your number, choosing a virtual number, 9-1-1 over the internet, a second number, AI on the phone, text scams.",
+    },
+  },
   useVoip: {
     fr: { title: "Téléphonie IP d'affaires au Québec", description: "Système téléphonique VoIP pour entreprises du Québec : postes, accueil bilingue, groupes de sonnerie, jours fériés du Québec. Par ligne, sans appareil." },
     en: { title: "Business VoIP phone system in Québec", description: "VoIP phone system for Québec businesses: extensions, bilingual greeting, ring groups, Québec holidays. Per line, no hardware." },
@@ -190,4 +201,11 @@ export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; descripti
 export function metadataFor(lang: Lang, key: RouteKey): Metadata {
   const m = PAGE_META[key][lang];
   return pageMeta(lang, key, m.title, m.description);
+}
+
+/** Metadata for one guide article: its own canonical and fr-CA/en-CA alternates, Open Graph type "article". */
+export function guideMetadata(lang: Lang, g: Guide): Metadata {
+  const c = g.copy(lang);
+  const paths = { fr: `${ROUTES.guides.fr}${g.slug.fr}/`, en: `${ROUTES.guides.en}${g.slug.en}/` };
+  return pathMeta(lang, paths, `${c.title} | MIMT`, c.description, undefined, "article");
 }

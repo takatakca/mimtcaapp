@@ -39,6 +39,7 @@ export const ROUTES = {
   useVirtual: { fr: "/numero-virtuel/", en: "/en/virtual-phone-number/" },
   useSecond: { fr: "/deuxieme-numero/", en: "/en/second-phone-number/" },
   useVoip: { fr: "/telephonie-ip-affaires/", en: "/en/business-voip/" },
+  guides: { fr: "/guides/", en: "/en/guides/" },
 } as const;
 
 export type RouteKey = keyof typeof ROUTES;
@@ -54,7 +55,7 @@ export const LABELS: Record<RouteKey, { fr: string; en: string }> = {
   ai: { fr: "IA", en: "AI" },
   webapp: { fr: "App Web", en: "Web app" },
   compare: { fr: "Comparer", en: "Compare" },
-  soon: { fr: "Bientôt", en: "Coming soon" },
+  soon: { fr: "Feuille de route", en: "Roadmap" },
   e911: { fr: "9-1-1", en: "9-1-1" },
   help: { fr: "Aide", en: "Help" },
   complaints: { fr: "Plaintes", en: "Complaints" },
@@ -73,9 +74,12 @@ export const LABELS: Record<RouteKey, { fr: string; en: string }> = {
   useVirtual: { fr: "Numéro virtuel", en: "Virtual number" },
   useSecond: { fr: "Deuxième numéro", en: "Second number" },
   useVoip: { fr: "Téléphonie IP d'affaires", en: "Business VoIP" },
+  guides: { fr: "Guides", en: "Guides" },
 };
 
-export const MAIN_NAV: RouteKey[] = ["plans", "business", "ai", "soon", "help", "contact"];
+export const MAIN_NAV: RouteKey[] = ["plans", "business", "ai", "guides", "soon", "help", "contact"];
+/** Nav items shown on the desktop bar only on wide screens (always in the mobile menu), so the bar never wraps. */
+export const WIDE_ONLY_NAV: RouteKey[] = ["soon"];
 
 /** Per-page metadata with canonical, hreflang (fr-CA / en-CA) and Open Graph. */
 // The image is in French (French first); the alt text describes it as it is.
@@ -89,10 +93,22 @@ export function ogImage(lang: Lang, key: RouteKey): string {
 }
 
 export function pageMeta(lang: Lang, key: RouteKey, title: string, description: string): Metadata {
-  const url = SITE_URL + ROUTES[key][lang];
   const image = ogImage(lang, key);
   const alt = OG_PAGES.includes(key) ? `MIMT : ${title}` : OG_ALT;
   const fullTitle = key === "home" ? title : `${title} | MIMT`;
+  return pathMeta(lang, ROUTES[key], fullTitle, description, { url: image, alt }, "website");
+}
+
+/** Same as pageMeta for a page outside ROUTES (a guide article): its own French and English paths. */
+export function pathMeta(
+  lang: Lang,
+  paths: Record<Lang, string>,
+  fullTitle: string,
+  description: string,
+  image: { url: string; alt: string } = { url: "/og.png", alt: OG_ALT },
+  type: "website" | "article" = "website",
+): Metadata {
+  const url = SITE_URL + paths[lang];
   return {
     metadataBase: new URL(SITE_URL),
     title: fullTitle,
@@ -100,23 +116,23 @@ export function pageMeta(lang: Lang, key: RouteKey, title: string, description: 
     alternates: {
       canonical: url,
       languages: {
-        "fr-CA": SITE_URL + ROUTES[key].fr,
-        "en-CA": SITE_URL + ROUTES[key].en,
-        "x-default": SITE_URL + ROUTES[key].fr,
+        "fr-CA": SITE_URL + paths.fr,
+        "en-CA": SITE_URL + paths.en,
+        "x-default": SITE_URL + paths.fr,
       },
     },
     robots: { index: true, follow: true },
     openGraph: {
-      type: "website",
+      type,
       siteName: "MIMT",
       title: fullTitle,
       description,
       url,
       locale: lang === "fr" ? "fr_CA" : "en_CA",
       alternateLocale: lang === "fr" ? "en_CA" : "fr_CA",
-      images: [{ url: image, width: 1200, height: 630, alt }],
+      images: [{ url: image.url, width: 1200, height: 630, alt: image.alt }],
     },
-    twitter: { card: "summary_large_image", title: fullTitle, description, images: [{ url: image, alt }] },
+    twitter: { card: "summary_large_image", title: fullTitle, description, images: [{ url: image.url, alt: image.alt }] },
     icons: { icon: "/favicon.svg" },
   };
 }
