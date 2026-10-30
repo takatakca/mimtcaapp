@@ -1545,6 +1545,12 @@ routes.push(...pointsMockRoutes({ ok, fail }, () => state.me.account.plan));
 // « MIMT Connect » owner view (mock.partner.ts).
 routes.push(...partnerMockRoutes({ ok, created, fail, nextId }));
 
+// MIMT staff tools (routes/adminTwilio.ts): demo users are never staff.
+routes.push(
+  ["GET", /^\/v1\/admin\/twilio\/diagnostics$/, () => fail(403, "admin_only", "Réservé aux administrateurs MIMT.")],
+  ["POST", /^\/v1\/admin\/numbers\/import$/, () => fail(403, "admin_only", "Réservé aux administrateurs MIMT.")],
+);
+
 // « Google Agenda » (mock.calendar.ts).
 routes.push(...calendarMockRoutes({ ok, fail }, () => state.me.account.plan));
 

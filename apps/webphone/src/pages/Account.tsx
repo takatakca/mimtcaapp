@@ -115,6 +115,7 @@ export function Account() {
           <Link to="/compte/integrations" className="btn btn--ghost">
             <Icon name="calendar" size={16} /> {t("integrations.open")}
           </Link>
+          <AdminLink />
           <DataSection />
           <button type="button" className="btn btn--ghost" onClick={() => void signOut()}>
             <Icon name="logout" size={16} /> {t("account.logout")}
@@ -578,5 +579,17 @@ function DataSection() {
       ) : null}
       {dialog}
     </div>
+  );
+}
+
+/** Compte › Administration, shown to MIMT staff only (the API answers 403 admin_only to everyone else). */
+function AdminLink() {
+  const { t } = useI18n();
+  const staff = useAsync(() => api.twilioDiagnostics().then(() => true, () => false), []);
+  if (!staff.data) return null;
+  return (
+    <Link to="/compte/admin" className="btn btn--ghost">
+      <Icon name="settings" size={16} /> {t("admin.open")}
+    </Link>
   );
 }
