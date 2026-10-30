@@ -3,6 +3,7 @@ import { vi } from "vitest";
 import { buildApp } from "../src/app.js";
 import { loadSigningKey, SessionService } from "../src/auth/sessions.js";
 import { TakatakOidc } from "../src/auth/takatak.js";
+import { GoogleOidc } from "../src/auth/google.js";
 import { loadConfig } from "../src/config.js";
 import type { AppDeps } from "../src/deps.js";
 import type { ProvisioningProvider } from "../src/catalog/providers/types.js";
@@ -79,6 +80,7 @@ export async function setup(
     repo,
     sessions: new SessionService(repo, loadSigningKey(undefined).key, config.PUBLIC_BASE_URL, opts.now),
     takatak: new TakatakOidc(config, repo, { jwks: keys.jwks }),
+    google: new GoogleOidc(config, repo, { jwks: keys.jwks }),
     twilio,
     billing: null,
     media: null,

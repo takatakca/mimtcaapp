@@ -95,7 +95,9 @@ export class MemoryRepository implements Repository {
   async createUser(u: Parameters<Repository["createUser"]>[0]) {
     const user: User = {
       authUserId: null,
+      googleSub: null,
       email: null,
+      emailVerifiedAt: null,
       phoneE164: null,
       phoneVerifiedAt: null,
       deviceVerifiedAt: null,
@@ -118,6 +120,11 @@ export class MemoryRepository implements Repository {
   }
   async findUserByPhone(e164: string) {
     const u = [...this.users.values()].find((x) => x.phoneE164 === e164);
+    return u ? clone(u) : null;
+  }
+  async findUserByEmail(email: string) {
+    const lower = email.toLowerCase();
+    const u = [...this.users.values()].find((x) => x.email?.toLowerCase() === lower);
     return u ? clone(u) : null;
   }
   async updateUser(id: string, patch: Partial<User>) {
