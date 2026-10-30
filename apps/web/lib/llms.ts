@@ -70,7 +70,6 @@ ${link("business", "MIMT Affaires: business phone system, per-line pricing, demo
 ${link("ai", "AI features and how consent works.")}
 ${link("webapp", `The web app at ${APP_URL} (calls, texts, voicemail in the browser; business admin).`)}
 ${link("compare", "How MIMT compares with typical free-number apps.")}
-${link("soon", "Roadmap: what is available today and what is in preparation (store apps, Google Calendar, internet, mobile), with no promised dates; waitlist.")}
 ${link("help", "Frequently asked questions.")}
 ${link("contact", "Contact form.")}
 ${link("about", "Who runs MIMT, what it does and does not do.")}

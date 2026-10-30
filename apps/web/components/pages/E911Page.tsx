@@ -1,6 +1,7 @@
 import { PageHero, Shell } from "@/components/Shell";
-import { LegalReview } from "@/components/LegalReview";
-import { TBC, href, type Lang } from "@/lib/site";
+import { LEGAL_UPDATED, href, type Lang } from "@/lib/site";
+
+// Legal review (lawyer): 9-1-1 limitations notice for nomadic VoIP, CRTC 2005-21, 2005-61, 2011-619.
 
 export function E911Page({ lang }: { lang: Lang }) {
   const fr = lang === "fr";
@@ -15,8 +16,6 @@ export function E911Page({ lang }: { lang: Lang }) {
             : "MIMT works over the internet. 9-1-1 works differently than on a landline or a cell phone. Read this page before using the service."
         }
       />
-      {/* à valider par l'avocat — texte de l'avis 9-1-1 (CRTC 2005-21, 2005-61, 2011-619) */}
-      <LegalReview note="avis sur les limites du 9-1-1 (VoIP nomade), CRTC 2005-21, 2005-61, 2011-619" />
       <section className="section">
         <div className="container prose">
           <div className="notice notice--warn" role="note">
@@ -128,12 +127,16 @@ export function E911Page({ lang }: { lang: Lang }) {
           <h2>{fr ? "Renseignements sur l'avis" : "About this notice"}</h2>
           <ul>
             <li>
-              {fr ? "Centre d'appels d'urgence partenaire : " : "Partner emergency call centre: "}
-              <span className="placeholder">{TBC[lang]}</span>
+              {fr
+                ? "Les appels au 9-1-1 sont acheminés par Twilio, notre fournisseur d'acheminement des appels, vers un centre d'appels d'urgence spécialisé qui confirme votre emplacement et transfère l'appel au centre 9-1-1 de votre région."
+                : "9-1-1 calls are routed by Twilio, our call routing provider, to a specialized emergency call centre that confirms your location and transfers the call to the 9-1-1 centre for your area."}
             </li>
             <li>
-              {fr ? "Version de l'avis et date d'entrée en vigueur : " : "Notice version and effective date: "}
-              <span className="placeholder">{TBC[lang]}</span>
+              {fr ? "Dernière mise à jour de cet avis : " : "This notice was last updated: "}
+              <time dateTime={LEGAL_UPDATED.iso}>{LEGAL_UPDATED[lang]}</time>
+              {fr
+                ? ". Si l'avis change de façon importante, l'app vous demande de l'accepter de nouveau."
+                : ". If the notice changes in a significant way, the app asks you to accept it again."}
             </li>
             <li>
               {fr ? "Ce que le CRTC exige des services de téléphonie par Internet : " : "What the CRTC requires of internet phone services: "}

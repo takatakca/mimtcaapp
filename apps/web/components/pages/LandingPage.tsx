@@ -1,5 +1,6 @@
 import { PageHero, Shell } from "@/components/Shell";
 import { FaqList } from "@/components/FaqList";
+import { GUIDES, guidePath } from "@/lib/guides";
 import { cityName, isCity, landingCopy, type LandingKey } from "@/lib/landing";
 import { PAGE_META } from "@/lib/meta";
 import { faqPageLd, landingServiceLd } from "@/lib/seo";
@@ -12,6 +13,14 @@ function landingPhoto(page: LandingKey, fr: boolean): { name: string; alt: strin
   if (page === "useVirtual") return { name: "artisan-atelier", alt: fr ? "Un artisan content regarde son téléphone dans son atelier" : "A happy craftsman looks at his phone in his workshop" };
   return { name: "hero-cafe", alt: fr ? "Une femme sourit en lisant un texto dans un café" : "A woman smiles as she reads a text in a café" };
 }
+
+/** Guides (lib/guides.ts ids) shown under each landing page: useful reading, no purchase needed. */
+const LANDING_GUIDES: Record<"city" | "useVirtual" | "useSecond" | "useVoip", string[]> = {
+  city: ["indicatif-regional", "numero-virtuel", "transfert"],
+  useVirtual: ["numero-virtuel", "appels-wifi", "indicatif-regional"],
+  useSecond: ["deuxieme-numero", "comparer-applications", "arnaques"],
+  useVoip: ["telephonie-ip-pme", "receptionniste-ia", "loi-25"],
+};
 
 /** Local (city) and use-case landing pages. One clear action: get a number with the live picker. */
 export function LandingPage({ lang, page }: { lang: Lang; page: LandingKey }) {
@@ -46,6 +55,16 @@ export function LandingPage({ lang, page }: { lang: Lang; page: LandingKey }) {
           ))}
           <h2>{fr ? "Questions fréquentes" : "Frequently asked questions"}</h2>
           <FaqList lang={lang} items={c.faq} />
+          <h2>{fr ? "Guides utiles" : "Useful guides"}</h2>
+          <ul className="guide-links">
+            {LANDING_GUIDES[isCity(page) ? "city" : (page as "useVirtual" | "useSecond" | "useVoip")]
+              .map((id) => GUIDES.find((g) => g.id === id)!)
+              .map((g) => (
+                <li key={g.id}>
+                  <a href={guidePath(g, lang)}>{g.copy(lang).h1}</a> — {g.copy(lang).summary}
+                </li>
+              ))}
+          </ul>
           <p className="landing__links">
             {c.related.map((r, i) => (
               <span key={r}>

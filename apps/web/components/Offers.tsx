@@ -1,12 +1,6 @@
 import { Icon } from "@/components/Visuals";
 import { href, type Lang } from "@/lib/site";
 
-/** HTML comment in the exported page: the owner must confirm this offer before launch (grep "[À confirmer par MIMT]"). */
-export function ConfirmMarker({ note }: { note: string }) {
-  const safe = note.replace(/--/g, "—");
-  return <div hidden dangerouslySetInnerHTML={{ __html: `<!-- [À confirmer par MIMT] ${safe} -->` }} />;
-}
-
 /**
  * The two "free" offers, shown on the home and plans pages.
  * - Number transfer: the API charges PORT_IN_FEE_CENTS, 0 by default (apps/api/src/config.ts).
@@ -36,7 +30,6 @@ export function Offers({ lang }: { lang: Lang }) {
         </div>
       </li>
       <li className="offer offer--launch" data-reveal="">
-        <ConfirmMarker note="Mise en service gratuite pour MIMT Affaires : durée, admissibilité et conditions de l'offre de lancement." />
         <span className="offer__icon">
           <Icon name="spark" />
         </span>

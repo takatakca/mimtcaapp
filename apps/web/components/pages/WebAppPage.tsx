@@ -83,6 +83,25 @@ export function WebAppPage({ lang }: { lang: Lang }) {
               : "9-1-1 in the browser has the same limits as in the app: your registered address must be where you are. "}
             <a href={href(lang, "e911")}>{fr ? "Lire la page 9-1-1" : "Read the 9-1-1 page"}</a>
           </div>
+          <h2>{fr ? "Recevoir les appels et les textos" : "Getting calls and texts"}</h2>
+          <p>
+            {fr
+              ? "Quand app.mimt.ca est ouvert et que vous êtes connecté, vos appels entrants sonnent dans le navigateur; vous pouvez aussi garder l'app sur votre cellulaire. Autorisez les notifications du navigateur pour être averti d'un texto ou d'un message vocal quand l'onglet n'est pas devant vous. Vos conversations, vos messages vocaux et votre historique d'appels sont les mêmes partout, puisqu'ils sont liés à votre compte et non à l'appareil."
+              : "When app.mimt.ca is open and you are signed in, incoming calls ring in the browser; you can also keep the app on your mobile. Allow browser notifications to be told about a text or a voicemail when the tab isn't in front of you. Your conversations, voicemails and call history are the same everywhere, since they belong to your account, not to the device."}
+          </p>
+          <h2>{fr ? "Conseils pour de bons appels" : "Tips for good calls"}</h2>
+          <ul>
+            <li>{fr ? "Un casque avec micro évite l'écho et les bruits de clavier." : "A headset with a microphone avoids echo and keyboard noise."}</li>
+            <li>{fr ? "Un câble réseau ou un Wi‑Fi proche du routeur donne une voix plus stable." : "A network cable or Wi‑Fi close to the router gives a steadier voice."}</li>
+            <li>{fr ? "Fermez les gros téléchargements et la vidéo en haute définition pendant un appel important." : "Pause big downloads and high-definition video during an important call."}</li>
+            <li>{fr ? "Si le navigateur a refusé le micro, autorisez-le dans les réglages du site (icône à gauche de l'adresse)." : "If the browser blocked the microphone, allow it in the site settings (icon left of the address)."}</li>
+          </ul>
+          <h2>{fr ? "Sécurité sur un ordinateur partagé" : "Security on a shared computer"}</h2>
+          <p>
+            {fr
+              ? "Sur un ordinateur que d'autres personnes utilisent, déconnectez-vous à la fin de votre session. Dans Mon compte, la section Sécurité montre les appareils connectés à votre compte et vous permet d'en déconnecter un à distance; les sessions inutilisées sont supprimées après 90 jours."
+              : "On a computer other people use, sign out at the end of your session. In My account, the Security section shows the devices signed in to your account and lets you sign one out remotely; unused sessions are deleted after 90 days."}
+          </p>
         </div>
       </section>
     </Shell>

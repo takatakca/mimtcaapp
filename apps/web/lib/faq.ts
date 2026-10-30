@@ -74,7 +74,6 @@ export function faqItems(lang: Lang): FaqItem[] {
           topic: "mobile",
           q: "MIMT remplace-t-il mon fournisseur cellulaire?",
           a: "Non. MIMT Mobile est une application qui utilise le Wi‑Fi ou vos données mobiles. Vous gardez votre forfait cellulaire actuel. Un service cellulaire MIMT est envisagé, mais il exige une entente avec un fournisseur de réseau : aucune date ni aucun prix ne sont annoncés.",
-          link: { route: "soon", label: "Voir ce qui s'en vient" },
         },
         {
           id: "sans-wifi",
@@ -219,7 +218,6 @@ export function faqItems(lang: Lang): FaqItem[] {
           topic: "mobile",
           q: "Does MIMT replace my cell carrier?",
           a: "No. MIMT Mobile is an app that uses Wi‑Fi or your mobile data. You keep your current cell plan. A MIMT cellular service is being considered, but it needs an agreement with a network provider: no date or price is announced.",
-          link: { route: "soon", label: "See what's coming" },
         },
         {
           id: "sans-wifi",

@@ -1,3 +1,4 @@
+import { POINTS_CATALOG } from "@mimt/shared";
 import { PageHero, Shell } from "@/components/Shell";
 import { ShareButton } from "@/components/ShareButton";
 import { MISSIONS, formatPoints, missionPointsTotal, yearlyOfferLive } from "@/lib/growth";
@@ -82,6 +83,40 @@ export function RewardsPage({ lang }: { lang: Lang }) {
               <li key={x}>{x}</li>
             ))}
           </ul>
+          <h2 id="catalog-title">{fr ? "Ce que vos points permettent d'obtenir" : "What your points can get you"}</h2>
+          <p>
+            {fr
+              ? "Dans le Portefeuille de l'app, vous échangez vos points contre des avantages sur votre service. Le catalogue actuel :"
+              : "In the app's Wallet, you exchange your points for benefits on your service. The current catalog:"}
+          </p>
+          <div className="table-wrap" role="region" aria-labelledby="catalog-title" tabIndex={0}>
+            <table className="simple">
+              <thead>
+                <tr>
+                  <th scope="col">{fr ? "Avantage" : "Benefit"}</th>
+                  <th scope="col">{fr ? "Points" : "Points"}</th>
+                  <th scope="col">{fr ? "Détail" : "Details"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {POINTS_CATALOG.filter((r) => r.enabled).map((r) => (
+                  <tr key={r.id}>
+                    <th scope="row">{r.label[lang]}</th>
+                    <td>{formatPoints(r.points, lang)}</td>
+                    <td>
+                      {r.description[lang]}{" "}
+                      {r.eligibility === "paid" ? (fr ? "Forfait payant requis." : "Paid plan required.") : r.eligibility === "stripe_paid" ? (fr ? "Forfait payé sur le Web requis." : "Plan paid on the web required.") : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p>
+            {fr
+              ? "Chaque avantage a une limite d'échanges par mois. Si un paiement est remboursé ou contesté, les points qu'il avait rapportés sont retirés."
+              : "Each benefit has a monthly redemption limit. If a payment is refunded or disputed, the points it earned are taken back."}
+          </p>
         </div>
       </section>
     </Shell>

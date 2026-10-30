@@ -95,9 +95,9 @@ function Footer({ lang }: { lang: Lang }) {
   const fr = lang === "fr";
   const year = new Date().getFullYear();
   const cols: { title: string; keys: RouteKey[] }[] = [
-    { title: fr ? "Produits" : "Products", keys: ["home", "business", "ai", "webapp", "plans", "compare", "soon"] },
+    { title: fr ? "Produits" : "Products", keys: ["home", "business", "ai", "webapp", "plans", "compare"] },
     { title: fr ? "Numéros" : "Numbers", keys: ["useVirtual", "useSecond", "useVoip", "cityMontreal", "cityQuebec", "cityLaval", "cityGatineau", "cityToronto"] },
-    { title: fr ? "Soutien" : "Support", keys: ["about", "guides", "help", "contact", "complaints", "affiliates"] },
+    { title: fr ? "Soutien" : "Support", keys: ["about", "guides", "help", "contact", "complaints", "rewards", "affiliates"] },
     { title: fr ? "Légal" : "Legal", keys: ["e911", "privacy", "terms", "accessibility"] },
   ];
   const footerLabel = (key: RouteKey): string => {

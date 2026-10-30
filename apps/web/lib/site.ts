@@ -9,8 +9,33 @@ export const CCTS_URL = "https://www.ccts-cprst.ca";
 export const APP_URL = "https://app.mimt.ca";
 /** MIMT API (public number search and holds; everything else goes through the app). */
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "https://api.mimt.ca").replace(/\/$/, "");
-/** Shown wherever the docs leave a legal or business fact blank. Never replace it with a guess. */
-export const TBC = { fr: "[À confirmer par MIMT]", en: "[To be confirmed by MIMT]" } as const;
+/**
+ * Company facts the owner has not given yet. Pages render a line only when its value is not null, and never a
+ * placeholder: write sentences that read well without them. Never fill one with a guess.
+ */
+export interface CompanyFacts {
+  /** Raison sociale of the entity that operates MIMT. */
+  legalName: string | null;
+  /** Postal address (one line). */
+  address: string | null;
+  /** Business phone number, as it should be dialled (e.g. "+1 514 555 0100"). */
+  phone: string | null;
+  /** Founding date or year, as it should be shown. */
+  founded: string | null;
+  /** Name of GROUPE TAKATAK's president, if the owner wants it published. */
+  president: string | null;
+}
+
+export const COMPANY: CompanyFacts = { legalName: null, address: null, phone: null, founded: null, president: null };
+
+/** Law 25 « responsable de la protection des renseignements personnels »: the president of GROUPE TAKATAK. */
+export const PRIVACY_OFFICER = {
+  fr: "le président de GROUPE TAKATAK",
+  en: "the president of GROUPE TAKATAK",
+} as const;
+
+/** Date shown as « Dernière mise à jour » on the privacy policy, the terms and the 9-1-1 notice. */
+export const LEGAL_UPDATED = { iso: "2026-10-30", fr: "30 octobre 2026", en: "October 30, 2026" } as const;
 
 /** Every page, with its French and English path (trailing slash: static export writes folders). */
 export const ROUTES = {
@@ -20,7 +45,6 @@ export const ROUTES = {
   ai: { fr: "/ia/", en: "/en/ai/" },
   webapp: { fr: "/app-web/", en: "/en/web-app/" },
   compare: { fr: "/comparer/", en: "/en/compare/" },
-  soon: { fr: "/bientot/", en: "/en/coming-soon/" },
   e911: { fr: "/9-1-1/", en: "/en/9-1-1/" },
   help: { fr: "/aide/", en: "/en/help/" },
   complaints: { fr: "/plaintes/", en: "/en/complaints/" },
@@ -55,7 +79,6 @@ export const LABELS: Record<RouteKey, { fr: string; en: string }> = {
   ai: { fr: "IA", en: "AI" },
   webapp: { fr: "App Web", en: "Web app" },
   compare: { fr: "Comparer", en: "Compare" },
-  soon: { fr: "Feuille de route", en: "Roadmap" },
   e911: { fr: "9-1-1", en: "9-1-1" },
   help: { fr: "Aide", en: "Help" },
   complaints: { fr: "Plaintes", en: "Complaints" },
@@ -77,16 +100,16 @@ export const LABELS: Record<RouteKey, { fr: string; en: string }> = {
   guides: { fr: "Guides", en: "Guides" },
 };
 
-export const MAIN_NAV: RouteKey[] = ["plans", "business", "ai", "guides", "soon", "help", "contact"];
+export const MAIN_NAV: RouteKey[] = ["plans", "business", "ai", "guides", "help", "contact"];
 /** Nav items shown on the desktop bar only on wide screens (always in the mobile menu), so the bar never wraps. */
-export const WIDE_ONLY_NAV: RouteKey[] = ["soon"];
+export const WIDE_ONLY_NAV: RouteKey[] = [];
 
 /** Per-page metadata with canonical, hreflang (fr-CA / en-CA) and Open Graph. */
 // The image is in French (French first); the alt text describes it as it is.
 const OG_ALT = "MIMT par GROUPE TAKATAK : Votre numéro canadien, partout. MIMT Mobile, MIMT Affaires, fait au Québec.";
 
 /** Pages with their own Open Graph card (public/og/<key>-<lang>.png, scripts/og-cards.mjs). Others use /og.png. */
-export const OG_PAGES: readonly RouteKey[] = ["home", "plans", "business", "ai", "webapp", "compare", "soon", "help"];
+export const OG_PAGES: readonly RouteKey[] = ["home", "plans", "business", "ai", "webapp", "compare", "help"];
 
 export function ogImage(lang: Lang, key: RouteKey): string {
   return OG_PAGES.includes(key) ? `/og/${key}-${lang}.png` : "/og.png";

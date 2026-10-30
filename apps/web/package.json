@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "pnpm --filter @mimt/shared build && next build && node scripts/ads-txt.mjs && node scripts/release-manifest.mjs && node scripts/verify-out.mjs",
+    "build": "pnpm --filter @mimt/shared build && next build && node scripts/ads-txt.mjs && node scripts/release-manifest.mjs && node scripts/verify-out.mjs && node scripts/check-links.mjs",
     "start": "serve out",
     "typecheck": "tsc --noEmit",
     "test": "node --test test/*.test.ts"

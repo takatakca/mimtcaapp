@@ -1,10 +1,11 @@
 // « Guides »: practical articles for people in Québec about phone numbers, 9-1-1, scams and small-business phones.
 // Rules (same as the rest of the site): French first, only facts we can source, official bodies named with links,
 // prices from @mimt/shared, no competitor or carrier names, no urgency wording.
-// Inline links use [label](href); lib/guides-render turns them into <a> elements.
+// Inline links use [label](href); components/RichText.tsx turns them into <a> elements.
 
 import { PLANS, formatCad } from "@mimt/shared";
 import { cityAreaCodes } from "./landing.ts";
+import { MORE_GUIDES } from "./guides-more.ts";
 import { CCTS_URL, ROUTES, type Lang, type RouteKey } from "./site.ts";
 
 export interface GuideBlock {
@@ -63,7 +64,7 @@ const r = (lang: Lang, key: RouteKey, hash?: string) => ROUTES[key][lang] + (has
 const porting: Guide = {
   id: "transfert",
   slug: { fr: "garder-son-numero-transfert", en: "keep-your-number-porting" },
-  updated: "2026-10-29",
+  updated: "2026-10-30",
   related: ["useVirtual", "e911", "help"],
   copy: (lang) =>
     lang === "fr"
@@ -131,6 +132,19 @@ const porting: Guide = {
                 "Mettez à jour l'adresse 9-1-1 associée au numéro chez le nouveau fournisseur.",
                 "Vérifiez que vos comptes importants (banque, impôts, courriel) reçoivent bien leurs codes de vérification.",
                 "Conservez la confirmation du transfert et la dernière facture de l'ancien fournisseur.",
+              ],
+            },
+            {
+              h2: "Transférer un numéro d'entreprise",
+              p: [
+                "Pour une entreprise, le transfert demande un peu plus de préparation, car le numéro principal est souvent imprimé partout : enseigne, site Web, cartes professionnelles, fiche d'entreprise en ligne. La personne qui signe l'autorisation de transfert doit être autorisée à agir pour l'entreprise, et le nom inscrit doit correspondre exactement à celui du compte chez le fournisseur actuel. Si l'entreprise a plusieurs numéros sur le même compte, précisez lesquels vous transférez : un numéro oublié peut être résilié avec le reste du compte.",
+                "Planifiez le transfert un jour de semaine, en dehors de votre période la plus achalandée, et gardez les deux services actifs pendant la transition. Préparez aussi le nouveau système avant le jour J : message d'accueil, heures d'ouverture, postes et renvois. Le jour du transfert, faites des appels d'essai depuis un autre téléphone pour vérifier que tout sonne au bon endroit.",
+              ],
+            },
+            {
+              h2: "Si le transfert est refusé ou retardé",
+              p: [
+                "Un refus vient presque toujours d'un renseignement qui ne correspond pas : numéro de compte, NIP de transfert, nom ou adresse de service. Demandez au nouveau fournisseur la raison exacte du refus, corrigez le renseignement avec votre fournisseur actuel, puis faites refaire la demande. Si votre fournisseur actuel tarde sans raison ou refuse de collaborer, adressez-vous d'abord à son service à la clientèle par écrit. Si le problème n'est pas réglé, la Commission des plaintes relatives aux services de télécom-télévision (CPRST) peut recevoir votre plainte; le service est gratuit pour les consommateurs et les petites entreprises.",
               ],
             },
             {
@@ -223,6 +237,19 @@ const porting: Guide = {
               ],
             },
             {
+              h2: "Porting a business number",
+              p: [
+                "For a business, porting takes a little more preparation, because the main number is often printed everywhere: sign, website, business cards, online business listing. The person who signs the porting authorization must be authorized to act for the business, and the name given must match exactly the one on the account with the current provider. If the business has several numbers on the same account, say which ones you are porting: a forgotten number may be cancelled with the rest of the account.",
+                "Schedule the port on a weekday, outside your busiest period, and keep both services active during the transition. Set up the new system before the day: greeting, business hours, extensions and forwarding. On the day of the port, make test calls from another phone to check that everything rings in the right place.",
+              ],
+            },
+            {
+              h2: "If the port is rejected or delayed",
+              p: [
+                "A rejection almost always comes from information that does not match: account number, transfer PIN, name or service address. Ask the new provider for the exact reason, correct the information with your current provider, then have the request sent again. If your current provider delays without reason or refuses to cooperate, contact its customer service in writing first. If the problem is not solved, the Commission for Complaints for Telecom-television Services (CCTS) can take your complaint; the service is free for consumers and small businesses.",
+              ],
+            },
+            {
               h2: "With MIMT",
               p: [
                 `MIMT charges no number transfer fee. Transfers to MIMT are done online, with an electronically signed authorization; your current provider's fees or contract remain your responsibility. Once transferred, the number uses the 9-1-1 address in your MIMT account: check it before the scheduled date. If you ever leave MIMT, your new provider can request the transfer of your number under the same rules. Short answers are in our [help page](${r("en", "help")}).`,
@@ -253,7 +280,7 @@ const porting: Guide = {
 const virtualNumber: Guide = {
   id: "numero-virtuel",
   slug: { fr: "numero-virtuel-comment-choisir", en: "virtual-number-how-to-choose" },
-  updated: "2026-10-29",
+  updated: "2026-10-30",
   related: ["useVirtual", "cityMontreal", "plans"],
   copy: (lang) => {
     const lock = formatCad(PLANS.lock.monthlyPriceCents, lang);
@@ -312,6 +339,20 @@ const virtualNumber: Guide = {
                 "Sans connexion Internet, un numéro virtuel ne peut ni appeler ni recevoir d'appels. La qualité dépend de votre réseau : un Wi‑Fi faible ou un signal de données instable se ressent pendant l'appel. En itinérance, les appels consomment des données mobiles; vérifiez votre forfait de données.",
                 "Certains sites, comme des banques ou des plateformes en ligne, refusent d'envoyer des codes de vérification à des numéros de téléphonie par Internet. Avant d'utiliser un numéro virtuel pour un compte important, assurez-vous qu'il est accepté.",
                 `Enfin, le 9-1-1 fonctionne différemment d'un cellulaire. Lisez notre [guide sur le 9-1-1 et la téléphonie par Internet](${ROUTES.guides.fr}9-1-1-telephonie-internet/) avant d'en faire votre seul numéro.`,
+              ],
+            },
+            {
+              h2: "Comment un numéro virtuel fonctionne, techniquement",
+              p: [
+                "Un numéro de téléphone canadien est attribué à un fournisseur de services de télécommunications, qui l'inscrit dans les bases de données du réseau téléphonique. Quand quelqu'un compose ce numéro, le réseau sait vers quel fournisseur acheminer l'appel. Avec un numéro classique, ce fournisseur fait sonner une ligne fixe ou une carte SIM. Avec un numéro virtuel, il transforme l'appel en données et l'envoie par Internet vers une application, sur votre cellulaire ou votre ordinateur.",
+                "Concrètement, l'appel entrant arrive chez le fournisseur, qui réveille votre application par une notification, puis établit la communication vocale par Internet. La voix est compressée par un codec, découpée en petits paquets et transmise en temps réel. Les textos suivent un chemin semblable : ils sont reçus par le fournisseur, puis livrés à l'application. Pour vos contacts, rien ne change : ils composent un numéro ordinaire, et votre numéro s'affiche quand vous les appelez.",
+                "Ce fonctionnement explique les forces et les limites d'un numéro virtuel. Il fonctionne partout où il y a une connexion, sur plusieurs appareils à la fois, sans carte SIM. Mais la qualité dépend de votre connexion, l'application doit pouvoir recevoir ses notifications, et le 9-1-1 exige une adresse enregistrée, parce que le réseau ne peut pas savoir où vous êtes.",
+              ],
+            },
+            {
+              h2: "Ce qui distingue un vrai numéro d'un identifiant d'application",
+              p: [
+                "Certaines applications de messagerie vous donnent seulement un identifiant ou un nom d'utilisateur : on ne peut vous joindre que depuis la même application. Un numéro virtuel, lui, fait partie du plan de numérotation nord-américain : n'importe quel téléphone peut l'appeler ou lui écrire. Vérifiez toujours que le service vous donne un vrai numéro à dix chiffres, que vous pouvez le transférer chez un autre fournisseur si vous partez, et que les conditions disent clairement ce qui arrive au numéro si le compte devient inactif.",
               ],
             },
             {
@@ -380,6 +421,20 @@ const virtualNumber: Guide = {
               ],
             },
             {
+              h2: "How a virtual number works, technically",
+              p: [
+                "A Canadian phone number is assigned to a telecommunications service provider, which registers it in the phone network's databases. When someone dials the number, the network knows which provider to route the call to. With a classic number, that provider rings a landline or a SIM card. With a virtual number, it turns the call into data and sends it over the internet to an app, on your mobile or your computer.",
+                "In practice, the incoming call reaches the provider, which wakes your app with a notification, then sets up the voice connection over the internet. Your voice is compressed by a codec, cut into small packets and sent in real time. Texts follow a similar path: the provider receives them, then delivers them to the app. For your contacts, nothing changes: they dial an ordinary number, and your number shows up when you call them.",
+                "This explains the strengths and limits of a virtual number. It works anywhere there is a connection, on several devices at once, with no SIM card. But quality depends on your connection, the app must be able to receive its notifications, and 9-1-1 needs a registered address, because the network can't tell where you are.",
+              ],
+            },
+            {
+              h2: "A real number versus an app handle",
+              p: [
+                "Some messaging apps only give you a handle or a username: people can reach you only from the same app. A virtual number is part of the North American numbering plan: any phone can call or text it. Always check that the service gives you a real ten-digit number, that you can port it to another provider if you leave, and that the terms say clearly what happens to the number if the account becomes inactive.",
+              ],
+            },
+            {
               h2: "With MIMT",
               p: [
                 `MIMT's Free plan lets you call and text other MIMT users, without a phone number. For a real Canadian number, the Essential plan costs ${lock} a month before taxes, and the number stays yours as long as the plan is paid. The number picker shows free numbers live; the one you choose is held for 10 minutes while you create your account. Compare the [plans](${r("en", "plans")}) or see the [virtual number](${r("en", "useVirtual")}) page.`,
@@ -400,7 +455,7 @@ const virtualNumber: Guide = {
 const e911: Guide = {
   id: "9-1-1",
   slug: { fr: "9-1-1-telephonie-internet", en: "9-1-1-internet-phone-service" },
-  updated: "2026-10-29",
+  updated: "2026-10-30",
   related: ["e911", "accessibility", "help"],
   copy: (lang) =>
     lang === "fr"
@@ -460,6 +515,26 @@ const e911: Guide = {
               h2: "Personnes sourdes, malentendantes ou ayant un trouble de la parole",
               p: [
                 "Le service de 9-1-1 par texto (T9-1-1) est offert par les fournisseurs cellulaires, aux personnes inscrites auprès de leur fournisseur; il ne passe pas par une application de téléphonie par Internet. Les services de relais peuvent aussi comporter des limites pour le 9-1-1. Renseignez-vous auprès de votre fournisseur cellulaire et de votre service de relais.",
+              ],
+            },
+            {
+              h2: "Le chalet, le voyage et le télétravail",
+              p: [
+                "Le moment où l'adresse enregistrée devient fausse, c'est souvent un départ : une fin de semaine au chalet, un séjour chez un parent, une semaine de télétravail dans une autre ville. Prenez l'habitude de mettre l'adresse à jour en arrivant, comme vous fermeriez le chauffe-eau en partant. Si vous ne connaissez pas l'adresse municipale exacte d'un chalet, demandez-la au propriétaire ou cherchez-la sur le compte de taxes : un nom de lac ou de chemin ne suffit pas toujours aux secours.",
+                "À l'extérieur du Canada, l'application peut continuer de fonctionner pour appeler au Canada, mais un appel au 9-1-1 risque de ne pas joindre les secours locaux, et le numéro d'urgence n'est pas le même partout. Avant un voyage, notez le numéro d'urgence du pays visité et utilisez un téléphone local en cas de besoin.",
+              ],
+            },
+            {
+              h2: "Pour les entreprises et les télétravailleurs",
+              p: [
+                "Dans une entreprise qui utilise la téléphonie par Internet, chaque employé peut travailler d'un endroit différent : bureau, domicile, chantier. L'adresse associée à chaque ligne doit donc être celle où la personne travaille réellement. Expliquez la règle à l'embauche, rappelez-la quand quelqu'un change d'endroit de travail, et affichez les limites du 9-1-1 près des postes partagés. Les visiteurs et le personnel temporaire doivent savoir qu'un appel d'urgence passé depuis l'application doit commencer par l'adresse exacte.",
+                "Gardez aussi un téléphone fixe ou un cellulaire accessible dans les lieux où des gens travaillent seuls ou dans des conditions à risque. Un service par Internet est un excellent outil de travail, mais il ne doit pas être le seul moyen de joindre les secours dans un entrepôt, un atelier ou un chantier.",
+              ],
+            },
+            {
+              h2: "Tester sans déranger les secours",
+              p: [
+                "Ne composez pas le 9-1-1 pour « faire un essai » : les centres d'urgence doivent traiter chaque appel. Si vous composez le 9-1-1 par erreur, restez en ligne et expliquez que c'est une erreur, au lieu de raccrocher; sinon, le centre pourrait devoir vous rappeler ou envoyer quelqu'un. Pour vérifier que votre service fonctionne, appelez plutôt un numéro ordinaire, et confirmez dans l'application que votre adresse est bien enregistrée.",
               ],
             },
             {
@@ -532,6 +607,26 @@ const e911: Guide = {
               ],
             },
             {
+              h2: "The cottage, travel and remote work",
+              p: [
+                "The registered address most often becomes wrong when you leave: a weekend at the cottage, a stay with family, a week of remote work in another city. Make a habit of updating the address when you arrive, the same way you would turn off the water heater when leaving. If you don't know the exact civic address of a cottage, ask the owner or look on the tax bill: a lake or road name is not always enough for emergency services.",
+                "Outside Canada, the app may keep working to call Canada, but a 9-1-1 call may not reach local emergency services, and the emergency number is not the same everywhere. Before a trip, write down the emergency number of the country you are visiting and use a local phone if needed.",
+              ],
+            },
+            {
+              h2: "For businesses and remote workers",
+              p: [
+                "In a business that uses internet phone service, each employee may work from a different place: office, home, job site. The address tied to each line must therefore be the place where that person actually works. Explain the rule when you hire, repeat it when someone changes workplace, and post the 9-1-1 limits near shared phones. Visitors and temporary staff should know that an emergency call from the app must start with the exact address.",
+                "Also keep a landline or a mobile within reach where people work alone or in risky conditions. An internet service is an excellent work tool, but it should not be the only way to reach emergency services in a warehouse, a workshop or a job site.",
+              ],
+            },
+            {
+              h2: "Testing without bothering emergency services",
+              p: [
+                "Don't dial 9-1-1 to \"try it out\": emergency centres must handle every call. If you dial 9-1-1 by mistake, stay on the line and explain that it was a mistake instead of hanging up; otherwise the centre may have to call you back or send someone. To check that your service works, call an ordinary number instead, and confirm in the app that your address is registered.",
+              ],
+            },
+            {
               h2: "With MIMT",
               p: [
                 `MIMT is a nomadic service. 9-1-1 is never blocked by your plan, minute limits or balance. Outgoing calls to phone numbers are turned on only after you register your address and accept the 9-1-1 notice. Read our [9-1-1 page](${r("en", "e911")}) before using the service.`,
@@ -548,7 +643,7 @@ const e911: Guide = {
 const secondNumber: Guide = {
   id: "deuxieme-numero",
   slug: { fr: "deuxieme-numero-vie-pro-vie-perso", en: "second-number-work-personal-life" },
-  updated: "2026-10-29",
+  updated: "2026-10-30",
   related: ["useSecond", "plans", "help"],
   copy: (lang) =>
     lang === "fr"
@@ -599,6 +694,37 @@ const secondNumber: Guide = {
               h2: "Travailleurs autonomes et petites équipes",
               p: [
                 "Si votre activité grandit, demandez-vous à qui appartient le numéro. Un numéro au nom de l'entreprise peut passer d'une personne à l'autre si quelqu'un quitte l'équipe; un numéro personnel, non. Pour plusieurs personnes, un système téléphonique d'entreprise avec des postes, un accueil et des heures d'ouverture est souvent plus simple qu'une série de numéros individuels.",
+              ],
+            },
+            {
+              h2: "Protéger sa vie privée avec un deuxième numéro",
+              p: [
+                "Votre numéro de cellulaire personnel est devenu un identifiant : il sert à récupérer vos comptes, à recevoir des codes de vérification et, souvent, à vous retrouver en ligne. Le donner à n'importe qui, c'est donner une clé. Un deuxième numéro sert de tampon : vous le donnez aux inconnus, aux commerces et aux annonces, et vous gardez le numéro principal pour vos proches, votre banque et vos comptes importants.",
+                "Si le deuxième numéro reçoit trop d'appels importuns, vous pouvez le bloquer, filtrer les appels ou, au besoin, le changer, sans toucher à votre numéro principal. Les personnes à qui vous avez donné le numéro principal ne sont pas dérangées par ce changement.",
+              ],
+            },
+            {
+              h2: "Ce qu'un deuxième numéro ne cache pas",
+              ul: [
+                "Votre nom : si vous l'inscrivez dans un profil, une annonce ou une signature de courriel, il reste visible.",
+                "Votre voix et ce que vous dites : un interlocuteur peut toujours noter ce que vous lui révélez.",
+                "Votre adresse IP et vos données chez le fournisseur : le service connaît votre compte, comme tout fournisseur de télécommunications, et doit les protéger selon la loi.",
+                "Vos codes de vérification : certaines banques et plateformes n'envoient pas de codes aux numéros par Internet. Gardez votre numéro principal pour vos comptes sensibles.",
+              ],
+            },
+            {
+              h2: "Vos renseignements chez le fournisseur",
+              p: [
+                "Au Québec, la Loi 25 oblige les entreprises à désigner une personne responsable de la protection des renseignements personnels, à publier une politique de confidentialité claire et à obtenir un consentement distinct pour les usages qui ne sont pas nécessaires au service. Avant de choisir un service de deuxième numéro, lisez sa politique : où sont conservés vos textos et vos messages vocaux, pendant combien de temps, qui y a accès, et si des publicités personnalisées ou des fonctions d'intelligence artificielle sont activées par défaut. La Commission d'accès à l'information du Québec (CAI) reçoit les plaintes si une entreprise ne respecte pas ces règles.",
+              ],
+            },
+            {
+              h2: "Quel numéro donner, à qui",
+              ul: [
+                "Famille, amis proches, médecin, banque, employeur : le numéro principal.",
+                "Petites annonces, achats en ligne, programmes de fidélité, rencontres, inscriptions à des concours : le deuxième numéro.",
+                "Clients et fournisseurs, si vous êtes à votre compte : le deuxième numéro, avec une messagerie vocale professionnelle.",
+                "En cas de doute, le deuxième numéro : il est plus facile de donner ensuite le numéro principal que de le reprendre.",
               ],
             },
             {
@@ -660,6 +786,37 @@ const secondNumber: Guide = {
               ],
             },
             {
+              h2: "Protecting your privacy with a second number",
+              p: [
+                "Your personal mobile number has become an identifier: it is used to recover your accounts, receive verification codes and often to find you online. Giving it to anyone means handing out a key. A second number works as a buffer: you give it to strangers, shops and listings, and keep your main number for family, your bank and your important accounts.",
+                "If the second number gets too many unwanted calls, you can block them, filter calls or, if needed, change it, without touching your main number. The people who have your main number are not affected by the change.",
+              ],
+            },
+            {
+              h2: "What a second number does not hide",
+              ul: [
+                "Your name: if you put it in a profile, a listing or an email signature, it stays visible.",
+                "Your voice and what you say: the other person can always note what you tell them.",
+                "Your IP address and your data at the provider: the service knows your account, like any telecom provider, and must protect it under the law.",
+                "Your verification codes: some banks and platforms don't send codes to internet phone numbers. Keep your main number for sensitive accounts.",
+              ],
+            },
+            {
+              h2: "Your information at the provider",
+              p: [
+                "In Québec, Law 25 requires businesses to name a person in charge of the protection of personal information, to publish a clear privacy policy and to get separate consent for uses that the service does not need. Before choosing a second-number service, read its policy: where your texts and voicemails are stored, for how long, who can access them, and whether personalized ads or artificial intelligence features are on by default. Québec's Commission d'accès à l'information (CAI) takes complaints if a business does not follow these rules.",
+              ],
+            },
+            {
+              h2: "Which number to give, and to whom",
+              ul: [
+                "Family, close friends, doctor, bank, employer: the main number.",
+                "Classified ads, online shopping, loyalty programs, dating, contest entries: the second number.",
+                "Clients and suppliers, if you are self-employed: the second number, with a professional voicemail greeting.",
+                "When in doubt, the second number: it is easier to give out the main number later than to take it back.",
+              ],
+            },
+            {
               h2: "With MIMT",
               p: [
                 `A MIMT second number lives in the app on your mobile and in the browser at app.mimt.ca: calls, texts and voicemail kept apart from your personal line. Your calls and texts show that number, never your mobile's. Plans with a number start at ${formatCad(PLANS.lock.monthlyPriceCents, "en")} a month before taxes; for a team, see [MIMT Business](${r("en", "business")}). More on the [second number](${r("en", "useSecond")}) page.`,
@@ -676,7 +833,7 @@ const secondNumber: Guide = {
 const aiReceptionist: Guide = {
   id: "receptionniste-ia",
   slug: { fr: "receptionniste-ia-bonnes-pratiques", en: "ai-receptionist-good-practices" },
-  updated: "2026-10-29",
+  updated: "2026-10-30",
   related: ["ai", "business", "privacy"],
   copy: (lang) =>
     lang === "fr"
@@ -745,6 +902,29 @@ const aiReceptionist: Guide = {
               h2: "Testez, puis ajustez",
               p: [
                 "Avant de le mettre en ligne, appelez vous-même : posez les questions habituelles, puis des questions imprévues, parlez vite, changez de langue. Pendant les premières semaines, lisez les résumés d'appels chaque semaine pour repérer les questions sans réponse et améliorer les consignes.",
+              ],
+            },
+            {
+              h2: "Ce qu'un réceptionniste IA ne devrait pas faire",
+              ul: [
+                "Promettre un prix, un délai, un remboursement ou une exception qui n'est pas écrit dans vos consignes.",
+                "Donner un avis médical, juridique ou financier, même général : il doit diriger vers une personne qualifiée.",
+                "Prendre un numéro de carte de paiement ou un mot de passe au téléphone.",
+                "Se faire passer pour une personne, ou cacher qu'il prend des notes.",
+                "Traiter une urgence : si un appelant décrit une situation dangereuse, il doit lui dire de composer le 9-1-1.",
+              ],
+            },
+            {
+              h2: "Mesurer si ça fonctionne",
+              p: [
+                "Après quelques semaines, regardez les résumés d'appels et posez-vous des questions simples. Combien d'appels ont été réglés sans intervention? Combien ont demandé une personne? Quelles questions reviennent souvent et ne sont pas couvertes par vos consignes? Les appelants raccrochent-ils au message d'accueil? Ces observations vous disent quoi ajouter ou simplifier. Un bon réceptionniste IA ne remplace pas votre équipe : il filtre les questions répétitives et lui laisse les conversations qui comptent.",
+                "Écoutez aussi vos clients. Si plusieurs personnes disent préférer parler à quelqu'un, rendez le transfert vers une personne plus visible dès le début de l'appel, ou limitez l'IA aux heures de fermeture.",
+              ],
+            },
+            {
+              h2: "Les enregistrements et les transcriptions",
+              p: [
+                "Un réceptionniste IA transcrit la conversation pour la comprendre. Si vous conservez ces transcriptions ou des enregistrements, la Loi 25 s'applique : informez l'appelant dès le début, limitez l'accès aux personnes qui en ont besoin, fixez une durée de conservation et supprimez ce qui n'est plus utile. Si le fournisseur d'IA traite les données à l'extérieur du Québec, la loi demande d'évaluer les risques avant la communication et de l'encadrer par une entente écrite.",
               ],
             },
             {
@@ -825,6 +1005,29 @@ const aiReceptionist: Guide = {
               ],
             },
             {
+              h2: "What an AI receptionist should not do",
+              ul: [
+                "Promise a price, a delay, a refund or an exception that is not written in your instructions.",
+                "Give medical, legal or financial advice, even general: it should direct the caller to a qualified person.",
+                "Take a payment card number or a password over the phone.",
+                "Pretend to be a person, or hide that it is taking notes.",
+                "Handle an emergency: if a caller describes a dangerous situation, it must tell them to dial 9-1-1.",
+              ],
+            },
+            {
+              h2: "Measuring whether it works",
+              p: [
+                "After a few weeks, look at the call summaries and ask simple questions. How many calls were settled with no one stepping in? How many asked for a person? Which questions come back often and are not covered by your instructions? Do callers hang up during the greeting? These observations tell you what to add or simplify. A good AI receptionist doesn't replace your team: it filters repetitive questions and leaves the conversations that matter to people.",
+                "Listen to your customers too. If several people say they would rather talk to someone, make the transfer to a person more visible at the start of the call, or limit the AI to closed hours.",
+              ],
+            },
+            {
+              h2: "Recordings and transcripts",
+              p: [
+                "An AI receptionist transcribes the conversation to understand it. If you keep these transcripts or recordings, Law 25 applies: tell the caller at the start, limit access to the people who need it, set a retention period and delete what is no longer useful. If the AI provider processes data outside Québec, the law asks you to assess the risks before the transfer and to cover it with a written agreement.",
+              ],
+            },
+            {
               h2: "With MIMT",
               p: [
                 `The MIMT Business AI receptionist always introduces itself as an artificial intelligence agent at the start of the call and says the conversation is transcribed. It answers from your hours and frequently asked questions, transfers to a person or takes a message. The AI is provided by Claude, from Anthropic, and each account has a monthly AI cost cap; once reached, calls keep working normally. See [MIMT AI](${r("en", "ai")}) and [MIMT Business](${r("en", "business")}).`,
@@ -844,7 +1047,7 @@ const aiReceptionist: Guide = {
 const scams: Guide = {
   id: "arnaques",
   slug: { fr: "arnaques-par-texto", en: "text-message-scams" },
-  updated: "2026-10-29",
+  updated: "2026-10-30",
   related: ["ai", "privacy", "help"],
   copy: (lang) =>
     lang === "fr"
@@ -913,6 +1116,32 @@ const scams: Guide = {
                 "Changez les mots de passe des comptes touchés et activez la vérification en deux étapes.",
                 "Avisez votre fournisseur de téléphone si vous croyez que quelqu'un a tenté de transférer votre numéro.",
                 `Signalez la fraude au [Centre antifraude du Canada](${SRC.cafc.fr}) (1-888-495-8501) et, au besoin, à votre service de police.`,
+              ],
+            },
+            {
+              h2: "Exemples de messages à reconnaître",
+              p: [
+                "Les messages frauduleux changent de forme, mais suivent souvent les mêmes modèles. Voici des exemples inventés, typiques de ce que l'on reçoit au Québec :",
+              ],
+              ul: [
+                "« Votre colis est retenu : des frais de livraison de 1,99 $ sont exigés. Payez ici. » Un vrai transporteur ne demande pas de paiement par un lien dans un texto inattendu.",
+                "« L'Agence du revenu vous doit un remboursement. Confirmez vos renseignements bancaires. » Les remboursements d'impôt ne s'obtiennent pas par un lien dans un texto.",
+                "« Votre compte bancaire est bloqué. Appelez ce numéro. » Appelez plutôt le numéro inscrit au dos de votre carte.",
+                "« Allô, c'est moi, j'ai changé de numéro. Peux-tu m'envoyer de l'argent? » Vérifiez en appelant la personne à son ancien numéro.",
+                "« Désolé, mauvais numéro… » suivi d'une conversation amicale qui mène, des semaines plus tard, à un placement ou à une cryptomonnaie.",
+              ],
+            },
+            {
+              h2: "L'hameçonnage par texto, étape par étape",
+              p: [
+                "L'hameçonnage par texto (en anglais, smishing) cherche presque toujours à vous faire faire l'une de trois choses : cliquer sur un lien vers une fausse page qui imite un site connu, appeler un faux service à la clientèle, ou répondre avec un renseignement. La fausse page vous demande ensuite un mot de passe, un numéro de carte ou un code reçu par texto. Ce dernier point est important : un code de vérification sert à prouver que c'est bien vous. Personne de légitime ne vous demandera de le lui transmettre.",
+                "Les fraudeurs envoient des messages en masse, souvent à partir de numéros qui changent sans cesse. Bloquer un numéro aide peu; la meilleure protection reste de ne jamais agir à partir d'un message inattendu, et de passer par le site ou l'application officielle que vous connaissez déjà.",
+              ],
+            },
+            {
+              h2: "Protéger les personnes autour de vous",
+              p: [
+                "Les personnes âgées, les nouveaux arrivants et les adolescents sont souvent visés, parce que les fraudeurs misent sur la confiance ou sur la peur. Parlez-en simplement : montrez des exemples, convenez d'une règle familiale (on ne paie jamais rien à partir d'un texto, on vérifie toujours par un autre moyen), et rappelez qu'il n'y a aucune honte à demander de l'aide. Dans une entreprise, une courte formation et une règle claire pour les paiements et les changements de coordonnées bancaires évitent bien des pertes.",
               ],
             },
             {
@@ -994,6 +1223,32 @@ const scams: Guide = {
               ],
             },
             {
+              h2: "Examples of messages to recognize",
+              p: [
+                "Fraudulent messages change form but often follow the same patterns. Here are made-up examples, typical of what people receive in Québec:",
+              ],
+              ul: [
+                "\"Your parcel is on hold: a $1.99 delivery fee is due. Pay here.\" A real carrier doesn't ask for payment through a link in an unexpected text.",
+                "\"The Revenue Agency owes you a refund. Confirm your banking information.\" Tax refunds are not claimed through a link in a text.",
+                "\"Your bank account is locked. Call this number.\" Call the number on the back of your card instead.",
+                "\"Hi, it's me, I changed my number. Can you send me money?\" Check by calling the person at their old number.",
+                "\"Sorry, wrong number…\" followed by a friendly chat that leads, weeks later, to an investment or cryptocurrency pitch.",
+              ],
+            },
+            {
+              h2: "Text message phishing, step by step",
+              p: [
+                "Text message phishing (smishing) almost always tries to make you do one of three things: tap a link to a fake page that imitates a known site, call a fake customer service line, or reply with information. The fake page then asks for a password, a card number or a code received by text. That last point matters: a verification code proves that it is really you. No legitimate person will ask you to pass it on.",
+                "Fraudsters send messages in bulk, often from numbers that keep changing. Blocking one number helps little; the best protection is never to act on an unexpected message, and to go through the official site or app you already know.",
+              ],
+            },
+            {
+              h2: "Protecting the people around you",
+              p: [
+                "Seniors, newcomers and teenagers are often targeted, because fraudsters count on trust or fear. Talk about it simply: show examples, agree on a family rule (we never pay for anything from a text, we always check another way), and remind everyone that there is no shame in asking for help. In a business, a short training and a clear rule for payments and changes of banking details prevent many losses.",
+              ],
+            },
+            {
               h2: "With MIMT",
               p: [
                 `MIMT shows a “Likely spam” label on doubtful calls and texts, based on simple rules, on every plan. It is a label, not a block: you decide, and callbacks from emergency services always ring through. With your consent, AI can help assess an ambiguous text. See [MIMT AI](${r("en", "ai")}).`,
@@ -1008,7 +1263,8 @@ const scams: Guide = {
         },
 };
 
-export const GUIDES: readonly Guide[] = [porting, virtualNumber, e911, secondNumber, aiReceptionist, scams];
+/** Index order: from the basics of a number to business topics. */
+export const GUIDES: readonly Guide[] = [virtualNumber, porting, e911, ...MORE_GUIDES.slice(0, 1), secondNumber, ...MORE_GUIDES.slice(1), scams, aiReceptionist];
 
 export function guidePath(g: Guide, lang: Lang): string {
   return `${ROUTES.guides[lang]}${g.slug[lang]}/`;

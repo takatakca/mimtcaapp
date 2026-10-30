@@ -73,16 +73,6 @@ export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; descripti
       description: "What MIMT does differently from typical free-number apps, and what it doesn't do yet. An honest comparison.",
     },
   },
-  soon: {
-    fr: {
-      title: "Feuille de route : ce que MIMT prépare",
-      description: "Ce que MIMT offre aujourd'hui et ce qui est en préparation : apps iPhone et Android, Google Agenda, Internet et cellulaire. Sans date promise.",
-    },
-    en: {
-      title: "Roadmap: what MIMT is working on",
-      description: "What MIMT offers today and what is in preparation: iPhone and Android apps, Google Calendar, internet and mobile. No promised dates.",
-    },
-  },
   e911: {
     fr: {
       title: "9-1-1 : limites du service par Internet",
@@ -184,11 +174,11 @@ export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; descripti
   guides: {
     fr: {
       title: "Guides pratiques : numéros, 9-1-1 et arnaques",
-      description: "Des guides clairs pour le Québec : garder son numéro, choisir un numéro virtuel, le 9-1-1 par Internet, un deuxième numéro, l'IA au téléphone, les arnaques.",
+      description: "Guides pour le Québec : numéro virtuel, transfert, 9-1-1, appels Wi‑Fi, indicatifs régionaux, Loi 25, téléphonie d'affaires, arnaques par texto.",
     },
     en: {
       title: "Practical guides: numbers, 9-1-1 and scams",
-      description: "Clear guides for Québec: keeping your number, choosing a virtual number, 9-1-1 over the internet, a second number, AI on the phone, text scams.",
+      description: "Guides for Québec: virtual numbers, porting, 9-1-1, Wi‑Fi calling, area codes, Law 25, business phone systems and text message scams.",
     },
   },
   useVoip: {
