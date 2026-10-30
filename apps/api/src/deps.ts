@@ -2,6 +2,7 @@ import type { Config } from "./config.js";
 import type { AiServices } from "./ai/service.js";
 import type { SessionService } from "./auth/sessions.js";
 import type { TakatakClient } from "./auth/takatak.js";
+import type { GoogleClient } from "./auth/google.js";
 import type { DeviceVerifier } from "./devices/verify.js";
 import type { StoreVerifier } from "./billing/iap.js";
 import type { BillingGateway } from "./gateways/billing.js";
@@ -23,6 +24,8 @@ export interface AppDeps {
   repo: Repository;
   sessions: SessionService;
   takatak: TakatakClient;
+  /** Google sign-in (signup = email or Google). Absent config: exchange answers 503 not_configured. */
+  google: GoogleClient;
   /** null when Twilio REST credentials are not configured (features answer 503). */
   twilio: TwilioGateway | null;
   /** null when Stripe is not configured. */
