@@ -184,6 +184,9 @@ export class PostgresRepository implements Repository {
   async findUserByPhone(e164: string) {
     return maybe<User>(await this.sql`select * from users where phone_e164 = ${e164}`);
   }
+  async findUserByEmail(email: string) {
+    return maybe<User>(await this.sql`select * from users where lower(email) = lower(${email})`);
+  }
   async updateUser(id: string, patch: Partial<User>) {
     return one<User>(await this.sql`update users set ${this.sql(defined(patch))} where id = ${id} returning *`);
   }

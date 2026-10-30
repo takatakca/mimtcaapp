@@ -58,6 +58,38 @@ export async function authRoutes(app: FastifyInstance, deps: AppDeps) {
     return completeSignIn(deps, req, user, "takatak");
   });
 
+  app.post("/v1/auth/google/exchange", { config: authRateLimit }, async (req): Promise<AuthTokensResponse> => {
+    const body = parse(ExchangeBody, req.body);
+    const id = await deps.google.exchangeCode(body);
+    if (!id.email) throw new HttpError(400, "email_required", "Google sign-in requires an email address");
+    const now = deps.now();
+
+    let user = await repo.findUserByEmail(id.email);
+    if (!user) {
+      user = await repo.createUser({
+        globalUserId: null,
+        googleSub: id.googleSub,
+        locale: id.locale?.toLowerCase().startsWith("en") ? "en-CA" : "fr-CA",
+        displayName: id.name,
+        email: id.email,
+        emailVerifiedAt: id.emailVerified ? now : null,
+        phoneE164: null,
+        phoneVerifiedAt: null,
+      });
+      await repo.audit({ actorUserId: user.id, action: "user.created", targetType: "user", targetId: user.id, ip: req.ip, meta: { via: "google" } });
+    } else {
+      if (user.status === "deleted") throw forbidden("account_deleted");
+      user = await repo.updateUser(user.id, {
+        ...(user.googleSub ? {} : { googleSub: id.googleSub }),
+        ...(id.emailVerified && !user.emailVerifiedAt ? { emailVerifiedAt: now } : {}),
+      });
+    }
+    if (user.status === "suspended") throw forbidden("account_suspended");
+
+    await ensureAccount(repo, user);
+    return completeSignIn(deps, req, user, "google");
+  });
+
   app.post("/v1/auth/refresh", { config: authRateLimit }, async (req): Promise<AuthTokensResponse> => {
     const { refreshToken } = parse(RefreshBody, req.body);
     return sessions.refresh(refreshToken, clientInfo(req));

@@ -61,6 +61,7 @@ describe("admin dashboard", () => {
       status: "sent",
       segments: 1,
       numMedia: 0,
+      twilioSid: null,
     });
     ctx.repo.messages.find((m) => m.id === msg.id)!.createdAt = new Date(Date.now() - 10 * 86400000);
 
