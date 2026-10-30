@@ -14,6 +14,12 @@
 | SEC-PASSKEYS | Code prêt : WebAuthn (`@simplewebauthn` 13.3.x), connexion sans mot de passe et confirmation; `WEBAUTHN_RP_ID=mimt.ca`, `WEBAUTHN_ORIGINS=https://app.mimt.ca` par défaut | Ajout réel d'une clé d'accès sur app.mimt.ca (iPhone + Chrome) après déploiement |
 | SEC-STEPUP | Code prêt : renvoi vers un nouveau numéro externe, suppression du compte, clés d'accès, politique d'entreprise | Port-out et clés partenaires/API : brancher `requireRecentAuth` quand ces routes existeront |
 | SEC-BIZ-POLICY | Code prêt : `require_strong_auth` (défaut désactivé) | Test réel avec un compte Affaires |
+## Tableau de bord « expérience » — 29 octobre 2026, TWILO (branche `twilo/experience-dashboard`)
+
+| ID | État | Prochaine preuve requise |
+| --- | --- | --- |
+| DASH-API | Code prêt : 6 routes `/v1/admin/*` en lecture seule (overview, users, usage, revenue, fraud, support-queue), garde `CATALOG_ADMIN_USER_IDS`; 11 méthodes d’agrégation au dépôt (mémoire + Postgres), `totalLiability` aux points; tests `adminDashboard.test.ts` + contrats dépôt | CI verte; aucun pipeline de données ajouté |
+| DASH-APP | Échafaudage `apps/dashboard` (Next.js 16, rendu serveur) : Vue d’ensemble, Utilisateurs, Utilisation, Revenus, Santé, Soutien; jeton porteur admin en cookie httpOnly | `MIMT_API_URL` + déploiement (Coolify ou Vercel); durcir l’auth (compte de service) avant exposition |
 ## MIMT Connect (plateforme partenaire) — 29 octobre 2026, Claude (branche `claude/partners`, PR à ouvrir par le propriétaire)
 
 | ID | État | Prochaine preuve requise |
