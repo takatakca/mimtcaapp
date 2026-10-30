@@ -1,7 +1,10 @@
 import { PageHero, Shell } from "@/components/Shell";
-import { LegalReview } from "@/components/LegalReview";
+import { RetentionTable } from "@/components/RetentionTable";
 import { DEFAULT_RECORDING_POLICY } from "@mimt/shared";
-import { CONTACT_EMAIL, TBC, href, type Lang } from "@/lib/site";
+import { COMPANY, CONTACT_EMAIL, LEGAL_UPDATED, PRIVACY_OFFICER, href, type Lang } from "@/lib/site";
+
+// Legal review (lawyer): AI section (ai_processing consent), AI receptionist and call recording; full policy under
+// Law 25 / P-39.1, PIPEDA and the CRTC privacy rules; provider list and transfers outside Québec.
 
 const PROCESSORS = [
   {
@@ -28,10 +31,6 @@ const PROCESSORS = [
   },
 ];
 
-function Placeholder({ lang }: { lang: Lang }) {
-  return <span className="placeholder">{TBC[lang]}</span>;
-}
-
 export function PrivacyPage({ lang }: { lang: Lang }) {
   const fr = lang === "fr";
   return (
@@ -41,32 +40,58 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
         title={fr ? "Politique de confidentialité" : "Privacy policy"}
         lead={fr ? "Ce que nous recueillons, pourquoi, et vos droits." : "What we collect, why, and your rights."}
       />
-      <LegalReview note="section IA (consentement ai_processing), réceptionniste IA et enregistrement des appels; politique de confidentialité complète (Loi 25 / P-39.1, LPRPDE, règles de confidentialité du CRTC), liste des fournisseurs et transferts hors Québec" />
       <section className="section">
         <div className="container prose">
-          <div className="notice notice--info" role="note">
+          <p className="legal-updated">
+            {fr ? "Dernière mise à jour : " : "Last updated: "}
+            <time dateTime={LEGAL_UPDATED.iso}>{LEGAL_UPDATED[lang]}</time>
+          </p>
+          <p>
             {fr
-              ? "Version préliminaire, en cours de validation juridique. Elle sera finalisée avant le lancement du service."
-              : "Preliminary version, under legal review. It will be finalized before the service launches."}
-          </div>
+              ? "Cette politique s'applique au site mimt.ca, à l'application Web app.mimt.ca et aux applications MIMT. MIMT est un service de GROUPE TAKATAK, à Montréal (Québec). Elle explique quels renseignements personnels nous recueillons, pourquoi, combien de temps nous les gardons, avec qui nous les partageons et comment exercer vos droits selon la Loi sur la protection des renseignements personnels dans le secteur privé du Québec (Loi 25) et la loi fédérale (LPRPDE)."
+              : "This policy applies to the mimt.ca website, the app.mimt.ca web app and the MIMT apps. MIMT is a service of GROUPE TAKATAK, in Montréal, Québec. It explains what personal information we collect, why, how long we keep it, who we share it with and how to use your rights under Québec's Act respecting the protection of personal information in the private sector (Law 25) and the federal law (PIPEDA)."}
+            {COMPANY.legalName ? (fr ? ` Entité responsable : ${COMPANY.legalName}.` : ` Responsible entity: ${COMPANY.legalName}.`) : null}
+          </p>
 
           <h2 id="responsable">
             {fr ? "Responsable de la protection des renseignements personnels" : "Person in charge of the protection of personal information"}
           </h2>
+          <p>
+            {fr
+              ? "Au sens de la Loi 25, la personne responsable de la protection des renseignements personnels chez MIMT est "
+              : "Under Law 25, the person in charge of the protection of personal information at MIMT is "}
+            {PRIVACY_OFFICER[lang]}
+            {COMPANY.president ? ` (${COMPANY.president})` : ""}
+            {fr
+              ? ". Cette personne veille au respect de la loi, reçoit vos demandes d'accès, de rectification ou de retrait du consentement, et traite les plaintes relatives à la confidentialité."
+              : ". This person makes sure the law is followed, receives your requests for access, correction or withdrawal of consent, and handles privacy complaints."}
+          </p>
           <address className="card contact-card">
-            <strong>
-              {fr ? "Nom et titre : " : "Name and title: "}
-              <Placeholder lang={lang} />
-            </strong>
+            <strong>{fr ? "Responsable de la protection des renseignements personnels" : "Person in charge of the protection of personal information"}</strong>
+            <br />
+            {fr ? "Le président de GROUPE TAKATAK" : "The president of GROUPE TAKATAK"}
+            {COMPANY.president ? ` : ${COMPANY.president}` : ""}
             <br />
             MIMT · GROUPE TAKATAK
+            {COMPANY.legalName ? (
+              <>
+                <br />
+                {COMPANY.legalName}
+              </>
+            ) : null}
             <br />
-            Montréal (Québec) Canada
+            {COMPANY.address ?? (fr ? "Montréal (Québec) Canada" : "Montréal, Québec, Canada")}
+            {COMPANY.phone ? (
+              <>
+                <br />
+                {fr ? "Téléphone : " : "Phone: "}
+                <a href={`tel:${COMPANY.phone.replace(/[^+\d]/g, "")}`}>{COMPANY.phone}</a>
+              </>
+            ) : null}
             <br />
             {fr ? "Courriel : " : "Email: "}
             <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(fr ? "Confidentialité" : "Privacy")}`}>{CONTACT_EMAIL}</a>{" "}
-            {fr ? "(objet « Confidentialité »). Adresse dédiée : " : "(subject “Privacy”). Dedicated address: "}
-            <Placeholder lang={lang} />
+            {fr ? "(objet « Confidentialité »)" : "(subject “Privacy”)"}
           </address>
 
           {fr ? (
@@ -112,7 +137,11 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
                 <li>Ce qui est envoyé : la transcription d&apos;un message vocal, ou les derniers messages d&apos;une conversation (au plus 10) pour suggérer une réponse.</li>
                 <li>Sans votre consentement, rien n&apos;est envoyé au fournisseur d&apos;IA; les appels, les textos et la messagerie vocale fonctionnent normalement.</li>
                 <li>Vous pouvez retirer votre consentement en tout temps dans l&apos;app.</li>
-                <li>Le fournisseur d&apos;IA traite ces renseignements à l&apos;extérieur du Canada. Durée de conservation chez le fournisseur : <Placeholder lang={lang} /></li>
+                <li>
+                  Le fournisseur d&apos;IA traite ces renseignements à l&apos;extérieur du Canada et les conserve selon ses
+                  conditions commerciales d&apos;API. Chez MIMT, un résumé de message vocal est gardé avec le message et supprimé
+                  avec lui; les réponses suggérées ne sont pas conservées.
+                </li>
                 <li>Les étiquettes « Spam probable » par règles simples (sans IA) s&apos;appliquent à tous et ne bloquent jamais un appel.</li>
               </ul>
               <p>
@@ -133,8 +162,8 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
               <h2 id="enregistrement">Enregistrement des appels (MIMT Affaires)</h2>
               <p>
                 Une entreprise abonnée à Affaires Pro peut enregistrer ses appels avec l&apos;extérieur. Un message avise toujours
-                l&apos;autre personne avant tout enregistrement. Les enregistrements sont supprimés après{" "}
-                {DEFAULT_RECORDING_POLICY.retentionDays} jours par défaut, ou selon le délai fixé par l&apos;entreprise. Pour un
+                l&apos;autre personne avant tout enregistrement. Chaque enregistrement reçoit une date de suppression :{" "}
+                {DEFAULT_RECORDING_POLICY.retentionDays} jours par défaut, ou le délai fixé par l&apos;entreprise. Pour un
                 enregistrement vous concernant, adressez-vous d&apos;abord à l&apos;entreprise que vous avez appelée.
               </p>
 
@@ -181,7 +210,10 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
                 <li>What is sent: a voicemail transcript, or the latest messages of a conversation (10 at most) to suggest a reply.</li>
                 <li>Without your consent, nothing is sent to the AI provider; calls, texts and voicemail work normally.</li>
                 <li>You can withdraw your consent at any time in the app.</li>
-                <li>The AI provider processes this information outside Canada. Retention period at the provider: <Placeholder lang={lang} /></li>
+                <li>
+                  The AI provider processes this information outside Canada and keeps it under its commercial API terms. At
+                  MIMT, a voicemail summary is kept with the message and deleted with it; suggested replies are not stored.
+                </li>
                 <li>Rule-based “Likely spam” labels (no AI) apply to everyone and never block a call.</li>
               </ul>
               <p>
@@ -201,8 +233,8 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
               <h2 id="enregistrement">Call recording (MIMT Business)</h2>
               <p>
                 A business on Business Pro can record its calls with outside parties. A message always tells the other person before
-                any recording. Recordings are deleted after {DEFAULT_RECORDING_POLICY.retentionDays} days by default, or after the
-                period the business sets. For a recording about you, first contact the business you called.
+                any recording. Each recording gets a deletion date: {DEFAULT_RECORDING_POLICY.retentionDays} days by default, or
+                the period the business sets. For a recording about you, first contact the business you called.
               </p>
 
               <h2>Our providers</h2>
@@ -229,11 +261,12 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
 
           {fr ? (
             <>
-              <h2>Combien de temps nous les gardons</h2>
+              <h2 id="conservation">Combien de temps nous les gardons</h2>
               <p>
-                Seulement le temps nécessaire aux fins indiquées ou exigé par la loi. Durées précises par type de renseignement
-                (registres d&apos;appels, textos, messages vocaux, adresse 9-1-1, consentements) : <Placeholder lang={lang} />
+                Seulement le temps nécessaire aux fins indiquées ou exigé par la loi. Les durées ci-dessous sont celles que nos
+                systèmes appliquent automatiquement.
               </p>
+              <RetentionTable lang={lang} />
 
               <h2 id="suppression">Supprimer votre compte</h2>
               <ul>
@@ -311,11 +344,12 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
             </>
           ) : (
             <>
-              <h2>How long we keep it</h2>
+              <h2 id="retention">How long we keep it</h2>
               <p>
-                Only as long as needed for the stated purposes or as required by law. Specific periods per type of information (call
-                records, texts, voicemails, 9-1-1 address, consents): <Placeholder lang={lang} />
+                Only as long as needed for the stated purposes or as required by law. The periods below are the ones our systems
+                apply automatically.
               </p>
+              <RetentionTable lang={lang} />
 
               <h2 id="delete-account">Delete your account</h2>
               <ul>
@@ -389,7 +423,7 @@ export function PrivacyPage({ lang }: { lang: Lang }) {
           )}
           <p className="fineprint">
             {fr ? "Dernière mise à jour : " : "Last updated: "}
-            <Placeholder lang={lang} />
+            {LEGAL_UPDATED[lang]}
             {fr ? ". Voir aussi nos " : ". See also our "}
             <a href={href(lang, "terms")}>{fr ? "conditions" : "terms"}</a>.
           </p>

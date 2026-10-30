@@ -3,7 +3,8 @@
 // Titles stay under ~60 characters and descriptions under ~160 (search result snippets).
 
 import type { Metadata } from "next";
-import { pageMeta, type Lang, type RouteKey } from "./site.ts";
+import type { Guide } from "./guides.ts";
+import { pageMeta, pathMeta, ROUTES, type Lang, type RouteKey } from "./site.ts";
 
 export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; description: string }>> = {
   home: {
@@ -70,16 +71,6 @@ export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; descripti
     en: {
       title: "Compare MIMT with free-number apps",
       description: "What MIMT does differently from typical free-number apps, and what it doesn't do yet. An honest comparison.",
-    },
-  },
-  soon: {
-    fr: {
-      title: "Bientôt : Internet et cellulaire",
-      description: "Internet résidentiel, cellulaire et téléphone maison MIMT : en préparation, sans date ni prix annoncés. Inscrivez-vous pour être avisé.",
-    },
-    en: {
-      title: "Coming soon: internet and mobile",
-      description: "MIMT home internet, mobile and home phone: in preparation, with no date or price announced. Sign up to be notified.",
     },
   },
   e911: {
@@ -180,6 +171,16 @@ export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; descripti
     fr: { title: "Deuxième numéro sur votre cellulaire", description: "Ajoutez un deuxième numéro canadien à votre cellulaire : travail, revente en ligne ou rencontres, sans changer de forfait ni de téléphone." },
     en: { title: "Second phone number on your mobile", description: "Add a second Canadian number to your mobile for work, online selling or dating, without changing plan or phone." },
   },
+  guides: {
+    fr: {
+      title: "Guides pratiques : numéros, 9-1-1 et arnaques",
+      description: "Guides pour le Québec : numéro virtuel, transfert, 9-1-1, appels Wi‑Fi, indicatifs régionaux, Loi 25, téléphonie d'affaires, arnaques par texto.",
+    },
+    en: {
+      title: "Practical guides: numbers, 9-1-1 and scams",
+      description: "Guides for Québec: virtual numbers, porting, 9-1-1, Wi‑Fi calling, area codes, Law 25, business phone systems and text message scams.",
+    },
+  },
   useVoip: {
     fr: { title: "Téléphonie IP d'affaires au Québec", description: "Système téléphonique VoIP pour entreprises du Québec : postes, accueil bilingue, groupes de sonnerie, jours fériés du Québec. Par ligne, sans appareil." },
     en: { title: "Business VoIP phone system in Québec", description: "VoIP phone system for Québec businesses: extensions, bilingual greeting, ring groups, Québec holidays. Per line, no hardware." },
@@ -190,4 +191,11 @@ export const PAGE_META: Record<RouteKey, Record<Lang, { title: string; descripti
 export function metadataFor(lang: Lang, key: RouteKey): Metadata {
   const m = PAGE_META[key][lang];
   return pageMeta(lang, key, m.title, m.description);
+}
+
+/** Metadata for one guide article: its own canonical and fr-CA/en-CA alternates, Open Graph type "article". */
+export function guideMetadata(lang: Lang, g: Guide): Metadata {
+  const c = g.copy(lang);
+  const paths = { fr: `${ROUTES.guides.fr}${g.slug.fr}/`, en: `${ROUTES.guides.en}${g.slug.en}/` };
+  return pathMeta(lang, paths, `${c.title} | MIMT`, c.description, undefined, "article");
 }

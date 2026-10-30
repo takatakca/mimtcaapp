@@ -2,6 +2,7 @@
 // Same rule as the pages: prices from @mimt/shared, only true claims, French first for names.
 
 import { ADD_ONS, AI_MONTHLY_BUDGET_CAD_CENTS, PLANS, SUBSCRIPTION_ADD_ONS, type PlanCode } from "@mimt/shared";
+import { GUIDES, guidePath } from "./guides.ts";
 import { APP_URL, CCTS_URL, CONTACT_EMAIL, LABELS, ROUTES, SITE_URL, type RouteKey } from "./site.ts";
 
 const cad = (cents: number) => `CAD ${(cents / 100).toFixed(2)}`;
@@ -69,10 +70,10 @@ ${link("business", "MIMT Affaires: business phone system, per-line pricing, demo
 ${link("ai", "AI features and how consent works.")}
 ${link("webapp", `The web app at ${APP_URL} (calls, texts, voicemail in the browser; business admin).`)}
 ${link("compare", "How MIMT compares with typical free-number apps.")}
-${link("soon", "Internet and mobile service: coming soon, waitlist only.")}
 ${link("help", "Frequently asked questions.")}
 ${link("contact", "Contact form.")}
-${link("about", "Who runs MIMT.")}
+${link("about", "Who runs MIMT, what it does and does not do.")}
+${link("guides", "Practical guides for Québec (French and English), each citing official sources.")}
 ${link("rewards", "Missions: points (10 points = 1 minute) for verified account setup steps, and 1 month of Premium each when a referred friend subscribes. No draw, no reward for reviews.")}
 ${link("affiliates", "Affiliate agent program: apply online, sign the agreement electronically, earn 20% of the net revenue of each referred customer for 12 months (paid monthly from CAD 50, after a 30-day hold). Paid relationship must be disclosed in every promotion.")}
 ${link("useVirtual", "What a Canadian virtual phone number is and how MIMT provides one.")}
@@ -83,6 +84,10 @@ ${link("cityQuebec", "Local Québec City numbers (418, 581, 367).")}
 ${link("cityLaval", "Local Laval and Greater Montréal numbers (450, 579, 354).")}
 ${link("cityGatineau", "Local Gatineau and Outaouais numbers (819, 873, 468).")}
 ${link("cityToronto", "Local Toronto numbers (416, 647, 437).")}
+
+## Guides
+
+${GUIDES.map((g) => `- [${g.copy("fr").h1}](${SITE_URL}${guidePath(g, "fr")}): ${g.copy("en").summary} English: ${SITE_URL}${guidePath(g, "en")}`).join("\n")}
 
 ## Legal
 

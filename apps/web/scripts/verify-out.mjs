@@ -1,7 +1,7 @@
 // Checks the static export in out/ after `next build`: every page exists with its SEO basics, and the
 // files search engines and AI assistants read (sitemap.xml, robots.txt, llms.txt) are there.
 // Exits non-zero on the first broken build so a bad site never reaches the FTP upload.
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PLANS, formatCad } from "@mimt/shared";
@@ -93,11 +93,18 @@ for (const url of locs) {
   }
 }
 
+// AdSense « program policies »: no unfinished-page placeholder anywhere in the export (pages, RSC payloads, comments).
+{
+  const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
+  for (const f of walk(out).filter((f) => /\.(html|txt)$/.test(f))) {
+    if (/\[À confirmer|\[To be confirmed/.test(readFileSync(f, "utf8"))) fail(`${f.slice(out.length)}: placeholder « [À confirmer » / « [To be confirmed »`);
+  }
+}
+
 // Home: the deploy workflow looks for this phrase; the funnel must keep its offers and structured data.
 const home = existsSync(join(out, "index.html")) ? readFileSync(join(out, "index.html"), "utf8") : "";
 if (!home.includes("Votre numéro canadien")) fail("/: must contain « Votre numéro canadien » (checked by auto-deploy-website.yml)");
 for (const t of ["SoftwareApplication", "FAQPage", "Service"]) if (!home.includes(`"@type":"${t}"`)) fail(`/: JSON-LD has no ${t}`);
-if (!home.includes("<!-- [À confirmer par MIMT] Mise en service gratuite")) fail("/: free-setup launch offer lost its [À confirmer par MIMT] marker");
 if (!home.includes("Offre de lancement; conditions à venir.")) fail("/: free-setup launch offer lost its small print");
 if (!home.includes('href="https://app.mimt.ca"')) fail("/: no link to the web app");
 if (!home.includes("data-download")) fail("/: no « Télécharger » trigger");
