@@ -245,4 +245,10 @@ export class MemoryPointsRepository implements PointsRepository {
     const key = `expiry:${accountId}:${a.lastActivityAt.toISOString()}`;
     return this.write(a, { delta: -a.balance, reason: "expiry", reference: "inactivity", campaignId: null, idempotencyKey: key, meta: { inactiveSince: a.lastActivityAt.toISOString() }, createdAt: at });
   }
+
+  async totalLiability() {
+    let n = 0;
+    for (const a of this.accounts.values()) n += a.balance;
+    return n;
+  }
 }

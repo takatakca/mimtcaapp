@@ -1,10 +1,10 @@
 import type { FastifyInstance } from "fastify";
-import { QUEBEC_AREA_CODES, NANP_E164, type AvailableNumbersResponse, type ClaimNumberResponse } from "@mimt/shared";
+import { QUEBEC_AREA_CODES, NANP_E164, type AvailableNumbersResponse, type ClaimNumberResponse, type ProvisionResumeResponse, type PhoneVerificationRequiredResponse } from "@mimt/shared";
 import { z } from "zod";
 import type { AppDeps } from "../deps.js";
 import { numberFallbacks } from "../gateways/twilio.js";
 import { loadContext, requireUser } from "../auth/guard.js";
-import { conflict, forbidden, HttpError, notConfigured } from "../lib/errors.js";
+import { conflict, forbidden, HttpError, notConfigured, notFound } from "../lib/errors.js";
 import { classifyDestination } from "../lib/phone.js";
 import { parse } from "../lib/validate.js";
 import { getFeatures, HELD_STATES, outboundBlocked } from "../services/accounts.js";
@@ -12,6 +12,9 @@ import { FREE_QUOTA_MESSAGE, freeNumberAvailable, NUMBER_REQUIRES_PAID_MESSAGE }
 import { planOf } from "../plansConfig.js";
 import { e911Ready } from "./e911.js";
 import { grantMission } from "../services/missions.js";
+import { provisionHeldNumber } from "../services/numberProvisioning.js";
+import { LIVE_HOLD_STATES } from "../repo/numberHolds.js";
+import { holdTokenMatches } from "./numberPicker.js";
 
 const DEFAULT_AREA_CODES = ["514", "438", "450", "418", "819", "581", "579", "873"] as const satisfies readonly (typeof QUEBEC_AREA_CODES)[number][];
 
@@ -97,5 +100,33 @@ export async function numberRoutes(app: FastifyInstance, deps: AppDeps) {
     const missionGranted = plan !== "free" ? await grantMission(deps, { account, user, mission: "first_number", sourceRef: "number:claim", log: req.log }) : null;
     const res: ClaimNumberResponse = { id: number.id, e164: number.e164, state: number.state, ...(missionGranted ? { missionGranted } : {}) };
     return reply.code(201).send(res);
+  });
+
+  /**
+   * Purchase-time auth flow: resumes provisioning of a paid number whose purchase was deferred until the
+   * owner verifies their phone (see provisionHeldNumber). The client passes the hold token from the number
+   * picker as the checkout-resume token. Answers 428 `phone_verification_required` while the phone is
+   * unverified; the client then drives OTP verification → passkey enrollment and calls this again.
+   */
+  app.post("/v1/numbers/provision/resume", { preHandler: requireUser(deps) }, async (req, reply) => {
+    const { holdId, holdToken } = parse(
+      z.object({ holdId: z.string().min(1).max(128), holdToken: z.string().min(16).max(256) }),
+      req.body,
+    );
+    const { user, account } = await loadContext(deps, req);
+    const hold = await repo.numberHolds.get(holdId);
+    if (!hold || hold.telecomAccountId !== account.id || !LIVE_HOLD_STATES.has(hold.status) || !holdTokenMatches(hold, holdToken)) {
+      throw notFound("hold_not_found", "Cette réservation de numéro est introuvable ou a expiré.");
+    }
+    if (!user.phoneVerifiedAt) {
+      const res: PhoneVerificationRequiredResponse = { code: "phone_verification_required", holdId: hold.id, resumeToken: holdToken };
+      return reply.code(428).send(res);
+    }
+    const status = await provisionHeldNumber(deps, hold.id, account);
+    if (status === "provisioned" && user.onboardingStage !== "full") {
+      await repo.updateUser(user.id, { onboardingStage: "full" });
+    }
+    const res: ProvisionResumeResponse = { status, holdId: hold.id };
+    return res;
   });
 }

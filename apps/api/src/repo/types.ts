@@ -24,17 +24,29 @@ export type { ConsentKind };
 export type FraudAction = "block" | "hold" | "suspend" | "alert";
 export type CallKind = "pstn" | "app" | "emergency";
 export type Direction = "inbound" | "outbound";
+/**
+ * Purchase-time auth flow (decided 2026-10-29): signup = email/Google only, no passkey at signup.
+ * When the user buys a phone number: SMS OTP verification → passkey creation on their device →
+ * full dashboard unlocked. Later logins use the passkey only (one SMS per customer lifetime).
+ */
+export type OnboardingStage = "signed_up" | "phone_verified" | "passkey_enrolled" | "full";
 
 export interface User {
   id: string;
   globalUserId: string | null;
   authUserId: string | null;
+  /** Google `sub` for accounts created or linked via Google sign-in. */
+  googleSub: string | null;
   locale: Locale;
   displayName: string | null;
   email: string | null;
+  /** Set when the email was verified by Google (or another verified provider). */
+  emailVerifiedAt: Date | null;
   phoneE164: string | null;
   phoneVerifiedAt: Date | null;
   deviceVerifiedAt: Date | null;
+  /** Purchase-time auth flow stage. Defaults to "signed_up"; advanced by OTP verify and passkey enrollment. */
+  onboardingStage: OnboardingStage;
   status: UserStatus;
   deletionScheduledAt: Date | null;
   createdAt: Date;
@@ -351,13 +363,26 @@ export interface Repository {
   appliedMigrations?(): Promise<string[]>;
   close(): Promise<void>;
 
-  createUser(u: New<User, "authUserId" | "email" | "phoneE164" | "phoneVerifiedAt" | "deviceVerifiedAt" | "deletionScheduledAt" | "status">): Promise<User>;
+  createUser(u: New<User, "authUserId" | "googleSub" | "email" | "emailVerifiedAt" | "phoneE164" | "phoneVerifiedAt" | "deviceVerifiedAt" | "onboardingStage" | "deletionScheduledAt" | "status">): Promise<User>;
   getUser(id: string): Promise<User | null>;
   findUserByGlobalId(globalUserId: string): Promise<User | null>;
   findUserByPhone(e164: string): Promise<User | null>;
+  /** Case-insensitive email lookup (Google sign-in account linking). */
+  findUserByEmail(email: string): Promise<User | null>;
   updateUser(id: string, patch: Partial<Omit<User, "id" | "createdAt">>): Promise<User>;
   /** Users whose deletion request is due (status pending_deletion, deletionScheduledAt ≤ now), oldest first. */
   listUsersDueForDeletion(now: Date, limit: number): Promise<User[]>;
+  /**
+   * Experience dashboard (read-only aggregates for /v1/admin/*). None of these
+   * write; they only aggregate rows that already exist.
+   */
+  /** Users created at or after `since`. */
+  countUsersSince(since: Date): Promise<number>;
+  countUsersByStatus(status: UserStatus): Promise<number>;
+  /** Case-insensitive substring match on email, phoneE164 and displayName. Empty query matches all. Newest first. */
+  searchUsers(query: string, limit: number): Promise<User[]>;
+  /** Newest users first. */
+  listRecentUsers(limit: number): Promise<User[]>;
   /**
    * Account deletion (jobs/accountDeletion.ts): deletes the user's personal data in one transaction and anonymises
    * the user row (status "deleted"). Keeps only what the law requires: subscriptions and usage (billing), call
@@ -377,6 +402,8 @@ export interface Repository {
   getAccount(id: string): Promise<TelecomAccount | null>;
   getAccountByOwner(userId: string): Promise<TelecomAccount | null>;
   findAccountByStripeCustomer(customerId: string): Promise<TelecomAccount | null>;
+  /** Paginated accounts, newest first (experience dashboard). */
+  listAccountsPage(limit: number, offset: number): Promise<TelecomAccount[]>;
   updateAccount(id: string, patch: Partial<Omit<TelecomAccount, "id" | "createdAt">>): Promise<TelecomAccount>;
   addIntlCredit(id: string, cents: number): Promise<number>;
 
@@ -384,6 +411,8 @@ export interface Repository {
   upsertSubscription(s: New<Subscription>): Promise<Subscription>;
   /** The row of a Stripe subscription or store purchase (`ios:<originalTransactionId>`, `android:<token>`). */
   findSubscriptionByExternalId(externalId: string): Promise<Subscription | null>;
+  /** Every subscription in one of `statuses`, newest first (experience dashboard revenue page). */
+  listSubscriptionsByStatus(statuses: SubscriptionStatus[]): Promise<Subscription[]>;
 
   listEntitlements(accountId: string): Promise<Entitlement[]>;
   replaceEntitlements(accountId: string, source: string, items: Array<{ feature: Feature; limit: number | null }>): Promise<void>;
@@ -406,6 +435,8 @@ export interface Repository {
   getCallBySid(sid: string): Promise<Call | null>;
   updateCall(id: string, patch: Partial<Omit<Call, "id">>): Promise<Call>;
   countActiveCalls(accountId: string, since: Date): Promise<number>;
+  /** Calls started at or after `since`, all accounts (experience dashboard). */
+  countCallsSince(since: Date): Promise<number>;
   listCalls(accountId: string, limit: number): Promise<Call[]>;
   /** Newest first by (startedAt, id); `before` is an exclusive keyset cursor. */
   listCallsPage(accountId: string, opts: { limit: number; before?: { startedAt: Date; id: string } }): Promise<Call[]>;
@@ -418,6 +449,8 @@ export interface Repository {
   countFingerprintRecipientsSince(accountId: string, fingerprint: string, since: Date): Promise<number>;
   hasOutboundTo(accountId: string, peer: string, before: Date): Promise<boolean>;
   countNewRecipientsSince(accountId: string, since: Date): Promise<number>;
+  /** Messages created at or after `since`, all accounts, both directions (experience dashboard). */
+  countMessagesSince(since: Date): Promise<number>;
 
   createVoicemail(v: New<Voicemail, "audioPath" | "transcript" | "transcriptLang" | "listenedAt">): Promise<Voicemail>;
   updateVoicemailByRecordingSid(sid: string, patch: Partial<Pick<Voicemail, "transcript" | "transcriptLang" | "audioPath">>): Promise<Voicemail | null>;
@@ -426,6 +459,8 @@ export interface Repository {
   markVoicemailListened(id: string, at: Date): Promise<void>;
   /** True when a row was deleted. */
   deleteVoicemail(id: string): Promise<boolean>;
+  /** Voicemails created at or after `since`, all accounts (experience dashboard). */
+  countVoicemailsSince(since: Date): Promise<number>;
 
   /** Insert or move the token to this user/platform/kind (unique on token). */
   upsertPushToken(t: { userId: string; platform: PushPlatform; kind: PushKind; token: string }): Promise<PushToken>;
@@ -449,6 +484,8 @@ export interface Repository {
 
   addFraudEvent(e: Omit<FraudEvent, "id" | "at">): Promise<FraudEvent>;
   listFraudEvents(accountId: string): Promise<FraudEvent[]>;
+  /** Newest fraud events across all accounts (experience dashboard). */
+  listRecentFraudEvents(limit: number): Promise<FraudEvent[]>;
 
   createHandoff(h: New<Handoff, "claimedAt" | "claimedByUserId">): Promise<Handoff>;
   findHandoffByTokenHash(tokenHash: string): Promise<Handoff | null>;
@@ -475,4 +512,6 @@ export interface Repository {
   markOutboxFailed(id: string, error: string, nextAttemptAt: Date | null): Promise<void>;
 
   audit(entry: AuditEntry): Promise<void>;
+  /** Newest audit entries first; filters by actor when given (experience dashboard support queue). */
+  listAuditEntries(opts: { actorUserId?: string; limit: number }): Promise<Array<AuditEntry & { at: Date }>>;
 }

@@ -30,6 +30,12 @@ export interface AuthTokensResponse {
   expiresIn: number;
   /** POST /v1/auth/otp/verify only: the « Vérifiez votre cellulaire » mission was just rewarded. */
   missionGranted?: MissionGrantedDto;
+  /**
+   * POST /v1/auth/otp/verify only: the user has no passkey yet. The client should immediately open
+   * passkey registration (POST /v1/me/passkeys/register/options) — the session is fresh from the OTP
+   * code, so it satisfies requireRecentAuth. Purchase-time flow: one SMS per customer lifetime.
+   */
+  passkeyEnrollmentRequired?: boolean;
 }
 
 /** POST /v1/auth/takatak/exchange (OAuth code + PKCE verifier; the API talks to TAKATAK). */
@@ -249,6 +255,31 @@ export interface ClaimNumberResponse {
   state: NumberState;
   /** The « Obtenez votre numéro » mission was just rewarded (first number on a paid plan). */
   missionGranted?: MissionGrantedDto;
+}
+
+/**
+ * POST /v1/numbers/provision/resume — purchase-time auth flow.
+ * After Stripe is paid, provisioning is deferred until the owner verifies their phone (SMS OTP) and
+ * enrolls a passkey. The client holds the checkout-resume token (the hold token from the picker) and
+ * calls this endpoint after completing verification. Answers 428 `phone_verification_required` while
+ * the phone is unverified.
+ */
+export interface ProvisionResumeRequest {
+  holdId: string;
+  /** The hold token from the number picker (the checkout-resume token). */
+  holdToken: string;
+}
+export type ProvisionResumeStatus = "provisioned" | "skipped" | "failed" | "awaiting_verification";
+export interface ProvisionResumeResponse {
+  status: ProvisionResumeStatus;
+  holdId: string;
+}
+/** 428 answer of POST /v1/numbers/provision/resume while the owner's phone is unverified. */
+export interface PhoneVerificationRequiredResponse {
+  code: "phone_verification_required";
+  holdId: string;
+  /** Pass back as `holdToken` when resuming after OTP verification + passkey enrollment. */
+  resumeToken: string;
 }
 
 // ------------------------------------------------------------------------------------------ voice

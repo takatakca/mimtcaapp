@@ -25,6 +25,8 @@ export const frSecurity = {
   "security.method.passkey": "clé d'accès",
   "security.method.takatak": "compte TAKATAK",
   "security.method.legacy": "connexion antérieure",
+  "security.method.google": "compte Google",
+  "security.method.email": "courriel",
   "security.justNow": "à l'instant",
   "security.minutesAgo": "il y a {n} min",
   "security.hoursAgo": "il y a {n} h",

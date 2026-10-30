@@ -35,10 +35,12 @@ import type {
   RefreshToken,
   Repository,
   Subscription,
+  SubscriptionStatus,
   TelecomAccount,
   Usage,
   PurgeResult,
   User,
+  UserStatus,
   Voicemail,
 } from "./types.js";
 
@@ -95,10 +97,13 @@ export class MemoryRepository implements Repository {
   async createUser(u: Parameters<Repository["createUser"]>[0]) {
     const user: User = {
       authUserId: null,
+      googleSub: null,
       email: null,
+      emailVerifiedAt: null,
       phoneE164: null,
       phoneVerifiedAt: null,
       deviceVerifiedAt: null,
+      onboardingStage: "signed_up",
       deletionScheduledAt: null,
       status: "active",
       ...u,
@@ -120,6 +125,11 @@ export class MemoryRepository implements Repository {
     const u = [...this.users.values()].find((x) => x.phoneE164 === e164);
     return u ? clone(u) : null;
   }
+  async findUserByEmail(email: string) {
+    const lower = email.toLowerCase();
+    const u = [...this.users.values()].find((x) => x.email?.toLowerCase() === lower);
+    return u ? clone(u) : null;
+  }
   async updateUser(id: string, patch: Partial<User>) {
     const u = this.users.get(id);
     if (!u) throw new Error(`user ${id} not found`);
@@ -131,6 +141,26 @@ export class MemoryRepository implements Repository {
     return [...this.users.values()]
       .filter((u) => u.status === "pending_deletion" && u.deletionScheduledAt && u.deletionScheduledAt <= now)
       .sort((a, b) => a.deletionScheduledAt!.getTime() - b.deletionScheduledAt!.getTime())
+      .slice(0, limit)
+      .map(clone);
+  }
+  async countUsersSince(since: Date) {
+    return [...this.users.values()].filter((u) => u.createdAt >= since).length;
+  }
+  async countUsersByStatus(status: UserStatus) {
+    return [...this.users.values()].filter((u) => u.status === status).length;
+  }
+  async searchUsers(query: string, limit: number) {
+    const q = query.trim().toLowerCase();
+    return [...this.users.values()]
+      .filter((u) => !q || [u.email, u.phoneE164, u.displayName].some((f) => f?.toLowerCase().includes(q)))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit)
+      .map(clone);
+  }
+  async listRecentUsers(limit: number) {
+    return [...this.users.values()]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, limit)
       .map(clone);
   }
@@ -241,6 +271,12 @@ export class MemoryRepository implements Repository {
     const a = [...this.accounts.values()].find((x) => x.stripeCustomerId === customerId);
     return a ? clone(a) : null;
   }
+  async listAccountsPage(limit: number, offset: number) {
+    return [...this.accounts.values()]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(offset, offset + limit)
+      .map(clone);
+  }
   async updateAccount(id: string, patch: Partial<TelecomAccount>) {
     const a = this.accounts.get(id);
     if (!a) throw new Error(`account ${id} not found`);
@@ -273,6 +309,13 @@ export class MemoryRepository implements Repository {
   async findSubscriptionByExternalId(externalId: string) {
     const row = [...this.subscriptions.values()].find((x) => x.stripeSubscriptionId === externalId);
     return row ? clone(row) : null;
+  }
+  async listSubscriptionsByStatus(statuses: SubscriptionStatus[]) {
+    const set = new Set(statuses);
+    return [...this.subscriptions.values()]
+      .filter((s) => set.has(s.status))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .map(clone);
   }
   async listEntitlements(accountId: string) {
     return this.entitlements.filter((e) => e.telecomAccountId === accountId).map(clone);
@@ -370,6 +413,9 @@ export class MemoryRepository implements Repository {
       (c) => c.telecomAccountId === accountId && c.kind !== "emergency" && ACTIVE_CALL_STATUSES.has(c.status) && c.startedAt >= since,
     ).length;
   }
+  async countCallsSince(since: Date) {
+    return [...this.calls.values()].filter((c) => c.startedAt >= since).length;
+  }
   async listCalls(accountId: string, limit: number) {
     return [...this.calls.values()]
       .filter((c) => c.telecomAccountId === accountId)
@@ -456,6 +502,9 @@ export class MemoryRepository implements Repository {
     }
     return n;
   }
+  async countMessagesSince(since: Date) {
+    return this.messages.filter((m) => m.createdAt >= since).length;
+  }
 
   // voicemail
   async createVoicemail(v: Parameters<Repository["createVoicemail"]>[0]) {
@@ -497,6 +546,9 @@ export class MemoryRepository implements Repository {
     const before = this.voicemails.length;
     this.voicemails = this.voicemails.filter((v) => v.id !== id);
     return this.voicemails.length < before;
+  }
+  async countVoicemailsSince(since: Date) {
+    return this.voicemails.filter((v) => v.createdAt >= since).length;
   }
 
   // push tokens
@@ -577,6 +629,12 @@ export class MemoryRepository implements Repository {
   async listFraudEvents(accountId: string) {
     return this.fraudEvents.filter((e) => e.telecomAccountId === accountId).map(clone);
   }
+  async listRecentFraudEvents(limit: number) {
+    return [...this.fraudEvents]
+      .sort((a, b) => b.at.getTime() - a.at.getTime())
+      .slice(0, limit)
+      .map(clone);
+  }
 
   // handoffs & single-use keys
   async createHandoff(h: Parameters<Repository["createHandoff"]>[0]) {
@@ -648,6 +706,13 @@ export class MemoryRepository implements Repository {
 
   async audit(entry: AuditEntry) {
     this.auditLog.push({ ...entry, at: entry.at ?? new Date() });
+  }
+  async listAuditEntries(opts: { actorUserId?: string; limit: number }) {
+    return this.auditLog
+      .filter((e) => !opts.actorUserId || e.actorUserId === opts.actorUserId)
+      .sort((a, b) => b.at.getTime() - a.at.getTime())
+      .slice(0, opts.limit)
+      .map(clone);
   }
 
   async bindDevice(input: { platform: "ios" | "android"; deviceKey: string; userId: string; verifiedAt: Date }) {

@@ -25,6 +25,8 @@ export const enSecurity: Record<keyof typeof frSecurity, string> = {
   "security.method.passkey": "passkey",
   "security.method.takatak": "TAKATAK account",
   "security.method.legacy": "earlier sign-in",
+  "security.method.google": "Google account",
+  "security.method.email": "email",
   "security.justNow": "just now",
   "security.minutesAgo": "{n} min ago",
   "security.hoursAgo": "{n} h ago",
