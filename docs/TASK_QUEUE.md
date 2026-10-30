@@ -21,6 +21,12 @@
 | AUTH-GOOGLE | Code prêt : `POST /v1/auth/google/exchange` (PKCE, ID token Google vérifié via JWKS, nonce + anti-rejeu `jti`), création ou rattachement du compte par courriel vérifié, migration 0025 (`google_sub` unique, `email_verified_at`, index unique partiel sur `lower(email)`), `AuthMethod` += `google`/`email` | CI verte; propriétaire : client OAuth Google Cloud + `https://app.mimt.ca/auth/callback/google` en URI de redirection autorisée, `GOOGLE_OAUTH_*` dans Coolify, migration 0025 appliquée |
 | AUTH-EMAIL-SIGNUP | Pas commencé : inscription par courriel + mot de passe (nécessite Resend vérifié pour l'envoi) | Vérification Resend, puis implémentation |
 | AUTH-PURCHASE-FLOW | Code prêt : `users.onboarding_stage` (`signed_up` → `phone_verified` → `passkey_enrolled` → `full`), migration 0026; porte d'achat dans `provisionHeldNumber` (reporté à `awaiting_verification` si téléphone non vérifié, hold conservé); `POST /v1/numbers/provision/resume` (428 `phone_verification_required` + jeton de reprise); OTP verify lie le téléphone à l'utilisateur connecté, avance l'étape, signale `passkeyEnrollmentRequired`; inscription passkey avance l'étape; 10 nouveaux tests | CI verte; propriétaire : revue + merge |
+## Tableau de bord « expérience » — 30 octobre 2026, TWILO (PR #91 fusionnée, commit `4062f58`)
+
+| ID | État | Prochaine preuve requise |
+| --- | --- | --- |
+| DASH-API | Fusionné : 6 routes `/v1/admin/*` en lecture seule (overview, users, usage, revenue, fraud, support-queue), garde `CATALOG_ADMIN_USER_IDS`; 11 méthodes d’agrégation au dépôt (mémoire + Postgres), `totalLiability` aux points; tests `adminDashboard.test.ts` + contrats dépôt verts (CI 4/4) | aucun pipeline de données ajouté |
+| DASH-APP | Fusionné : échafaudage `apps/dashboard` (Next.js 16, rendu serveur) : Vue d’ensemble, Utilisateurs, Utilisation, Revenus, Santé, Soutien; jeton porteur admin en cookie httpOnly | `MIMT_API_URL` + déploiement (Coolify ou Vercel); durcir l’auth (compte de service) avant exposition |
 ## MIMT Connect (plateforme partenaire) — 29 octobre 2026, Claude (branche `claude/partners`, PR à ouvrir par le propriétaire)
 
 | ID | État | Prochaine preuve requise |
