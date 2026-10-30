@@ -51,6 +51,15 @@ for (const [name, make, enabled] of impls) {
       expect(ledger).toHaveLength(1);
     });
 
+    it("totalLiability sums every account balance", async () => {
+      expect(await repo.points.totalLiability()).toBe(0);
+      const a = await account();
+      await repo.points.earn(earn(a));
+      const b = await account();
+      await repo.points.earn(earn(b, { entries: [{ reason: "purchase", points: 71, idempotencyKey: `invoice:in_${b.slice(0, 8)}x`, reference: "invoice" }] }));
+      expect(await repo.points.totalLiability()).toBe(200);
+    });
+
     it("concurrent credits with the same key pay once; different keys all land", async () => {
       const a = await account();
       const results = await Promise.all([1, 2, 3, 4].map(() => repo.points.earn(earn(a))));

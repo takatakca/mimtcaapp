@@ -209,6 +209,16 @@ export async function securityRoutes(app: FastifyInstance, deps: AppDeps) {
     // The user just proved possession with user verification: this session is strongly authenticated.
     if (req.sessionId) await deps.sessions.markRecentAuth(req.sessionId, true);
     await audit(req, user.id, "passkey.added", "passkey", row.id, { backedUp: row.backedUp });
+    // Purchase-time auth flow: a passkey enrolled right after phone verification unlocks the full dashboard
+    // (stage "full"). A passkey enrolled without a verified phone (e.g. from security settings) records
+    // "passkey_enrolled" instead. Stages only move forward.
+    const fresh = await repo.getUser(user.id);
+    const stage = fresh?.onboardingStage ?? "signed_up";
+    if (stage === "phone_verified") {
+      await repo.updateUser(user.id, { onboardingStage: "full" });
+    } else if (stage === "signed_up") {
+      await repo.updateUser(user.id, { onboardingStage: "passkey_enrolled" });
+    }
     return reply.code(201).send(passkeyDto(row));
   });
 

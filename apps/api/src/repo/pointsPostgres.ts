@@ -295,6 +295,11 @@ export class PostgresPointsRepository implements PointsRepository {
     )) as unknown as PointsAccountRow[];
   }
 
+  async totalLiability() {
+    const [row] = (await this.sql`select coalesce(sum(balance), 0)::int as n from points_accounts`) as unknown as Array<{ n: number }>;
+    return row?.n ?? 0;
+  }
+
   async expire(accountId: string, before: Date, at: Date) {
     return (await this.sql.begin(async (tx) => {
       const rows = await tx.unsafe(`select ${ACCOUNT_COLS} from points_accounts where telecom_account_id = $1 for update`, [accountId]);

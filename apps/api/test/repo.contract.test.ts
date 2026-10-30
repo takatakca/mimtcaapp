@@ -48,6 +48,14 @@ for (const [name, make, enabled] of impls) {
       expect((await repo.getAccountByOwner(user.id))?.id).toBe(account.id);
     });
 
+    it("findUserByEmail matches case-insensitively", async () => {
+      const { user } = await seed();
+      await repo.updateUser(user.id, { email: "Test@Example.ca" });
+      expect((await repo.findUserByEmail("test@example.ca"))?.id).toBe(user.id);
+      expect((await repo.findUserByEmail("TEST@EXAMPLE.CA"))?.id).toBe(user.id);
+      expect(await repo.findUserByEmail("nobody@example.ca")).toBeNull();
+    });
+
     it("refresh tokens", async () => {
       const { user } = await seed();
       const fam = crypto.randomUUID();
@@ -262,6 +270,61 @@ for (const [name, make, enabled] of impls) {
 
       await repo.audit({ actorUserId: user.id, action: "test", meta: { a: 1 } });
       await repo.ping();
+    });
+
+    it("dashboard aggregates (read-only)", async () => {
+      const { user, account } = await seed();
+      const now = new Date();
+
+      expect(await repo.countUsersSince(new Date(now.getTime() - 1000))).toBe(1);
+      expect(await repo.countUsersSince(new Date(now.getTime() + 3_600_000))).toBe(0);
+      expect(await repo.countUsersByStatus("active")).toBe(1);
+      expect(await repo.countUsersByStatus("suspended")).toBe(0);
+      expect((await repo.searchUsers("5145550000", 10)).map((u) => u.id)).toEqual([user.id]);
+      expect((await repo.searchUsers("zzz-no-such-user", 10))).toHaveLength(0);
+      expect((await repo.searchUsers("", 10)).map((u) => u.id)).toEqual([user.id]);
+      expect((await repo.listRecentUsers(10)).map((u) => u.id)).toEqual([user.id]);
+
+      expect((await repo.listAccountsPage(10, 0)).map((a) => a.id)).toEqual([account.id]);
+      expect(await repo.listAccountsPage(10, 1)).toHaveLength(0);
+
+      await repo.upsertSubscription({
+        telecomAccountId: account.id, kind: "plan", code: "premium", quantity: 1,
+        source: "stripe", status: "active", stripeSubscriptionId: "sub_dash", currentPeriodEnd: null,
+      });
+      expect((await repo.listSubscriptionsByStatus(["active"]))).toHaveLength(1);
+      expect(await repo.listSubscriptionsByStatus(["canceled"])).toHaveLength(0);
+
+      await repo.upsertCall({
+        twilioCallSid: "CA_dash", telecomAccountId: account.id, userId: user.id, direction: "outbound",
+        kind: "pstn", fromNumber: "+15145550100", toNumber: "+15145550200", status: "completed", startedAt: now,
+      });
+      expect(await repo.countCallsSince(new Date(now.getTime() - 1000))).toBe(1);
+      expect(await repo.countCallsSince(new Date(now.getTime() + 3_600_000))).toBe(0);
+
+      await repo.createMessage({
+        telecomAccountId: account.id, direction: "outbound", ourNumber: "+15145550100", peer: "+15145550200",
+        bodyEncrypted: "x", bodyFingerprint: "f", status: "sent", segments: 1, numMedia: 0, twilioSid: null,
+      });
+      expect(await repo.countMessagesSince(new Date(now.getTime() - 1000))).toBe(1);
+
+      const dashNum = await repo.createNumber({ e164: "+15145550100", twilioSid: null, telecomAccountId: account.id, kind: "local", state: "active", lastActivityAt: now, stateChangedAt: now });
+      await repo.createVoicemail({
+        telecomAccountId: account.id, phoneNumberId: dashNum.id, callSid: "CA_dash",
+        recordingSid: "RE_dash", fromNumber: "+15145550200", audioUrl: null, durationS: null,
+      });
+      expect(await repo.countVoicemailsSince(new Date(now.getTime() - 1000))).toBe(1);
+
+      await repo.addFraudEvent({ telecomAccountId: account.id, rule: "velocity", score: 10, action: "alert", details: {} });
+      expect((await repo.listRecentFraudEvents(10))).toHaveLength(1);
+
+      await repo.audit({ actorUserId: user.id, action: "dash.test" });
+      const entries = await repo.listAuditEntries({ limit: 10 });
+      expect(entries.some((e) => e.action === "dash.test")).toBe(true);
+      expect(entries[0]?.at).toBeInstanceOf(Date);
+      const mine = await repo.listAuditEntries({ actorUserId: user.id, limit: 10 });
+      expect(mine.length).toBeGreaterThan(0);
+      expect(mine.every((e) => e.actorUserId === user.id)).toBe(true);
     });
 
     it("call controls: blocks and call settings", async () => {
