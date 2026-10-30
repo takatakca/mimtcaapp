@@ -417,7 +417,8 @@ export interface Repository {
   listEntitlements(accountId: string): Promise<Entitlement[]>;
   replaceEntitlements(accountId: string, source: string, items: Array<{ feature: Feature; limit: number | null }>): Promise<void>;
 
-  createNumber(n: New<PhoneNumber, "quarantineUntil" | "warningsSent">): Promise<PhoneNumber>;
+  /** `createdAt` is set only by the admin import, to Twilio's own creation date (owner rule on older numbers). */
+  createNumber(n: New<PhoneNumber, "quarantineUntil" | "warningsSent"> & { createdAt?: Date }): Promise<PhoneNumber>;
   getNumber(id: string): Promise<PhoneNumber | null>;
   getNumberByE164(e164: string): Promise<PhoneNumber | null>;
   listNumbersByAccount(accountId: string): Promise<PhoneNumber[]>;

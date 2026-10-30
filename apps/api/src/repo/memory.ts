@@ -327,7 +327,7 @@ export class MemoryRepository implements Repository {
 
   // numbers
   async createNumber(n: Parameters<Repository["createNumber"]>[0]) {
-    const row: PhoneNumber = { quarantineUntil: null, warningsSent: [], ...n, id: randomUUID(), createdAt: new Date() };
+    const row: PhoneNumber = { quarantineUntil: null, warningsSent: [], ...n, id: randomUUID(), createdAt: n.createdAt ?? new Date() };
     this.numbers.set(row.id, row);
     return clone(row);
   }
