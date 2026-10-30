@@ -48,6 +48,14 @@ for (const [name, make, enabled] of impls) {
       expect((await repo.getAccountByOwner(user.id))?.id).toBe(account.id);
     });
 
+    it("findUserByEmail matches case-insensitively", async () => {
+      const { user } = await seed();
+      await repo.updateUser(user.id, { email: "Test@Example.ca" });
+      expect((await repo.findUserByEmail("test@example.ca"))?.id).toBe(user.id);
+      expect((await repo.findUserByEmail("TEST@EXAMPLE.CA"))?.id).toBe(user.id);
+      expect(await repo.findUserByEmail("nobody@example.ca")).toBeNull();
+    });
+
     it("refresh tokens", async () => {
       const { user } = await seed();
       const fam = crypto.randomUUID();

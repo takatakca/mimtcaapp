@@ -29,9 +29,13 @@ export interface User {
   id: string;
   globalUserId: string | null;
   authUserId: string | null;
+  /** Google `sub` for accounts created or linked via Google sign-in. */
+  googleSub: string | null;
   locale: Locale;
   displayName: string | null;
   email: string | null;
+  /** Set when the email was verified by Google (or another verified provider). */
+  emailVerifiedAt: Date | null;
   phoneE164: string | null;
   phoneVerifiedAt: Date | null;
   deviceVerifiedAt: Date | null;
@@ -351,10 +355,12 @@ export interface Repository {
   appliedMigrations?(): Promise<string[]>;
   close(): Promise<void>;
 
-  createUser(u: New<User, "authUserId" | "email" | "phoneE164" | "phoneVerifiedAt" | "deviceVerifiedAt" | "deletionScheduledAt" | "status">): Promise<User>;
+  createUser(u: New<User, "authUserId" | "googleSub" | "email" | "emailVerifiedAt" | "phoneE164" | "phoneVerifiedAt" | "deviceVerifiedAt" | "deletionScheduledAt" | "status">): Promise<User>;
   getUser(id: string): Promise<User | null>;
   findUserByGlobalId(globalUserId: string): Promise<User | null>;
   findUserByPhone(e164: string): Promise<User | null>;
+  /** Case-insensitive email lookup (Google sign-in account linking). */
+  findUserByEmail(email: string): Promise<User | null>;
   updateUser(id: string, patch: Partial<Omit<User, "id" | "createdAt">>): Promise<User>;
   /** Users whose deletion request is due (status pending_deletion, deletionScheduledAt ≤ now), oldest first. */
   listUsersDueForDeletion(now: Date, limit: number): Promise<User[]>;

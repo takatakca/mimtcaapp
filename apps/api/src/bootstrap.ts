@@ -3,6 +3,7 @@ import { aiConfigured, stripeConfigured, twilioRestConfigured, type Config } fro
 import type { AppDeps } from "./deps.js";
 import { loadSigningKey, SessionService } from "./auth/sessions.js";
 import { TakatakOidc } from "./auth/takatak.js";
+import { GoogleOidc } from "./auth/google.js";
 import { InMemoryRateLimiter } from "./fraud/rateLimiter.js";
 import { admobKeyLoader } from "./ads/ssv.js";
 import { createAiServices } from "./ai/service.js";
@@ -87,6 +88,7 @@ export function createDeps(config: Config, log: Logger): AppDeps {
     repo,
     sessions: new SessionService(repo, signing.key, config.PUBLIC_BASE_URL),
     takatak: new TakatakOidc(config, repo),
+    google: new GoogleOidc(config, repo),
     twilio,
     billing,
     media,

@@ -1,8 +1,9 @@
 import { generateKeyPairSync } from "node:crypto";
-import { SignJWT } from "jose";
+import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadSigningKey } from "../src/auth/sessions.js";
 import { TakatakOidc } from "../src/auth/takatak.js";
+import { GoogleOidc } from "../src/auth/google.js";
 import { ISSUER, makeUser, setup, type Ctx } from "./helpers.js";
 
 let ctx: Ctx;
@@ -141,5 +142,120 @@ describe("OTP fallback", () => {
     const res = await ctx.app.inject({ method: "POST", url: "/v1/auth/otp/verify", payload: { phone: "+15145550123", code: "123456" } });
     expect(res.statusCode).toBe(200);
     expect(await ctx.repo.findUserByPhone("+15145550123")).toMatchObject({ globalUserId: null });
+  });
+});
+
+describe("Google code exchange", () => {
+  const GOOGLE_CLIENT_ID = "google-test-client";
+
+  async function googleKeys() {
+    const { privateKey, publicKey } = await generateKeyPair("RS256");
+    const jwk: JWK = { ...(await exportJWK(publicKey)), kid: "g-1", alg: "RS256", use: "sig" };
+    return { privateKey, jwks: createLocalJWKSet({ keys: [jwk] }) };
+  }
+
+  /** Fake Google: OIDC discovery + token endpoint returning a Google ID token signed with the test key. */
+  function fakeGoogle(idToken: () => Promise<string>, tokenStatus = 200) {
+    return vi.fn(async (url: string | URL | Request, _init?: RequestInit) => {
+      const u = String(url);
+      if (u.endsWith("/.well-known/openid-configuration")) {
+        return Response.json({ token_endpoint: "https://oauth2.googleapis.com/token", jwks_uri: "https://www.googleapis.com/oauth2/v3/certs" });
+      }
+      if (u === "https://oauth2.googleapis.com/token") {
+        return tokenStatus === 200 ? Response.json({ id_token: await idToken() }) : new Response("refused", { status: tokenStatus });
+      }
+      return new Response("not found", { status: 404 });
+    });
+  }
+
+  const googleIdToken = (g: { privateKey: CryptoKey }, claims: Record<string, unknown> = {}, aud = GOOGLE_CLIENT_ID) =>
+    new SignJWT({ email: "marie@example.ca", email_verified: true, name: "Marie Tremblay", locale: "fr", ...claims })
+      .setProtectedHeader({ alg: "RS256", kid: "g-1" })
+      .setIssuer("https://accounts.google.com")
+      .setAudience(aud)
+      .setSubject("google-sub-42")
+      .setIssuedAt()
+      .setJti(crypto.randomUUID())
+      .setExpirationTime("5m")
+      .sign(g.privateKey);
+
+  async function setupGoogle(idToken: () => Promise<string>, tokenStatus = 200) {
+    const g = await googleKeys();
+    ctx.deps.google = new GoogleOidc(
+      { ...ctx.deps.config, GOOGLE_OAUTH_CLIENT_ID: GOOGLE_CLIENT_ID },
+      ctx.repo,
+      { jwks: g.jwks, fetch: fakeGoogle(idToken, tokenStatus) as unknown as typeof fetch },
+    );
+    return g;
+  }
+
+  const exchange = (payload: Record<string, unknown> = {}) =>
+    ctx.app.inject({
+      method: "POST",
+      url: "/v1/auth/google/exchange",
+      payload: { code: "abc", codeVerifier: VERIFIER, redirectUri: "https://app.mimt.ca/auth/callback/google", ...payload },
+    });
+
+  it("exchanges the code with PKCE, verifies the ID token and creates the user", async () => {
+    const g = await setupGoogle(() => googleIdToken(g));
+    const res = await exchange();
+    expect(res.statusCode).toBe(200);
+    const tokens = res.json();
+    expect(tokens).toMatchObject({ tokenType: "Bearer", expiresIn: 900 });
+
+    const user = await ctx.repo.findUserByEmail("marie@example.ca");
+    expect(user).toMatchObject({ googleSub: "google-sub-42", displayName: "Marie Tremblay", locale: "fr-CA", globalUserId: null });
+    expect(user!.emailVerifiedAt).toBeInstanceOf(Date);
+    expect((await ctx.repo.getAccountByOwner(user!.id))!.id).toBeTruthy();
+
+    const me = await ctx.app.inject({ url: "/v1/me", headers: { authorization: `Bearer ${tokens.accessToken}` } });
+    expect(me.statusCode).toBe(200);
+  });
+
+  it("links an existing account by verified email instead of creating a second user", async () => {
+    const existing = await ctx.repo.createUser({ globalUserId: null, locale: "fr-CA", displayName: "Marie", email: "marie@example.ca" });
+    const g = await setupGoogle(() => googleIdToken(g));
+    expect((await exchange()).statusCode).toBe(200);
+    const user = await ctx.repo.getUser(existing.id);
+    expect(user?.googleSub).toBe("google-sub-42");
+    expect(user?.emailVerifiedAt).toBeInstanceOf(Date);
+    expect(await ctx.repo.findUserByEmail("MARIE@EXAMPLE.CA")).toMatchObject({ id: existing.id });
+  });
+
+  it("rejects a replayed ID token", async () => {
+    const g = await googleKeys();
+    const token = await googleIdToken(g);
+    ctx.deps.google = new GoogleOidc(
+      { ...ctx.deps.config, GOOGLE_OAUTH_CLIENT_ID: GOOGLE_CLIENT_ID },
+      ctx.repo,
+      { jwks: g.jwks, fetch: fakeGoogle(async () => token) as unknown as typeof fetch },
+    );
+    expect((await exchange()).statusCode).toBe(200);
+    expect((await exchange()).statusCode).toBe(401);
+  });
+
+  it("rejects an ID token for another audience", async () => {
+    const g = await setupGoogle(() => googleIdToken(g, {}, "someone-else"));
+    expect((await exchange()).statusCode).toBe(401);
+  });
+
+  it("rejects a nonce mismatch", async () => {
+    const g = await setupGoogle(() => googleIdToken(g));
+    expect((await exchange({ nonce: "n-1" })).statusCode).toBe(401);
+  });
+
+  it("rejects a Google account without an email", async () => {
+    const g = await setupGoogle(() => googleIdToken(g, { email: null, email_verified: false }));
+    expect((await exchange()).statusCode).toBe(400);
+  });
+
+  it("rejects a refused code", async () => {
+    const g = await setupGoogle(() => googleIdToken(g), 400);
+    expect((await exchange()).statusCode).toBe(401);
+  });
+
+  it("answers 503 when Google sign-in is not configured", async () => {
+    // Default test config has no GOOGLE_OAUTH_CLIENT_ID: the helper's GoogleOidc answers not_configured.
+    expect((await exchange()).statusCode).toBe(503);
   });
 });
