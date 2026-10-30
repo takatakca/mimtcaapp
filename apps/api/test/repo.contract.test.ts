@@ -308,8 +308,9 @@ for (const [name, make, enabled] of impls) {
       });
       expect(await repo.countMessagesSince(new Date(now.getTime() - 1000))).toBe(1);
 
+      const dashNum = await repo.createNumber({ e164: "+15145550100", twilioSid: null, telecomAccountId: account.id, kind: "local", state: "active", lastActivityAt: now, stateChangedAt: now });
       await repo.createVoicemail({
-        telecomAccountId: account.id, phoneNumberId: "pn_dash", callSid: "CA_dash",
+        telecomAccountId: account.id, phoneNumberId: dashNum.id, callSid: "CA_dash",
         recordingSid: "RE_dash", fromNumber: "+15145550200", audioUrl: null, durationS: null,
       });
       expect(await repo.countVoicemailsSince(new Date(now.getTime() - 1000))).toBe(1);
