@@ -7,7 +7,7 @@ import { PromoModal } from "@/components/PromoModal";
 import { SiteEffects } from "@/components/SiteEffects";
 import { PAGE_META } from "@/lib/meta";
 import { breadcrumbLd, graph, jsonLdString, organizationLd, webPageLd, websiteLd, type JsonLdObject } from "@/lib/seo";
-import { APP_URL, CCTS_URL, LABELS, MAIN_NAV, ROUTES, href, type Lang, type RouteKey } from "@/lib/site";
+import { APP_URL, CCTS_URL, LABELS, MAIN_NAV, ROUTES, WIDE_ONLY_NAV, href, type Lang, type RouteKey } from "@/lib/site";
 
 /** schema.org data for search engines and AI assistants. */
 export function JsonLd({ data }: { data: JsonLdObject }) {
@@ -27,12 +27,12 @@ function Wordmark({ lang }: { lang: Lang }) {
   );
 }
 
-function LangSwitch({ lang, page }: { lang: Lang; page: RouteKey }) {
+function LangSwitch({ lang, page, paths }: { lang: Lang; page: RouteKey; paths?: Record<Lang, string> }) {
   const other: Lang = lang === "fr" ? "en" : "fr";
   return (
     <a
       className="langswitch"
-      href={ROUTES[page][other]}
+      href={(paths ?? ROUTES[page])[other]}
       hrefLang={other === "fr" ? "fr-CA" : "en-CA"}
       lang={other === "fr" ? "fr-CA" : "en-CA"}
     >
@@ -46,7 +46,7 @@ function NavLinks({ lang, page }: { lang: Lang; page: RouteKey }) {
   return (
     <ul>
       {MAIN_NAV.map((key) => (
-        <li key={key}>
+        <li key={key} className={WIDE_ONLY_NAV.includes(key) ? "nav-wide" : undefined}>
           <a href={href(lang, key)} aria-current={key === page ? "page" : undefined}>
             {LABELS[key][lang]}
           </a>
@@ -56,7 +56,7 @@ function NavLinks({ lang, page }: { lang: Lang; page: RouteKey }) {
   );
 }
 
-function Header({ lang, page }: { lang: Lang; page: RouteKey }) {
+function Header({ lang, page, paths }: { lang: Lang; page: RouteKey; paths?: Record<Lang, string> }) {
   const fr = lang === "fr";
   return (
     <header className="site-header">
@@ -66,7 +66,7 @@ function Header({ lang, page }: { lang: Lang; page: RouteKey }) {
           <NavLinks lang={lang} page={page} />
         </nav>
         <div className="site-header__actions">
-          <LangSwitch lang={lang} page={page} />
+          <LangSwitch lang={lang} page={page} paths={paths} />
           <a className="btn btn--primary btn--sm hide-sm" href={href(lang, "home", "numero")}>
             {fr ? "Obtenir mon numéro" : "Get my number"}
           </a>
@@ -95,9 +95,9 @@ function Footer({ lang }: { lang: Lang }) {
   const fr = lang === "fr";
   const year = new Date().getFullYear();
   const cols: { title: string; keys: RouteKey[] }[] = [
-    { title: fr ? "Produits" : "Products", keys: ["home", "business", "ai", "webapp", "plans", "compare", "soon"] },
+    { title: fr ? "Produits" : "Products", keys: ["home", "business", "ai", "webapp", "plans", "compare"] },
     { title: fr ? "Numéros" : "Numbers", keys: ["useVirtual", "useSecond", "useVoip", "cityMontreal", "cityQuebec", "cityLaval", "cityGatineau", "cityToronto"] },
-    { title: fr ? "Soutien" : "Support", keys: ["about", "help", "contact", "complaints", "affiliates"] },
+    { title: fr ? "Soutien" : "Support", keys: ["about", "guides", "help", "contact", "complaints", "rewards", "affiliates"] },
     { title: fr ? "Légal" : "Legal", keys: ["e911", "privacy", "terms", "accessibility"] },
   ];
   const footerLabel = (key: RouteKey): string => {
@@ -105,6 +105,7 @@ function Footer({ lang }: { lang: Lang }) {
     if (key === "business") return fr ? "MIMT Affaires" : "MIMT Business";
     if (key === "ai") return fr ? "Intelligence artificielle" : "Artificial intelligence";
     if (key === "help") return fr ? "Aide et FAQ" : "Help and FAQ";
+    if (key === "guides") return fr ? "Guides pratiques" : "Practical guides";
     if (key === "e911") return fr ? "Limites du 9-1-1" : "9-1-1 limitations";
     if (key === "privacy") return fr ? "Confidentialité (Loi 25)" : "Privacy (Law 25)";
     return LABELS[key][lang];
@@ -181,22 +182,29 @@ export function Shell({
   page,
   children,
   ld = [],
+  paths,
+  pageLd,
 }: {
   lang: Lang;
   page: RouteKey;
   children: ReactNode;
   /** Extra JSON-LD nodes for this page (Service, FAQPage…), added to the site-wide graph. */
   ld?: JsonLdObject[];
+  /** French and English paths of a page outside ROUTES (a guide article), for the language switch. */
+  paths?: Record<Lang, string>;
+  /** WebPage and breadcrumb nodes of a page outside ROUTES; replaces the ones built from PAGE_META. */
+  pageLd?: JsonLdObject[];
 }) {
   const meta = PAGE_META[page][lang];
-  const data = graph([organizationLd(lang), websiteLd(lang), webPageLd(lang, page, meta.title, meta.description), breadcrumbLd(lang, page), ...ld]);
+  const own = pageLd ?? [webPageLd(lang, page, meta.title, meta.description), breadcrumbLd(lang, page)];
+  const data = graph([organizationLd(lang), websiteLd(lang), ...own, ...ld]);
   return (
     <>
       <JsonLd data={data} />
       <a className="skip-link" href="#contenu">
         {lang === "fr" ? "Aller au contenu" : "Skip to content"}
       </a>
-      <Header lang={lang} page={page} />
+      <Header lang={lang} page={page} paths={paths} />
       <OfferTicker lang={lang} />
       <main id="contenu" tabIndex={-1}>
         {children}

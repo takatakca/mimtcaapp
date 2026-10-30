@@ -109,10 +109,3 @@
   margin: 0.5rem 0 0;
   font-size: 0.95rem;
 }
-.placeholder {
-  background: var(--warn-bg);
-  color: #4a3200;
-  padding: 0 4px;
-  border-radius: 4px;
-  font-weight: 600;
-}

@@ -336,8 +336,9 @@ export function HomePage({ lang }: { lang: Lang }) {
             <h3 className="form-card__title">{fr ? "Apps iPhone et Android : soyez avisé à leur sortie" : "iPhone and Android apps: get notified when they ship"}</h3>
             <LeadForm kind="waitlist" lang={lang} submitLabel={fr ? "M'aviser" : "Notify me"} />
             <p className="fineprint">
-              {fr ? "Téléphone résidentiel, Internet et cellulaire : " : "Home phone, internet and cellular: "}
-              <a href={href(lang, "soon")}>{fr ? "voir ce qui s'en vient" : "see what's coming"}</a>
+              {fr
+                ? "Vous pouvez aussi y indiquer votre intérêt pour Internet, le cellulaire ou le téléphone résidentiel. Ces services ne sont pas offerts aujourd'hui et aucune date n'est annoncée."
+                : "You can also tell us you are interested in internet, cellular or home phone service. These services are not offered today and no date is announced."}
             </p>
           </div>
         </div>

@@ -216,3 +216,41 @@ export function graph(nodes: (JsonLdObject | null | undefined)[]): JsonLdObject 
 export function jsonLdString(data: JsonLdObject): string {
   return JSON.stringify(data).replace(/</g, "\\u003c");
 }
+
+/** A guide article: WebPage + Article (published by MIMT) + breadcrumb MIMT › Guides › article. */
+export function guideLd(lang: Lang, path: string, headline: string, description: string, updated: string): JsonLdObject[] {
+  const url = abs(path);
+  return [
+    {
+      "@type": "WebPage",
+      "@id": `${url}#webpage`,
+      url,
+      name: headline,
+      description,
+      inLanguage: inLanguage(lang),
+      isPartOf: { "@id": WEBSITE_ID },
+      publisher: { "@id": ORG_ID },
+    },
+    {
+      "@type": "Article",
+      "@id": `${url}#article`,
+      mainEntityOfPage: { "@id": `${url}#webpage` },
+      headline,
+      description,
+      inLanguage: inLanguage(lang),
+      datePublished: updated,
+      dateModified: updated,
+      image: abs("/og.png"),
+      author: { "@id": ORG_ID },
+      publisher: { "@id": ORG_ID },
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "MIMT", item: abs(ROUTES.home[lang]) },
+        { "@type": "ListItem", position: 2, name: LABELS.guides[lang], item: abs(ROUTES.guides[lang]) },
+        { "@type": "ListItem", position: 3, name: headline, item: url },
+      ],
+    },
+  ];
+}

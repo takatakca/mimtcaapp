@@ -1,5 +1,5 @@
 import { PageHero, Shell } from "@/components/Shell";
-import { LegalReview } from "@/components/LegalReview";
+import { GUIDES, guidePath } from "@/lib/guides";
 import { CCTS_URL, CONTACT_EMAIL, href, type Lang } from "@/lib/site";
 
 export function ComplaintsPage({ lang }: { lang: Lang }) {
@@ -16,7 +16,6 @@ export function ComplaintsPage({ lang }: { lang: Lang }) {
             : "A problem with MIMT? Tell us. Here is how we handle complaints, and where to turn if we don't resolve yours."
         }
       />
-      <LegalReview note="processus de plaintes, délais de réponse et texte CPRST/CCTS" />
       <section className="section">
         <div className="container prose">
           <h2>{fr ? "1. Écrivez-nous" : "1. Write to us"}</h2>
@@ -73,8 +72,41 @@ export function ComplaintsPage({ lang }: { lang: Lang }) {
             <p className="fineprint">{fr ? "Téléphone sans frais du CPRST : 1-888-221-1687" : "CCTS toll-free: 1-888-221-1687"}</p>
           </div>
 
+          <h2>{fr ? "Préparer votre dossier" : "Preparing your file"}</h2>
+          <p>
+            {fr
+              ? "Une plainte claire se règle plus vite. Notez la date et l'heure du problème, le numéro MIMT concerné, le numéro appelé ou qui vous a appelé s'il y a lieu, et ce que vous avez déjà essayé. Joignez une capture d'écran du message d'erreur ou de la facture en cause. Dites aussi ce qui réglerait la situation pour vous : une correction de facture, un remboursement, une explication ou un changement de service. Gardez une copie de nos échanges : le CPRST pourra vous les demander."
+              : "A clear complaint is settled faster. Note the date and time of the problem, the MIMT number involved, the number called or that called you if relevant, and what you already tried. Attach a screenshot of the error message or of the invoice in question. Also say what would settle the matter for you: a billing correction, a refund, an explanation or a change of service. Keep a copy of our exchanges: the CCTS may ask for them."}
+          </p>
+          <h2>{fr ? "Ce que le CPRST peut traiter" : "What the CCTS can handle"}</h2>
+          <p>
+            {fr
+              ? "Le CPRST traite notamment les plaintes au sujet de la facturation, des modalités du contrat, de la livraison du service, de la gestion du crédit et du service à la clientèle des fournisseurs de télécommunication. Il ne traite pas les plaintes sur les prix eux-mêmes, ni celles qui relèvent d'un autre organisme, comme la protection des renseignements personnels."
+              : "The CCTS handles in particular complaints about billing, contract terms, service delivery, credit management and customer service of telecom providers. It does not handle complaints about prices themselves, or those that belong to another body, such as privacy."}
+          </p>
+
           <h2>{fr ? "Autres ressources" : "Other resources"}</h2>
           <ul>
+            <li>
+              {fr
+                ? "Protection des renseignements personnels : la Commission d'accès à l'information du Québec (cai.gouv.qc.ca), après avoir écrit à notre responsable."
+                : "Privacy: Québec's Commission d'accès à l'information (cai.gouv.qc.ca), after writing to our person in charge."}
+            </li>
+            <li>
+              {fr
+                ? "Droits des consommateurs au Québec : l'Office de la protection du consommateur (opc.gouv.qc.ca)."
+                : "Consumer rights in Québec: the Office de la protection du consommateur (opc.gouv.qc.ca)."}
+            </li>
+            <li>
+              {fr
+                ? "Télémarketing et appels importuns : la Liste nationale de numéros de télécommunication exclus, gérée pour le CRTC (lnnte-dncl.gc.ca)."
+                : "Telemarketing and unwanted calls: the National Do Not Call List, run for the CRTC (lnnte-dncl.gc.ca)."}
+            </li>
+            <li>
+              {fr ? "Fraude ou arnaque : voir notre " : "Fraud or scam: see our "}
+              <a href={guidePath(GUIDES.find((g) => g.id === "arnaques")!, lang)}>{fr ? "guide sur les arnaques par texto" : "guide to text message scams"}</a>
+              {fr ? " et le Centre antifraude du Canada." : " and the Canadian Anti-Fraud Centre."}
+            </li>
             <li>
               {fr ? "Renseignements personnels : voir notre " : "Personal information: see our "}
               <a href={href(lang, "privacy")}>{fr ? "politique de confidentialité" : "privacy policy"}</a>.
