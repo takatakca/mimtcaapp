@@ -73,7 +73,7 @@ export async function buildApp(deps: AppDeps) {
   });
 
   app.setErrorHandler((err: FastifyError | HttpError, req, reply) => {
-    if (err instanceof HttpError) return reply.code(err.statusCode).send({ error: err.code, message: err.message });
+    if (err instanceof HttpError) return reply.code(err.statusCode).send({ ...err.details, error: err.code, message: err.message });
     if (err.validation) return reply.code(400).send({ error: "invalid_request", message: err.message });
     const status = err.statusCode ?? 500;
     if (status >= 500) {

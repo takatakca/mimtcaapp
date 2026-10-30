@@ -3,6 +3,7 @@
 Newest first, one line per piece of work. Rule: `AGENTS.md` › Work log rule.
 Format: `YYYY-MM-DD | agent | branch → PR | status | what | next step`
 
+- 2026-10-30 | claude (MIMT agent connect-A, session 01GtWamF) | claude/connect-lot-a → PR | done | issue #97 points 1,2,5,9 | next: lot B (3,4,7)
 - 2026-10-29 | claude (MIMT agent 2, session 01GtWamF) | claude/twilio-import → PR | done | Admin: GET /v1/admin/twilio/diagnostics (read-only) + POST /v1/admin/numbers/import (step-up; number must be in the API Twilio account; keeps Twilio dateCreated so the owner rule holds); lifecycle checks Twilio dateCreated before any release; webphone Compte › Administration; docs/MIMT-TWILIO-ADMIN.md | owner: import +15799996789 in the app, then call it
 - 2026-10-30 | twilo (MIMT experience dashboard) | twilo/experience-dashboard → PR #91 | done (merged 4062f58; CI 4/4 green) | Scaffold du tableau de bord « expérience » : 6 routes /v1/admin/* en lecture seule (overview, users, usage, revenue, fraud, support-queue; garde CATALOG_ADMIN_USER_IDS), 11 agrégats au dépôt (mémoire + Postgres), totalLiability aux points, app apps/dashboard (Next.js 16, rendu serveur, 6 pages en français, jeton admin en cookie httpOnly); CI fix: dashboard aggregates contract test uses a real number id (Postgres rejected hardcoded "pn_dash" as uuid) | déploiement: MIMT_API_URL + Coolify/Vercel; durcir l'auth (compte de service) avant exposition
 

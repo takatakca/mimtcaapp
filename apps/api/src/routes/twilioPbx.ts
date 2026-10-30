@@ -6,7 +6,9 @@ import type { AppDeps } from "../deps.js";
 import { addDays } from "../lib/time.js";
 import { loadSnapshot } from "../pbx/engine.js";
 import * as router from "../pbx/router.js";
-import { partnerLegAnswered, partnerLegCompleted, partnerRecordingReady, safeHook } from "../services/partners.js";
+import { NANP_E164 } from "@mimt/shared";
+import { partnerOutboundAnswered } from "../services/partnerLinks.js";
+import { partnerCallEnded, partnerLegAnswered, partnerLegCompleted, partnerRecordingReady, partnersOn, safeHook } from "../services/partners.js";
 import { sendTwiml, twilioParams, VoiceResponse } from "./twiml.js";
 
 const Q = z.object({
@@ -22,6 +24,16 @@ const Q = z.object({
   s: z.enum(["all", "on_demand"]).optional(),
   type: z.enum(["extension", "ring_group", "voicemail", "ivr", "directory"]).optional(),
 });
+
+/** « MIMT Connect » click-to-call steps (router.clickToCall*): values we wrote into the URL, covered by the signature. */
+const C2C = z.object({
+  b: z.uuid(),
+  to: z.string().regex(NANP_E164),
+  cid: z.string().regex(NANP_E164),
+  tl: z.coerce.number().int().min(60).max(4 * 3600),
+  w: z.coerce.number().int().min(0).max(1).transform((v) => v as 0 | 1),
+});
+const TERMINAL = new Set(["completed", "busy", "failed", "no-answer", "canceled"]);
 
 /**
  * PBX webhooks (/webhooks/twilio/pbx/*), registered inside twilioWebhooks so X-Twilio-Signature is checked
@@ -115,6 +127,40 @@ export async function twilioPbxWebhooks(app: FastifyInstance, deps: AppDeps) {
       await safeHook(req.log, "leg-answered", () => partnerLegAnswered(deps, { ...leg, extensionId: q.data.x! }));
     } else if (p.CallStatus === "completed") {
       await safeHook(req.log, "leg-completed", () => partnerLegCompleted(deps, { ...leg, durationS: Number(p.CallDuration ?? 0) || 0 }));
+    }
+    return reply.code(204).send();
+  });
+
+  // « MIMT Connect » click-to-call (services/partnerLinks.ts). PARTNERS=off: hang up / nothing, like the rest.
+  app.post(`${P}/c2c-answer`, async (req, reply) => {
+    const q = C2C.safeParse(req.query);
+    if (!partnersOn(deps) || !q.success) return sendTwiml(reply, hangup());
+    return sendTwiml(reply, router.clickToCallAnswer(base, q.data));
+  });
+  app.post(`${P}/c2c-connect`, async (req, reply) => {
+    const q = C2C.safeParse(req.query);
+    // Only the member pressing 1 places the call (a carrier voicemail never does).
+    if (!partnersOn(deps) || !q.success || twilioParams(req).Digits !== "1") return sendTwiml(reply, hangup());
+    return sendTwiml(reply, router.clickToCallConnect(base, q.data));
+  });
+  // Leg to the destination: answered → call.answered; completed → its duration is the talk time.
+  app.post(`${P}/c2c-leg`, async (req, reply) => {
+    const p = twilioParams(req);
+    if (!partnersOn(deps) || !p.CallSid || !p.ParentCallSid) return reply.code(204).send();
+    const leg = { parentCallSid: p.ParentCallSid, legSid: p.CallSid };
+    if (p.CallStatus === "in-progress" || p.CallStatus === "answered") {
+      await safeHook(req.log, "c2c-answered", () => partnerOutboundAnswered(deps, leg));
+    } else if (p.CallStatus === "completed") {
+      await safeHook(req.log, "c2c-completed", () => partnerLegCompleted(deps, { ...leg, durationS: Number(p.CallDuration ?? 0) || 0 }));
+    }
+    return reply.code(204).send();
+  });
+  // The whole click-to-call ended (or the member never picked up): debit once and call.completed.
+  app.post(`${P}/c2c-status`, async (req, reply) => {
+    const p = twilioParams(req);
+    if (partnersOn(deps) && p.CallSid && TERMINAL.has(p.CallStatus ?? "")) {
+      const callSid = p.CallSid;
+      await safeHook(req.log, "c2c-ended", () => partnerCallEnded(deps, req.log, { callSid }));
     }
     return reply.code(204).send();
   });

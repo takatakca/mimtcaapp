@@ -22,7 +22,7 @@ for (const [name, make, enabled] of impls) {
     beforeEach(async () => {
       if (repo instanceof PostgresRepository) {
         await repo.sql.unsafe(
-          "truncate partner_webhook_events, partner_calls, partner_credit_ledger, partner_hunt_groups, partner_members, partner_api_keys, partners, businesses, telecom_accounts, users cascade",
+          "truncate partner_member_links, partner_link_requests, partner_webhook_events, partner_calls, partner_credit_ledger, partner_hunt_groups, partner_members, partner_api_keys, partners, businesses, telecom_accounts, users cascade",
         );
       } else repo = make();
     });
@@ -110,6 +110,67 @@ for (const [name, make, enabled] of impls) {
       expect((await repo.partners.listCalls(p.id, { since: at, limit: 10 })).map((c) => c.callSid)).toEqual(["CA2"]);
       expect((await repo.partners.listCalls(p.id, { externalId: "avocat-7", limit: 10 })).map((c) => c.callSid)).toEqual(["CA1"]);
       expect((await repo.partners.listRecentCalls(p.id, 1)).map((c) => c.callSid)).toEqual(["CA2"]);
+    });
+
+    it("lot A: slug unique; link requests single use, invalidated by a newer one or 5 wrong attempts", async () => {
+      const p = await partner();
+      expect(p.slug).toBeNull();
+      expect(await repo.partners.updatePartner(p.id, { slug: "besoinavocat" })).toMatchObject({ slug: "besoinavocat" });
+      expect((await repo.partners.getPartnerBySlug("besoinavocat"))?.id).toBe(p.id);
+      const m = (await repo.partners.upsertMember(p.id, "avocat-7", { name: "Me Roy", email: null, phone: null, handle: null, language: "fr", active: true, extensionId: null })).member;
+      const exp = new Date(at.getTime() + 15 * 60_000);
+      const r1 = await repo.partners.createLinkRequest({ partnerId: p.id, memberId: m.id, codeSha256: "1".repeat(64), expiresAt: exp, at });
+      const r2 = await repo.partners.createLinkRequest({ partnerId: p.id, memberId: m.id, codeSha256: "2".repeat(64), expiresAt: exp, at });
+      expect((await repo.partners.getLinkRequest(r1.id))?.invalidatedAt).toEqual(at);
+      expect(await repo.partners.consumeLinkRequest(r1.id, at)).toBe(false);
+      expect((await repo.partners.findLinkRequestByHash("2".repeat(64)))?.id).toBe(r2.id);
+      expect(await repo.partners.consumeLinkRequest(r2.id, exp)).toBe(false); // expired at expiresAt
+      const [a, b] = await Promise.all([repo.partners.consumeLinkRequest(r2.id, at), repo.partners.consumeLinkRequest(r2.id, at)]);
+      expect([a, b].filter(Boolean)).toHaveLength(1);
+      const r3 = await repo.partners.createLinkRequest({ partnerId: p.id, memberId: m.id, codeSha256: "3".repeat(64), expiresAt: exp, at });
+      for (let i = 1; i <= 4; i++) expect((await repo.partners.recordLinkRequestFailure(r3.id, 5, at))?.invalidatedAt).toBeNull();
+      expect(await repo.partners.recordLinkRequestFailure(r3.id, 5, at)).toMatchObject({ attempts: 5, invalidatedAt: at });
+      await expect(repo.partners.createLinkRequest({ partnerId: p.id, memberId: m.id, codeSha256: "3".repeat(64), expiresAt: exp, at })).rejects.toThrow();
+    });
+
+    it("lot A: one active link per member and per user per partner; revoke once; number on active links only", async () => {
+      const p = await partner();
+      const mk = async (id: string) =>
+        (await repo.partners.upsertMember(p.id, id, { name: id, email: null, phone: null, handle: null, language: "fr", active: true, extensionId: null })).member;
+      const [m1, m2] = [await mk("avocat-1"), await mk("avocat-2")];
+      const u1 = await repo.createUser({ globalUserId: null, locale: "fr-CA", displayName: "Me Un" });
+      const u2 = await repo.createUser({ globalUserId: null, locale: "fr-CA", displayName: "Me Deux" });
+      const l1 = await repo.partners.createLink({ partnerId: p.id, memberId: m1.id, userId: u1.id, requestId: null, at });
+      expect(l1.status).toBe("created");
+      const link = l1.status === "created" ? l1.link : null;
+      expect(await repo.partners.createLink({ partnerId: p.id, memberId: m1.id, userId: u2.id, requestId: null, at })).toEqual({ status: "member_taken" });
+      expect(await repo.partners.createLink({ partnerId: p.id, memberId: m2.id, userId: u1.id, requestId: null, at })).toEqual({ status: "user_taken" });
+      expect((await repo.partners.getActiveLinkByMember(m1.id))?.id).toBe(link!.id);
+      expect((await repo.partners.getActiveLinkByUser(p.id, u1.id))?.id).toBe(link!.id);
+      expect((await repo.partners.listActiveLinksByUser(u1.id)).map((l) => l.id)).toEqual([link!.id]);
+      const acct = await repo.createAccount({ ownerUserId: u1.id, kind: "consumer", status: "ACTIVE_INDEPENDENT", riskTier: "standard" });
+      const n = await repo.createNumber({ e164: "+15145550177", twilioSid: "PNlink", telecomAccountId: acct.id, kind: "local", state: "active", lastActivityAt: at, stateChangedAt: at });
+      expect(await repo.partners.setLinkNumber(link!.id, n.id)).toMatchObject({ numberId: n.id });
+      expect(await repo.partners.revokeLink(link!.id, "user", at)).toMatchObject({ revokedBy: "user", revokedAt: at });
+      expect(await repo.partners.revokeLink(link!.id, "partner", at)).toBeNull();
+      expect(await repo.partners.setLinkNumber(link!.id, null)).toBeNull();
+      expect(await repo.partners.getActiveLinkByMember(m1.id)).toBeNull();
+      expect((await repo.partners.createLink({ partnerId: p.id, memberId: m1.id, userId: u2.id, requestId: null, at })).status).toBe("created");
+    });
+
+    it("lot A: outbound calls carry their member and reference; open ones are counted", async () => {
+      const p = await partner();
+      const m = (await repo.partners.upsertMember(p.id, "avocat-7", { name: "Me Roy", email: null, phone: null, handle: null, language: "fr", active: true, extensionId: null })).member;
+      const c = await repo.partners.createCall({
+        partnerId: p.id, callSid: "CAout1", direction: "outbound", fromNumber: "+15145550177", toNumber: "+15145550199", huntGroupKey: null, startedAt: at,
+        memberId: m.id, externalId: "avocat-7", reference: "dossier-1",
+      });
+      expect(c).toMatchObject({ memberId: m.id, externalId: "avocat-7", reference: "dossier-1", direction: "outbound" });
+      expect(await repo.partners.countOpenOutboundCalls(m.id, new Date(at.getTime() - 1000))).toBe(1);
+      await repo.partners.claimFinalize(c.id, at);
+      expect(await repo.partners.countOpenOutboundCalls(m.id, new Date(at.getTime() - 1000))).toBe(0);
+      const ev = await repo.partners.enqueueEvent({ partnerId: p.id, eventType: "member.number_changed", payload: { member_external_id: "avocat-7" }, at });
+      expect((await repo.partners.getEvent(ev.id))?.payload).toEqual({ member_external_id: "avocat-7" });
     });
 
     it("webhook outbox: due, failed with backoff, dead, delivered", async () => {

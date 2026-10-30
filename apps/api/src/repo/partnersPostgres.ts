@@ -8,6 +8,9 @@ import type {
   PartnerCreditResult,
   PartnerHuntGroupRow,
   PartnerLedgerRow,
+  PartnerLinkCreateResult,
+  PartnerLinkRequestRow,
+  PartnerMemberLinkRow,
   PartnerMemberFields,
   PartnerMemberRow,
   PartnerPatch,
@@ -20,13 +23,15 @@ type Sql = postgres.Sql<{}>;
 type Json = postgres.JSONValue;
 
 const PARTNER_COLS =
-  "id, business_id, name, status, credit_per_minute, credit_balance, webhook_url, webhook_secret_encrypted, credits_exhausted_at, created_by, created_at, updated_at";
+  "id, business_id, name, slug, status, credit_per_minute, credit_balance, webhook_url, webhook_secret_encrypted, credits_exhausted_at, created_by, created_at, updated_at";
 const KEY_COLS = "id, partner_id, prefix, key_sha256, label, created_by, created_at, last_used_at, revoked_at";
 const MEMBER_COLS = "id, partner_id, external_id, name, email, phone, handle, language, active, extension_id, created_at, updated_at";
 const HUNT_COLS = "id, partner_id, key, ring_group_id, created_at, updated_at";
 const LEDGER_COLS = "id, partner_id, delta, reason, reference, idempotency_key, balance_after, meta, created_by, created_at";
 const CALL_COLS =
-  "id, partner_id, call_sid, direction, from_number, to_number, hunt_group_key, member_id, external_id, answered_leg_sid, started_at, answered_at, ended_at, talk_s, credits_charged, billing, recording_id, finalized_at, created_at";
+  "id, partner_id, call_sid, direction, from_number, to_number, hunt_group_key, member_id, external_id, answered_leg_sid, started_at, answered_at, ended_at, talk_s, credits_charged, billing, recording_id, reference, finalized_at, created_at";
+const LINK_REQUEST_COLS = "id, partner_id, member_id, code_sha256, expires_at, attempts, used_at, invalidated_at, created_at";
+const LINK_COLS = "id, partner_id, member_id, user_id, number_id, request_id, created_at, updated_at, revoked_at, revoked_by";
 // The payload is read back as text: the client's camelCase transform would otherwise rename the snake_case keys
 // the partner receives (call_id → callId).
 const EVENT_COLS = "id, partner_id, event_type, payload::text as payload_text, attempts, next_attempt_at, delivered_at, last_error, created_at";
@@ -43,6 +48,7 @@ const firstEvent = (rows: readonly unknown[]) => {
 /** Partner columns a patch may set (camelCase field → column). */
 const PARTNER_PATCH: Record<keyof PartnerPatch, string> = {
   name: "name",
+  slug: "slug",
   status: "status",
   creditPerMinute: "credit_per_minute",
   webhookUrl: "webhook_url",
@@ -67,15 +73,20 @@ function setClause<P extends object>(patch: P, columns: Record<keyof P, string>)
 export class PostgresPartnerRepository implements PartnerRepository {
   constructor(private readonly sql: Sql) {}
 
-  async createPartner(p: { businessId: string; name: string; creditPerMinute: number | null; createdBy: string | null }) {
+  async createPartner(p: { businessId: string; name: string; slug?: string | null; creditPerMinute: number | null; createdBy: string | null }) {
     return first<PartnerRow>(
-      await this.sql.unsafe(`insert into partners (business_id, name, credit_per_minute, created_by) values ($1, $2, $3, $4) returning ${PARTNER_COLS}`, [
+      await this.sql.unsafe(`insert into partners (business_id, name, slug, credit_per_minute, created_by) values ($1, $2, $3, $4, $5) returning ${PARTNER_COLS}`, [
         p.businessId,
         p.name,
+        p.slug ?? null,
         p.creditPerMinute,
         p.createdBy,
       ]),
     )!;
+  }
+
+  async getPartnerBySlug(slug: string) {
+    return first<PartnerRow>(await this.sql.unsafe(`select ${PARTNER_COLS} from partners where slug = $1`, [slug]));
   }
 
   async getPartner(id: string) {
@@ -218,9 +229,9 @@ export class PostgresPartnerRepository implements PartnerRepository {
 
   async createCall(c: NewPartnerCall) {
     await this.sql.unsafe(
-      `insert into partner_calls (partner_id, call_sid, direction, from_number, to_number, hunt_group_key, started_at)
-       values ($1, $2, $3, $4, $5, $6, $7) on conflict (call_sid) do nothing`,
-      [c.partnerId, c.callSid, c.direction, c.fromNumber, c.toNumber, c.huntGroupKey, c.startedAt],
+      `insert into partner_calls (partner_id, call_sid, direction, from_number, to_number, hunt_group_key, started_at, member_id, external_id, reference)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) on conflict (call_sid) do nothing`,
+      [c.partnerId, c.callSid, c.direction, c.fromNumber, c.toNumber, c.huntGroupKey, c.startedAt, c.memberId ?? null, c.externalId ?? null, c.reference ?? null],
     );
     return (await this.getCallBySid(c.callSid))!;
   }
@@ -263,6 +274,101 @@ export class PostgresPartnerRepository implements PartnerRepository {
       partnerId,
       limit,
     ])) as unknown as PartnerCallRow[];
+  }
+
+  async countOpenOutboundCalls(memberId: string, since: Date) {
+    const [row] = await this.sql`
+      select count(*)::int as n from partner_calls
+      where member_id = ${memberId} and direction = 'outbound' and finalized_at is null and started_at > ${since}`;
+    return (row as { n: number }).n;
+  }
+
+  async createLinkRequest(r: { partnerId: string; memberId: string; codeSha256: string; expiresAt: Date; at: Date }) {
+    return (await this.sql.begin(async (tx) => {
+      await tx`update partner_link_requests set invalidated_at = ${r.at} where member_id = ${r.memberId} and used_at is null and invalidated_at is null`;
+      return first<PartnerLinkRequestRow>(
+        await tx.unsafe(
+          `insert into partner_link_requests (partner_id, member_id, code_sha256, expires_at, created_at) values ($1, $2, $3, $4, $5) returning ${LINK_REQUEST_COLS}`,
+          [r.partnerId, r.memberId, r.codeSha256, r.expiresAt, r.at],
+        ),
+      )!;
+    })) as PartnerLinkRequestRow;
+  }
+
+  async getLinkRequest(id: string) {
+    return first<PartnerLinkRequestRow>(await this.sql.unsafe(`select ${LINK_REQUEST_COLS} from partner_link_requests where id = $1`, [id]));
+  }
+
+  async findLinkRequestByHash(codeSha256: string) {
+    return first<PartnerLinkRequestRow>(await this.sql.unsafe(`select ${LINK_REQUEST_COLS} from partner_link_requests where code_sha256 = $1`, [codeSha256]));
+  }
+
+  async recordLinkRequestFailure(id: string, maxAttempts: number, at: Date) {
+    return first<PartnerLinkRequestRow>(
+      await this.sql.unsafe(
+        `update partner_link_requests set attempts = attempts + 1,
+           invalidated_at = case when invalidated_at is null and attempts + 1 >= $2 then $3::timestamptz else invalidated_at end
+         where id = $1 returning ${LINK_REQUEST_COLS}`,
+        [id, maxAttempts, at],
+      ),
+    );
+  }
+
+  async consumeLinkRequest(id: string, at: Date) {
+    return (
+      await this.sql`update partner_link_requests set used_at = ${at}
+        where id = ${id} and used_at is null and invalidated_at is null and expires_at > ${at} returning id`
+    ).length === 1;
+  }
+
+  async createLink(l: { partnerId: string; memberId: string; userId: string; requestId: string | null; at: Date }): Promise<PartnerLinkCreateResult> {
+    try {
+      const link = first<PartnerMemberLinkRow>(
+        await this.sql.unsafe(
+          `insert into partner_member_links (partner_id, member_id, user_id, request_id, created_at, updated_at) values ($1, $2, $3, $4, $5, $5) returning ${LINK_COLS}`,
+          [l.partnerId, l.memberId, l.userId, l.requestId, l.at],
+        ),
+      )!;
+      return { status: "created", link };
+    } catch (err) {
+      // The partial unique indexes of 0027 are the source of truth (two approvals at once cannot both win).
+      const e = err as { code?: string; constraint_name?: string };
+      if (e.code === "23505" && e.constraint_name === "partner_member_links_member_active") return { status: "member_taken" };
+      if (e.code === "23505" && e.constraint_name === "partner_member_links_user_active") return { status: "user_taken" };
+      throw err;
+    }
+  }
+
+  async getLink(id: string) {
+    return first<PartnerMemberLinkRow>(await this.sql.unsafe(`select ${LINK_COLS} from partner_member_links where id = $1`, [id]));
+  }
+
+  async getActiveLinkByMember(memberId: string) {
+    return first<PartnerMemberLinkRow>(await this.sql.unsafe(`select ${LINK_COLS} from partner_member_links where member_id = $1 and revoked_at is null`, [memberId]));
+  }
+
+  async getActiveLinkByUser(partnerId: string, userId: string) {
+    return first<PartnerMemberLinkRow>(
+      await this.sql.unsafe(`select ${LINK_COLS} from partner_member_links where partner_id = $1 and user_id = $2 and revoked_at is null`, [partnerId, userId]),
+    );
+  }
+
+  async listActiveLinksByUser(userId: string) {
+    return (await this.sql.unsafe(`select ${LINK_COLS} from partner_member_links where user_id = $1 and revoked_at is null order by created_at desc, id`, [
+      userId,
+    ])) as unknown as PartnerMemberLinkRow[];
+  }
+
+  async revokeLink(id: string, by: "user" | "partner" | "system", at: Date) {
+    return first<PartnerMemberLinkRow>(
+      await this.sql.unsafe(`update partner_member_links set revoked_at = $2, revoked_by = $3 where id = $1 and revoked_at is null returning ${LINK_COLS}`, [id, at, by]),
+    );
+  }
+
+  async setLinkNumber(id: string, numberId: string | null) {
+    return first<PartnerMemberLinkRow>(
+      await this.sql.unsafe(`update partner_member_links set number_id = $2 where id = $1 and revoked_at is null returning ${LINK_COLS}`, [id, numberId]),
+    );
   }
 
   async enqueueEvent(e: { partnerId: string; eventType: PartnerWebhookEventRow["eventType"]; payload: Record<string, unknown>; at: Date }) {

@@ -8,6 +8,9 @@ import type {
   PartnerCreditResult,
   PartnerHuntGroupRow,
   PartnerLedgerRow,
+  PartnerLinkCreateResult,
+  PartnerLinkRequestRow,
+  PartnerMemberLinkRow,
   PartnerMemberFields,
   PartnerMemberRow,
   PartnerPatch,
@@ -27,12 +30,16 @@ export class MemoryPartnerRepository implements PartnerRepository {
   readonly ledger: PartnerLedgerRow[] = [];
   readonly calls: PartnerCallRow[] = [];
   readonly events: PartnerWebhookEventRow[] = [];
+  readonly linkRequests: PartnerLinkRequestRow[] = [];
+  readonly links: PartnerMemberLinkRow[] = [];
 
-  async createPartner(p: { businessId: string; name: string; creditPerMinute: number | null; createdBy: string | null }) {
+  async createPartner(p: { businessId: string; name: string; slug?: string | null; creditPerMinute: number | null; createdBy: string | null }) {
     if (this.partners.some((x) => x.businessId === p.businessId)) throw new Error("partner exists for this business");
+    if (p.slug && this.partners.some((x) => x.slug === p.slug)) throw new Error("partner slug taken");
     const now = new Date();
     const row: PartnerRow = {
       ...p,
+      slug: p.slug ?? null,
       id: randomUUID(),
       status: "active",
       creditBalance: 0,
@@ -56,6 +63,11 @@ export class MemoryPartnerRepository implements PartnerRepository {
     return p ? copy(p) : null;
   }
 
+  async getPartnerBySlug(slug: string) {
+    const p = this.partners.find((x) => x.slug === slug);
+    return p ? copy(p) : null;
+  }
+
   async listPartners() {
     return this.partners.slice().sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).map(copy);
   }
@@ -63,6 +75,7 @@ export class MemoryPartnerRepository implements PartnerRepository {
   async updatePartner(id: string, patch: PartnerPatch) {
     const p = this.partners.find((x) => x.id === id);
     if (!p) return null;
+    if (patch.slug && this.partners.some((x) => x.id !== id && x.slug === patch.slug)) throw new Error("partner slug taken");
     Object.assign(p, Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)), { updatedAt: new Date() });
     return copy(p);
   }
@@ -212,8 +225,9 @@ export class MemoryPartnerRepository implements PartnerRepository {
     const row: PartnerCallRow = {
       ...c,
       id: randomUUID(),
-      memberId: null,
-      externalId: null,
+      memberId: c.memberId ?? null,
+      externalId: c.externalId ?? null,
+      reference: c.reference ?? null,
       answeredLegSid: null,
       answeredAt: null,
       endedAt: null,
@@ -273,6 +287,99 @@ export class MemoryPartnerRepository implements PartnerRepository {
       .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())
       .slice(0, limit)
       .map(copy);
+  }
+
+  async countOpenOutboundCalls(memberId: string, since: Date) {
+    return this.calls.filter((c) => c.memberId === memberId && c.direction === "outbound" && !c.finalizedAt && c.startedAt.getTime() > since.getTime()).length;
+  }
+
+  async createLinkRequest(r: { partnerId: string; memberId: string; codeSha256: string; expiresAt: Date; at: Date }) {
+    if (this.linkRequests.some((x) => x.codeSha256 === r.codeSha256)) throw new Error("duplicate link code hash");
+    for (const old of this.linkRequests) if (old.memberId === r.memberId && !old.usedAt && !old.invalidatedAt) old.invalidatedAt = r.at;
+    const row: PartnerLinkRequestRow = {
+      id: randomUUID(),
+      partnerId: r.partnerId,
+      memberId: r.memberId,
+      codeSha256: r.codeSha256,
+      expiresAt: r.expiresAt,
+      attempts: 0,
+      usedAt: null,
+      invalidatedAt: null,
+      createdAt: r.at,
+    };
+    this.linkRequests.push(row);
+    return copy(row);
+  }
+
+  async getLinkRequest(id: string) {
+    const r = this.linkRequests.find((x) => x.id === id);
+    return r ? copy(r) : null;
+  }
+
+  async findLinkRequestByHash(codeSha256: string) {
+    const r = this.linkRequests.find((x) => x.codeSha256 === codeSha256);
+    return r ? copy(r) : null;
+  }
+
+  async recordLinkRequestFailure(id: string, maxAttempts: number, at: Date) {
+    const r = this.linkRequests.find((x) => x.id === id);
+    if (!r) return null;
+    r.attempts += 1;
+    if (r.attempts >= maxAttempts && !r.invalidatedAt) r.invalidatedAt = at;
+    return copy(r);
+  }
+
+  async consumeLinkRequest(id: string, at: Date) {
+    const r = this.linkRequests.find((x) => x.id === id);
+    if (!r || r.usedAt || r.invalidatedAt || r.expiresAt.getTime() <= at.getTime()) return false;
+    r.usedAt = at;
+    return true;
+  }
+
+  async createLink(l: { partnerId: string; memberId: string; userId: string; requestId: string | null; at: Date }): Promise<PartnerLinkCreateResult> {
+    const active = this.links.filter((x) => !x.revokedAt);
+    if (active.some((x) => x.memberId === l.memberId)) return { status: "member_taken" };
+    if (active.some((x) => x.partnerId === l.partnerId && x.userId === l.userId)) return { status: "user_taken" };
+    const { at, ...ids } = l;
+    const row: PartnerMemberLinkRow = { ...ids, id: randomUUID(), numberId: null, createdAt: at, updatedAt: at, revokedAt: null, revokedBy: null };
+    this.links.push(row);
+    return { status: "created", link: copy(row) };
+  }
+
+  async getLink(id: string) {
+    const l = this.links.find((x) => x.id === id);
+    return l ? copy(l) : null;
+  }
+
+  async getActiveLinkByMember(memberId: string) {
+    const l = this.links.find((x) => x.memberId === memberId && !x.revokedAt);
+    return l ? copy(l) : null;
+  }
+
+  async getActiveLinkByUser(partnerId: string, userId: string) {
+    const l = this.links.find((x) => x.partnerId === partnerId && x.userId === userId && !x.revokedAt);
+    return l ? copy(l) : null;
+  }
+
+  async listActiveLinksByUser(userId: string) {
+    return this.links
+      .filter((x) => x.userId === userId && !x.revokedAt)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .map(copy);
+  }
+
+  async revokeLink(id: string, by: "user" | "partner" | "system", at: Date) {
+    const l = this.links.find((x) => x.id === id && !x.revokedAt);
+    if (!l) return null;
+    Object.assign(l, { revokedAt: at, revokedBy: by, updatedAt: at });
+    return copy(l);
+  }
+
+  async setLinkNumber(id: string, numberId: string | null) {
+    const l = this.links.find((x) => x.id === id && !x.revokedAt);
+    if (!l) return null;
+    Object.assign(l, { numberId, updatedAt: new Date() });
+    return copy(l);
   }
 
   async enqueueEvent(e: { partnerId: string; eventType: PartnerWebhookEventRow["eventType"]; payload: Record<string, unknown>; at: Date }) {

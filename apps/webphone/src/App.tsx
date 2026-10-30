@@ -14,6 +14,7 @@ import { CallSettings } from "./pages/CallSettings";
 import { Security } from "./pages/Security";
 import { AdminTwilio } from "./pages/AdminTwilio";
 import { Integrations } from "./pages/Integrations";
+import { PartnerLink } from "./pages/PartnerLink";
 import { Calls } from "./pages/Calls";
 import { Home } from "./pages/Home";
 import { Messages } from "./pages/Messages";
@@ -108,6 +109,8 @@ export function AppRoutes() {
         <Route path="compte/appels" element={<CallSettings />} />
         <Route path="compte/securite" element={<Security />} />
         <Route path="compte/integrations" element={<Integrations />} />
+        {/* « MIMT Connect » consent page: link opened from a partner (docs/MIMT-CONNECT.md). */}
+        <Route path="lier" element={<PartnerLink />} />
         <Route path="compte/admin" element={<AdminTwilio />} />
         <Route path="aide" element={<HelpAssistant />} />
         <Route path="missions" element={<Missions />} />

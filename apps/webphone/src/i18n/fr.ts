@@ -15,6 +15,7 @@ import { frSecurity } from "./fr.security";
 import { frPartner } from "./fr.partner";
 import { frAdmin } from "./fr.admin";
 import { frCalendar } from "./fr.calendar";
+import { frPartnerLinks } from "./fr.partnerLinks";
 import { frHome } from "./fr.home";
 
 export const fr = {
@@ -29,6 +30,7 @@ export const fr = {
   ...frSecurity,
   ...frPartner,
   ...frCalendar,
+  ...frPartnerLinks,
   ...frAdmin,
   ...frHome,
   "account.billingPortal": "Gérer la facturation",

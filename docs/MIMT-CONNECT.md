@@ -8,10 +8,13 @@ le revenu en crédits. **MIMT Connect est générique** : besoinavocat est le pr
 clientes de TAKATAK suivront avec le même code. Aucun service tiers payant : les crédits sont internes à MIMT.
 
 Code : `apps/api/src/routes/partners.ts` (API), `apps/api/src/services/partners.ts` (règles, crochets du standard,
-webhooks), `apps/api/src/repo/partners*.ts` (stockage), `supabase/migrations/0023_partners.sql` (tables et contraintes),
-`packages/shared/src/partners.ts` (contrat), `apps/webphone/src/pages/business/Partner.tsx` (section « Partenaire »).
-Tests : `apps/api/test/partners.test.ts`, `apps/api/test/partners.repo.contract.test.ts` (mémoire et Postgres),
-`apps/webphone/src/pages/business/Partner.test.tsx`.
+webhooks), `apps/api/src/services/partnerLinks.ts` (liaison de compte, ligne, appel au nom d'un membre),
+`apps/api/src/repo/partners*.ts` (stockage), `supabase/migrations/0023_partners.sql` et `0027_partner_links.sql`
+(tables et contraintes), `packages/shared/src/partners.ts` (contrat), `apps/webphone/src/pages/business/Partner.tsx`
+(section « Partenaire »), `apps/webphone/src/pages/PartnerLink.tsx` (page de consentement `/lier`) et la carte
+« Partenaires » de `apps/webphone/src/pages/Integrations.tsx`.
+Tests : `apps/api/test/partners.test.ts`, `apps/api/test/partnerLinks.test.ts`, `apps/api/test/partners.repo.contract.test.ts`
+(mémoire et Postgres), `apps/webphone/src/pages/business/Partner.test.tsx`, `apps/webphone/src/pages/PartnerLink.test.tsx`.
 
 ## Interrupteur
 
@@ -30,8 +33,10 @@ aucun webhook ne part. Les données sont gardées. `PARTNER_CREDIT_PER_MINUTE` (
 | Enregistrement | L'enregistrement existant (forfait Affaires Pro, politique « tous », avis de consentement lu à l'appelant) |
 
 Un membre sonne sur son cellulaire (`phone`, avec le « appuyez sur 1 » existant : une boîte vocale du cellulaire ne
-répond jamais à sa place) ou dans ses applications MIMT (`handle` @nom, à condition que la personne soit déjà membre
-active de l'entreprise : un partenaire ne peut pas faire sonner un inconnu). Un membre désactivé garde son poste et son
+répond jamais à sa place) ou dans ses applications MIMT : soit par `handle` @nom (la personne doit déjà être membre
+active de l'entreprise), soit, depuis le lot A, par **liaison de compte** (la personne a approuvé le lien elle-même,
+voir plus bas). Un partenaire ne peut jamais faire sonner un inconnu. Quand un membre est relié, ses applications MIMT
+sonnent (identité client = identifiant de l'utilisateur MIMT), à la place du @nom; le cellulaire reste tel quel. Un membre désactivé garde son poste et son
 historique, mais ne sonne plus.
 
 ## Authentification
@@ -84,6 +89,111 @@ groupe en simultané, par membre en séquentiel. `fallback` : `voicemail` (défa
 `did` (facultatif) : un numéro de l'entreprise, routé vers ce groupe. Exige un forfait MIMT Affaires (403
 `plan_required`). `GET /v1/partner/hunt-groups` liste les groupes.
 
+### Liaison de compte (lot A, issue #97)
+
+Chaque avocat a **son propre compte MIMT**, choisit son numéro et paie son forfait dans app.mimt.ca. Le partenaire ne
+relie un membre (`externalId`) à un vrai compte MIMT **qu'avec la preuve et le consentement de cette personne**.
+
+#### `POST /v1/partner/members/:externalId/link-requests` — demander la liaison
+
+```bash
+curl -X POST https://api.mimt.ca/v1/partner/members/avocat-42/link-requests -H "$H"
+```
+
+Réponse `201` :
+
+```json
+{ "requestId": "8a1e…", "code": "K7QM4XPA", "url": "https://app.mimt.ca/lier?code=K7QM4XPA&r=8a1e…",
+  "expiresAt": "2026-10-30T15:15:00.000Z" }
+```
+
+- **Code à usage unique** : 8 caractères sans caractères ambigus (pas de 0/O, 1/I/L), valide **15 minutes**, gardé
+  **haché** (SHA-256) chez MIMT. Une nouvelle demande pour le même membre annule la précédente.
+- Le portail montre le code et le lien à l'avocat (bouton « Relier mon compte MIMT »). Base de l'URL : `APP_BASE_URL`.
+- `409 member_already_linked` si le membre est déjà relié (le délier d'abord), `409 member_inactive` s'il est désactivé.
+
+Côté MIMT, la personne **connectée** ouvre `/lier?code=…`. La page affiche « {partenaire} veut relier votre compte MIMT
+à votre profil (identifiant …) » et ce que le partenaire pourra voir et faire : les appels de ses lignes, les appels
+lancés en son nom, le numéro qu'elle choisit. **Autoriser exige une confirmation récente** (clé d'accès ou code par
+texto, `requireRecentAuth`, docs/MIMT-SECURITY.md), puis appelle `POST /v1/me/partner-links/approve {code, requestId}`.
+
+- **Unicité** : un compte MIMT est relié à au plus **un** membre par partenaire (`409 already_linked_to_partner`), et un
+  membre à au plus un compte (`409 member_already_linked`). Garanti par des index uniques partiels (0027).
+- **Force brute** : approve et preview limités par utilisateur (10 / 15 min) et par adresse IP (30 / 15 min), `429
+  rate_limited`. Avec l'identifiant de la demande (`r=` dans le lien), **5 mauvais codes tuent la demande** (`410
+  link_code_expired`). Code inconnu : `400 invalid_link_code`; expiré, déjà utilisé ou annulé : `410 link_code_expired`.
+- Webhook `member.linked` `{ member_external_id, linked_at }` (aucun identifiant d'utilisateur MIMT).
+
+#### `DELETE /v1/partner/members/:externalId/link` — délier (côté partenaire)
+
+```bash
+curl -X DELETE https://api.mimt.ca/v1/partner/members/avocat-42/link -H "$H"   # 204, 404 link_not_found si pas relié
+```
+
+La personne peut aussi retirer le lien elle-même, en tout temps, dans **Compte › Intégrations › Partenaires**
+(`GET /v1/me/partner-links`, `DELETE /v1/me/partner-links/:id`, sans confirmation renforcée : retirer un accès ne
+demande pas de preuve). Dans les deux cas : ses applications ne sonnent plus pour le partenaire (le @nom ou le
+cellulaire du membre restent), la ligne est détachée, webhook `member.unlinked` `{ member_external_id, by:
+"user"|"partner", unlinked_at }`.
+
+### La ligne de l'avocat
+
+#### `GET /v1/partner/members/:externalId/numbers`
+
+Les numéros MIMT **actifs** de la personne reliée. Exige un lien actif (sinon `409 member_not_linked`).
+
+```bash
+curl https://api.mimt.ca/v1/partner/members/avocat-42/numbers -H "$H"
+```
+
+```json
+{ "numbers": [ { "e164": "+15145550177" } ], "current": null,
+  "chooseNumberUrl": "https://app.mimt.ca/numero?partner=besoinavocat" }
+```
+
+#### `PUT /v1/partner/members/:externalId/number`
+
+```bash
+curl -X PUT https://api.mimt.ca/v1/partner/members/avocat-42/number -H "$H" -H "content-type: application/json" \
+  -d '{"e164":"+15145550177"}'
+```
+
+Rattache **un des numéros de la personne reliée elle-même** comme « ligne BesoinAvocat » du membre (`null` la
+détache) : afficheur des appels lancés en son nom et `from` dans les registres d'appels. Tout autre numéro est refusé
+(`403 number_not_owned`). La propriété est revérifiée à chaque lecture et à chaque appel : un numéro abandonné ou
+transféré cesse aussitôt d'être la ligne. Webhook `member.number_changed` `{ member_external_id, number }`.
+
+**Sans lien ou sans numéro**, les réponses donnent `chooseNumberUrl` (`https://app.mimt.ca/numero?partner=<slug>`) :
+le portail y envoie l'avocat pour choisir et payer son numéro dans MIMT. **MIMT n'achète jamais un numéro sur la
+demande d'un partenaire.** Le membre (`GET /v1/partner/members/:externalId`) donne aussi `linked`, `lineNumber` et
+`chooseNumberUrl`.
+
+### `POST /v1/partner/members/:externalId/calls` — appeler au nom d'un membre (click-to-call)
+
+```bash
+curl -X POST https://api.mimt.ca/v1/partner/members/avocat-42/calls -H "$H" -H "content-type: application/json" \
+  -d '{"to":"+14385550199","reference":"dossier-881"}'
+# 201 {"callId":"…"}
+```
+
+1. Exige un lien actif et une ligne (`409 member_not_linked` ou `409 member_number_required`, avec `chooseNumberUrl`).
+2. `to` : Canada/É.-U. seulement; **jamais** le 9-1-1, un code N11 (2-1-1 à 9-1-1), un numéro surtaxé 900/976 ni un
+   indicatif NANP coûteux (Antilles…) : `400 destination_not_allowed` (mêmes règles que `fraud/destinations.ts`).
+   Limite par membre : 6 appels par minute et 60 par heure (`fraud/policy.ts`, `429 rate_limited`), un seul appel à la
+   fois (`409 call_in_progress`). Comptes suspendus ou garde de dépense quotidienne : `403 account_restricted`.
+3. MIMT fait d'abord sonner l'avocat : ses applications MIMT (`via: "app"`, défaut), ou son cellulaire (`via:
+   "mobile"`) avec le « appuyez sur 1 » (une boîte vocale ne lance jamais l'appel).
+4. Quand l'avocat répond, MIMT compose `to` avec **l'afficheur = sa ligne**.
+5. Webhooks `call.ringing`, `call.answered` (quand `to` répond), `call.completed`, avec `direction: "outbound"`,
+   `member_external_id` et `reference`.
+- **Facturation : crédits du partenaire**, comme les appels du groupe de chasse (par minute commencée de conversation
+  avec `to`, une seule fois, au tarif du partenaire). Les minutes du forfait de l'avocat ne sont pas touchées. Choix :
+  cohérence avec les appels entrants; le partenaire paie l'usage qu'il déclenche.
+- **Sans crédit : refusé** (`402 insufficient_credits` si le solde ne paie pas une minute). Contrairement aux appels
+  entrants, personne n'attend au bout du fil. La durée maximale de l'appel suit le solde (`timeLimit`).
+- Twilio : `calls.create` vers l'avocat, TwiML d'étapes PBX signées (`/webhooks/twilio/pbx/c2c-answer`, `c2c-connect`,
+  `c2c-leg`, `c2c-status`), toutes sous la vérification `X-Twilio-Signature`.
+
 ### `GET /v1/partner/calls?since=&member=&limit=`
 
 ```bash
@@ -94,7 +204,7 @@ Du plus ancien au plus récent, `startedAt` strictement après `since`; `limit` 
 repasser `nextSince` comme `since` (null = fin).
 
 ```json
-{ "calls": [ { "id": "…", "direction": "inbound", "huntGroup": "trouver-un-avocat", "externalId": "avocat-42",
+{ "calls": [ { "id": "…", "direction": "inbound", "reference": null, "huntGroup": "trouver-un-avocat", "externalId": "avocat-42",
   "from": "+14385550199", "to": "+15145550100", "startedAt": "…", "answeredAt": "…", "endedAt": "…", "durationS": 412,
   "credits": 14, "billing": "billed",
   "recordingUrl": "https://api.mimt.ca/v1/business/…/recordings/…/audio?token=…", "recordingUrlExpiresAt": "…" } ],
@@ -136,8 +246,9 @@ webhook `recording.ready`, qui ne contient que l'identifiant.
 
 ## Webhooks vers le partenaire
 
-Événements : `call.ringing`, `call.answered` (avec `member_external_id`), `call.completed` (durée, crédits) et
-`recording.ready`. Corps :
+Événements : `call.ringing`, `call.answered` (avec `member_external_id`), `call.completed` (durée, crédits),
+`recording.ready`, et depuis le lot A `member.linked`, `member.unlinked` et `member.number_changed`. Les événements
+d'appel portent `direction` (`inbound` ou `outbound`); un appel lancé au nom d'un membre ajoute `reference`. Corps :
 
 ```json
 { "id": "<id de l'événement>", "type": "call.completed", "created_at": "2026-10-29T15:07:12.000Z",
@@ -153,6 +264,11 @@ webhook `recording.ready`, qui ne contient que l'identifiant.
 - En-têtes : `X-MIMT-Signature: t=<secondes unix>,v1=<HMAC-SHA256 hex de "<t>.<corps brut>">`, `X-MIMT-Event`,
   `X-MIMT-Delivery` (= `id`, pour dédoublonner). Secret `whsec_…`, montré une seule fois (première adresse ou
   « nouveau secret »), gardé chiffré.
+- `member.linked` : `member_external_id`, `linked_at`. `member.unlinked` : `member_external_id`, `by` (`user` ou
+  `partner`), `unlinked_at`. `member.number_changed` : `member_external_id`, `number` (E.164 ou `null`).
+- **Adresse configurable** : n'importe quelle URL https publique, sous-domaines compris (par exemple
+  `https://portail.besoinavocat.ca/api/mimt/webhook`). Elle se change en tout temps (section Partenaire ou
+  `PUT …/webhook`).
 - Livraison : file `partner_webhook_events` vidée toutes les 15 s par l'API (même modèle que l'outbox TAKATAK). Une
   réponse 2xx = livré. Sinon (redirection comprise) : nouvel essai après 30 s, 1 min, 2 min… jusqu'à 4 h, **abandon
   après 10 essais**. Délai de 10 s par envoi. Adresse : https publique seulement (pas d'IP, pas de `localhost`, pas
@@ -187,8 +303,8 @@ Même liste que `/v1/admin/affiliates` (`CATALOG_ADMIN_USER_IDS`), chaque action
 | Méthode | Route | Effet |
 | --- | --- | --- |
 | `GET` | `/v1/admin/partners`, `/v1/admin/partners/:id` | liste; détail avec clés (préfixes) et registre |
-| `POST` | `/v1/admin/partners` | `{ businessId, name?, creditPerMinute? }` : l'entreprise devient partenaire |
-| `PATCH` | `/v1/admin/partners/:id` | `name`, `status` (`active`/`suspended`), `creditPerMinute` (null = défaut) |
+| `POST` | `/v1/admin/partners` | `{ businessId, name?, slug?, creditPerMinute? }` : l'entreprise devient partenaire (`slug` par défaut tiré du nom, unique) |
+| `PATCH` | `/v1/admin/partners/:id` | `name`, `slug`, `status` (`active`/`suspended`), `creditPerMinute` (null = défaut) |
 | `POST` | `/v1/admin/partners/:id/keys` | nouvelle clé (montrée une fois) |
 | `POST` | `/v1/admin/partners/:id/keys/:keyId/rotate` | nouvelle clé + révocation de l'ancienne |
 | `DELETE` | `/v1/admin/partners/:id/keys/:keyId` | révocation |
@@ -205,10 +321,11 @@ Affaires (`/v1/business/:id/partner*`, rôle propriétaire seulement), avec le s
    `+1 514 555-0100`. Adresse 9-1-1 enregistrée comme pour toute entreprise.
 2. **Enregistrement** (si voulu) : Affaires › Enregistrements, politique « tous les appels »; l'avis de consentement
    (« Cet appel peut être enregistré… », français d'abord) est lu à chaque appelant avant la sonnerie.
-3. **Partenaire** (MIMT) : `POST /v1/admin/partners {"businessId":"…","creditPerMinute":2}`, puis une recharge
+3. **Partenaire** (MIMT) : `POST /v1/admin/partners {"businessId":"…","slug":"besoinavocat","creditPerMinute":2}`, puis une recharge
    `POST /v1/admin/partners/:id/credits {"credits":5000,"idempotencyKey":"besoinavocat-2026-11"}`.
 4. **Clé et webhook** (propriétaire, section Partenaire) : créer la clé « Site besoinavocat.ca » et la mettre dans les
-   secrets du serveur de besoinavocat; adresse du webhook `https://besoinavocat.ca/api/mimt/webhook`, garder le secret.
+   secrets du serveur de besoinavocat; adresse du webhook `https://portail.besoinavocat.ca/api/mimt/webhook` (le
+   portail des avocats; l'adresse est configurable et peut changer en tout temps), garder le secret.
 5. **Avocats** : le serveur de besoinavocat pousse chaque avocat avec **son propre identifiant** :
    `PUT /v1/partner/members/<id avocat>` (nom, courriel, cellulaire, langue). À refaire à chaque changement (idempotent);
    `DELETE` quand un avocat quitte.
@@ -219,7 +336,24 @@ Affaires (`/v1/business/:id/partner*`, rôle propriétaire seulement), avec le s
    enregistrer par `member_external_id` : `call.answered` (qui a répondu), `call.completed` (durée, crédits),
    `recording.ready` (puis `GET /v1/partner/recordings/:id` pour écouter). Rattrapage ou réconciliation :
    `GET /v1/partner/calls?since=…`.
-8. **Plus tard** : appels vidéo avec les Réunions MIMT (LiveKit) existantes.
+8. **Avocats reliés** (lot A) : pour chaque avocat, le portail lance `POST …/link-requests` et l'avocat approuve dans
+   MIMT (voir « Parcours avocat »); puis `PUT …/number` avec la ligne qu'il a choisie, et les boutons « Appeler » du
+   portail appellent `POST …/calls`.
+9. **Plus tard** : appels vidéo avec les Réunions MIMT (LiveKit) existantes.
+
+## Parcours avocat
+
+1. **Inscription dans MIMT** : l'avocat crée son propre compte sur app.mimt.ca (ou depuis le lien `chooseNumberUrl`
+   que lui donne le portail).
+2. **Numéro** : il choisit son numéro dans MIMT (`/numero?partner=besoinavocat`).
+3. **Forfait** : il choisit son forfait MIMT.
+4. **Paiement** : il paie lui-même, dans MIMT (Stripe). BesoinAvocat ne paie ni ne choisit à sa place.
+5. **Liaison** : dans le portail BesoinAvocat, « Relier mon compte MIMT » → code et lien `/lier` → il approuve dans
+   MIMT, avec une confirmation (clé d'accès ou code par texto). Le portail reçoit `member.linked`, lit
+   `GET …/numbers` et attache sa ligne (`PUT …/number`, webhook `member.number_changed`).
+6. **Appels dans le portail** : les appels du groupe de chasse sonnent dans ses applications MIMT; « Appeler » dans le
+   portail fait sonner son application, puis compose le client avec sa ligne comme afficheur. Il retire le lien quand
+   il veut (Compte › Intégrations › Partenaires).
 
 ## Loi 25 (Québec) et protection des renseignements
 
@@ -237,6 +371,14 @@ Affaires (`/v1/business/:id/partner*`, rôle propriétaire seulement), avec le s
   sonner.
 - **Consentement à l'enregistrement** : l'avis existant est lu à chaque appelant avant toute sonnerie quand
   l'enregistrement est actif. besoinavocat doit aussi l'indiquer dans sa politique de confidentialité.
+- **Liaison de compte (lot A)** : la personne voit, avant d'accepter, **ce que le partenaire verra et fera** : les
+  appels de ses lignes qui lui sont acheminés (numéros, heures, durées, enregistrements si l'entreprise enregistre),
+  les appels lancés en son nom (son application sonne d'abord; elle décide de répondre), et le numéro qu'elle choisit
+  comme ligne. Le partenaire **ne voit pas** ses textos, ses messages vocaux personnels, ses autres appels, ni son
+  identifiant MIMT, et ne peut rien acheter en son nom. Le consentement est donné par la personne elle-même
+  (connectée + confirmation récente), il est **révocable en tout temps** (Compte › Intégrations › Partenaires), et la
+  révocation prend effet immédiatement. Les journaux d'audit ne portent que des identifiants internes (pas de code,
+  pas de numéro). Le code n'est jamais gardé en clair.
 - Le secret professionnel des avocats : MIMT n'écoute pas les conversations. Les résumés IA des enregistrements
   (Affaires Pro) ne s'exécutent qu'avec le consentement IA du propriétaire : à laisser désactivés pour besoinavocat,
   sauf entente écrite.
@@ -244,8 +386,11 @@ Affaires (`/v1/business/:id/partner*`, rôle propriétaire seulement), avec le s
 ## Reporté (pas dans la v1)
 
 - Recharge par Stripe (la fonction `topUpCredits` est prête), alerte par courriel au partenaire quand le solde est vide.
-- Appels sortants des membres au nom du partenaire, et appels d'un client depuis l'app MIMT vers le numéro du
-  partenaire (non suivis en v1 : seuls les appelants de l'extérieur créent un appel partenaire).
+- Appels d'un client depuis l'app MIMT vers le numéro du partenaire (non suivis : seuls les appelants de l'extérieur
+  et les appels lancés par l'API créent un appel partenaire).
+- Click-to-call : pas d'enregistrement ni d'avis d'enregistrement sur ces appels pour l'instant; leur coût Twilio
+  n'entre pas encore dans la garde de dépense quotidienne (qui ne lit que la table `calls`); bannière « Choisissez
+  votre numéro pour {partenaire} » sur `/numero?partner=` (le paramètre est accepté mais pas encore affiché).
 - Transcriptions dans les webhooks (seulement avec IA activée et consentement), vidéo (Réunions LiveKit).
 - Disponibilité des avocats gérée chez MIMT (horaires par membre) : en v1, le partenaire renvoie la liste du groupe.
 
@@ -273,8 +418,28 @@ switch `PARTNERS=on|off`, default **off** (every route 404, call routing unchang
 - **Webhooks**: `call.ringing`, `call.answered`, `call.completed`, `recording.ready`; ids and metadata only (no audio,
   no transcript); `X-MIMT-Signature: t=<ts>,v1=<hex HMAC-SHA256 of "<ts>.<body>">`; outbox with backoff 30 s → 4 h,
   dead after 10 attempts, https public hosts only, redirects refused. Node verification code above.
+- **Account link (lot A, issue #97)**: `POST /v1/partner/members/:externalId/link-requests` returns an 8-character
+  one-time code (no look-alikes, 15 min, stored hashed, single use, a newer request voids the older one) and
+  `https://app.mimt.ca/lier?code=…&r=…`. The signed-in MIMT user approves on `/lier` with a step-up
+  (`POST /v1/me/partner-links/approve`), seeing what the partner will see and do. One user ↔ one member per partner.
+  Brute force: 10 attempts / 15 min per user, 30 per IP, 5 wrong codes on a request kill it. Revocable by the user
+  (Account › Integrations › Partners, `GET/DELETE /v1/me/partner-links`) or the partner
+  (`DELETE …/link`). Linked members ring the user's MIMT apps (client identity = user id); the cellphone stays.
+  Webhooks `member.linked`, `member.unlinked`, `member.number_changed`.
+- **Line**: `GET …/numbers` (the linked user's active numbers), `PUT …/number {e164}` attaches one of the user's OWN
+  numbers (else `403 number_not_owned`); without a link or number, responses carry
+  `chooseNumberUrl: https://app.mimt.ca/numero?partner=<slug>`. MIMT never buys a number for a partner.
+- **Click-to-call**: `POST …/calls {to, reference?, via?}` rings the member's apps (or cellphone with press-1), then
+  dials `to` with the line as caller ID. Canada/US only, never 9-1-1/N11/900/976/high-cost NANP; 6/min and 60/h per
+  member, one at a time. Billed in **partner credits** like hunt-group calls (the member's plan minutes are untouched);
+  `402 insufficient_credits` when the balance cannot pay a minute (nobody is waiting on the line); call events carry
+  `direction: "outbound"`, `member_external_id`, `reference`. Signed PBX steps `c2c-answer|connect|leg|status`.
+- **Webhook address**: any public https host incl. subdomains, e.g. `https://portail.besoinavocat.ca/api/mimt/webhook`;
+  configurable at any time.
 - **PBX hooks**: `pbxInbound` (ringing), a new leg status webhook `/webhooks/twilio/pbx/leg` plus the whisper press-1
   (who answered, talk time), the parent call status callback (debit + completed) and the recording webhook. Partner
   businesses only; others get byte-identical TwiML.
 - **Law 25**: the partner is our client and MIMT acts as its service provider; a DPA is required before go-live; data
-  is kept minimal; the existing consent prompt is played whenever recording is on.
+  is kept minimal; the existing consent prompt is played whenever recording is on. Account links are consented to by
+  the person (signed in + step-up), state what the partner sees (calls of its lines, click-to-call, the chosen
+  number; never texts, personal voicemail, other calls or the MIMT user id) and are revocable at any time.

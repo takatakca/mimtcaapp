@@ -1,5 +1,6 @@
-// Compte › Intégrations (/compte/integrations): the « Google Agenda » card. API: apps/api/src/routes/calendar.ts;
-// spec, data flow and Law 25 notes: docs/MIMT-CALENDAR.md. Google sends the browser back here with ?gc=ok|error.
+// Compte › Intégrations (/compte/integrations): the « Google Agenda » card (API apps/api/src/routes/calendar.ts; spec,
+// data flow and Law 25 notes: docs/MIMT-CALENDAR.md; Google sends the browser back here with ?gc=ok|error) and the
+// « Partenaires » card: MIMT Connect account links the person approved, each revocable (docs/MIMT-CONNECT.md).
 import { SUBSCRIPTION_ADD_ONS, formatCad, type CalendarSettings, type GoogleCalendarStatusResponse } from "@mimt/shared";
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
@@ -36,6 +37,7 @@ export function Integrations() {
         }
       />
       <GoogleCalendarCard />
+      <PartnersCard />
     </div>
   );
 }
@@ -191,6 +193,71 @@ function GoogleCalendarCard() {
       ) : null}
       <ErrorNote error={error ?? status.error} />
       {dialog}
+    </section>
+  );
+}
+
+function PartnersCard() {
+  const { t, locale } = useI18n();
+  // 404: the PARTNERS kill switch is off on the server: « bientôt ».
+  const links = useAsync(
+    () => api.myPartnerLinks().catch((e: unknown) => (e instanceof ApiClientError && e.status === 404 ? null : Promise.reject(e))),
+    [],
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<TKey | null>(null);
+  const [message, setMessage] = useState<TKey | null>(null);
+
+  const revoke = async (id: string, partner: string) => {
+    if (!window.confirm(t("partners.revokeConfirm", { partner }))) return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api.revokePartnerLink(id);
+      setMessage("partners.revoked");
+      links.reload();
+    } catch (e) {
+      setError(toErrorKey(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const list = links.data?.links;
+  return (
+    <section className="card" aria-labelledby="partners-h">
+      <h2 id="partners-h" className="card__title">
+        <Icon name="link" size={20} /> {t("partners.title")}
+      </h2>
+      <p className="muted small">{t("partners.lead")}</p>
+      {links.loading ? <Loading /> : null}
+      {links.data === null ? <p className="note note--info">{t("partners.soon")}</p> : null}
+      {list && !list.length ? <p className="muted">{t("partners.empty")}</p> : null}
+      {list?.length ? (
+        <ul className="stack">
+          {list.map((l) => (
+            <li key={l.id} className="stack">
+              <strong>{t("partners.item", { partner: l.partnerName, externalId: l.externalId })}</strong>
+              <span className="muted small">
+                {l.lineNumber ? t("partners.line", { number: l.lineNumber }) : t("partners.noLine")} ·{" "}
+                {t("partners.since", { date: new Date(l.createdAt).toLocaleDateString(locale) })}
+              </span>
+              <div>
+                <button type="button" className="btn btn--danger btn--sm" disabled={busy} onClick={() => void revoke(l.id, l.partnerName)}>
+                  {t("partners.revoke")}
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {message ? (
+        <p className="ok-text" role="status">
+          {t(message)}
+        </p>
+      ) : null}
+      <ErrorNote error={error ?? links.error} />
     </section>
   );
 }

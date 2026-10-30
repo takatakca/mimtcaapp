@@ -1,14 +1,22 @@
 // « MIMT Connect » partner platform (docs/MIMT-CONNECT.md). Three audiences:
 //  - the partner's own system: /v1/partner/* with `Authorization: Bearer mimt_pk_…` (hashed keys), rate limited per key;
 //  - MIMT staff: /v1/admin/partners/* (same allowlist as /v1/admin/affiliates: CATALOG_ADMIN_USER_IDS), audited;
-//  - the business owner (webphone « Partenaire »): /v1/business/:id/partner/* (owner role).
+//  - the business owner (webphone « Partenaire »): /v1/business/:id/partner/* (owner role);
+//  - a MIMT user approving or revoking an account link (webphone /lier, Compte › Intégrations): /v1/me/partner-links*.
 // PARTNERS=off (default): every route here answers 404, as if it did not exist.
 
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import {
+  NANP_E164,
   PARTNER_EXTERNAL_ID,
   PARTNER_HUNT_KEY,
+  type MyPartnerLinkDto,
+  type MyPartnerLinksResponse,
   type PartnerApiKeyCreated,
+  type PartnerClickToCallResponse,
+  type PartnerLinkPreview,
+  type PartnerLinkRequestCreated,
+  type PartnerMemberNumbersResponse,
   type PartnerCallsResponse,
   type PartnerCreditsResponse,
   type PartnerDto,
@@ -25,7 +33,18 @@ import { conflict, forbidden, HttpError, notFound } from "../lib/errors.js";
 import { parse } from "../lib/validate.js";
 import { businessAccess, Nanp } from "../pbx/access.js";
 import type { BusinessRow } from "../repo/pbxTypes.js";
-import type { PartnerApiKeyRow, PartnerRow } from "../repo/partners.js";
+import type { PartnerApiKeyRow, PartnerMemberRow, PartnerRow } from "../repo/partners.js";
+import {
+  approveLink,
+  clickToCall,
+  createLinkRequest,
+  listMyLinks,
+  memberNumbers,
+  previewLink,
+  revokeLink,
+  setMemberNumber,
+  takeLinkAttempt,
+} from "../services/partnerLinks.js";
 import {
   apiKeyDto,
   authenticatePartnerKey,
@@ -80,16 +99,48 @@ const CallsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(100),
 });
 
+const Slug = z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/, "lowercase letters, digits and -, at most 40");
+const NumberBody = z.object({ e164: z.string().regex(NANP_E164).nullable() }).strict();
+const ClickToCallBody = z
+  .object({
+    to: z.string().trim().min(1).max(30),
+    reference: z.string().trim().min(1).max(100).optional(),
+    via: z.enum(["app", "mobile"]).optional(),
+  })
+  .strict();
+const LinkCodeBody = z
+  .object({
+    code: z.string().trim().min(1).max(20),
+    requestId: z.uuid().optional(),
+  })
+  .strict();
+
+/** Default slug from the partner's name: « besoinavocat.ca » → « besoinavocat ». */
+export function slugify(name: string): string {
+  const s = name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\.(qc\.ca|ca|com|net|org)$/, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40)
+    .replace(/-+$/, "");
+  return s || "partenaire";
+}
+
 const CreatePartnerBody = z
   .object({
     businessId: z.uuid(),
     name: z.string().trim().min(1).max(120).optional(),
+    slug: Slug.optional(),
     creditPerMinute: z.number().int().min(0).max(10_000).nullable().optional(),
   })
   .strict();
 const PatchPartnerBody = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
+    slug: Slug.optional(),
     status: z.enum(["active", "suspended"]).optional(),
     creditPerMinute: z.number().int().min(0).max(10_000).nullable().optional(),
   })
@@ -165,6 +216,52 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
     const updated = await deactivateMember(deps, partner, m);
     await auditApi(req, "partner.member_deactivated", { externalId });
     return memberDto(deps, updated);
+  });
+
+  // ------------------------------------------------------------- account link, line, click-to-call (lot A)
+
+  async function memberOf(req: FastifyRequest): Promise<PartnerMemberRow> {
+    const { externalId } = parse(z.object({ externalId: ExternalId }), req.params);
+    const m = await repo.partners.getMember(pctx(req).partner.id, externalId);
+    if (!m) throw notFound("member_not_found", "Unknown member");
+    return m;
+  }
+
+  /** A one-time code (15 min) and the MIMT page where the member approves the link while signed in. */
+  app.post("/v1/partner/members/:externalId/link-requests", partnerAuth, async (req, reply): Promise<PartnerLinkRequestCreated> => {
+    const m = await memberOf(req);
+    const created = await createLinkRequest(deps, pctx(req).partner, m);
+    await auditApi(req, "partner.link_requested", { memberId: m.id, requestId: created.requestId });
+    void reply.header("cache-control", "no-store");
+    return reply.code(201).send(created);
+  });
+
+  /** The partner ends the link (the member's MIMT apps stop ringing for it). */
+  app.delete("/v1/partner/members/:externalId/link", partnerAuth, async (req, reply) => {
+    const m = await memberOf(req);
+    const link = await repo.partners.getActiveLinkByMember(m.id);
+    if (!link) throw notFound("link_not_found", "This member is not linked");
+    await revokeLink(deps, link, { side: "partner", actorUserId: null, ip: req.ip, keyId: pctx(req).key.id });
+    return reply.code(204).send();
+  });
+
+  app.get("/v1/partner/members/:externalId/numbers", partnerAuth, async (req, reply): Promise<PartnerMemberNumbersResponse> => {
+    const m = await memberOf(req);
+    void reply.header("cache-control", "no-store");
+    return memberNumbers(deps, pctx(req).partner, m);
+  });
+
+  app.put("/v1/partner/members/:externalId/number", partnerAuth, async (req): Promise<PartnerMemberNumbersResponse> => {
+    const m = await memberOf(req);
+    const { e164 } = parse(NumberBody, req.body);
+    return setMemberNumber(deps, pctx(req).partner, m, e164, { ip: req.ip, keyId: pctx(req).key.id });
+  });
+
+  app.post("/v1/partner/members/:externalId/calls", partnerAuth, async (req, reply): Promise<PartnerClickToCallResponse> => {
+    const m = await memberOf(req);
+    const body = parse(ClickToCallBody, req.body);
+    const { partner, business, key } = pctx(req);
+    return reply.code(201).send(await clickToCall(deps, { partner, business, keyId: key.id, ip: req.ip }, m, body));
   });
 
   app.put("/v1/partner/hunt-groups/:key", partnerAuth, async (req, reply): Promise<PartnerHuntGroupDto> => {
@@ -248,7 +345,10 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
     const business = await repo.pbx.getBusiness(body.businessId);
     if (!business) throw notFound("business_not_found", "Entreprise introuvable.");
     if (await repo.partners.getPartnerByBusiness(business.id)) throw conflict("partner_exists", "Cette entreprise est déjà partenaire.");
-    const p = await repo.partners.createPartner({ businessId: business.id, name: body.name ?? business.name, creditPerMinute: body.creditPerMinute ?? null, createdBy: req.userId });
+    const name = body.name ?? business.name;
+    const slug = body.slug ?? slugify(name);
+    if (await repo.partners.getPartnerBySlug(slug)) throw conflict("slug_taken", "Ce nom court est déjà pris : choisissez un autre « slug ».");
+    const p = await repo.partners.createPartner({ businessId: business.id, name, slug, creditPerMinute: body.creditPerMinute ?? null, createdBy: req.userId });
     await repo.audit({ ...actor(req), action: "partner.created", targetType: "partner", targetId: p.id, meta: { businessId: business.id } });
     return reply.code(201).send(partnerDto(deps, p));
   });
@@ -256,6 +356,7 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
   app.patch("/v1/admin/partners/:id", admin, async (req): Promise<PartnerDto> => {
     const p = await partnerById(req);
     const body = parse(PatchPartnerBody, req.body);
+    if (body.slug && body.slug !== p.slug && (await repo.partners.getPartnerBySlug(body.slug))) throw conflict("slug_taken", "Ce nom court est déjà pris.");
     const updated = (await repo.partners.updatePartner(p.id, body))!;
     await repo.audit({ ...actor(req), action: "partner.updated", targetType: "partner", targetId: p.id, meta: { before: partnerDto(deps, p), after: partnerDto(deps, updated) } });
     return partnerDto(deps, updated);
@@ -351,5 +452,39 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
     await requireRecentAuth(deps, req);
     void reply.header("cache-control", "no-store");
     return setWebhook(deps, p, parse(WebhookBody, req.body), actor(req));
+  });
+
+  // ------------------------------------------------------------------- MIMT user: account links (lot A)
+
+  const me = { preHandler: requireUser(deps) };
+
+  /** What the person is about to approve (no step-up yet; same attempt limits as approve). */
+  app.post("/v1/me/partner-links/preview", me, async (req, reply): Promise<PartnerLinkPreview> => {
+    await takeLinkAttempt(deps, req.userId, req.ip);
+    void reply.header("cache-control", "no-store");
+    return previewLink(deps, parse(LinkCodeBody, req.body));
+  });
+
+  /** Ties the member to this MIMT account: proof (signed in + recent passkey or SMS code) and consent. */
+  app.post("/v1/me/partner-links/approve", me, async (req, reply): Promise<MyPartnerLinkDto> => {
+    await takeLinkAttempt(deps, req.userId, req.ip);
+    await requireRecentAuth(deps, req);
+    const link = await approveLink(deps, req.userId, parse(LinkCodeBody, req.body), req.ip);
+    void reply.header("cache-control", "no-store");
+    return reply.code(201).send(link);
+  });
+
+  app.get("/v1/me/partner-links", me, async (req, reply): Promise<MyPartnerLinksResponse> => {
+    void reply.header("cache-control", "no-store");
+    return { links: await listMyLinks(deps, req.userId) };
+  });
+
+  /** Consent is revocable at any time, without step-up (it only takes access away). */
+  app.delete("/v1/me/partner-links/:id", me, async (req, reply) => {
+    const { id } = parse(Uuid, req.params);
+    const link = await repo.partners.getLink(id);
+    if (!link || link.userId !== req.userId || link.revokedAt) throw notFound("link_not_found", "Lien introuvable.");
+    await revokeLink(deps, link, { side: "user", actorUserId: req.userId, ip: req.ip });
+    return reply.code(204).send();
   });
 }
