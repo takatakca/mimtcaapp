@@ -24,6 +24,12 @@ export type { ConsentKind };
 export type FraudAction = "block" | "hold" | "suspend" | "alert";
 export type CallKind = "pstn" | "app" | "emergency";
 export type Direction = "inbound" | "outbound";
+/**
+ * Purchase-time auth flow (decided 2026-10-29): signup = email/Google only, no passkey at signup.
+ * When the user buys a phone number: SMS OTP verification → passkey creation on their device →
+ * full dashboard unlocked. Later logins use the passkey only (one SMS per customer lifetime).
+ */
+export type OnboardingStage = "signed_up" | "phone_verified" | "passkey_enrolled" | "full";
 
 export interface User {
   id: string;
@@ -39,6 +45,8 @@ export interface User {
   phoneE164: string | null;
   phoneVerifiedAt: Date | null;
   deviceVerifiedAt: Date | null;
+  /** Purchase-time auth flow stage. Defaults to "signed_up"; advanced by OTP verify and passkey enrollment. */
+  onboardingStage: OnboardingStage;
   status: UserStatus;
   deletionScheduledAt: Date | null;
   createdAt: Date;
@@ -355,7 +363,7 @@ export interface Repository {
   appliedMigrations?(): Promise<string[]>;
   close(): Promise<void>;
 
-  createUser(u: New<User, "authUserId" | "googleSub" | "email" | "emailVerifiedAt" | "phoneE164" | "phoneVerifiedAt" | "deviceVerifiedAt" | "deletionScheduledAt" | "status">): Promise<User>;
+  createUser(u: New<User, "authUserId" | "googleSub" | "email" | "emailVerifiedAt" | "phoneE164" | "phoneVerifiedAt" | "deviceVerifiedAt" | "onboardingStage" | "deletionScheduledAt" | "status">): Promise<User>;
   getUser(id: string): Promise<User | null>;
   findUserByGlobalId(globalUserId: string): Promise<User | null>;
   findUserByPhone(e164: string): Promise<User | null>;

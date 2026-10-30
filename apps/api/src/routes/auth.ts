@@ -8,6 +8,7 @@ import { ensureAccount } from "../services/accounts.js";
 import { grantMission } from "../services/missions.js";
 import { completeSignIn } from "../services/signIn.js";
 import { clientInfo } from "../lib/clientInfo.js";
+import type { User } from "../repo/types.js";
 
 const ExchangeBody = z.object({
   code: z.string().min(1).max(2048),
@@ -153,8 +154,25 @@ export async function authRoutes(app: FastifyInstance, deps: AppDeps) {
     }
     if (!approved) throw unauthorized("Invalid code");
     const now = deps.now();
+    // Purchase-time flow: when the caller is already signed in (e.g. a Google signup buying their first
+    // number) and the verified phone isn't claimed by anyone, link the phone to their account instead of
+    // minting a separate phone-only user — otherwise the purchase-resume step couldn't match the hold's
+    // account. Unauthenticated callers keep the exact old phone-identity behavior.
+    let linkedUser: User | null = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith("Bearer ")) {
+      try {
+        const authed = await repo.getUser((await deps.sessions.verifyAccessSession(authHeader.slice(7).trim())).userId);
+        if (authed && !authed.phoneE164 && authed.status !== "deleted" && authed.status !== "suspended") linkedUser = authed;
+      } catch {
+        // Not a usable session: fall through to the phone-identity flow below.
+      }
+    }
     let user = await repo.findUserByPhone(phone);
-    if (!user) {
+    if (!user && linkedUser) {
+      user = await repo.updateUser(linkedUser.id, { phoneE164: phone, phoneVerifiedAt: now });
+      await repo.audit({ actorUserId: user.id, action: "user.phone_linked", targetType: "user", targetId: user.id, ip: req.ip, meta: { via: "otp" } });
+    } else if (!user) {
       user = await repo.createUser({ globalUserId: null, locale: "fr-CA", displayName: null, phoneE164: phone, phoneVerifiedAt: now });
       await repo.audit({ actorUserId: user.id, action: "user.created", targetType: "user", targetId: user.id, ip: req.ip, meta: { via: "otp" } });
     } else if (user.status === "deleted" || user.status === "suspended") {
@@ -164,9 +182,17 @@ export async function authRoutes(app: FastifyInstance, deps: AppDeps) {
     }
     const account = await ensureAccount(repo, user);
     const tokens = await completeSignIn(deps, req, user, "sms");
+    // Purchase-time auth flow: a verified phone moves the onboarding stage forward. The session is fresh
+    // from the OTP code, so it satisfies requireRecentAuth — the client should immediately open passkey
+    // registration (POST /v1/me/passkeys/register/options) when the user has no passkey yet. One SMS per
+    // customer lifetime; later logins use the passkey only.
+    if ((user.onboardingStage ?? "signed_up") === "signed_up") {
+      user = await repo.updateUser(user.id, { onboardingStage: "phone_verified" });
+    }
+    const passkeyEnrollmentRequired = (await repo.security.listPasskeys(user.id)).length === 0;
     // Mission « Vérifiez votre cellulaire »: Twilio Verify just approved this phone. Once per account AND per
     // phone number (keyed hash), so a second account on the same phone earns nothing.
     const missionGranted = await grantMission(deps, { account, user, mission: "verify_phone", sourceRef: "otp", log: req.log });
-    return missionGranted ? { ...tokens, missionGranted } : tokens;
+    return { ...tokens, ...(passkeyEnrollmentRequired ? { passkeyEnrollmentRequired: true } : {}), ...(missionGranted ? { missionGranted } : {}) };
   });
 }
