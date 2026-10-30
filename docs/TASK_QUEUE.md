@@ -21,12 +21,6 @@
 | AUTH-GOOGLE | Code prêt : `POST /v1/auth/google/exchange` (PKCE, ID token Google vérifié via JWKS, nonce + anti-rejeu `jti`), création ou rattachement du compte par courriel vérifié, migration 0025 (`google_sub` unique, `email_verified_at`, index unique partiel sur `lower(email)`), `AuthMethod` += `google`/`email` | CI verte; propriétaire : client OAuth Google Cloud + `https://app.mimt.ca/auth/callback/google` en URI de redirection autorisée, `GOOGLE_OAUTH_*` dans Coolify, migration 0025 appliquée |
 | AUTH-EMAIL-SIGNUP | Pas commencé : inscription par courriel + mot de passe (nécessite Resend vérifié pour l'envoi) | Vérification Resend, puis implémentation |
 | AUTH-PURCHASE-FLOW | Plan prêt : à l'achat d'un numéro → vérification SMS (Twilio Verify, existant) → création d'une clé d'accès (WebAuthn, existant) → déblocage du tableau de bord complet; connexions suivantes par clé d'accès uniquement | Porte d'achat + déclencheur de déblocage à brancher dans le parcours d'approvisionnement |
-## Tableau de bord « expérience » — 29 octobre 2026, TWILO (branche `twilo/experience-dashboard`)
-
-| ID | État | Prochaine preuve requise |
-| --- | --- | --- |
-| DASH-API | Code prêt : 6 routes `/v1/admin/*` en lecture seule (overview, users, usage, revenue, fraud, support-queue), garde `CATALOG_ADMIN_USER_IDS`; 11 méthodes d’agrégation au dépôt (mémoire + Postgres), `totalLiability` aux points; tests `adminDashboard.test.ts` + contrats dépôt | CI verte; aucun pipeline de données ajouté |
-| DASH-APP | Échafaudage `apps/dashboard` (Next.js 16, rendu serveur) : Vue d’ensemble, Utilisateurs, Utilisation, Revenus, Santé, Soutien; jeton porteur admin en cookie httpOnly | `MIMT_API_URL` + déploiement (Coolify ou Vercel); durcir l’auth (compte de service) avant exposition |
 ## MIMT Connect (plateforme partenaire) — 29 octobre 2026, Claude (branche `claude/partners`, PR à ouvrir par le propriétaire)
 
 | ID | État | Prochaine preuve requise |
