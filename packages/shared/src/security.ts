@@ -2,7 +2,7 @@
 // API: apps/api/src/routes/security.ts. Spec and Law 25 notes: docs/MIMT-SECURITY.md.
 
 /** How a session was opened. "legacy": a session that existed before the inventory (first refresh after the release). */
-export type AuthMethod = "takatak" | "sms" | "passkey" | "legacy";
+export type AuthMethod = "takatak" | "sms" | "passkey" | "google" | "email" | "legacy";
 
 /** A recent authentication (passkey or fresh SMS code) unlocks sensitive actions for this long. */
 export const STEP_UP_WINDOW_S = 10 * 60;

@@ -14,6 +14,13 @@
 | SEC-PASSKEYS | Code prêt : WebAuthn (`@simplewebauthn` 13.3.x), connexion sans mot de passe et confirmation; `WEBAUTHN_RP_ID=mimt.ca`, `WEBAUTHN_ORIGINS=https://app.mimt.ca` par défaut | Ajout réel d'une clé d'accès sur app.mimt.ca (iPhone + Chrome) après déploiement |
 | SEC-STEPUP | Code prêt : renvoi vers un nouveau numéro externe, suppression du compte, clés d'accès, politique d'entreprise | Port-out et clés partenaires/API : brancher `requireRecentAuth` quand ces routes existeront |
 | SEC-BIZ-POLICY | Code prêt : `require_strong_auth` (défaut désactivé) | Test réel avec un compte Affaires |
+## Authentification : Google sign-in — 29 octobre 2026, TWILO (branche `twilo/google-signin`)
+
+| ID | État | Prochaine preuve requise |
+| --- | --- | --- |
+| AUTH-GOOGLE | Code prêt : `POST /v1/auth/google/exchange` (PKCE, ID token Google vérifié via JWKS, nonce + anti-rejeu `jti`), création ou rattachement du compte par courriel vérifié, migration 0025 (`google_sub` unique, `email_verified_at`, index unique partiel sur `lower(email)`), `AuthMethod` += `google`/`email` | CI verte; propriétaire : client OAuth Google Cloud + `https://app.mimt.ca/auth/callback/google` en URI de redirection autorisée, `GOOGLE_OAUTH_*` dans Coolify, migration 0025 appliquée |
+| AUTH-EMAIL-SIGNUP | Pas commencé : inscription par courriel + mot de passe (nécessite Resend vérifié pour l'envoi) | Vérification Resend, puis implémentation |
+| AUTH-PURCHASE-FLOW | Plan prêt : à l'achat d'un numéro → vérification SMS (Twilio Verify, existant) → création d'une clé d'accès (WebAuthn, existant) → déblocage du tableau de bord complet; connexions suivantes par clé d'accès uniquement | Porte d'achat + déclencheur de déblocage à brancher dans le parcours d'approvisionnement |
 ## Tableau de bord « expérience » — 29 octobre 2026, TWILO (branche `twilo/experience-dashboard`)
 
 | ID | État | Prochaine preuve requise |

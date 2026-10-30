@@ -19,6 +19,8 @@ const METHOD: Record<AuthMethod, TKey> = {
   passkey: "security.method.passkey",
   takatak: "security.method.takatak",
   legacy: "security.method.legacy",
+  google: "security.method.google",
+  email: "security.method.email",
 };
 
 /** "il y a 3 min", "il y a 2 h"… */
