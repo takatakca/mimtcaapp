@@ -187,6 +187,8 @@ export interface PointsRepository {
   listExpirable(before: Date, limit: number): Promise<PointsAccountRow[]>;
   /** Debits the whole balance (reason "expiry") if the account is still inactive since `before`. Null otherwise. */
   expire(accountId: string, before: Date, at: Date): Promise<PointsLedgerRow | null>;
+  /** Sum of every points account balance: the outstanding points liability (experience dashboard). */
+  totalLiability(): Promise<number>;
 }
 
 /** Points credited by an earn call (sum of written deltas; points owed that it repaid not deducted). */
