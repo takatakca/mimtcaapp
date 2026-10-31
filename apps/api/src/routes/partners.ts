@@ -3,14 +3,29 @@
 //  - MIMT staff: /v1/admin/partners/* (same allowlist as /v1/admin/affiliates: CATALOG_ADMIN_USER_IDS), audited;
 //  - the business owner (webphone « Partenaire »): /v1/business/:id/partner/* (owner role);
 //  - a MIMT user approving or revoking an account link (webphone /lier, Compte › Intégrations): /v1/me/partner-links*.
+// Consent (0029, services/partnerConsent.ts): every route on a linked person's data checks its scope on the link
+// (403 scope_not_granted, named) and writes the access log; link requests need the partner's accepted terms.
 // PARTNERS=off (default): every route here answers 404, as if it did not exist.
 
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import {
   NANP_E164,
+  PARTNER_ACCESS_LOG_RETENTION_DAYS,
   PARTNER_AVAILABILITY_STATUSES,
+  PARTNER_CONSENT_COMMON,
+  PARTNER_CONSENT_TEXT_VERSION,
   PARTNER_EXTERNAL_ID,
   PARTNER_HUNT_KEY,
+  PARTNER_PURPOSE_MAX,
+  PARTNER_SCOPE_SET_VERSION,
+  PARTNER_SCOPE_TEXT,
+  PARTNER_SCOPES,
+  PARTNER_TERMS_VERSION,
+  type PartnerAccessLogResponse,
+  type PartnerConsentReceiptDto,
+  type PartnerConsentTextResponse,
+  type PartnerScopeRevokeResponse,
+  type PartnerTermsAcceptanceDto,
   type MyPartnerLinkDto,
   type MyPartnerLinksResponse,
   type PartnerApiKeyCreated,
@@ -47,9 +62,22 @@ import {
   myLinkDto,
   previewLink,
   revokeLink,
+  revokeScope,
   setMemberNumber,
   takeLinkAttempt,
 } from "../services/partnerLinks.js";
+import {
+  accessLog,
+  assertRecordingAccess,
+  checkRequestedScopes,
+  logAccess,
+  receiptDto,
+  recordTermsAcceptance,
+  requireCurrentTerms,
+  termsDto,
+  visibleCallDtos,
+  type AccessContext,
+} from "../services/partnerConsent.js";
 import {
   getMemberAvailability,
   memberPortIns,
@@ -60,7 +88,6 @@ import {
 import {
   apiKeyDto,
   authenticatePartnerKey,
-  callDto,
   creditRate,
   deactivateMember,
   huntGroupDto,
@@ -135,6 +162,32 @@ const LinkCodeBody = z
     requestId: z.uuid().optional(),
   })
   .strict();
+const Scope = z.enum(PARTNER_SCOPES);
+const Purpose = z.string().trim().min(10, "state the purpose in a full sentence").max(PARTNER_PURPOSE_MAX);
+const ApproveBody = LinkCodeBody.extend({
+  scopes: z.array(Scope).max(PARTNER_SCOPES.length),
+  consentVersion: z.string().min(1).max(40),
+}).strict();
+const LinkRequestBody = z
+  .object({
+    scopes: z
+      .array(z.object({ scope: Scope, purpose: Purpose, required: z.boolean().optional() }).strict())
+      .min(1)
+      .max(PARTNER_SCOPES.length),
+  })
+  .strict();
+const TermsBody = z
+  .object({
+    termsVersion: z.string().min(1).max(40),
+    acceptedAt: z.iso.datetime({ offset: true }),
+    signerName: z.string().trim().min(1).max(120),
+    signerTitle: z.string().trim().min(1).max(120),
+    legalName: z.string().trim().min(1).max(200),
+    privacyContactEmail: z.email().max(254),
+    purposes: z.partialRecord(Scope, Purpose),
+  })
+  .strict();
+const ScopeParams = z.object({ id: z.uuid(), scope: Scope });
 
 /** Default slug from the partner's name: « besoinavocat.ca » → « besoinavocat ». */
 export function slugify(name: string): string {
@@ -204,6 +257,10 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
     },
   };
   const pctx = (req: FastifyRequest) => ctxOf.get(req)!;
+  /** What the access log records: the method and the route TEMPLATE (never the path values or the query). */
+  const accessOf = (req: FastifyRequest): AccessContext => ({ route: `${req.method} ${req.routeOptions.url ?? ""}` });
+  /** Member DTOs: showing the line (line.manage) is an access to the linked person's data. */
+  const memberView = (req: FastifyRequest, m: PartnerMemberRow) => memberDto(deps, m, (link) => logAccess(deps, link, "line.manage", accessOf(req), "allowed"));
   /** Partner API writes: no MIMT user behind them, the key id says who. */
   const auditApi = (req: FastifyRequest, action: string, meta: Record<string, unknown>) =>
     repo.audit({ actorUserId: null, action, targetType: "partner", targetId: pctx(req).partner.id, ip: req.ip, meta: { keyId: pctx(req).key.id, ...meta } });
@@ -214,19 +271,19 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
     const { partner, business } = pctx(req);
     const { member, created } = await upsertMember(deps, partner, business, externalId, body);
     await auditApi(req, created ? "partner.member_created" : "partner.member_updated", { externalId, active: member.active });
-    return reply.code(created ? 201 : 200).send(await memberDto(deps, member));
+    return reply.code(created ? 201 : 200).send(await memberView(req, member));
   });
 
   app.get("/v1/partner/members", partnerAuth, async (req): Promise<{ members: PartnerMemberDto[] }> => {
     const members = await repo.partners.listMembers(pctx(req).partner.id);
-    return { members: await Promise.all(members.map((m) => memberDto(deps, m))) };
+    return { members: await Promise.all(members.map((m) => memberView(req, m))) };
   });
 
   app.get("/v1/partner/members/:externalId", partnerAuth, async (req): Promise<PartnerMemberDto> => {
     const { externalId } = parse(z.object({ externalId: ExternalId }), req.params);
     const m = await repo.partners.getMember(pctx(req).partner.id, externalId);
     if (!m) throw notFound("member_not_found", "Unknown member");
-    return memberDto(deps, m);
+    return memberView(req, m);
   });
 
   app.delete("/v1/partner/members/:externalId", partnerAuth, async (req): Promise<PartnerMemberDto> => {
@@ -236,7 +293,7 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
     if (!m) throw notFound("member_not_found", "Unknown member");
     const updated = await deactivateMember(deps, partner, m);
     await auditApi(req, "partner.member_deactivated", { externalId });
-    return memberDto(deps, updated);
+    return memberView(req, updated);
   });
 
   // ------------------------------------------------------------- account link, line, click-to-call (lot A)
@@ -248,11 +305,26 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
     return m;
   }
 
-  /** A one-time code (15 min) and the MIMT page where the member approves the link while signed in. */
+  /** The exact consent texts and versions: the portal shows the same explanations before sending the person to /lier. */
+  app.get("/v1/partner/consent-text", partnerAuth, async (): Promise<PartnerConsentTextResponse> => ({
+    consentVersion: PARTNER_CONSENT_TEXT_VERSION,
+    scopeSetVersion: PARTNER_SCOPE_SET_VERSION,
+    termsVersion: PARTNER_TERMS_VERSION,
+    scopes: PARTNER_SCOPES.map((scope) => ({ scope, ...PARTNER_SCOPE_TEXT[scope] })),
+    common: PARTNER_CONSENT_COMMON,
+  }));
+
+  /**
+   * A one-time code (15 min) and the MIMT page where the member approves, while signed in, the scopes asked for here
+   * (each with the partner's purpose; only scopes declared in its accepted terms). An already linked member gets an
+   * « upgrade » request: nothing changes until the same person approves it.
+   */
   app.post("/v1/partner/members/:externalId/link-requests", partnerAuth, async (req, reply): Promise<PartnerLinkRequestCreated> => {
     const m = await memberOf(req);
-    const created = await createLinkRequest(deps, pctx(req).partner, m);
-    await auditApi(req, "partner.link_requested", { memberId: m.id, requestId: created.requestId });
+    const terms = await requireCurrentTerms(deps, pctx(req).partner);
+    const items = checkRequestedScopes(terms, parse(LinkRequestBody, req.body ?? {}).scopes);
+    const created = await createLinkRequest(deps, pctx(req).partner, m, items);
+    await auditApi(req, "partner.link_requested", { memberId: m.id, requestId: created.requestId, kind: created.kind, scopes: items.map((i) => i.scope) });
     void reply.header("cache-control", "no-store");
     return reply.code(201).send(created);
   });
@@ -269,20 +341,20 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
   app.get("/v1/partner/members/:externalId/numbers", partnerAuth, async (req, reply): Promise<PartnerMemberNumbersResponse> => {
     const m = await memberOf(req);
     void reply.header("cache-control", "no-store");
-    return memberNumbers(deps, pctx(req).partner, m);
+    return memberNumbers(deps, pctx(req).partner, m, accessOf(req));
   });
 
   app.put("/v1/partner/members/:externalId/number", partnerAuth, async (req): Promise<PartnerMemberNumbersResponse> => {
     const m = await memberOf(req);
     const { e164 } = parse(NumberBody, req.body);
-    return setMemberNumber(deps, pctx(req).partner, m, e164, { ip: req.ip, keyId: pctx(req).key.id });
+    return setMemberNumber(deps, pctx(req).partner, m, e164, { ip: req.ip, keyId: pctx(req).key.id, ...accessOf(req) });
   });
 
   app.post("/v1/partner/members/:externalId/calls", partnerAuth, async (req, reply): Promise<PartnerClickToCallResponse> => {
     const m = await memberOf(req);
     const body = parse(ClickToCallBody, req.body);
     const { partner, business, key } = pctx(req);
-    return reply.code(201).send(await clickToCall(deps, { partner, business, keyId: key.id, ip: req.ip }, m, body));
+    return reply.code(201).send(await clickToCall(deps, { partner, business, keyId: key.id, ip: req.ip, ...accessOf(req) }, m, body));
   });
 
   // ------------------------------------------------------ subscription, port-ins, availability (lot B)
@@ -291,27 +363,27 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
   app.get("/v1/partner/members/:externalId/subscription", partnerAuth, async (req, reply): Promise<PartnerMemberSubscriptionDto> => {
     const m = await memberOf(req);
     void reply.header("cache-control", "no-store");
-    return memberSubscription(deps, pctx(req).partner, m);
+    return memberSubscription(deps, pctx(req).partner, m, accessOf(req));
   });
 
   /** The linked person's number transfers: number, status, dates. Never the carrier account number or PIN. */
   app.get("/v1/partner/members/:externalId/port-ins", partnerAuth, async (req, reply): Promise<PartnerMemberPortInsResponse> => {
     const m = await memberOf(req);
     void reply.header("cache-control", "no-store");
-    return memberPortIns(deps, pctx(req).partner, m);
+    return memberPortIns(deps, pctx(req).partner, m, accessOf(req));
   });
 
   app.get("/v1/partner/members/:externalId/availability", partnerAuth, async (req, reply): Promise<PartnerAvailabilityDto> => {
     const m = await memberOf(req);
     void reply.header("cache-control", "no-store");
-    return getMemberAvailability(deps, m);
+    return getMemberAvailability(deps, m, accessOf(req));
   });
 
   /** Replaces the partner's availability setting for hunt groups (the linked person's own status still wins). */
   app.put("/v1/partner/members/:externalId/availability", partnerAuth, async (req): Promise<PartnerAvailabilityDto> => {
     const m = await memberOf(req);
     const body = parse(AvailabilityBody, req.body);
-    return putMemberAvailability(deps, pctx(req).partner, m, body, { ip: req.ip, keyId: pctx(req).key.id });
+    return putMemberAvailability(deps, pctx(req).partner, m, body, { ip: req.ip, keyId: pctx(req).key.id, ...accessOf(req) });
   });
 
   app.put("/v1/partner/hunt-groups/:key", partnerAuth, async (req, reply): Promise<PartnerHuntGroupDto> => {
@@ -336,7 +408,8 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
     const rows = await repo.partners.listCalls(partner.id, { limit: q.limit, ...(q.since ? { since: new Date(q.since) } : {}), ...(q.member ? { externalId: q.member } : {}) });
     void reply.header("cache-control", "no-store");
     const last = rows[rows.length - 1];
-    return { calls: await Promise.all(rows.map((c) => callDto(deps, partner, c))), nextSince: rows.length === q.limit && last ? last.startedAt.toISOString() : null };
+    // The cursor follows every row read, including calls hidden for lack of calls.read, so paging never stalls.
+    return { calls: await visibleCallDtos(deps, partner, rows, accessOf(req)), nextSince: rows.length === q.limit && last ? last.startedAt.toISOString() : null };
   });
 
   /** A fresh short-lived URL for a recording (the one in recording.ready webhooks is only an id). */
@@ -345,6 +418,8 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
     const { partner } = pctx(req);
     const link = await recordingLink(deps, partner.businessId, id);
     if (!link) throw notFound("recording_not_found", "Unknown or expired recording");
+    // A call answered under an account link: only with that person's recordings.read.
+    await assertRecordingAccess(deps, partner, id, accessOf(req));
     void reply.header("cache-control", "no-store");
     return { recordingId: id, url: link.url, expiresAt: link.expiresAt };
   });
@@ -382,11 +457,25 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
   app.get("/v1/admin/partners/:id", admin, async (req, reply) => {
     const p = await partnerById(req);
     void reply.header("cache-control", "no-store");
+    const terms = await repo.partners.latestTermsAcceptance(p.id);
     return {
       partner: partnerDto(deps, p),
       apiKeys: (await repo.partners.listApiKeys(p.id)).map(apiKeyDto),
       ledger: (await repo.partners.listLedger(p.id, 50)).map(ledgerDto),
+      terms: terms ? termsDto(terms) : null,
     };
+  });
+
+  /**
+   * Records the partner's acceptance of the MIMT Connect partner terms and DPA (signed outside MIMT): signer, legal
+   * name, privacy contact and a purpose per scope. Without a current one, link requests answer 409. Step-up, audited.
+   */
+  app.post("/v1/admin/partners/:id/terms-acceptance", admin, async (req, reply): Promise<PartnerTermsAcceptanceDto> => {
+    const p = await partnerById(req);
+    await requireRecentAuth(deps, req);
+    const body = parse(TermsBody, req.body);
+    void reply.header("cache-control", "no-store");
+    return reply.code(201).send(await recordTermsAcceptance(deps, p, body, { userId: req.userId, ip: req.ip }));
   });
 
   /** Makes an existing MIMT business a partner. */
@@ -465,7 +554,8 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
     return {
       partner: partnerDto(deps, p),
       apiKeys: (await repo.partners.listApiKeys(p.id)).map(apiKeyDto),
-      calls: await Promise.all(calls.map((c) => callDto(deps, p, c))),
+      // The owner is the partner: same consent rules as its API (calls.read, recordings.read; logged).
+      calls: await visibleCallDtos(deps, p, calls, { route: `${req.method} ${req.routeOptions.url ?? ""}` }),
     };
   });
 
@@ -512,14 +602,17 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
   app.post("/v1/me/partner-links/preview", me, async (req, reply): Promise<PartnerLinkPreview> => {
     await takeLinkAttempt(deps, req.userId, req.ip);
     void reply.header("cache-control", "no-store");
-    return previewLink(deps, parse(LinkCodeBody, req.body));
+    return previewLink(deps, req.userId, parse(LinkCodeBody, req.body));
   });
 
-  /** Ties the member to this MIMT account: proof (signed in + recent passkey or SMS code) and consent. */
+  /**
+   * Ties the member to this MIMT account (or changes its scopes, for an upgrade request): proof (signed in + recent
+   * passkey or SMS code) and consent to each checked scope. Leaves a receipt with the coarse device and network.
+   */
   app.post("/v1/me/partner-links/approve", me, async (req, reply): Promise<MyPartnerLinkDto> => {
     await takeLinkAttempt(deps, req.userId, req.ip);
     await requireRecentAuth(deps, req);
-    const link = await approveLink(deps, req.userId, parse(LinkCodeBody, req.body), req.ip);
+    const link = await approveLink(deps, req.userId, parse(ApproveBody, req.body), { ip: req.ip, userAgent: req.headers["user-agent"] });
     void reply.header("cache-control", "no-store");
     return reply.code(201).send(link);
   });
@@ -544,7 +637,37 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
     const { id } = parse(Uuid, req.params);
     const link = await repo.partners.getLink(id);
     if (!link || link.userId !== req.userId || link.revokedAt) throw notFound("link_not_found", "Lien introuvable.");
-    await revokeLink(deps, link, { side: "user", actorUserId: req.userId, ip: req.ip });
+    await revokeLink(deps, link, { side: "user", actorUserId: req.userId, ip: req.ip, userAgent: req.headers["user-agent"] });
     return reply.code(204).send();
+  });
+
+  /** One access removed at once (no step-up). Removing the last one removes the link. */
+  app.delete("/v1/me/partner-links/:id/scopes/:scope", me, async (req): Promise<PartnerScopeRevokeResponse> => {
+    const { id, scope } = parse(ScopeParams, req.params);
+    const link = await repo.partners.getLink(id);
+    if (!link || link.userId !== req.userId || link.revokedAt) throw notFound("link_not_found", "Lien introuvable.");
+    return revokeScope(deps, link, scope, { userId: req.userId, ip: req.ip, userAgent: req.headers["user-agent"] });
+  });
+
+  /** Owned links only (revoked ones too: the person can still read what happened). */
+  async function myOwnLink(req: FastifyRequest) {
+    const { id } = parse(Uuid, req.params);
+    const link = await repo.partners.getLink(id);
+    if (!link || link.userId !== req.userId) throw notFound("link_not_found", "Lien introuvable.");
+    return link;
+  }
+
+  /** « Journal d'accès »: the partner's last 50 accesses to the person's data (scope, time, route; never a body). */
+  app.get("/v1/me/partner-links/:id/access-log", me, async (req, reply): Promise<PartnerAccessLogResponse> => {
+    const link = await myOwnLink(req);
+    void reply.header("cache-control", "no-store");
+    return { entries: await accessLog(deps, link), retentionDays: PARTNER_ACCESS_LOG_RETENTION_DAYS };
+  });
+
+  /** Every consent receipt of the link, newest first. */
+  app.get("/v1/me/partner-links/:id/receipts", me, async (req, reply): Promise<{ receipts: PartnerConsentReceiptDto[] }> => {
+    const link = await myOwnLink(req);
+    void reply.header("cache-control", "no-store");
+    return { receipts: (await repo.partners.listConsentReceipts(link.id, 100)).map(receiptDto) };
   });
 }

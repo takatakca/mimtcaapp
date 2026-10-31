@@ -97,6 +97,23 @@ export function pushPayload(template: NotificationTemplate, data: Record<string,
         url: "/compte/integrations",
         tag: "calendar",
       };
+    case "partner_consent_receipt": {
+      // The partner's display name only (« BesoinAvocat »); anything longer or odd is dropped.
+      const partner = typeof data.partner === "string" && /^[\p{L}\p{N} .,'&-]{1,60}$/u.test(data.partner) ? data.partner : null;
+      const withdrawn = data.action === "revoked";
+      return {
+        title: fr ? "Reçu de consentement MIMT Connect" : "MIMT Connect consent receipt",
+        body: withdrawn
+          ? fr
+            ? `Le lien${partner ? ` avec ${partner}` : ""} est retiré. Le reçu est dans Compte › Intégrations.`
+            : `The link${partner ? ` with ${partner}` : ""} was removed. The receipt is in Account › Integrations.`
+          : fr
+            ? `Vos autorisations${partner ? ` pour ${partner}` : ""} ont changé. Voyez le reçu dans Compte › Intégrations.`
+            : `Your permissions${partner ? ` for ${partner}` : ""} changed. See the receipt in Account › Integrations.`,
+        url: "/compte/integrations",
+        tag: "partner-consent",
+      };
+    }
     default:
       return null;
   }

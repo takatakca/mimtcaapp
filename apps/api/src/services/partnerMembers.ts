@@ -3,6 +3,8 @@
 // the member's availability for the partner's hunt groups. Routes: src/routes/partners.ts. Ring-group skipping:
 // src/pbx/router.ts (dialRingGroup) fed by unavailableExtensionIds() through src/pbx/engine.ts (loadSnapshot).
 // Storage: src/repo/partners*.ts (0028_partner_member_status.sql). Everything is a no-op while PARTNERS=off.
+// Consent (0029): subscription.read, porting.read and availability.manage are checked on the link of a linked member
+// (403 scope_not_granted, access log); webhooks of a scope are not sent without it.
 
 import {
   type PartnerAvailabilityDto,
@@ -12,6 +14,7 @@ import {
   type PartnerMemberPortInsResponse,
   type PartnerMemberSubscriptionDto,
   type PartnerMemberSubscriptionStatus,
+  type PartnerScope,
   type PlanCode,
 } from "@mimt/shared";
 import type { AppDeps } from "../deps.js";
@@ -22,6 +25,7 @@ import type { PartnerAvailabilityRow, PartnerMemberLinkRow, PartnerMemberRow, Pa
 import type { Subscription, TelecomAccount } from "../repo/types.js";
 import { isLiveSubscription, planFromSubscriptions } from "./accounts.js";
 import { chooseNumberUrl, emitPartnerEvent, partnersOn } from "./partners.js";
+import { assertScope, type AccessContext } from "./partnerConsent.js";
 
 type Log = { warn: (obj: object, msg: string) => void; error: (obj: object, msg: string) => void };
 
@@ -36,14 +40,15 @@ export const planUrl = (deps: Pick<AppDeps, "config">, p: PartnerRow) => `${base
 /** Where the person starts a number transfer in MIMT (Services › Transfert de numéro). */
 export const portUrl = (deps: Pick<AppDeps, "config">, p: PartnerRow) => `${base(deps)}/services/transfert?partner=${slugOf(p)}`;
 
-/** Same 409 as the lot A routes, with the « choose a number in MIMT » link for the portal. */
-async function activeLink(deps: AppDeps, p: PartnerRow, m: PartnerMemberRow): Promise<PartnerMemberLinkRow> {
+/** Same 409 as the lot A routes, with the « choose a number in MIMT » link; then the link must grant `scope`. */
+async function activeLink(deps: AppDeps, p: PartnerRow, m: PartnerMemberRow, scope: PartnerScope, access: AccessContext): Promise<PartnerMemberLinkRow> {
   const link = await deps.repo.partners.getActiveLinkByMember(m.id);
   if (!link) {
     throw new HttpError(409, "member_not_linked", "This member has not linked a MIMT account yet (link request, then approval in MIMT).", {
       chooseNumberUrl: chooseNumberUrl(deps, p),
     });
   }
+  await assertScope(deps, link, scope, access);
   return link;
 }
 
@@ -89,8 +94,8 @@ type View = ReturnType<typeof subscriptionView>;
 const stateKey = (v: View) => `${v.plan}|${v.status}|${v.canCall ? 1 : 0}`;
 
 /** GET /v1/partner/members/:externalId/subscription (an active link is required). */
-export async function memberSubscription(deps: AppDeps, p: PartnerRow, m: PartnerMemberRow): Promise<PartnerMemberSubscriptionDto> {
-  const link = await activeLink(deps, p, m);
+export async function memberSubscription(deps: AppDeps, p: PartnerRow, m: PartnerMemberRow, access: AccessContext): Promise<PartnerMemberSubscriptionDto> {
+  const link = await activeLink(deps, p, m, "subscription.read", access);
   const v = await viewForUser(deps, link.userId);
   return { plan: v.plan, status: v.status, currentPeriodEnd: v.currentPeriodEnd?.toISOString() ?? null, canCall: v.canCall, planUrl: planUrl(deps, p) };
 }
@@ -116,13 +121,13 @@ export async function notifyMemberSubscription(deps: AppDeps, account: TelecomAc
       const [p, m] = await Promise.all([deps.repo.partners.getPartner(link.partnerId), deps.repo.partners.getMemberById(link.memberId)]);
       if (!p || p.status !== "active" || !m) continue;
       if (!(await deps.repo.partners.swapLinkSubscriptionState(link.id, stateKey(v)))) continue;
-      await emitPartnerEvent(deps, p, "member.subscription_changed", {
-        member_external_id: m.externalId,
-        plan: v.plan,
-        status: v.status,
-        current_period_end: v.currentPeriodEnd?.toISOString() ?? null,
-        can_call: v.canCall,
-      });
+      await emitPartnerEvent(
+        deps,
+        p,
+        "member.subscription_changed",
+        { member_external_id: m.externalId, plan: v.plan, status: v.status, current_period_end: v.currentPeriodEnd?.toISOString() ?? null, can_call: v.canCall },
+        { linkId: link.id },
+      );
     }
   } catch (err) {
     log?.error({ err: err instanceof Error ? err.message : String(err), accountId: account.id }, "partner subscription hook failed");
@@ -145,8 +150,8 @@ export function memberPortInDto({ request: r, numbers }: PortInWithNumbers): Par
 }
 
 /** GET /v1/partner/members/:externalId/port-ins: the linked person's own transfers, newest first. */
-export async function memberPortIns(deps: AppDeps, p: PartnerRow, m: PartnerMemberRow): Promise<PartnerMemberPortInsResponse> {
-  const link = await activeLink(deps, p, m);
+export async function memberPortIns(deps: AppDeps, p: PartnerRow, m: PartnerMemberRow, access: AccessContext): Promise<PartnerMemberPortInsResponse> {
+  const link = await activeLink(deps, p, m, "porting.read", access);
   const account = await deps.repo.getAccountByOwner(link.userId);
   const rows = account ? await deps.repo.portIns.listByAccounts([account.id]) : [];
   const own = rows.filter((x) => x.request.telecomAccountId === account?.id).sort((a, b) => b.request.createdAt.getTime() - a.request.createdAt.getTime());
@@ -171,15 +176,21 @@ export async function notifyMemberPortIn(deps: AppDeps, before: PortInWithNumber
     for (const link of await deps.repo.partners.listActiveLinksByUser(account.ownerUserId)) {
       const [p, m] = await Promise.all([deps.repo.partners.getPartner(link.partnerId), deps.repo.partners.getMemberById(link.memberId)]);
       if (!p || p.status !== "active" || !m) continue;
-      await emitPartnerEvent(deps, p, "member.port_in_updated", {
-        member_external_id: m.externalId,
-        port_in_id: dto.id,
-        e164: dto.e164,
-        numbers: dto.numbers,
-        status: dto.status,
-        updated_at: dto.updatedAt,
-        expected_date: dto.expectedDate,
-      });
+      await emitPartnerEvent(
+        deps,
+        p,
+        "member.port_in_updated",
+        {
+          member_external_id: m.externalId,
+          port_in_id: dto.id,
+          e164: dto.e164,
+          numbers: dto.numbers,
+          status: dto.status,
+          updated_at: dto.updatedAt,
+          expected_date: dto.expectedDate,
+        },
+        { linkId: link.id },
+      );
     }
   } catch (err) {
     log?.error({ err: err instanceof Error ? err.message : String(err), portInId: after.request.id }, "partner port-in hook failed");
@@ -205,14 +216,15 @@ export function effectiveAvailability(a: PartnerAvailabilityRow | null, at: Date
   return decided;
 }
 
-export function availabilityDto(m: PartnerMemberRow, a: PartnerAvailabilityRow | null, at: Date): PartnerAvailabilityDto {
+/** `linked: false`: the person's own status is not shown (it belongs to a MIMT account no longer linked). */
+export function availabilityDto(m: PartnerMemberRow, a: PartnerAvailabilityRow | null, at: Date, opts: { linked?: boolean } = {}): PartnerAvailabilityDto {
   const eff = effectiveAvailability(a, at);
   return {
     externalId: m.externalId,
     status: a?.status ?? "available",
     weekly: a?.weekly ?? null,
     until: a?.until?.toISOString() ?? null,
-    userStatus: a?.userStatus ?? null,
+    userStatus: opts.linked === false ? null : (a?.userStatus ?? null),
     effectiveStatus: eff.status,
     source: eff.source,
     updatedAt: a?.updatedAt.toISOString() ?? null,
@@ -221,22 +233,39 @@ export function availabilityDto(m: PartnerMemberRow, a: PartnerAvailabilityRow |
 
 const availabilityKey = (a: PartnerAvailabilityRow | null) => JSON.stringify([a?.status ?? "available", a?.weekly ?? null, a?.until?.getTime() ?? null, a?.userStatus ?? null]);
 
-async function availabilityChanged(deps: AppDeps, p: PartnerRow, m: PartnerMemberRow, after: PartnerAvailabilityRow, by: "partner" | "user") {
+async function availabilityChanged(deps: AppDeps, p: PartnerRow, m: PartnerMemberRow, after: PartnerAvailabilityRow, by: "partner" | "user", linkId: string | null) {
   const eff = effectiveAvailability(after, deps.now());
-  await emitPartnerEvent(deps, p, "member.availability_changed", {
-    member_external_id: m.externalId,
-    effective_status: eff.status,
-    source: eff.source,
-    partner_status: after.status,
-    user_status: after.userStatus,
-    until: after.until?.toISOString() ?? null,
-    has_schedule: Boolean(after.weekly),
-    changed_by: by,
-  });
+  await emitPartnerEvent(
+    deps,
+    p,
+    "member.availability_changed",
+    {
+      member_external_id: m.externalId,
+      effective_status: eff.status,
+      source: eff.source,
+      partner_status: after.status,
+      user_status: after.userStatus,
+      until: after.until?.toISOString() ?? null,
+      has_schedule: Boolean(after.weekly),
+      changed_by: by,
+    },
+    { linkId },
+  );
 }
 
-export async function getMemberAvailability(deps: AppDeps, m: PartnerMemberRow): Promise<PartnerAvailabilityDto> {
-  return availabilityDto(m, await deps.repo.partners.getAvailability(m.id), deps.now());
+/**
+ * A member linked to a MIMT account: availability.manage is required (the setting decides when the person's apps
+ * ring). A member without a link is the partner's own roster (its cellphone): no consent applies.
+ */
+async function availabilityLink(deps: AppDeps, m: PartnerMemberRow, access: AccessContext): Promise<PartnerMemberLinkRow | null> {
+  const link = await deps.repo.partners.getActiveLinkByMember(m.id);
+  if (link) await assertScope(deps, link, "availability.manage", access);
+  return link;
+}
+
+export async function getMemberAvailability(deps: AppDeps, m: PartnerMemberRow, access: AccessContext): Promise<PartnerAvailabilityDto> {
+  const link = await availabilityLink(deps, m, access);
+  return availabilityDto(m, await deps.repo.partners.getAvailability(m.id), deps.now(), { linked: Boolean(link) });
 }
 
 /** PUT /v1/partner/members/:externalId/availability: replaces the partner's setting (the person's own one is kept). */
@@ -245,8 +274,9 @@ export async function putMemberAvailability(
   p: PartnerRow,
   m: PartnerMemberRow,
   body: PartnerAvailabilityRequest,
-  actor: { ip: string; keyId: string },
+  actor: { ip: string; keyId: string } & AccessContext,
 ): Promise<PartnerAvailabilityDto> {
+  const link = await availabilityLink(deps, m, actor);
   const now = deps.now();
   const until = body.until ? new Date(body.until) : null;
   if (until && until.getTime() <= now.getTime()) throw badRequest("until_in_past", "`until` must be in the future");
@@ -254,7 +284,7 @@ export async function putMemberAvailability(
   const before = await deps.repo.partners.getAvailability(m.id);
   const after = await deps.repo.partners.upsertAvailability(p.id, m.id, { status: body.status, weekly: body.weekly ?? null, until });
   if (availabilityKey(before) !== availabilityKey(after)) {
-    await availabilityChanged(deps, p, m, after, "partner");
+    await availabilityChanged(deps, p, m, after, "partner", link?.id ?? null);
     await deps.repo.audit({
       actorUserId: null,
       action: "partner.member_availability_set",
@@ -264,7 +294,7 @@ export async function putMemberAvailability(
       meta: { keyId: actor.keyId, memberId: m.id, status: body.status, schedule: Boolean(body.weekly), until: until?.toISOString() ?? null },
     });
   }
-  return availabilityDto(m, after, now);
+  return availabilityDto(m, after, now, { linked: Boolean(link) });
 }
 
 /** PUT /v1/me/partner-links/:id/availability: the linked person's own status (null gives control back to the partner). */
@@ -274,7 +304,7 @@ export async function setMyAvailability(deps: AppDeps, link: PartnerMemberLinkRo
   const before = await deps.repo.partners.getAvailability(m.id);
   const after = await deps.repo.partners.upsertAvailability(p.id, m.id, { userStatus: status });
   if (availabilityKey(before) !== availabilityKey(after)) {
-    await availabilityChanged(deps, p, m, after, "user");
+    await availabilityChanged(deps, p, m, after, "user", link.id);
     await deps.repo.audit({ actorUserId: actor.userId, action: "partner.member_availability_self", targetType: "partner", targetId: p.id, ip: actor.ip, meta: { linkId: link.id, status } });
   }
   return after;

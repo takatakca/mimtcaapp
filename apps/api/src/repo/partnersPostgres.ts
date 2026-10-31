@@ -3,11 +3,14 @@ import type {
   NewPartnerCall,
   PartnerApiKeyRow,
   PartnerAvailabilityPatch,
+  PartnerAccessLogRow,
   PartnerAvailabilityRow,
   PartnerCallPatch,
   PartnerCallRow,
   PartnerCreditInput,
+  PartnerConsentReceiptRow,
   PartnerCreditResult,
+  PartnerGrant,
   PartnerHuntGroupRow,
   PartnerLedgerRow,
   PartnerLinkCreateResult,
@@ -18,8 +21,10 @@ import type {
   PartnerPatch,
   PartnerRepository,
   PartnerRow,
+  PartnerTermsAcceptanceRow,
   PartnerWebhookEventRow,
 } from "./partners.js";
+import type { PartnerScope, PartnerScopeRequestItem } from "@mimt/shared";
 
 type Sql = postgres.Sql<{}>;
 type Json = postgres.JSONValue;
@@ -31,14 +36,22 @@ const MEMBER_COLS = "id, partner_id, external_id, name, email, phone, handle, la
 const HUNT_COLS = "id, partner_id, key, ring_group_id, created_at, updated_at";
 const LEDGER_COLS = "id, partner_id, delta, reason, reference, idempotency_key, balance_after, meta, created_by, created_at";
 const CALL_COLS =
-  "id, partner_id, call_sid, direction, from_number, to_number, hunt_group_key, member_id, external_id, answered_leg_sid, started_at, answered_at, ended_at, talk_s, credits_charged, billing, recording_id, reference, finalized_at, created_at";
-const LINK_REQUEST_COLS = "id, partner_id, member_id, code_sha256, expires_at, attempts, used_at, invalidated_at, created_at";
-const LINK_COLS = "id, partner_id, member_id, user_id, number_id, request_id, created_at, updated_at, revoked_at, revoked_by";
+  "id, partner_id, call_sid, direction, from_number, to_number, hunt_group_key, member_id, external_id, answered_leg_sid, started_at, answered_at, ended_at, talk_s, credits_charged, billing, recording_id, reference, link_id, finalized_at, created_at";
+// jsonb (purposes keyed by scope, request items) is read back as text and parsed here, like the event payload: the
+// client's camelCase transform must never touch the stored shape.
+const LINK_REQUEST_COLS = "id, partner_id, member_id, code_sha256, expires_at, attempts, used_at, invalidated_at, kind, link_id, scopes::text as scopes_text, created_at";
+const LINK_COLS =
+  "id, partner_id, member_id, user_id, number_id, request_id, created_at, updated_at, revoked_at, revoked_by, scopes, required_scopes, purposes::text as purposes_text, consent_version, scope_set_version, consented_at";
+const TERMS_COLS =
+  "id, partner_id, terms_version, accepted_at, signer_name, signer_title, legal_name, privacy_contact_email, purposes::text as purposes_text, recorded_by, created_at";
+const RECEIPT_COLS =
+  "id, link_id, partner_id, member_id, user_id, action, actor, scopes, changed, required_scopes, purposes::text as purposes_text, consent_version, scope_set_version, terms_version, device, network, created_at";
+const ACCESS_COLS = "id, partner_id, link_id, scope, route, outcome, at";
 // Weekly windows are read back as text too (same camelCase transform concern, and it keeps the exact shape).
 const AVAILABILITY_COLS = "member_id, partner_id, status, weekly::text as weekly_text, until, user_status, created_at, updated_at";
 // The payload is read back as text: the client's camelCase transform would otherwise rename the snake_case keys
 // the partner receives (call_id → callId).
-const EVENT_COLS = "id, partner_id, event_type, payload::text as payload_text, attempts, next_attempt_at, delivered_at, last_error, created_at";
+const EVENT_COLS = "id, partner_id, event_type, payload::text as payload_text, attempts, next_attempt_at, delivered_at, last_error, link_id, created_at";
 
 const first = <T>(rows: readonly unknown[]): T | null => (rows[0] as T | undefined) ?? null;
 
@@ -48,6 +61,29 @@ const firstEvent = (rows: readonly unknown[]) => {
   const r = first<EventRowText>(rows);
   return r ? eventRow(r) : null;
 };
+
+type Purposes = Partial<Record<PartnerScope, string>>;
+const parsePurposes = (t: string | null): Purposes => (t ? (JSON.parse(t) as Purposes) : {});
+
+type LinkRowText = Omit<PartnerMemberLinkRow, "purposes"> & { purposesText: string };
+const linkRow = ({ purposesText, ...r }: LinkRowText): PartnerMemberLinkRow => ({ ...r, purposes: parsePurposes(purposesText) });
+const firstLink = (rows: readonly unknown[]) => {
+  const r = first<LinkRowText>(rows);
+  return r ? linkRow(r) : null;
+};
+
+type LinkRequestRowText = Omit<PartnerLinkRequestRow, "scopes"> & { scopesText: string };
+const linkRequestRow = ({ scopesText, ...r }: LinkRequestRowText): PartnerLinkRequestRow => ({ ...r, scopes: JSON.parse(scopesText) as PartnerScopeRequestItem[] });
+const firstLinkRequest = (rows: readonly unknown[]) => {
+  const r = first<LinkRequestRowText>(rows);
+  return r ? linkRequestRow(r) : null;
+};
+
+type TermsRowText = Omit<PartnerTermsAcceptanceRow, "purposes"> & { purposesText: string };
+const termsRow = ({ purposesText, ...r }: TermsRowText): PartnerTermsAcceptanceRow => ({ ...r, purposes: parsePurposes(purposesText) });
+
+type ReceiptRowText = Omit<PartnerConsentReceiptRow, "purposes"> & { purposesText: string };
+const receiptRow = ({ purposesText, ...r }: ReceiptRowText): PartnerConsentReceiptRow => ({ ...r, purposes: parsePurposes(purposesText) });
 
 type AvailabilityRowText = Omit<PartnerAvailabilityRow, "weekly"> & { weeklyText: string | null };
 const availabilityRow = ({ weeklyText, ...r }: AvailabilityRowText): PartnerAvailabilityRow => ({
@@ -239,9 +275,9 @@ export class PostgresPartnerRepository implements PartnerRepository {
 
   async createCall(c: NewPartnerCall) {
     await this.sql.unsafe(
-      `insert into partner_calls (partner_id, call_sid, direction, from_number, to_number, hunt_group_key, started_at, member_id, external_id, reference)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) on conflict (call_sid) do nothing`,
-      [c.partnerId, c.callSid, c.direction, c.fromNumber, c.toNumber, c.huntGroupKey, c.startedAt, c.memberId ?? null, c.externalId ?? null, c.reference ?? null],
+      `insert into partner_calls (partner_id, call_sid, direction, from_number, to_number, hunt_group_key, started_at, member_id, external_id, reference, link_id)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) on conflict (call_sid) do nothing`,
+      [c.partnerId, c.callSid, c.direction, c.fromNumber, c.toNumber, c.huntGroupKey, c.startedAt, c.memberId ?? null, c.externalId ?? null, c.reference ?? null, c.linkId ?? null],
     );
     return (await this.getCallBySid(c.callSid))!;
   }
@@ -250,18 +286,25 @@ export class PostgresPartnerRepository implements PartnerRepository {
     return first<PartnerCallRow>(await this.sql.unsafe(`select ${CALL_COLS} from partner_calls where call_sid = $1`, [callSid]));
   }
 
+  async getCallByRecording(partnerId: string, recordingId: string) {
+    return first<PartnerCallRow>(
+      await this.sql.unsafe(`select ${CALL_COLS} from partner_calls where partner_id = $1 and recording_id = $2 order by started_at desc limit 1`, [partnerId, recordingId]),
+    );
+  }
+
   async updateCall(id: string, patch: PartnerCallPatch) {
     const set = setClause(patch, CALL_PATCH);
     if (!set.values.length) return first<PartnerCallRow>(await this.sql.unsafe(`select ${CALL_COLS} from partner_calls where id = $1`, [id]));
     return first<PartnerCallRow>(await this.sql.unsafe(`update partner_calls set ${set.sql} where id = $1 returning ${CALL_COLS}`, [id, ...set.values] as never[]));
   }
 
-  async markAnswered(id: string, a: { memberId: string; externalId: string; legSid: string; at: Date }) {
+  async markAnswered(id: string, a: { memberId: string; externalId: string; legSid: string; at: Date; linkId?: string | null }) {
     return first<PartnerCallRow>(
       await this.sql.unsafe(
-        `update partner_calls set member_id = $2, external_id = $3, answered_leg_sid = $4, answered_at = $5
+        `update partner_calls set member_id = $2, external_id = $3, answered_leg_sid = $4, answered_at = $5,
+           link_id = case when $6 then $7::uuid else link_id end
          where id = $1 and answered_at is null returning ${CALL_COLS}`,
-        [id, a.memberId, a.externalId, a.legSid, a.at],
+        [id, a.memberId, a.externalId, a.legSid, a.at, a.linkId !== undefined, a.linkId ?? null],
       ),
     );
   }
@@ -293,28 +336,38 @@ export class PostgresPartnerRepository implements PartnerRepository {
     return (row as { n: number }).n;
   }
 
-  async createLinkRequest(r: { partnerId: string; memberId: string; codeSha256: string; expiresAt: Date; at: Date }) {
+  async createLinkRequest(r: {
+    partnerId: string;
+    memberId: string;
+    codeSha256: string;
+    expiresAt: Date;
+    at: Date;
+    kind?: "link" | "upgrade";
+    linkId?: string | null;
+    scopes?: PartnerScopeRequestItem[];
+  }) {
     return (await this.sql.begin(async (tx) => {
       await tx`update partner_link_requests set invalidated_at = ${r.at} where member_id = ${r.memberId} and used_at is null and invalidated_at is null`;
-      return first<PartnerLinkRequestRow>(
+      return firstLinkRequest(
         await tx.unsafe(
-          `insert into partner_link_requests (partner_id, member_id, code_sha256, expires_at, created_at) values ($1, $2, $3, $4, $5) returning ${LINK_REQUEST_COLS}`,
-          [r.partnerId, r.memberId, r.codeSha256, r.expiresAt, r.at],
+          `insert into partner_link_requests (partner_id, member_id, code_sha256, expires_at, created_at, kind, link_id, scopes)
+           values ($1, $2, $3, $4, $5, $6, $7, $8) returning ${LINK_REQUEST_COLS}`,
+          [r.partnerId, r.memberId, r.codeSha256, r.expiresAt, r.at, r.kind ?? "link", r.linkId ?? null, tx.json((r.scopes ?? []) as unknown as Json) as never],
         ),
       )!;
     })) as PartnerLinkRequestRow;
   }
 
   async getLinkRequest(id: string) {
-    return first<PartnerLinkRequestRow>(await this.sql.unsafe(`select ${LINK_REQUEST_COLS} from partner_link_requests where id = $1`, [id]));
+    return firstLinkRequest(await this.sql.unsafe(`select ${LINK_REQUEST_COLS} from partner_link_requests where id = $1`, [id]));
   }
 
   async findLinkRequestByHash(codeSha256: string) {
-    return first<PartnerLinkRequestRow>(await this.sql.unsafe(`select ${LINK_REQUEST_COLS} from partner_link_requests where code_sha256 = $1`, [codeSha256]));
+    return firstLinkRequest(await this.sql.unsafe(`select ${LINK_REQUEST_COLS} from partner_link_requests where code_sha256 = $1`, [codeSha256]));
   }
 
   async recordLinkRequestFailure(id: string, maxAttempts: number, at: Date) {
-    return first<PartnerLinkRequestRow>(
+    return firstLinkRequest(
       await this.sql.unsafe(
         `update partner_link_requests set attempts = attempts + 1,
            invalidated_at = case when invalidated_at is null and attempts + 1 >= $2 then $3::timestamptz else invalidated_at end
@@ -331,12 +384,15 @@ export class PostgresPartnerRepository implements PartnerRepository {
     ).length === 1;
   }
 
-  async createLink(l: { partnerId: string; memberId: string; userId: string; requestId: string | null; at: Date }): Promise<PartnerLinkCreateResult> {
+  async createLink(l: { partnerId: string; memberId: string; userId: string; requestId: string | null; at: Date; grant: PartnerGrant }): Promise<PartnerLinkCreateResult> {
     try {
-      const link = first<PartnerMemberLinkRow>(
+      const g = l.grant;
+      const link = firstLink(
         await this.sql.unsafe(
-          `insert into partner_member_links (partner_id, member_id, user_id, request_id, created_at, updated_at) values ($1, $2, $3, $4, $5, $5) returning ${LINK_COLS}`,
-          [l.partnerId, l.memberId, l.userId, l.requestId, l.at],
+          `insert into partner_member_links (partner_id, member_id, user_id, request_id, created_at, updated_at, consented_at,
+             scopes, required_scopes, purposes, consent_version, scope_set_version)
+           values ($1, $2, $3, $4, $5, $5, $5, $6::text[], $7::text[], $8, $9, $10) returning ${LINK_COLS}`,
+          [l.partnerId, l.memberId, l.userId, l.requestId, l.at, g.scopes, g.requiredScopes, this.sql.json(g.purposes as Json) as never, g.consentVersion, g.scopeSetVersion] as never[],
         ),
       )!;
       return { status: "created", link };
@@ -350,35 +406,115 @@ export class PostgresPartnerRepository implements PartnerRepository {
   }
 
   async getLink(id: string) {
-    return first<PartnerMemberLinkRow>(await this.sql.unsafe(`select ${LINK_COLS} from partner_member_links where id = $1`, [id]));
+    return firstLink(await this.sql.unsafe(`select ${LINK_COLS} from partner_member_links where id = $1`, [id]));
   }
 
   async getActiveLinkByMember(memberId: string) {
-    return first<PartnerMemberLinkRow>(await this.sql.unsafe(`select ${LINK_COLS} from partner_member_links where member_id = $1 and revoked_at is null`, [memberId]));
+    return firstLink(await this.sql.unsafe(`select ${LINK_COLS} from partner_member_links where member_id = $1 and revoked_at is null`, [memberId]));
   }
 
   async getActiveLinkByUser(partnerId: string, userId: string) {
-    return first<PartnerMemberLinkRow>(
+    return firstLink(
       await this.sql.unsafe(`select ${LINK_COLS} from partner_member_links where partner_id = $1 and user_id = $2 and revoked_at is null`, [partnerId, userId]),
     );
   }
 
   async listActiveLinksByUser(userId: string) {
-    return (await this.sql.unsafe(`select ${LINK_COLS} from partner_member_links where user_id = $1 and revoked_at is null order by created_at desc, id`, [
+    return ((await this.sql.unsafe(`select ${LINK_COLS} from partner_member_links where user_id = $1 and revoked_at is null order by created_at desc, id`, [
       userId,
-    ])) as unknown as PartnerMemberLinkRow[];
+    ])) as unknown as LinkRowText[]).map(linkRow);
   }
 
   async revokeLink(id: string, by: "user" | "partner" | "system", at: Date) {
-    return first<PartnerMemberLinkRow>(
+    return firstLink(
       await this.sql.unsafe(`update partner_member_links set revoked_at = $2, revoked_by = $3 where id = $1 and revoked_at is null returning ${LINK_COLS}`, [id, at, by]),
     );
   }
 
   async setLinkNumber(id: string, numberId: string | null) {
-    return first<PartnerMemberLinkRow>(
+    return firstLink(
       await this.sql.unsafe(`update partner_member_links set number_id = $2 where id = $1 and revoked_at is null returning ${LINK_COLS}`, [id, numberId]),
     );
+  }
+
+  async setLinkGrant(id: string, grant: PartnerGrant, at: Date) {
+    return firstLink(
+      await this.sql.unsafe(
+        `update partner_member_links set scopes = $2::text[], required_scopes = $3::text[], purposes = $4, consent_version = $5, scope_set_version = $6,
+           consented_at = $7 where id = $1 and revoked_at is null returning ${LINK_COLS}`,
+        [id, grant.scopes, grant.requiredScopes, this.sql.json(grant.purposes as Json) as never, grant.consentVersion, grant.scopeSetVersion, at] as never[],
+      ),
+    );
+  }
+
+  async addTermsAcceptance(t: Omit<PartnerTermsAcceptanceRow, "id" | "createdAt"> & { at: Date }) {
+    const r = first<TermsRowText>(
+      await this.sql.unsafe(
+        `insert into partner_terms_acceptances (partner_id, terms_version, accepted_at, signer_name, signer_title, legal_name, privacy_contact_email, purposes, recorded_by, created_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning ${TERMS_COLS}`,
+        [t.partnerId, t.termsVersion, t.acceptedAt, t.signerName, t.signerTitle, t.legalName, t.privacyContactEmail, this.sql.json(t.purposes as Json) as never, t.recordedBy, t.at] as never[],
+      ),
+    )!;
+    return termsRow(r);
+  }
+
+  async latestTermsAcceptance(partnerId: string) {
+    const r = first<TermsRowText>(
+      await this.sql.unsafe(`select ${TERMS_COLS} from partner_terms_acceptances where partner_id = $1 order by created_at desc, id desc limit 1`, [partnerId]),
+    );
+    return r ? termsRow(r) : null;
+  }
+
+  async addConsentReceipt(r: Omit<PartnerConsentReceiptRow, "id" | "createdAt"> & { at: Date }) {
+    const row = first<ReceiptRowText>(
+      await this.sql.unsafe(
+        `insert into partner_consent_receipts (link_id, partner_id, member_id, user_id, action, actor, scopes, changed, required_scopes, purposes,
+           consent_version, scope_set_version, terms_version, device, network, created_at)
+         values ($1, $2, $3, $4, $5, $6, $7::text[], $8::text[], $9::text[], $10, $11, $12, $13, $14, $15, $16) returning ${RECEIPT_COLS}`,
+        [
+          r.linkId,
+          r.partnerId,
+          r.memberId,
+          r.userId,
+          r.action,
+          r.actor,
+          r.scopes,
+          r.changed,
+          r.requiredScopes,
+          this.sql.json(r.purposes as Json) as never,
+          r.consentVersion,
+          r.scopeSetVersion,
+          r.termsVersion,
+          r.device,
+          r.network,
+          r.at,
+        ] as never[],
+      ),
+    )!;
+    return receiptRow(row);
+  }
+
+  async listConsentReceipts(linkId: string, limit: number) {
+    return ((await this.sql.unsafe(`select ${RECEIPT_COLS} from partner_consent_receipts where link_id = $1 order by created_at desc, id desc limit $2`, [
+      linkId,
+      limit,
+    ])) as unknown as ReceiptRowText[]).map(receiptRow);
+  }
+
+  async logAccess(e: Omit<PartnerAccessLogRow, "id">) {
+    await this.sql`insert into partner_access_log (partner_id, link_id, scope, route, outcome, at)
+      values (${e.partnerId}, ${e.linkId}, ${e.scope}, ${e.route}, ${e.outcome}, ${e.at})`;
+  }
+
+  async listAccessLog(linkId: string, limit: number) {
+    return (await this.sql.unsafe(`select ${ACCESS_COLS} from partner_access_log where link_id = $1 order by at desc, id desc limit $2`, [
+      linkId,
+      limit,
+    ])) as unknown as PartnerAccessLogRow[];
+  }
+
+  async pruneAccessLog(before: Date) {
+    return (await this.sql`delete from partner_access_log where at < ${before} returning id`).length;
   }
 
   async getAvailability(memberId: string) {
@@ -421,11 +557,11 @@ export class PostgresPartnerRepository implements PartnerRepository {
     return rows.length > 0;
   }
 
-  async enqueueEvent(e: { partnerId: string; eventType: PartnerWebhookEventRow["eventType"]; payload: Record<string, unknown>; at: Date }) {
+  async enqueueEvent(e: { partnerId: string; eventType: PartnerWebhookEventRow["eventType"]; payload: Record<string, unknown>; at: Date; linkId?: string | null }) {
     return firstEvent(
       await this.sql.unsafe(
-        `insert into partner_webhook_events (partner_id, event_type, payload, next_attempt_at, created_at) values ($1, $2, $3, $4, $4) returning ${EVENT_COLS}`,
-        [e.partnerId, e.eventType, this.sql.json(e.payload as Json) as never, e.at],
+        `insert into partner_webhook_events (partner_id, event_type, payload, next_attempt_at, created_at, link_id) values ($1, $2, $3, $4, $4, $5) returning ${EVENT_COLS}`,
+        [e.partnerId, e.eventType, this.sql.json(e.payload as Json) as never, e.at, e.linkId ?? null],
       ),
     )!;
   }

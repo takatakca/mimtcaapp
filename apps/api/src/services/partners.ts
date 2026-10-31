@@ -5,6 +5,8 @@
 import {
   isValidExtension,
   normalizeHandle,
+  PARTNER_CONSENT_TEXT_VERSION,
+  PARTNER_EVENT_SCOPES,
   type PartnerApiKeyCreated,
   type PartnerApiKeyDto,
   type PartnerCallDto,
@@ -105,10 +107,15 @@ export async function linkLine(deps: AppDeps, link: PartnerMemberLinkRow | null)
   return n && account && n.telecomAccountId === account.id && n.state === "active" ? n : null;
 }
 
-export async function memberDto(deps: AppDeps, m: PartnerMemberRow): Promise<PartnerMemberDto> {
+/**
+ * A member as the partner sees it. The line (one of the linked person's own numbers) is shown only with line.manage;
+ * `onLineShown` lets the caller log that access (scopes and the access log: services/partnerConsent.ts).
+ */
+export async function memberDto(deps: AppDeps, m: PartnerMemberRow, onLineShown?: (link: PartnerMemberLinkRow) => Promise<void>): Promise<PartnerMemberDto> {
   const ext = m.extensionId ? await deps.repo.pbx.getExtension(m.extensionId) : null;
   const link = await deps.repo.partners.getActiveLinkByMember(m.id);
-  const line = await linkLine(deps, link);
+  const line = link?.scopes.includes("line.manage") ? await linkLine(deps, link) : null;
+  if (line && link && onLineShown) await onLineShown(link);
   const partner = line ? null : await deps.repo.partners.getPartner(m.partnerId);
   return {
     externalId: m.externalId,
@@ -122,6 +129,9 @@ export async function memberDto(deps: AppDeps, m: PartnerMemberRow): Promise<Par
     linked: Boolean(link),
     lineNumber: line?.e164 ?? null,
     chooseNumberUrl: partner ? chooseNumberUrl(deps, partner) : null,
+    scopes: link ? [...link.scopes] : [],
+    consentVersion: link?.consentVersion ?? null,
+    consentCurrent: link ? link.consentVersion === PARTNER_CONSENT_TEXT_VERSION : null,
     createdAt: m.createdAt.toISOString(),
     updatedAt: m.updatedAt.toISOString(),
   };
@@ -139,8 +149,9 @@ export async function recordingLink(deps: AppDeps, businessId: string, recording
   };
 }
 
-export async function callDto(deps: AppDeps, p: PartnerRow, c: PartnerCallRow): Promise<PartnerCallDto> {
-  const link = c.recordingId ? await recordingLink(deps, p.businessId, c.recordingId) : null;
+/** `recording: false` leaves the recording URL out (the linked person did not grant recordings.read). */
+export async function callDto(deps: AppDeps, p: PartnerRow, c: PartnerCallRow, opts: { recording?: boolean } = {}): Promise<PartnerCallDto> {
+  const link = c.recordingId && opts.recording !== false ? await recordingLink(deps, p.businessId, c.recordingId) : null;
   return {
     id: c.id,
     direction: c.direction,
@@ -253,10 +264,23 @@ export async function setWebhook(
   return { webhookUrl: input.url, secret: newSecret };
 }
 
-/** Queues an event for the partner's webhook (nothing when no webhook is set). Payload: ids and metadata only. */
-export async function emitPartnerEvent(deps: AppDeps, p: PartnerRow, eventType: PartnerEventType, data: Record<string, unknown>) {
+/** True when an event about this link may go to the partner (its scope is granted on the active link). */
+async function eventAllowed(deps: AppDeps, eventType: PartnerEventType, linkId: string | null | undefined) {
+  const scope = PARTNER_EVENT_SCOPES[eventType];
+  if (!scope || !linkId) return true;
+  const link = await deps.repo.partners.getLink(linkId);
+  return Boolean(link && !link.revokedAt && link.scopes.includes(scope));
+}
+
+/**
+ * Queues an event for the partner's webhook (nothing when no webhook is set). Payload: ids and metadata only.
+ * `linkId`: the account link the event is about. An event whose scope (PARTNER_EVENT_SCOPES) the linked person did not
+ * grant is not queued; delivery checks again, so a scope removed meanwhile stops it too.
+ */
+export async function emitPartnerEvent(deps: AppDeps, p: PartnerRow, eventType: PartnerEventType, data: Record<string, unknown>, opts: { linkId?: string | null } = {}) {
   if (!p.webhookUrl) return null;
-  return deps.repo.partners.enqueueEvent({ partnerId: p.id, eventType, payload: { partner_id: p.id, ...data }, at: deps.now() });
+  if (!(await eventAllowed(deps, eventType, opts.linkId))) return null;
+  return deps.repo.partners.enqueueEvent({ partnerId: p.id, eventType, payload: { partner_id: p.id, ...data }, at: deps.now(), linkId: opts.linkId ?? null });
 }
 
 /**
@@ -277,6 +301,11 @@ export async function deliverPartnerWebhooks(deps: AppDeps, log: Log, opts: { fe
     if (!p?.webhookUrl || !p.webhookSecretEncrypted || webhookUrlProblem(p.webhookUrl)) {
       // The webhook was removed after the event was queued: nothing to send to, ever.
       await deps.repo.partners.markEventFailed(ev.id, "no webhook configured", null);
+      continue;
+    }
+    if (!(await eventAllowed(deps, ev.eventType, ev.linkId))) {
+      // The person removed the scope (or the link) after the event was queued: it is never sent.
+      await deps.repo.partners.markEventFailed(ev.id, "scope_not_granted", null);
       continue;
     }
     const body = JSON.stringify({ id: ev.id, type: ev.eventType, created_at: ev.createdAt.toISOString(), data: ev.payload });
@@ -557,15 +586,23 @@ export async function partnerLegAnswered(deps: AppDeps, input: { parentCallSid: 
   const member = call ? await deps.repo.partners.getMemberByExtension(input.extensionId) : null;
   if (!call || !member || member.partnerId !== call.partnerId || call.finalizedAt) return;
   const p = await deps.repo.partners.getPartner(call.partnerId);
-  const answered = await deps.repo.partners.markAnswered(call.id, { memberId: member.id, externalId: member.externalId, legSid: input.legSid, at: deps.now() });
+  // Answered under an account link: that link's scopes govern this call record from now on.
+  const link = await deps.repo.partners.getActiveLinkByMember(member.id);
+  const answered = await deps.repo.partners.markAnswered(call.id, { memberId: member.id, externalId: member.externalId, legSid: input.legSid, at: deps.now(), linkId: link?.id ?? null });
   if (!p || !answered) return;
-  await emitPartnerEvent(deps, p, "call.answered", {
-    call_id: call.id,
-    direction: call.direction,
-    member_external_id: member.externalId,
-    hunt_group: call.huntGroupKey,
-    answered_at: answered.answeredAt!.toISOString(),
-  });
+  await emitPartnerEvent(
+    deps,
+    p,
+    "call.answered",
+    {
+      call_id: call.id,
+      direction: call.direction,
+      member_external_id: member.externalId,
+      hunt_group: call.huntGroupKey,
+      answered_at: answered.answeredAt!.toISOString(),
+    },
+    { linkId: answered.linkId },
+  );
 }
 
 /** A member's leg ended: its duration is the talk time (only for the leg that answered, before the call is closed). */
@@ -622,7 +659,7 @@ export async function partnerCallEnded(deps: AppDeps, log: Log | undefined, inpu
     credits: charged,
     billing,
     unbilled_credits: cost - charged,
-  });
+  }, { linkId: call.linkId });
 }
 
 /** One alert per empty balance (cleared by the next top-up): error log for monitoring + audit row. */
@@ -640,10 +677,11 @@ export async function partnerRecordingReady(deps: AppDeps, input: { business: Bu
   const call = (await deps.repo.partners.getCallBySid(input.callSid)) ?? (input.parentCallSid ? await deps.repo.partners.getCallBySid(input.parentCallSid) : null);
   if (!call || call.partnerId !== p.id) return;
   await deps.repo.partners.updateCall(call.id, { recordingId: input.recording.id });
-  await emitPartnerEvent(deps, p, "recording.ready", {
-    call_id: call.id,
-    recording_id: input.recording.id,
-    member_external_id: call.externalId,
-    duration_s: input.recording.durationS,
-  });
+  await emitPartnerEvent(
+    deps,
+    p,
+    "recording.ready",
+    { call_id: call.id, recording_id: input.recording.id, member_external_id: call.externalId, duration_s: input.recording.durationS },
+    { linkId: call.linkId },
+  );
 }

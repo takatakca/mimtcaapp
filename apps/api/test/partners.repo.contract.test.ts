@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MemoryRepository } from "../src/repo/memory.js";
 import { PostgresRepository } from "../src/repo/postgres.js";
 import type { Repository } from "../src/repo/types.js";
+import type { PartnerGrant } from "../src/repo/partners.js";
 
 // Same behaviour from the memory and Postgres « MIMT Connect » repositories (supabase/migrations/0023_partners.sql).
 const pgUrl = process.env.TEST_DATABASE_URL;
@@ -11,6 +14,13 @@ const impls: Array<[string, () => Repository, boolean]> = [
 ];
 
 const at = new Date("2026-10-29T12:00:00Z");
+const grant: PartnerGrant = {
+  scopes: ["calls.read", "calls.place", "line.manage"],
+  requiredScopes: ["calls.read"],
+  purposes: { "calls.read": "Suivre les appels de référence.", "calls.place": "Rappeler les clients.", "line.manage": "Choisir la ligne." },
+  consentVersion: "2026-10-31",
+  scopeSetVersion: 1,
+};
 
 for (const [name, make, enabled] of impls) {
   describe.skipIf(!enabled)(`partners repository contract: ${name}`, () => {
@@ -22,7 +32,7 @@ for (const [name, make, enabled] of impls) {
     beforeEach(async () => {
       if (repo instanceof PostgresRepository) {
         await repo.sql.unsafe(
-          "truncate partner_member_availability, partner_member_links, partner_link_requests, partner_webhook_events, partner_calls, partner_credit_ledger, partner_hunt_groups, partner_members, partner_api_keys, partners, businesses, telecom_accounts, users cascade",
+          "truncate partner_access_log, partner_consent_receipts, partner_terms_acceptances, partner_member_availability, partner_member_links, partner_link_requests, partner_webhook_events, partner_calls, partner_credit_ledger, partner_hunt_groups, partner_members, partner_api_keys, partners, businesses, telecom_accounts, users cascade",
         );
       } else repo = make();
     });
@@ -140,11 +150,11 @@ for (const [name, make, enabled] of impls) {
       const [m1, m2] = [await mk("avocat-1"), await mk("avocat-2")];
       const u1 = await repo.createUser({ globalUserId: null, locale: "fr-CA", displayName: "Me Un" });
       const u2 = await repo.createUser({ globalUserId: null, locale: "fr-CA", displayName: "Me Deux" });
-      const l1 = await repo.partners.createLink({ partnerId: p.id, memberId: m1.id, userId: u1.id, requestId: null, at });
+      const l1 = await repo.partners.createLink({ partnerId: p.id, memberId: m1.id, userId: u1.id, requestId: null, at, grant });
       expect(l1.status).toBe("created");
       const link = l1.status === "created" ? l1.link : null;
-      expect(await repo.partners.createLink({ partnerId: p.id, memberId: m1.id, userId: u2.id, requestId: null, at })).toEqual({ status: "member_taken" });
-      expect(await repo.partners.createLink({ partnerId: p.id, memberId: m2.id, userId: u1.id, requestId: null, at })).toEqual({ status: "user_taken" });
+      expect(await repo.partners.createLink({ partnerId: p.id, memberId: m1.id, userId: u2.id, requestId: null, at, grant })).toEqual({ status: "member_taken" });
+      expect(await repo.partners.createLink({ partnerId: p.id, memberId: m2.id, userId: u1.id, requestId: null, at, grant })).toEqual({ status: "user_taken" });
       expect((await repo.partners.getActiveLinkByMember(m1.id))?.id).toBe(link!.id);
       expect((await repo.partners.getActiveLinkByUser(p.id, u1.id))?.id).toBe(link!.id);
       expect((await repo.partners.listActiveLinksByUser(u1.id)).map((l) => l.id)).toEqual([link!.id]);
@@ -155,7 +165,7 @@ for (const [name, make, enabled] of impls) {
       expect(await repo.partners.revokeLink(link!.id, "partner", at)).toBeNull();
       expect(await repo.partners.setLinkNumber(link!.id, null)).toBeNull();
       expect(await repo.partners.getActiveLinkByMember(m1.id)).toBeNull();
-      expect((await repo.partners.createLink({ partnerId: p.id, memberId: m1.id, userId: u2.id, requestId: null, at })).status).toBe("created");
+      expect((await repo.partners.createLink({ partnerId: p.id, memberId: m1.id, userId: u2.id, requestId: null, at, grant })).status).toBe("created");
     });
 
     it("lot A: outbound calls carry their member and reference; open ones are counted", async () => {
@@ -199,7 +209,7 @@ for (const [name, make, enabled] of impls) {
       const p = await partner();
       const m = (await repo.partners.upsertMember(p.id, "avocat-9", { name: "Me Neuf", email: null, phone: null, handle: null, language: "fr", active: true, extensionId: null })).member;
       const u = await repo.createUser({ globalUserId: null, locale: "fr-CA", displayName: "Me Neuf" });
-      const res = await repo.partners.createLink({ partnerId: p.id, memberId: m.id, userId: u.id, requestId: null, at });
+      const res = await repo.partners.createLink({ partnerId: p.id, memberId: m.id, userId: u.id, requestId: null, at, grant });
       const link = res.status === "created" ? res.link : null;
       expect(await repo.partners.swapLinkSubscriptionState(link!.id, "free|none|1")).toBe(true);
       expect(await repo.partners.swapLinkSubscriptionState(link!.id, "free|none|1")).toBe(false);
@@ -211,6 +221,112 @@ for (const [name, make, enabled] of impls) {
       for (const type of ["member.subscription_changed", "member.port_in_updated"] as const) {
         expect((await repo.partners.enqueueEvent({ partnerId: p.id, eventType: type, payload: {}, at })).eventType).toBe(type);
       }
+    });
+
+    it("consent: a link keeps its grant; setLinkGrant on active links only; upgrade requests carry their link and scopes", async () => {
+      const p = await partner();
+      const m = (await repo.partners.upsertMember(p.id, "avocat-5", { name: "Me Cinq", email: null, phone: null, handle: null, language: "fr", active: true, extensionId: null })).member;
+      const u = await repo.createUser({ globalUserId: null, locale: "fr-CA", displayName: "Me Cinq" });
+      const res = await repo.partners.createLink({ partnerId: p.id, memberId: m.id, userId: u.id, requestId: null, at, grant });
+      const link = res.status === "created" ? res.link : null;
+      expect(link).toMatchObject({ ...grant, consentedAt: at });
+      expect((await repo.partners.getLink(link!.id))?.purposes).toEqual(grant.purposes);
+      const later = new Date(at.getTime() + 60_000);
+      const upgraded = await repo.partners.setLinkGrant(link!.id, { ...grant, scopes: ["calls.read", "subscription.read"], requiredScopes: [], purposes: { "calls.read": "x".repeat(12) } }, later);
+      expect(upgraded).toMatchObject({ scopes: ["calls.read", "subscription.read"], requiredScopes: [], consentedAt: later });
+      expect((await repo.partners.listActiveLinksByUser(u.id))[0]?.scopes).toEqual(["calls.read", "subscription.read"]);
+      const items = [{ scope: "porting.read" as const, purpose: "Suivre le transfert du numéro.", required: true }];
+      const exp = new Date(at.getTime() + 15 * 60_000);
+      const r = await repo.partners.createLinkRequest({ partnerId: p.id, memberId: m.id, codeSha256: "9".repeat(64), expiresAt: exp, at, kind: "upgrade", linkId: link!.id, scopes: items });
+      expect(r).toMatchObject({ kind: "upgrade", linkId: link!.id, scopes: items });
+      expect((await repo.partners.findLinkRequestByHash("9".repeat(64)))?.scopes).toEqual(items);
+      // An upgrade needs its link, a plain link request has none (0029 check constraint).
+      await expect(repo.partners.createLinkRequest({ partnerId: p.id, memberId: m.id, codeSha256: "8".repeat(64), expiresAt: exp, at, kind: "upgrade", linkId: null })).rejects.toThrow();
+      await repo.partners.revokeLink(link!.id, "user", at);
+      expect(await repo.partners.setLinkGrant(link!.id, grant, at)).toBeNull();
+      if (repo instanceof PostgresRepository) {
+        // Only known scope names (0029 check constraint).
+        await expect(repo.sql.unsafe(`update partner_member_links set scopes = array['calls.write'] where id = $1`, [link!.id])).rejects.toThrow();
+      }
+    });
+
+    it("consent: terms acceptances and receipts are append-only; latest terms wins; receipts newest first", async () => {
+      const p = await partner();
+      const recorder = await repo.createUser({ globalUserId: null, locale: "fr-CA", displayName: "Admin" });
+      const base = {
+        partnerId: p.id, termsVersion: "2026-10-01", acceptedAt: at, signerName: "Julie Gagnon", signerTitle: "Présidente", legalName: "BesoinAvocat inc.",
+        privacyContactEmail: "vieprivee@besoinavocat.ca", purposes: { "calls.read": "Suivre les appels de référence." }, recordedBy: recorder.id,
+      };
+      expect(await repo.partners.latestTermsAcceptance(p.id)).toBeNull();
+      await repo.partners.addTermsAcceptance({ ...base, at });
+      const t2 = await repo.partners.addTermsAcceptance({ ...base, termsVersion: "2026-10-31", purposes: { "calls.read": "a".repeat(12), "porting.read": "b".repeat(12) }, at: new Date(at.getTime() + 1000) });
+      expect(await repo.partners.latestTermsAcceptance(p.id)).toMatchObject({ id: t2.id, termsVersion: "2026-10-31", purposes: { "calls.read": "a".repeat(12), "porting.read": "b".repeat(12) } });
+
+      const m = (await repo.partners.upsertMember(p.id, "avocat-6", { name: "Me Six", email: null, phone: null, handle: null, language: "fr", active: true, extensionId: null })).member;
+      const u = await repo.createUser({ globalUserId: null, locale: "fr-CA", displayName: "Me Six" });
+      const res = await repo.partners.createLink({ partnerId: p.id, memberId: m.id, userId: u.id, requestId: null, at, grant });
+      const link = res.status === "created" ? res.link : null;
+      const receipt = {
+        linkId: link!.id, partnerId: p.id, memberId: m.id, userId: u.id, actor: "user" as const, scopes: grant.scopes, changed: grant.scopes,
+        requiredScopes: grant.requiredScopes, purposes: grant.purposes, consentVersion: "2026-10-31", scopeSetVersion: 1, termsVersion: "2026-10-31",
+        device: "Chrome · Windows", network: "203.0.113.0/24",
+      };
+      await repo.partners.addConsentReceipt({ ...receipt, action: "granted", at });
+      const second = await repo.partners.addConsentReceipt({ ...receipt, action: "scope_revoked", scopes: ["calls.read"], changed: ["calls.place"], at: new Date(at.getTime() + 1000) });
+      const list = await repo.partners.listConsentReceipts(link!.id, 10);
+      expect(list.map((r) => r.action)).toEqual(["scope_revoked", "granted"]);
+      expect(list[0]).toMatchObject({ id: second.id, scopes: ["calls.read"], changed: ["calls.place"], purposes: grant.purposes, device: "Chrome · Windows", network: "203.0.113.0/24" });
+      if (repo instanceof PostgresRepository) {
+        await expect(repo.sql.unsafe(`update partner_consent_receipts set scopes = '{}' where id = $1`, [second.id])).rejects.toThrow(/never updated/);
+        await expect(repo.sql.unsafe(`update partner_terms_acceptances set legal_name = 'x' where id = $1`, [t2.id])).rejects.toThrow(/never updated/);
+        // A full IP address is refused: only a /24 or /48 network class fits.
+        await expect(repo.partners.addConsentReceipt({ ...receipt, action: "granted", network: "203.0.113.57", at })).rejects.toThrow();
+      }
+    });
+
+    it("consent: the access log lists newest first per link and prunes by age; calls and events remember their link", async () => {
+      const p = await partner();
+      const m = (await repo.partners.upsertMember(p.id, "avocat-8", { name: "Me Huit", email: null, phone: null, handle: null, language: "fr", active: true, extensionId: null })).member;
+      const u = await repo.createUser({ globalUserId: null, locale: "fr-CA", displayName: "Me Huit" });
+      const res = await repo.partners.createLink({ partnerId: p.id, memberId: m.id, userId: u.id, requestId: null, at, grant });
+      const link = res.status === "created" ? res.link : null;
+      const old = new Date(at.getTime() - 91 * 86_400_000);
+      await repo.partners.logAccess({ partnerId: p.id, linkId: link!.id, scope: "calls.read", route: "GET /v1/partner/calls", outcome: "allowed", at: old });
+      await repo.partners.logAccess({ partnerId: p.id, linkId: link!.id, scope: "subscription.read", route: "GET /v1/partner/members/:externalId/subscription", outcome: "denied", at });
+      expect((await repo.partners.listAccessLog(link!.id, 50)).map((e) => [e.scope, e.outcome])).toEqual([["subscription.read", "denied"], ["calls.read", "allowed"]]);
+      expect(await repo.partners.pruneAccessLog(new Date(at.getTime() - 90 * 86_400_000))).toBe(1);
+      expect((await repo.partners.listAccessLog(link!.id, 50)).map((e) => e.scope)).toEqual(["subscription.read"]);
+
+      const c = await repo.partners.createCall({ partnerId: p.id, callSid: "CAlink1", direction: "inbound", fromNumber: "+15145550199", toNumber: "+15145550100", huntGroupKey: null, startedAt: at });
+      expect(c.linkId).toBeNull();
+      expect(await repo.partners.markAnswered(c.id, { memberId: m.id, externalId: "avocat-8", legSid: "CAleg1", at, linkId: link!.id })).toMatchObject({ linkId: link!.id });
+      await repo.partners.updateCall(c.id, { recordingId: null });
+      expect((await repo.partners.getCallBySid("CAlink1"))?.linkId).toBe(link!.id);
+      const ev = await repo.partners.enqueueEvent({ partnerId: p.id, eventType: "member.consent_updated", payload: { scopes: ["calls.read"] }, at, linkId: link!.id });
+      expect(await repo.partners.getEvent(ev.id)).toMatchObject({ linkId: link!.id, eventType: "member.consent_updated", payload: { scopes: ["calls.read"] } });
+    });
+
+    it("0029 migration (Postgres): links approved before scopes keep only the lot A scopes, with a « migrated » receipt", async () => {
+      if (!(repo instanceof PostgresRepository)) return;
+      const p = await partner();
+      const m = (await repo.partners.upsertMember(p.id, "avocat-3", { name: "Me Trois", email: null, phone: null, handle: null, language: "fr", active: true, extensionId: null })).member;
+      const u = await repo.createUser({ globalUserId: null, locale: "fr-CA", displayName: "Me Trois" });
+      const everything: PartnerGrant = { ...grant, scopes: ["calls.read", "calls.place", "line.manage", "subscription.read", "porting.read", "availability.manage", "recordings.read"] };
+      const res = await repo.partners.createLink({ partnerId: p.id, memberId: m.id, userId: u.id, requestId: null, at, grant: everything });
+      const link = res.status === "created" ? res.link : null;
+      const pending = await repo.partners.createLinkRequest({ partnerId: p.id, memberId: m.id, codeSha256: "7".repeat(64), expiresAt: new Date(Date.now() + 600_000), at });
+      // The data section of 0029, as it runs on a database with links from lots A and B.
+      const sql = readFileSync(join(__dirname, "../../../supabase/migrations/0029_partner_consent.sql"), "utf8");
+      const start = sql.indexOf("-- ---------------------------------------------------------------------- links approved before");
+      const end = sql.indexOf("alter table partner_member_links\n  alter column consent_version");
+      expect(start).toBeGreaterThan(0);
+      expect(end).toBeGreaterThan(start);
+      await repo.sql.unsafe(sql.slice(start, end));
+      await repo.sql.unsafe(sql.slice(sql.indexOf("-- Pending codes were issued"), sql.indexOf("-- Calls answered or placed under a link")));
+      expect(await repo.partners.getLink(link!.id)).toMatchObject({ scopes: ["calls.read", "calls.place", "line.manage"], consentVersion: "lot-a-2026-10-30", scopeSetVersion: 0 });
+      const [receipt] = await repo.partners.listConsentReceipts(link!.id, 5);
+      expect(receipt).toMatchObject({ action: "migrated", actor: "system", scopes: ["calls.read", "calls.place", "line.manage"], device: null, network: null });
+      expect((await repo.partners.getLinkRequest(pending.id))?.invalidatedAt).not.toBeNull();
     });
 
     it("webhook outbox: due, failed with backoff, dead, delivered", async () => {

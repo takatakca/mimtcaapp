@@ -9,6 +9,7 @@ import { slugify } from "../src/routes/partners.js";
 import { monthPeriod } from "../src/lib/time.js";
 import { fakeTwilio, makeUser, setup, twilioPost, type Ctx } from "./helpers.js";
 import { makeBusiness } from "./pbxFixtures.js";
+import { acceptTerms, approveBody, scopeItems } from "./partnerConsentFixtures.js";
 
 let ctx: Ctx;
 let now: Date;
@@ -41,6 +42,7 @@ async function makePartner(opts: { credits?: number } = {}) {
   const k = await call("POST", `/v1/admin/partners/${partnerId}/keys`, admin.auth, { label: "portail" });
   const hook = await call("PUT", `/v1/admin/partners/${partnerId}/webhook`, admin.auth, { url: "https://portail.besoinavocat.ca/api/mimt/webhook" });
   expect(hook.statusCode).toBe(200);
+  await acceptTerms(ctx, admin.auth, partnerId);
   if (opts.credits ?? 1000) {
     const t = await call("POST", `/v1/admin/partners/${partnerId}/credits`, admin.auth, { credits: opts.credits ?? 1000, idempotencyKey: `topup-${partnerId.slice(0, 8)}` });
     expect(t.statusCode).toBe(200);
@@ -53,11 +55,12 @@ async function makePartner(opts: { credits?: number } = {}) {
 type P = Awaited<ReturnType<typeof makePartner>>;
 
 const requestLink = async (p: P, externalId = "avocat-42") => {
-  const res = await call("POST", `/v1/partner/members/${externalId}/link-requests`, p.h);
+  const res = await call("POST", `/v1/partner/members/${externalId}/link-requests`, p.h, { scopes: scopeItems() });
   expect(res.statusCode).toBe(201);
   return res.json() as { requestId: string; code: string; url: string; expiresAt: string };
 };
-const approve = (auth: Record<string, string>, body: { code: string; requestId?: string }) => call("POST", "/v1/me/partner-links/approve", auth, body);
+/** The person approves, checking every requested scope. */
+const approve = (auth: Record<string, string>, body: { code: string; requestId?: string }) => call("POST", "/v1/me/partner-links/approve", auth, approveBody(body));
 
 /** A lawyer: their own MIMT account and number, linked to avocat-42. */
 async function linkedLawyer(p: P, externalId = "avocat-42", number = "+15145550177") {
@@ -118,7 +121,8 @@ describe("lot A: account-link consent", () => {
     const lawyer = await makeUser(ctx, { number: "+15145550177" });
     const preview = await call("POST", "/v1/me/partner-links/preview", lawyer.auth, { code: r.code.toLowerCase().replace(/(.{4})/, "$1-") });
     expect(preview.statusCode).toBe(200);
-    expect(preview.json()).toMatchObject({ partnerName: "BesoinAvocat", externalId: "avocat-42", memberName: "Me Tremblay", permissions: ["calls", "click_to_call", "number", "plan_status", "number_transfers", "availability"] });
+    expect(preview.json()).toMatchObject({ kind: "link", partnerName: "BesoinAvocat", partnerLegalName: "BesoinAvocat inc.", externalId: "avocat-42", memberName: "Me Tremblay", currentScopes: [] });
+    expect(preview.json().scopes.map((x: { scope: string }) => x.scope)).toEqual(["calls.read", "calls.place", "line.manage", "subscription.read", "porting.read", "availability.manage", "recordings.read"]);
 
     const ok = await approve(lawyer.auth, { code: r.code, requestId: r.requestId });
     expect(ok.statusCode).toBe(201);
@@ -218,7 +222,7 @@ describe("lot A: account-link consent", () => {
     expect(limited.statusCode).toBe(429);
     // Another person on another address is not affected.
     const other = await makeUser(ctx);
-    const res = await ctx.app.inject({ method: "POST", url: "/v1/me/partner-links/approve", headers: other.auth, remoteAddress: "203.0.113.9", payload: { code: r.code, requestId: r.requestId } });
+    const res = await ctx.app.inject({ method: "POST", url: "/v1/me/partner-links/approve", headers: other.auth, remoteAddress: "203.0.113.9", payload: approveBody(r) });
     expect(res.statusCode).toBe(201);
   });
 
@@ -230,10 +234,14 @@ describe("lot A: account-link consent", () => {
     const second = await approve(lawyer.auth, { code: r7.code, requestId: r7.requestId });
     expect(second.statusCode).toBe(409);
     expect(second.json().error).toBe("already_linked_to_partner");
-    // A linked member gets no new code until it is unlinked.
-    const again = await call("POST", "/v1/partner/members/avocat-42/link-requests", p.h);
-    expect(again.statusCode).toBe(409);
-    expect(again.json().error).toBe("member_already_linked");
+    // A linked member gets an « upgrade » code: only the linked person can open it.
+    const again = await call("POST", "/v1/partner/members/avocat-42/link-requests", p.h, { scopes: scopeItems() });
+    expect(again.statusCode).toBe(201);
+    expect(again.json().kind).toBe("upgrade");
+    const stranger = await makeUser(ctx);
+    const refused = await approve(stranger.auth, { code: again.json().code, requestId: again.json().requestId });
+    expect(refused.statusCode).toBe(403);
+    expect(refused.json().error).toBe("upgrade_for_another_account");
     // Someone else can take avocat-7.
     const other = await makeUser(ctx);
     expect((await approve(other.auth, { code: r7.code, requestId: r7.requestId })).statusCode).toBe(201);
