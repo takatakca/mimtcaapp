@@ -8,11 +8,15 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import {
   NANP_E164,
+  PARTNER_AVAILABILITY_STATUSES,
   PARTNER_EXTERNAL_ID,
   PARTNER_HUNT_KEY,
   type MyPartnerLinkDto,
   type MyPartnerLinksResponse,
   type PartnerApiKeyCreated,
+  type PartnerAvailabilityDto,
+  type PartnerMemberPortInsResponse,
+  type PartnerMemberSubscriptionDto,
   type PartnerClickToCallResponse,
   type PartnerLinkPreview,
   type PartnerLinkRequestCreated,
@@ -31,7 +35,7 @@ import { requireUser } from "../auth/guard.js";
 import { requireRecentAuth } from "../auth/stepUp.js";
 import { conflict, forbidden, HttpError, notFound } from "../lib/errors.js";
 import { parse } from "../lib/validate.js";
-import { businessAccess, Nanp } from "../pbx/access.js";
+import { businessAccess, Nanp, WeeklySchema } from "../pbx/access.js";
 import type { BusinessRow } from "../repo/pbxTypes.js";
 import type { PartnerApiKeyRow, PartnerMemberRow, PartnerRow } from "../repo/partners.js";
 import {
@@ -40,11 +44,19 @@ import {
   createLinkRequest,
   listMyLinks,
   memberNumbers,
+  myLinkDto,
   previewLink,
   revokeLink,
   setMemberNumber,
   takeLinkAttempt,
 } from "../services/partnerLinks.js";
+import {
+  getMemberAvailability,
+  memberPortIns,
+  memberSubscription,
+  putMemberAvailability,
+  setMyAvailability,
+} from "../services/partnerMembers.js";
 import {
   apiKeyDto,
   authenticatePartnerKey,
@@ -108,6 +120,15 @@ const ClickToCallBody = z
     via: z.enum(["app", "mobile"]).optional(),
   })
   .strict();
+const AvailabilityStatus = z.enum(PARTNER_AVAILABILITY_STATUSES);
+const AvailabilityBody = z
+  .object({
+    status: AvailabilityStatus,
+    weekly: WeeklySchema.nullable().optional(),
+    until: z.iso.datetime({ offset: true }).nullable().optional(),
+  })
+  .strict();
+const MyAvailabilityBody = z.object({ status: AvailabilityStatus.nullable() }).strict();
 const LinkCodeBody = z
   .object({
     code: z.string().trim().min(1).max(20),
@@ -262,6 +283,35 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
     const body = parse(ClickToCallBody, req.body);
     const { partner, business, key } = pctx(req);
     return reply.code(201).send(await clickToCall(deps, { partner, business, keyId: key.id, ip: req.ip }, m, body));
+  });
+
+  // ------------------------------------------------------ subscription, port-ins, availability (lot B)
+
+  /** The linked person's own MIMT plan: plan, status, period end, can call. Never amounts, cards or invoices. */
+  app.get("/v1/partner/members/:externalId/subscription", partnerAuth, async (req, reply): Promise<PartnerMemberSubscriptionDto> => {
+    const m = await memberOf(req);
+    void reply.header("cache-control", "no-store");
+    return memberSubscription(deps, pctx(req).partner, m);
+  });
+
+  /** The linked person's number transfers: number, status, dates. Never the carrier account number or PIN. */
+  app.get("/v1/partner/members/:externalId/port-ins", partnerAuth, async (req, reply): Promise<PartnerMemberPortInsResponse> => {
+    const m = await memberOf(req);
+    void reply.header("cache-control", "no-store");
+    return memberPortIns(deps, pctx(req).partner, m);
+  });
+
+  app.get("/v1/partner/members/:externalId/availability", partnerAuth, async (req, reply): Promise<PartnerAvailabilityDto> => {
+    const m = await memberOf(req);
+    void reply.header("cache-control", "no-store");
+    return getMemberAvailability(deps, m);
+  });
+
+  /** Replaces the partner's availability setting for hunt groups (the linked person's own status still wins). */
+  app.put("/v1/partner/members/:externalId/availability", partnerAuth, async (req): Promise<PartnerAvailabilityDto> => {
+    const m = await memberOf(req);
+    const body = parse(AvailabilityBody, req.body);
+    return putMemberAvailability(deps, pctx(req).partner, m, body, { ip: req.ip, keyId: pctx(req).key.id });
   });
 
   app.put("/v1/partner/hunt-groups/:key", partnerAuth, async (req, reply): Promise<PartnerHuntGroupDto> => {
@@ -477,6 +527,16 @@ export async function partnerRoutes(app: FastifyInstance, deps: AppDeps) {
   app.get("/v1/me/partner-links", me, async (req, reply): Promise<MyPartnerLinksResponse> => {
     void reply.header("cache-control", "no-store");
     return { links: await listMyLinks(deps, req.userId) };
+  });
+
+  /** The person's own availability for this partner's hunt groups (wins over the partner's; null hands it back). */
+  app.put("/v1/me/partner-links/:id/availability", me, async (req): Promise<MyPartnerLinkDto> => {
+    const { id } = parse(Uuid, req.params);
+    const { status } = parse(MyAvailabilityBody, req.body);
+    const link = await repo.partners.getLink(id);
+    if (!link || link.userId !== req.userId || link.revokedAt) throw notFound("link_not_found", "Lien introuvable.");
+    await setMyAvailability(deps, link, status, { userId: req.userId, ip: req.ip });
+    return myLinkDto(deps, link);
   });
 
   /** Consent is revocable at any time, without step-up (it only takes access away). */

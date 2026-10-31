@@ -21,6 +21,7 @@ import { businessPlan } from "../pbx/engine.js";
 import { PortInNumberTakenError, type PortInWithNumbers } from "../repo/portIn.js";
 import type { TelecomAccount } from "../repo/types.js";
 import { getFeatures, HELD_STATES, outboundBlocked } from "../services/accounts.js";
+import { notifyMemberPortIn } from "../services/partnerMembers.js";
 import { applySnapshot, cancelOpenNumbers, holdNumbers, loaFor, loaHtml, portInDto, settle, submitPortIn } from "../porting/service.js";
 import { e911Ready } from "./e911.js";
 
@@ -239,7 +240,9 @@ export async function portInRoutes(app: FastifyInstance, deps: AppDeps) {
     await repo.audit({ actorUserId: ctx.user.id, action: "port_in.loa_signed", targetType: "port_in", targetId: p.request.id, ip: req.ip, meta: { version: PORT_IN_LOA_VERSION, sha256 } });
     const signed = (await repo.portIns.get(p.request.id))!;
     await holdNumbers(deps, signed);
-    return portInDto(await submitPortIn(deps, signed, req.log));
+    const submitted = await submitPortIn(deps, signed, req.log);
+    await notifyMemberPortIn(deps, p, submitted, req.log);
+    return portInDto(submitted);
   });
 
   /** Retry a signed request that was not sent (porting disabled at the time, or Twilio failed). */
@@ -247,7 +250,9 @@ export async function portInRoutes(app: FastifyInstance, deps: AppDeps) {
     const { p } = await load(req);
     if (p.request.status !== "signed") throw conflict("not_submittable", "Only a signed, unsent transfer can be submitted");
     if (!deps.porting) throw notConfigured("Number transfer");
-    return portInDto(await submitPortIn(deps, p, req.log));
+    const submitted = await submitPortIn(deps, p, req.log);
+    await notifyMemberPortIn(deps, p, submitted, req.log);
+    return portInDto(submitted);
   });
 
   app.post("/v1/port-ins/:id/cancel", auth, async (req) => {
@@ -266,6 +271,7 @@ export async function portInRoutes(app: FastifyInstance, deps: AppDeps) {
     await cancelOpenNumbers(deps, p);
     if (r.status === "pending_signature" || r.status === "signed") await repo.portIns.update(r.id, { status: "canceled", canceledAt: deps.now(), statusReason: null });
     const after = await settle(deps, r.id);
+    await notifyMemberPortIn(deps, p, after, req.log);
     await repo.audit({ actorUserId: ctx.user.id, action: "port_in.canceled", targetType: "port_in", targetId: r.id, ip: req.ip });
     return portInDto(after);
   });
@@ -311,6 +317,8 @@ export async function portInRoutes(app: FastifyInstance, deps: AppDeps) {
       // The payload only says "something changed": the authoritative state is fetched from Twilio.
       const snap = await deps.porting.getPortIn(sid);
       const after = await applySnapshot(deps, p, snap, req.log);
+      // « MIMT Connect » lot B: member.port_in_updated for the owner's partner links, when something moved.
+      await notifyMemberPortIn(deps, p, after, req.log);
       return reply.code(200).send({ status: after.request.status });
     });
   });

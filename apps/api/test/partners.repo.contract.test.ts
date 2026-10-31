@@ -22,7 +22,7 @@ for (const [name, make, enabled] of impls) {
     beforeEach(async () => {
       if (repo instanceof PostgresRepository) {
         await repo.sql.unsafe(
-          "truncate partner_member_links, partner_link_requests, partner_webhook_events, partner_calls, partner_credit_ledger, partner_hunt_groups, partner_members, partner_api_keys, partners, businesses, telecom_accounts, users cascade",
+          "truncate partner_member_availability, partner_member_links, partner_link_requests, partner_webhook_events, partner_calls, partner_credit_ledger, partner_hunt_groups, partner_members, partner_api_keys, partners, businesses, telecom_accounts, users cascade",
         );
       } else repo = make();
     });
@@ -171,6 +171,46 @@ for (const [name, make, enabled] of impls) {
       expect(await repo.partners.countOpenOutboundCalls(m.id, new Date(at.getTime() - 1000))).toBe(0);
       const ev = await repo.partners.enqueueEvent({ partnerId: p.id, eventType: "member.number_changed", payload: { member_external_id: "avocat-7" }, at });
       expect((await repo.partners.getEvent(ev.id))?.payload).toEqual({ member_external_id: "avocat-7" });
+    });
+
+    it("lot B: availability defaults, patches only the given fields, null clears, weekly round-trips", async () => {
+      const p = await partner();
+      const mk = async (id: string) =>
+        (await repo.partners.upsertMember(p.id, id, { name: id, email: null, phone: null, handle: null, language: "fr", active: true, extensionId: null })).member;
+      const [m1, m2] = [await mk("avocat-1"), await mk("avocat-2")];
+      expect(await repo.partners.getAvailability(m1.id)).toBeNull();
+      expect(await repo.partners.listAvailability(p.id)).toEqual([]);
+
+      const created = await repo.partners.upsertAvailability(p.id, m1.id, { userStatus: "busy" });
+      expect(created).toMatchObject({ memberId: m1.id, partnerId: p.id, status: "available", weekly: null, until: null, userStatus: "busy" });
+      const weekly = { mon: [{ open: "09:00", close: "12:00" }, { open: "13:00", close: "17:00" }], tue: [], wed: [], thu: [], fri: [{ open: "09:00", close: "17:00" }], sat: [], sun: [] };
+      const until = new Date(at.getTime() + 3600_000);
+      const set = await repo.partners.upsertAvailability(p.id, m1.id, { status: "offline", weekly, until });
+      // userStatus left as it was (not in the patch).
+      expect(set).toMatchObject({ status: "offline", weekly, until, userStatus: "busy" });
+      const cleared = await repo.partners.upsertAvailability(p.id, m1.id, { weekly: null, until: null, userStatus: null });
+      expect(cleared).toMatchObject({ status: "offline", weekly: null, until: null, userStatus: null });
+      await repo.partners.upsertAvailability(p.id, m2.id, { status: "busy" });
+      expect((await repo.partners.listAvailability(p.id)).map((a) => a.status).sort()).toEqual(["busy", "offline"]);
+      expect((await repo.partners.getAvailability(m2.id))?.status).toBe("busy");
+    });
+
+    it("lot B: the subscription view sent is swapped only when it changes, on active links only", async () => {
+      const p = await partner();
+      const m = (await repo.partners.upsertMember(p.id, "avocat-9", { name: "Me Neuf", email: null, phone: null, handle: null, language: "fr", active: true, extensionId: null })).member;
+      const u = await repo.createUser({ globalUserId: null, locale: "fr-CA", displayName: "Me Neuf" });
+      const res = await repo.partners.createLink({ partnerId: p.id, memberId: m.id, userId: u.id, requestId: null, at });
+      const link = res.status === "created" ? res.link : null;
+      expect(await repo.partners.swapLinkSubscriptionState(link!.id, "free|none|1")).toBe(true);
+      expect(await repo.partners.swapLinkSubscriptionState(link!.id, "free|none|1")).toBe(false);
+      expect(await repo.partners.swapLinkSubscriptionState(link!.id, "premium|active|1")).toBe(true);
+      await repo.partners.revokeLink(link!.id, "user", at);
+      expect(await repo.partners.swapLinkSubscriptionState(link!.id, "premium|canceled|1")).toBe(false);
+      const ev = await repo.partners.enqueueEvent({ partnerId: p.id, eventType: "member.availability_changed", payload: { member_external_id: "avocat-9", effective_status: "busy" }, at });
+      expect((await repo.partners.getEvent(ev.id))?.eventType).toBe("member.availability_changed");
+      for (const type of ["member.subscription_changed", "member.port_in_updated"] as const) {
+        expect((await repo.partners.enqueueEvent({ partnerId: p.id, eventType: type, payload: {}, at })).eventType).toBe(type);
+      }
     });
 
     it("webhook outbox: due, failed with backoff, dead, delivered", async () => {

@@ -1,5 +1,6 @@
 // « MIMT Connect » account link in demo mode (VITE_MOCK_API=1): /lier?code=… shows who asks and what they will see,
-// approval links the account, Compte › Intégrations › Partenaires lists the link and revokes it.
+// approval links the account, Compte › Intégrations › Partenaires lists the link, sets the person's own availability
+// (lot B) and revokes it.
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -48,6 +49,22 @@ describe("Liaison de compte partenaire (demo mode)", () => {
     });
     expect(await screen.findByRole("heading", { name: "Partenaires" })).toBeInTheDocument();
     expect(await screen.findByText("BesoinAvocat — profil avocat-42")).toBeInTheDocument();
+
+    // Lot B: the person's own availability for the partner's hunt groups (wins over the partner's).
+    const select = await screen.findByLabelText("Ma disponibilité pour ce partenaire");
+    expect(select).toHaveValue("");
+    expect(screen.getByText(/En ce moment : Disponible/)).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "busy" } });
+    });
+    expect(await screen.findByText("Disponibilité enregistrée.")).toBeInTheDocument();
+    expect(await screen.findByText(/En ce moment : Occupé/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Ma disponibilité pour ce partenaire")).toHaveValue("busy");
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Ma disponibilité pour ce partenaire"), { target: { value: "" } });
+    });
+    expect(await screen.findByText(/En ce moment : Disponible/)).toBeInTheDocument();
+
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Retirer le lien" }));
     });

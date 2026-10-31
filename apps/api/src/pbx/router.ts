@@ -9,6 +9,7 @@ import {
   type BusinessHours,
   type RouteTarget,
   type Weekday,
+  type WeeklySchedule,
 } from "@mimt/shared";
 import type twilio from "twilio";
 import { classifyDestination } from "../lib/phone.js";
@@ -64,6 +65,12 @@ export interface PbxSnapshot {
    * answered and for how long (services/partners.ts). Absent or false: TwiML is unchanged.
    */
   legEvents?: boolean;
+  /**
+   * « MIMT Connect » lot B: extensions of partner members who are not available right now (busy, offline, outside
+   * their weekly windows). Ring groups skip them; with nobody left, the group's no-answer fallback runs at once.
+   * Absent or empty (every non-partner business, PARTNERS=off): ring groups ring exactly as before.
+   */
+  unavailableExtensionIds?: string[];
 }
 
 export interface RouteContext {
@@ -120,11 +127,16 @@ export function holidayAt(hours: BusinessHours, at: Date): string | null {
   return null;
 }
 
+/** True when `at` falls inside one of the weekly windows (America/Montreal; `close` exclusive). */
+export function inWeekly(weekly: WeeklySchedule, at: Date): boolean {
+  const t = localTime(at);
+  return (weekly[t.weekday] ?? []).some((r) => t.minutes >= toMinutes(r.open) && t.minutes < toMinutes(r.close));
+}
+
 /** True when the business is open at `at` (weekly schedule in America/Montreal, minus holidays). */
 export function isOpen(hours: BusinessHours, at: Date): boolean {
   if (holidayAt(hours, at)) return false;
-  const t = localTime(at);
-  return (hours.weekly[t.weekday] ?? []).some((r) => t.minutes >= toMinutes(r.open) && t.minutes < toMinutes(r.close));
+  return inWeekly(hours.weekly, at);
 }
 
 // ----------------------------------------------------------------------------------------- urls
@@ -240,16 +252,23 @@ export function dialRingGroup(ctx: RouteContext, group: RingGroupRow, index = 0,
     .map((id) => ctx.snap.extensions.find((e) => e.id === id))
     .filter((e): e is ExtensionRow => Boolean(e && ringable(e)));
   const action = (i: number) => pbxUrl(ctx.base, "dial-result", { b: ctx.snap.business.id, n: ctx.numberId, k: "rg", id: group.id, i });
+  // Partner members who are not available now are skipped (never rung); nobody else is ever skipped.
+  const unavailable = new Set(ctx.snap.unavailableExtensionIds ?? []);
+  const available = (e: ExtensionRow) => !unavailable.has(e.id);
 
   if (group.strategy === "simultaneous") {
-    if (!members.length || index > 0) return overflow(ctx, group, vr, hops);
+    const ringing = members.filter(available);
+    if (!ringing.length || index > 0) return overflow(ctx, group, vr, hops);
     const dial = vr.dial({ timeout: group.timeoutS, answerOnBridge: true, action: action(0), method: "POST", ...recordAttrs(ctx) });
-    for (const m of members) addLegs(ctx, dial, m);
+    for (const m of ringing) addLegs(ctx, dial, m);
     return vr;
   }
-  const member = members[index];
+  // Positions stay those of the full list, so a member becoming available mid-call never shifts who rings next.
+  let at = index;
+  while (members[at] && !available(members[at]!)) at++;
+  const member = members[at];
   if (!member) return overflow(ctx, group, vr, hops);
-  const dial = vr.dial({ timeout: group.timeoutS, answerOnBridge: true, action: action(index), method: "POST", ...recordAttrs(ctx, member.id) });
+  const dial = vr.dial({ timeout: group.timeoutS, answerOnBridge: true, action: action(at), method: "POST", ...recordAttrs(ctx, member.id) });
   addLegs(ctx, dial, member);
   return vr;
 }

@@ -16,6 +16,7 @@ import { getFeatures, HELD_STATES, isLiveSubscription, outboundBlocked, setAccou
 import { e911Ready } from "../routes/e911.js";
 import { NOT_IN_SERVICE, sayBilingual, VoiceResponse } from "../routes/twiml.js";
 import { activePartner, partnerCallRinging, safeHook } from "../services/partners.js";
+import { unavailableExtensions } from "../services/partnerMembers.js";
 import * as router from "./router.js";
 
 type VR = twilio.twiml.VoiceResponse;
@@ -101,8 +102,11 @@ export async function loadSnapshot(deps: AppDeps, business: BusinessRow, feature
     features ? Promise.resolve({ features }) : getFeatures(deps.repo, business.telecomAccountId),
     activePartner(deps, business.id),
   ]);
+  // « MIMT Connect » lot B: partner members who are busy, offline or outside their windows are skipped by ring groups.
+  const unavailable = partner ? await unavailableExtensions(deps, partner.id, deps.now()) : [];
   return {
     ...(partner ? { legEvents: true } : {}),
+    ...(unavailable.length ? { unavailableExtensionIds: unavailable } : {}),
     business,
     extensions,
     ringGroups,

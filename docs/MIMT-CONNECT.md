@@ -9,11 +9,12 @@ clientes de TAKATAK suivront avec le même code. Aucun service tiers payant : le
 
 Code : `apps/api/src/routes/partners.ts` (API), `apps/api/src/services/partners.ts` (règles, crochets du standard,
 webhooks), `apps/api/src/services/partnerLinks.ts` (liaison de compte, ligne, appel au nom d'un membre),
-`apps/api/src/repo/partners*.ts` (stockage), `supabase/migrations/0023_partners.sql` et `0027_partner_links.sql`
+`apps/api/src/services/partnerMembers.ts` (lot B : forfait, transferts de numéro, disponibilité),
+`apps/api/src/repo/partners*.ts` (stockage), `supabase/migrations/0023_partners.sql`, `0027_partner_links.sql` et `0028_partner_member_status.sql`
 (tables et contraintes), `packages/shared/src/partners.ts` (contrat), `apps/webphone/src/pages/business/Partner.tsx`
 (section « Partenaire »), `apps/webphone/src/pages/PartnerLink.tsx` (page de consentement `/lier`) et la carte
 « Partenaires » de `apps/webphone/src/pages/Integrations.tsx`.
-Tests : `apps/api/test/partners.test.ts`, `apps/api/test/partnerLinks.test.ts`, `apps/api/test/partners.repo.contract.test.ts`
+Tests : `apps/api/test/partners.test.ts`, `apps/api/test/partnerLinks.test.ts`, `apps/api/test/partnerMembers.test.ts`, `apps/api/test/partners.repo.contract.test.ts`
 (mémoire et Postgres), `apps/webphone/src/pages/business/Partner.test.tsx`, `apps/webphone/src/pages/PartnerLink.test.tsx`.
 
 ## Interrupteur
@@ -194,6 +195,104 @@ curl -X POST https://api.mimt.ca/v1/partner/members/avocat-42/calls -H "$H" -H "
 - Twilio : `calls.create` vers l'avocat, TwiML d'étapes PBX signées (`/webhooks/twilio/pbx/c2c-answer`, `c2c-connect`,
   `c2c-leg`, `c2c-status`), toutes sous la vérification `X-Twilio-Signature`.
 
+### Statut du membre (lot B, issue #97, points 3, 4 et 7)
+
+Trois lectures sur l'avocat relié, et sa disponibilité pour les groupes de chasse. **Le forfait et les transferts
+exigent un lien actif** (`409 member_not_linked` avec `chooseNumberUrl`, sinon `404 member_not_found`). Comme le reste
+de ce document : `PARTNERS=off` = 404.
+
+#### `GET /v1/partner/members/:externalId/subscription` — forfait MIMT de la personne reliée
+
+```bash
+curl https://api.mimt.ca/v1/partner/members/avocat-42/subscription -H "$H"
+```
+
+```json
+{ "plan": "premium", "status": "active", "currentPeriodEnd": "2026-11-30T15:00:00.000Z", "canCall": true,
+  "planUrl": "https://app.mimt.ca/compte?partner=besoinavocat#forfait" }
+```
+
+- `plan` : le forfait en vigueur (`free` si aucun). `status` : `active`, `trialing`, `past_due` (paiement en retard, le
+  service continue), `canceled` (un forfait a existé et a pris fin) ou `none` (jamais acheté). `currentPeriodEnd` : fin
+  de la période en cours (ou de la dernière). `canCall` : le compte peut faire et recevoir des appels (ni suspendu ni
+  fermé).
+- **Minimal (Loi 25)** : jamais de carte, de montant payé, de facture, d'identifiant Stripe ni de canal d'achat.
+- `planUrl` : la page Compte › Forfait de l'app (`/compte#forfait`, avec `?partner=<slug>`). Le portail y envoie
+  l'avocat pour choisir et payer son forfait lui-même. **MIMT ne facture jamais sur la demande d'un partenaire.**
+- Webhook `member.subscription_changed` `{ member_external_id, plan, status, current_period_end, can_call }`, envoyé
+  quand le forfait, le statut ou `can_call` change, **seulement pour une personne reliée** : branché là où l'abonnement
+  est écrit (webhooks Stripe `customer.subscription.*` et `checkout.session.completed`, App Store, Google Play, mois
+  Premium de parrainage). La dernière vue envoyée est gardée par lien (`partner_member_links.subscription_state`, 0028)
+  : un même état reçu deux fois n'envoie rien; la vue au moment de l'approbation du lien sert de point de départ. Un
+  renouvellement (seule la date change) n'envoie rien : relire `GET …/subscription` au besoin.
+
+#### `GET /v1/partner/members/:externalId/port-ins` — transferts de numéro de la personne reliée
+
+```bash
+curl https://api.mimt.ca/v1/partner/members/avocat-42/port-ins -H "$H"
+```
+
+```json
+{ "portIns": [ { "id": "6f1c…", "e164": "+14505550123", "numbers": [ { "e164": "+14505550123", "status": "foc_scheduled" } ],
+                 "status": "foc_scheduled", "updatedAt": "2026-10-30T15:02:11.000Z", "expectedDate": "2026-11-18" } ],
+  "portUrl": "https://app.mimt.ca/services/transfert?partner=besoinavocat" }
+```
+
+- Les demandes du compte MIMT de la personne, de la plus récente à la plus ancienne. `expectedDate` : la date
+  confirmée par l'ancien fournisseur (FOC), sinon la date demandée, sinon `null`.
+- **Jamais** le numéro de compte chez l'ancien fournisseur, le NIP, la signature de la lettre d'autorisation, l'adresse
+  de service ni les noms.
+- `portUrl` : la page Services › Transfert de numéro de l'app (`/services/transfert`).
+- Webhook `member.port_in_updated` `{ member_external_id, port_in_id, e164, numbers, status, updated_at,
+  expected_date }` quand le statut de la demande, le statut d'un numéro ou une date change : signature et envoi,
+  nouvel envoi, annulation, webhook de portage Twilio (`porting/service.ts` `applySnapshot` puis `settle`). Le même
+  état reçu deux fois de Twilio n'envoie rien.
+
+#### `GET` et `PUT /v1/partner/members/:externalId/availability` — disponibilité pour les groupes de chasse
+
+```bash
+# Occupé jusqu'à 17 h (heure de Montréal = 21 h UTC en heure avancée)
+curl -X PUT https://api.mimt.ca/v1/partner/members/avocat-42/availability -H "$H" -H "content-type: application/json" \
+  -d '{"status":"busy","until":"2026-10-30T21:00:00Z"}'
+# Disponible, mais seulement du lundi au vendredi de 9 h à 17 h (America/Montreal)
+curl -X PUT https://api.mimt.ca/v1/partner/members/avocat-42/availability -H "$H" -H "content-type: application/json" \
+  -d '{"status":"available","weekly":{"mon":[{"open":"09:00","close":"17:00"}],"tue":[{"open":"09:00","close":"17:00"}],
+       "wed":[{"open":"09:00","close":"17:00"}],"thu":[{"open":"09:00","close":"17:00"}],"fri":[{"open":"09:00","close":"17:00"}],
+       "sat":[],"sun":[]}}'
+```
+
+```json
+{ "externalId": "avocat-42", "status": "available", "weekly": { "mon": [ { "open": "09:00", "close": "17:00" } ], "…": [] },
+  "until": null, "userStatus": null, "effectiveStatus": "available", "source": "partner", "updatedAt": "…" }
+```
+
+- `status` : `available`, `busy` ou `offline` (obligatoire). `weekly` (facultatif) : **la même forme que les heures
+  d'ouverture du standard** (`PUT /v1/business/:id/hours`, 7 jours, 6 plages par jour au plus, `close` exclue),
+  heure de Montréal. `until` (facultatif) : dans le futur, au plus un an. `PUT` **remplace** le réglage du partenaire :
+  un champ omis est effacé. Il ne touche jamais au choix de l'avocat. Aucun lien n'est exigé (un membre sans compte
+  MIMT, sonné sur son cellulaire, a aussi une disponibilité).
+- **Règle (dans l'ordre)** :
+  1. aucun réglage : disponible (comportement d'avant le lot B);
+  2. **le choix de l'avocat l'emporte** : s'il a choisi un statut dans l'app (Compte › Intégrations › Partenaires),
+     celui-ci remplace le statut du partenaire et son `until`, jusqu'à ce qu'il revienne à « Selon le partenaire »;
+  3. sinon le statut du partenaire, jusqu'à `until`; après `until`, disponible;
+  4. un statut « disponible » reste borné par `weekly` : hors des plages, hors ligne (`source: "schedule"`), que le
+     statut vienne du partenaire ou de l'avocat.
+  `effectiveStatus` et `source` (`user`, `partner`, `schedule`, `default`) disent ce qui s'applique maintenant.
+- **Groupes de chasse** : à chaque appel (et à chaque étape d'un groupe séquentiel), les membres qui ne sont pas
+  disponibles à ce moment **ne sonnent pas**. Si personne n'est disponible, l'appel suit tout de suite le repli du
+  groupe en cas de non-réponse (messagerie du groupe par défaut, ou au revoir si `fallback: "hangup"`), sans faire
+  sonner personne : **on ne laisse jamais tomber un appelant**. `call.ringing` part quand même. Les entreprises qui ne
+  sont pas partenaires, un partenaire suspendu et `PARTNERS=off` sonnent exactement comme avant (testé).
+- Côté avocat : `PUT /v1/me/partner-links/:id/availability {"status":"busy"|"available"|"offline"|null}` (session
+  MIMT, propriétaire du lien seulement, sans confirmation renforcée : ce réglage ne donne aucun accès). La carte
+  Partenaires montre « Ma disponibilité pour ce partenaire » (Selon le partenaire, Disponible, Occupé, Hors ligne) et
+  ce qui s'applique en ce moment; `GET /v1/me/partner-links` donne `userStatus` et `effectiveStatus`.
+- Webhook `member.availability_changed` `{ member_external_id, effective_status, source, partner_status,
+  user_status, until, has_schedule, changed_by: "partner"|"user" }` à chaque changement de réglage (pas quand une
+  plage horaire commence ou finit, ni à l'échéance de `until` : `effective_status` est calculé au moment du
+  changement).
+
 ### `GET /v1/partner/calls?since=&member=&limit=`
 
 ```bash
@@ -247,7 +346,9 @@ webhook `recording.ready`, qui ne contient que l'identifiant.
 ## Webhooks vers le partenaire
 
 Événements : `call.ringing`, `call.answered` (avec `member_external_id`), `call.completed` (durée, crédits),
-`recording.ready`, et depuis le lot A `member.linked`, `member.unlinked` et `member.number_changed`. Les événements
+`recording.ready`, depuis le lot A `member.linked`, `member.unlinked` et `member.number_changed`, et depuis le lot B
+`member.subscription_changed`, `member.port_in_updated` et `member.availability_changed` (champs plus haut, « Statut
+du membre »). Les événements
 d'appel portent `direction` (`inbound` ou `outbound`); un appel lancé au nom d'un membre ajoute `reference`. Corps :
 
 ```json
@@ -374,7 +475,11 @@ Affaires (`/v1/business/:id/partner*`, rôle propriétaire seulement), avec le s
 - **Liaison de compte (lot A)** : la personne voit, avant d'accepter, **ce que le partenaire verra et fera** : les
   appels de ses lignes qui lui sont acheminés (numéros, heures, durées, enregistrements si l'entreprise enregistre),
   les appels lancés en son nom (son application sonne d'abord; elle décide de répondre), et le numéro qu'elle choisit
-  comme ligne. Le partenaire **ne voit pas** ses textos, ses messages vocaux personnels, ses autres appels, ni son
+  comme ligne. Depuis le lot B, la page le dit aussi : le statut de son forfait MIMT (jamais carte, montants
+  ni factures), l'avancement de ses transferts de numéro (jamais numéro de compte ni NIP) et le réglage de sa
+  disponibilité pour les groupes d'appel (son propre choix l'emporte). Les liens approuvés avant le lot B couvrent
+  déjà la ligne et les appels; **à décider par le propriétaire** : redemander le consentement aux personnes reliées
+  avant le lot B, ou les en informer (aucun lien n'existait en production au moment du lot B). Le partenaire **ne voit pas** ses textos, ses messages vocaux personnels, ses autres appels, ni son
   identifiant MIMT, et ne peut rien acheter en son nom. Le consentement est donné par la personne elle-même
   (connectée + confirmation récente), il est **révocable en tout temps** (Compte › Intégrations › Partenaires), et la
   révocation prend effet immédiatement. Les journaux d'audit ne portent que des identifiants internes (pas de code,
@@ -392,7 +497,12 @@ Affaires (`/v1/business/:id/partner*`, rôle propriétaire seulement), avec le s
   n'entre pas encore dans la garde de dépense quotidienne (qui ne lit que la table `calls`); bannière « Choisissez
   votre numéro pour {partenaire} » sur `/numero?partner=` (le paramètre est accepté mais pas encore affiché).
 - Transcriptions dans les webhooks (seulement avec IA activée et consentement), vidéo (Réunions LiveKit).
-- Disponibilité des avocats gérée chez MIMT (horaires par membre) : en v1, le partenaire renvoie la liste du groupe.
+- ~~Disponibilité des avocats gérée chez MIMT (horaires par membre)~~ : **fait (lot B)**, avec le statut du forfait et
+  des transferts de numéro (« Statut du membre »).
+- Lot B, limites connues : `member.subscription_changed` ne part pas quand seul le statut du compte change (suspension
+  par la garde de dépense ou un administrateur, sans écriture d'abonnement) : `GET …/subscription` le montre;
+  `member.availability_changed` ne part pas quand une plage horaire ou `until` arrive à échéance.
+- Lot C : jeton vidéo (point 6), recharge Stripe des crédits et commission (point 8).
 
 ---
 
@@ -434,6 +544,17 @@ switch `PARTNERS=on|off`, default **off** (every route 404, call routing unchang
   member, one at a time. Billed in **partner credits** like hunt-group calls (the member's plan minutes are untouched);
   `402 insufficient_credits` when the balance cannot pay a minute (nobody is waiting on the line); call events carry
   `direction: "outbound"`, `member_external_id`, `reference`. Signed PBX steps `c2c-answer|connect|leg|status`.
+- **Member status (lot B, issue #97 points 3, 4, 7)**: `GET …/subscription` (plan, status
+  active|trialing|past_due|canceled|none, period end, canCall, `planUrl` = `/compte?partner=<slug>#forfait`; never
+  cards, amounts or invoices) and `GET …/port-ins` (id, e164, per-number status, updatedAt, expectedDate, `portUrl` =
+  `/services/transfert?partner=<slug>`; never the carrier account number or PIN) need an active link (409).
+  `GET/PUT …/availability {status available|busy|offline, weekly? (business-hours shape, America/Montreal), until?}`;
+  the linked person's own status (`PUT /v1/me/partner-links/:id/availability`, Account › Integrations › Partners)
+  wins over the partner's; « available » stays bounded by the weekly windows. Hunt groups skip members who are not
+  available now; with nobody available the group's no-answer fallback (voicemail) runs without ringing anyone.
+  Non-partner businesses, suspended partners and PARTNERS=off ring as before. Webhooks
+  `member.subscription_changed` (plan/status/can_call changes only, deduped per link), `member.port_in_updated`,
+  `member.availability_changed`. Migration 0028.
 - **Webhook address**: any public https host incl. subdomains, e.g. `https://portail.besoinavocat.ca/api/mimt/webhook`;
   configurable at any time.
 - **PBX hooks**: `pbxInbound` (ringing), a new leg status webhook `/webhooks/twilio/pbx/leg` plus the whisper press-1
