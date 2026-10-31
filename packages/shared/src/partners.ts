@@ -1,6 +1,10 @@
 // « MIMT Connect » partner platform (docs/MIMT-CONNECT.md): a MIMT business account exposed to a client's own
 // system through API keys and signed webhooks. besoinavocat.ca is the first partner; nothing here is specific to it.
 
+import type { WeeklySchedule } from "./business.js";
+import type { PlanCode } from "./plans.js";
+import type { PortInNumberStatus, PortInStatus } from "./portIn.js";
+
 /** Webhook events sent to a partner. Payloads carry ids and call metadata only: never audio, never a transcript. */
 export const PARTNER_EVENTS = [
   "call.ringing",
@@ -11,6 +15,10 @@ export const PARTNER_EVENTS = [
   "member.linked",
   "member.unlinked",
   "member.number_changed",
+  // Lot B (issue #97): the linked person's subscription, number transfers, and availability for hunt groups.
+  "member.subscription_changed",
+  "member.port_in_updated",
+  "member.availability_changed",
 ] as const;
 export type PartnerEventType = (typeof PARTNER_EVENTS)[number];
 
@@ -190,7 +198,7 @@ export interface PartnerLinkRequestCreated {
 }
 
 /** What the partner can see and do once linked (shown on the /lier consent page). */
-export const PARTNER_LINK_PERMISSIONS = ["calls", "click_to_call", "number"] as const;
+export const PARTNER_LINK_PERMISSIONS = ["calls", "click_to_call", "number", "plan_status", "number_transfers", "availability"] as const;
 export type PartnerLinkPermission = (typeof PARTNER_LINK_PERMISSIONS)[number];
 
 /** POST /v1/me/partner-links/preview: what the person is about to approve. */
@@ -218,6 +226,10 @@ export interface MyPartnerLinkDto {
   /** The line the partner uses as caller ID (one of the user's numbers), if one was attached. */
   lineNumber: string | null;
   permissions: PartnerLinkPermission[];
+  /** The person's own availability for this partner's hunt groups (null: the partner's setting applies). */
+  userStatus: PartnerAvailabilityStatus | null;
+  /** Whether this partner's hunt groups ring the person right now, all rules applied. */
+  effectiveStatus: PartnerAvailabilityStatus;
   createdAt: string;
 }
 
@@ -245,4 +257,73 @@ export interface PartnerClickToCallRequest {
 
 export interface PartnerClickToCallResponse {
   callId: string;
+}
+
+// ------------------------------------------------------------------------------------- lot B (issue #97)
+
+/** GET /v1/partner/members/:externalId/subscription: status of the linked person's own MIMT plan. */
+export type PartnerMemberSubscriptionStatus = "active" | "trialing" | "past_due" | "canceled" | "none";
+
+/**
+ * Minimal on purpose (Law 25): never card details, amounts or invoices. MIMT never charges on the partner's say-so:
+ * `planUrl` sends the person to choose and pay for their plan in MIMT themselves.
+ */
+export interface PartnerMemberSubscriptionDto {
+  plan: PlanCode;
+  status: PartnerMemberSubscriptionStatus;
+  currentPeriodEnd: string | null;
+  /** The account can place and receive calls (not suspended or closed). */
+  canCall: boolean;
+  planUrl: string;
+}
+
+/** One number transfer of the linked person: never the carrier account number or PIN. */
+export interface PartnerMemberPortInDto {
+  id: string;
+  /** First number of the request (most requests carry one). */
+  e164: string;
+  numbers: Array<{ e164: string; status: PortInNumberStatus }>;
+  status: PortInStatus;
+  updatedAt: string;
+  /** Firm order commitment date when the carrier gave one, else the date the person asked for; null if neither. */
+  expectedDate: string | null;
+}
+
+export interface PartnerMemberPortInsResponse {
+  portIns: PartnerMemberPortInDto[];
+  /** Where the person starts a number transfer in MIMT. */
+  portUrl: string;
+}
+
+/** Availability of a member for the partner's hunt groups. */
+export const PARTNER_AVAILABILITY_STATUSES = ["available", "busy", "offline"] as const;
+export type PartnerAvailabilityStatus = (typeof PARTNER_AVAILABILITY_STATUSES)[number];
+
+/** PUT /v1/partner/members/:externalId/availability (replaces the partner's setting; omitted fields are cleared). */
+export interface PartnerAvailabilityRequest {
+  status: PartnerAvailabilityStatus;
+  /** Weekly windows in America/Montreal (same shape as business hours): outside them an available member is offline. */
+  weekly?: WeeklySchedule | null;
+  /** The status holds until then; afterwards the member is available again (still within `weekly`). */
+  until?: string | null;
+}
+
+export interface PartnerAvailabilityDto {
+  externalId: string;
+  /** The partner's setting. */
+  status: PartnerAvailabilityStatus;
+  weekly: WeeklySchedule | null;
+  until: string | null;
+  /** The linked person's own setting from the MIMT apps: it wins over `status` while set. */
+  userStatus: PartnerAvailabilityStatus | null;
+  /** What hunt groups apply right now. */
+  effectiveStatus: PartnerAvailabilityStatus;
+  /** Which rule decided `effectiveStatus`. */
+  source: "user" | "partner" | "schedule" | "default";
+  updatedAt: string | null;
+}
+
+/** PUT /v1/me/partner-links/:id/availability: the person's own status (null hands control back to the partner). */
+export interface MyPartnerAvailabilityRequest {
+  status: PartnerAvailabilityStatus | null;
 }

@@ -4,6 +4,7 @@
 // - When the referee's first paid plan invoice is paid (Stripe invoice.paid), both get one month of Premium.
 // - Anti-fraud: no self-referral; the same attested device or the same card on both sides (or on two
 //   referees of the same referrer) settles the referral as "rejected" with no reward.
+import { notifyMemberSubscription } from "./partnerMembers.js";
 import { planOf } from "../plansConfig.js";
 import { createHash, randomInt } from "node:crypto";
 import type { PlanCode, ReferralDto, ReferralRejectReason } from "@mimt/shared";
@@ -188,6 +189,8 @@ export async function grantPremiumMonth(deps: AppDeps, account: TelecomAccount, 
     currentPeriodEnd: addDays(new Date(runningEnd), REFERRAL_REWARD.days),
   });
   await recomputeEntitlements(repo, account);
+  // « MIMT Connect » lot B: a granted Premium month is a plan change for the owner's partner links.
+  await notifyMemberSubscription(deps, account);
   await deps.notifier.notify(account.ownerUserId, "referral_reward", { months: REFERRAL_REWARD.months, plan: REFERRAL_REWARD.plan });
   return "premium_grant";
 }

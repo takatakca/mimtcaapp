@@ -65,6 +65,11 @@ describe("isolated self-hosted MIMT migration guard", () => {
     for (const earlier of MIGRATION_ORDER.filter((m) => m < "0027_")) {
       expect(MIGRATION_ORDER.indexOf(earlier)).toBeLessThan(MIGRATION_ORDER.indexOf("0027_partner_links.sql"));
     }
+    // MIMT Connect lot B (availability, subscription webhook state) is 0028: it alters 0023 and 0027 tables.
+    expect(MIGRATION_ORDER).toContain("0028_partner_member_status.sql");
+    for (const earlier of MIGRATION_ORDER.filter((m) => m < "0028_")) {
+      expect(MIGRATION_ORDER.indexOf(earlier)).toBeLessThan(MIGRATION_ORDER.indexOf("0028_partner_member_status.sql"));
+    }
   });
   it("lists every migration file in supabase/migrations", () => {
     const files = readdirSync(join(__dirname, "../../../supabase/migrations")).filter((f) => f.endsWith(".sql"));

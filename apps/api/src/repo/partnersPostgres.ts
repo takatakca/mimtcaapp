@@ -2,6 +2,8 @@ import type postgres from "postgres";
 import type {
   NewPartnerCall,
   PartnerApiKeyRow,
+  PartnerAvailabilityPatch,
+  PartnerAvailabilityRow,
   PartnerCallPatch,
   PartnerCallRow,
   PartnerCreditInput,
@@ -32,6 +34,8 @@ const CALL_COLS =
   "id, partner_id, call_sid, direction, from_number, to_number, hunt_group_key, member_id, external_id, answered_leg_sid, started_at, answered_at, ended_at, talk_s, credits_charged, billing, recording_id, reference, finalized_at, created_at";
 const LINK_REQUEST_COLS = "id, partner_id, member_id, code_sha256, expires_at, attempts, used_at, invalidated_at, created_at";
 const LINK_COLS = "id, partner_id, member_id, user_id, number_id, request_id, created_at, updated_at, revoked_at, revoked_by";
+// Weekly windows are read back as text too (same camelCase transform concern, and it keeps the exact shape).
+const AVAILABILITY_COLS = "member_id, partner_id, status, weekly::text as weekly_text, until, user_status, created_at, updated_at";
 // The payload is read back as text: the client's camelCase transform would otherwise rename the snake_case keys
 // the partner receives (call_id → callId).
 const EVENT_COLS = "id, partner_id, event_type, payload::text as payload_text, attempts, next_attempt_at, delivered_at, last_error, created_at";
@@ -44,6 +48,12 @@ const firstEvent = (rows: readonly unknown[]) => {
   const r = first<EventRowText>(rows);
   return r ? eventRow(r) : null;
 };
+
+type AvailabilityRowText = Omit<PartnerAvailabilityRow, "weekly"> & { weeklyText: string | null };
+const availabilityRow = ({ weeklyText, ...r }: AvailabilityRowText): PartnerAvailabilityRow => ({
+  ...r,
+  weekly: weeklyText ? (JSON.parse(weeklyText) as PartnerAvailabilityRow["weekly"]) : null,
+});
 
 /** Partner columns a patch may set (camelCase field → column). */
 const PARTNER_PATCH: Record<keyof PartnerPatch, string> = {
@@ -369,6 +379,46 @@ export class PostgresPartnerRepository implements PartnerRepository {
     return first<PartnerMemberLinkRow>(
       await this.sql.unsafe(`update partner_member_links set number_id = $2 where id = $1 and revoked_at is null returning ${LINK_COLS}`, [id, numberId]),
     );
+  }
+
+  async getAvailability(memberId: string) {
+    const r = first<AvailabilityRowText>(await this.sql.unsafe(`select ${AVAILABILITY_COLS} from partner_member_availability where member_id = $1`, [memberId]));
+    return r ? availabilityRow(r) : null;
+  }
+
+  async listAvailability(partnerId: string) {
+    const rows = (await this.sql.unsafe(`select ${AVAILABILITY_COLS} from partner_member_availability where partner_id = $1 order by member_id`, [
+      partnerId,
+    ])) as unknown as AvailabilityRowText[];
+    return rows.map(availabilityRow);
+  }
+
+  async upsertAvailability(partnerId: string, memberId: string, patch: PartnerAvailabilityPatch) {
+    // One statement: insert with the defaults, or update only the fields the patch defines ($n is null-safe with the
+    // `has` flags, so « clear to null » and « leave as is » stay distinct).
+    const has = (k: keyof PartnerAvailabilityPatch) => patch[k] !== undefined;
+    // The jsonb parameter is serialized by the driver: pass the object itself (a string would be stored as a JSON string).
+    const weekly = patch.weekly ?? null;
+    const r = first<AvailabilityRowText>(
+      await this.sql.unsafe(
+        `insert into partner_member_availability (member_id, partner_id, status, weekly, until, user_status)
+         values ($1, $2, coalesce($3, 'available'), $5::jsonb, $7, $9)
+         on conflict (member_id) do update set
+           status = case when $4 then excluded.status else partner_member_availability.status end,
+           weekly = case when $6 then excluded.weekly else partner_member_availability.weekly end,
+           until = case when $8 then excluded.until else partner_member_availability.until end,
+           user_status = case when $10 then excluded.user_status else partner_member_availability.user_status end
+         returning ${AVAILABILITY_COLS}`,
+        [memberId, partnerId, patch.status ?? null, has("status"), weekly, has("weekly"), patch.until ?? null, has("until"), patch.userStatus ?? null, has("userStatus")] as never[],
+      ),
+    )!;
+    return availabilityRow(r);
+  }
+
+  async swapLinkSubscriptionState(linkId: string, state: string) {
+    const rows = await this.sql`update partner_member_links set subscription_state = ${state}
+      where id = ${linkId} and revoked_at is null and subscription_state is distinct from ${state} returning id`;
+    return rows.length > 0;
   }
 
   async enqueueEvent(e: { partnerId: string; eventType: PartnerWebhookEventRow["eventType"]; payload: Record<string, unknown>; at: Date }) {

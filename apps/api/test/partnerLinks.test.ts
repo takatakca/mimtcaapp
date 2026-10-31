@@ -118,7 +118,7 @@ describe("lot A: account-link consent", () => {
     const lawyer = await makeUser(ctx, { number: "+15145550177" });
     const preview = await call("POST", "/v1/me/partner-links/preview", lawyer.auth, { code: r.code.toLowerCase().replace(/(.{4})/, "$1-") });
     expect(preview.statusCode).toBe(200);
-    expect(preview.json()).toMatchObject({ partnerName: "BesoinAvocat", externalId: "avocat-42", memberName: "Me Tremblay", permissions: ["calls", "click_to_call", "number"] });
+    expect(preview.json()).toMatchObject({ partnerName: "BesoinAvocat", externalId: "avocat-42", memberName: "Me Tremblay", permissions: ["calls", "click_to_call", "number", "plan_status", "number_transfers", "availability"] });
 
     const ok = await approve(lawyer.auth, { code: r.code, requestId: r.requestId });
     expect(ok.statusCode).toBe(201);

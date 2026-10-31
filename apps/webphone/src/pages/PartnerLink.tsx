@@ -15,6 +15,9 @@ const PERMISSION_KEYS: Record<PartnerLinkPermission, TKey> = {
   calls: "partnerLink.perm.calls",
   click_to_call: "partnerLink.perm.click_to_call",
   number: "partnerLink.perm.number",
+  plan_status: "partnerLink.perm.plan_status",
+  number_transfers: "partnerLink.perm.number_transfers",
+  availability: "partnerLink.perm.availability",
 };
 
 export function PartnerLink() {

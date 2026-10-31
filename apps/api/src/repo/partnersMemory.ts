@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import type {
   NewPartnerCall,
   PartnerApiKeyRow,
+  PartnerAvailabilityPatch,
+  PartnerAvailabilityRow,
   PartnerCallPatch,
   PartnerCallRow,
   PartnerCreditInput,
@@ -32,6 +34,9 @@ export class MemoryPartnerRepository implements PartnerRepository {
   readonly events: PartnerWebhookEventRow[] = [];
   readonly linkRequests: PartnerLinkRequestRow[] = [];
   readonly links: PartnerMemberLinkRow[] = [];
+  readonly availability: PartnerAvailabilityRow[] = [];
+  /** Last subscription view sent per link (0028 partner_member_links.subscription_state). */
+  readonly subscriptionStates = new Map<string, string>();
 
   async createPartner(p: { businessId: string; name: string; slug?: string | null; creditPerMinute: number | null; createdBy: string | null }) {
     if (this.partners.some((x) => x.businessId === p.businessId)) throw new Error("partner exists for this business");
@@ -380,6 +385,33 @@ export class MemoryPartnerRepository implements PartnerRepository {
     if (!l) return null;
     Object.assign(l, { numberId, updatedAt: new Date() });
     return copy(l);
+  }
+
+  async getAvailability(memberId: string) {
+    const a = this.availability.find((x) => x.memberId === memberId);
+    return a ? copy(a) : null;
+  }
+
+  async listAvailability(partnerId: string) {
+    return this.availability.filter((x) => x.partnerId === partnerId).map(copy);
+  }
+
+  async upsertAvailability(partnerId: string, memberId: string, patch: PartnerAvailabilityPatch) {
+    const now = new Date();
+    let a = this.availability.find((x) => x.memberId === memberId);
+    if (!a) {
+      a = { memberId, partnerId, status: "available", weekly: null, until: null, userStatus: null, createdAt: now, updatedAt: now };
+      this.availability.push(a);
+    }
+    Object.assign(a, copy(Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined))), { updatedAt: now });
+    return copy(a);
+  }
+
+  async swapLinkSubscriptionState(linkId: string, state: string) {
+    const l = this.links.find((x) => x.id === linkId && !x.revokedAt);
+    if (!l || this.subscriptionStates.get(linkId) === state) return false;
+    this.subscriptionStates.set(linkId, state);
+    return true;
   }
 
   async enqueueEvent(e: { partnerId: string; eventType: PartnerWebhookEventRow["eventType"]; payload: Record<string, unknown>; at: Date }) {

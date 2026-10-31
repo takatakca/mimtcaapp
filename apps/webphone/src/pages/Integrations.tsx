@@ -1,7 +1,15 @@
 // Compte › Intégrations (/compte/integrations): the « Google Agenda » card (API apps/api/src/routes/calendar.ts; spec,
 // data flow and Law 25 notes: docs/MIMT-CALENDAR.md; Google sends the browser back here with ?gc=ok|error) and the
-// « Partenaires » card: MIMT Connect account links the person approved, each revocable (docs/MIMT-CONNECT.md).
-import { SUBSCRIPTION_ADD_ONS, formatCad, type CalendarSettings, type GoogleCalendarStatusResponse } from "@mimt/shared";
+// « Partenaires » card: MIMT Connect account links the person approved, each revocable, and the person's own
+// availability for the partner's hunt groups, which wins over the partner's setting (docs/MIMT-CONNECT.md).
+import {
+  PARTNER_AVAILABILITY_STATUSES,
+  SUBSCRIPTION_ADD_ONS,
+  formatCad,
+  type CalendarSettings,
+  type GoogleCalendarStatusResponse,
+  type PartnerAvailabilityStatus,
+} from "@mimt/shared";
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
@@ -224,6 +232,21 @@ function PartnersCard() {
     }
   };
 
+  const setStatus = async (id: string, value: string) => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api.setPartnerAvailability(id, { status: value === "" ? null : (value as PartnerAvailabilityStatus) });
+      setMessage("partners.availability.saved");
+      links.reload();
+    } catch (e) {
+      setError(toErrorKey(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const list = links.data?.links;
   return (
     <section className="card" aria-labelledby="partners-h">
@@ -243,6 +266,26 @@ function PartnersCard() {
                 {l.lineNumber ? t("partners.line", { number: l.lineNumber }) : t("partners.noLine")} ·{" "}
                 {t("partners.since", { date: new Date(l.createdAt).toLocaleDateString(locale) })}
               </span>
+              <div className="field">
+                <label htmlFor={`avail-${l.id}`}>{t("partners.availability.label")}</label>
+                <select
+                  id={`avail-${l.id}`}
+                  className="input"
+                  value={l.userStatus ?? ""}
+                  disabled={busy}
+                  onChange={(e) => void setStatus(l.id, e.target.value)}
+                >
+                  <option value="">{t("partners.availability.partner")}</option>
+                  {PARTNER_AVAILABILITY_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {t(`partners.availability.${s}`)}
+                    </option>
+                  ))}
+                </select>
+                <span className="muted small">
+                  {t("partners.availability.now", { status: t(`partners.availability.${l.effectiveStatus}`) })} · {t("partners.availability.hint")}
+                </span>
+              </div>
               <div>
                 <button type="button" className="btn btn--danger btn--sm" disabled={busy} onClick={() => void revoke(l.id, l.partnerName)}>
                   {t("partners.revoke")}

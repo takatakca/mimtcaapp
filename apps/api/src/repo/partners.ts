@@ -3,7 +3,7 @@
 // The repository owns the money-grade guarantees of the credit ledger, in ONE transaction per call after a row lock
 // on the partner: idempotency keys (a key is used once, ever), balance never below zero. Memory and Postgres
 // implementations behave the same (partners.repo.contract.test.ts).
-import type { PartnerCallBilling, PartnerEventType } from "@mimt/shared";
+import type { PartnerAvailabilityStatus, PartnerCallBilling, PartnerEventType, WeeklySchedule } from "@mimt/shared";
 
 export interface PartnerRow {
   id: string;
@@ -170,6 +170,24 @@ export type PartnerLinkCreateResult =
   | { status: "member_taken" }
   | { status: "user_taken" };
 
+/** Lot B (0028_partner_member_status.sql): a member's availability for the partner's hunt groups. */
+export interface PartnerAvailabilityRow {
+  memberId: string;
+  partnerId: string;
+  /** The partner's setting. */
+  status: PartnerAvailabilityStatus;
+  /** Weekly windows (America/Montreal); null = always. */
+  weekly: WeeklySchedule | null;
+  /** The partner's status holds until then (null = until changed). */
+  until: Date | null;
+  /** The linked MIMT user's own setting; wins over `status` while set. */
+  userStatus: PartnerAvailabilityStatus | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type PartnerAvailabilityPatch = Partial<Pick<PartnerAvailabilityRow, "status" | "weekly" | "until" | "userStatus">>;
+
 export interface PartnerRepository {
   createPartner(p: { businessId: string; name: string; slug?: string | null; creditPerMinute: number | null; createdBy: string | null }): Promise<PartnerRow>;
   getPartnerBySlug(slug: string): Promise<PartnerRow | null>;
@@ -238,6 +256,16 @@ export interface PartnerRepository {
   revokeLink(id: string, by: "user" | "partner" | "system", at: Date): Promise<PartnerMemberLinkRow | null>;
   /** Only on an active link; null otherwise. */
   setLinkNumber(id: string, numberId: string | null): Promise<PartnerMemberLinkRow | null>;
+
+  getAvailability(memberId: string): Promise<PartnerAvailabilityRow | null>;
+  listAvailability(partnerId: string): Promise<PartnerAvailabilityRow[]>;
+  /** Insert (defaults: available, no schedule, no end, no user status) or update; only defined fields change. */
+  upsertAvailability(partnerId: string, memberId: string, patch: PartnerAvailabilityPatch): Promise<PartnerAvailabilityRow>;
+  /**
+   * Stores the subscription view last sent for an ACTIVE link. True when it differs from the stored one (the caller
+   * then sends member.subscription_changed); false when unchanged or the link is not active.
+   */
+  swapLinkSubscriptionState(linkId: string, state: string): Promise<boolean>;
 
   enqueueEvent(e: { partnerId: string; eventType: PartnerEventType; payload: Record<string, unknown>; at: Date }): Promise<PartnerWebhookEventRow>;
   listDueEvents(now: Date, limit: number): Promise<PartnerWebhookEventRow[]>;

@@ -32,6 +32,7 @@ import type { BusinessRow } from "../repo/pbxTypes.js";
 import type { PartnerLinkRequestRow, PartnerMemberLinkRow, PartnerMemberRow, PartnerRow } from "../repo/partners.js";
 import { outboundBlocked } from "./accounts.js";
 import { chooseNumberUrl, creditRate, emitPartnerEvent, linkLine, partnersOn, syncMemberRing } from "./partners.js";
+import { myAvailability, rememberSubscriptionState } from "./partnerMembers.js";
 
 /** Approve/preview attempts per signed-in user and per IP address (brute force on the code). */
 export const LINK_APPROVE_USER_RULE: RateRule = { capacity: 10, windowSeconds: 15 * 60 };
@@ -147,6 +148,8 @@ export async function approveLink(deps: AppDeps, userId: string, input: { code: 
   if (res.status === "member_taken") throw conflict("member_already_linked", "Ce profil est déjà relié à un autre compte MIMT.");
   if (res.status === "user_taken") throw conflict("already_linked_to_partner", "Votre compte MIMT est déjà relié à un autre profil de ce partenaire.");
   await syncMemberRing(deps, partner, member);
+  // Lot B: the plan status at approval is the baseline; member.subscription_changed reports what changes after.
+  await rememberSubscriptionState(deps, res.link);
   await emitPartnerEvent(deps, partner, "member.linked", { member_external_id: member.externalId, linked_at: at.toISOString() });
   await deps.repo.audit({
     actorUserId: userId,
@@ -160,7 +163,12 @@ export async function approveLink(deps: AppDeps, userId: string, input: { code: 
 }
 
 export async function myLinkDto(deps: AppDeps, link: PartnerMemberLinkRow): Promise<MyPartnerLinkDto> {
-  const [partner, member, line] = await Promise.all([deps.repo.partners.getPartner(link.partnerId), deps.repo.partners.getMemberById(link.memberId), linkLine(deps, link)]);
+  const [partner, member, line, availability] = await Promise.all([
+    deps.repo.partners.getPartner(link.partnerId),
+    deps.repo.partners.getMemberById(link.memberId),
+    linkLine(deps, link),
+    myAvailability(deps, link),
+  ]);
   return {
     id: link.id,
     partnerName: partner?.name ?? "",
@@ -168,6 +176,8 @@ export async function myLinkDto(deps: AppDeps, link: PartnerMemberLinkRow): Prom
     memberName: member?.name ?? "",
     lineNumber: line?.e164 ?? null,
     permissions: permissions(),
+    userStatus: availability.userStatus,
+    effectiveStatus: availability.effectiveStatus,
     createdAt: link.createdAt.toISOString(),
   };
 }

@@ -1,4 +1,5 @@
 import { planOf } from "../plansConfig.js";
+import { notifyMemberSubscription } from "../services/partnerMembers.js";
 import type { FastifyInstance } from "fastify";
 import {
   ADD_ONS,
@@ -272,6 +273,8 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       currentPeriodEnd: purchase.currentPeriodEnd,
     });
     await recomputeEntitlements(repo, account);
+    // « MIMT Connect » lot B: the linked partners learn plan/status changes (no amounts, no payment details).
+    if (sku.kind === "plan") await notifyMemberSubscription(deps, account, app.log);
     // Mission « Passez à l'annuel »: a verified yearly App Store / Google Play plan.
     if (sku.kind === "plan" && purchase.status === "active" && storeProduct(productId)?.interval === "year") {
       await grantMission(deps, { account, mission: "go_yearly", sourceRef: `${platform}:yearly`, log: app.log });
@@ -451,6 +454,7 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
         await repo.upsertSubscription({ ...fields, status: "canceled" });
         const account = await repo.getAccount(row.telecomAccountId);
         if (account) await recomputeEntitlements(repo, account);
+        if (account && row.kind === "plan") await notifyMemberSubscription(deps, account, app.log);
       }
       return { received: true };
     }
@@ -466,6 +470,7 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
     if (purchase.linkedPurchaseToken) {
       await cancelLinkedGoogleRow(account.id, purchase.linkedPurchaseToken);
       await recomputeEntitlements(repo, account);
+      await notifyMemberSubscription(deps, account, app.log);
     }
     if (!purchase.acknowledged && purchase.status === "active") await store.googleAcknowledge(sub.subscriptionId, sub.purchaseToken);
     return { received: true };
@@ -518,6 +523,8 @@ export async function billingRoutes(app: FastifyInstance, deps: AppDeps) {
       currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000) : null,
     });
     await recomputeEntitlements(repo, account);
+    // « MIMT Connect » lot B: member.subscription_changed for the owner's active partner links, when it changed.
+    if (kind === "plan") await notifyMemberSubscription(deps, account, app.log);
     if (kind === "plan" && BUSINESS_PLANS.has(code as PlanCode)) await syncBusinessSeats(account, sub, item?.quantity ?? 1);
     // Mission « Passez à l'annuel »: a yearly plan Stripe reports as paid. The reward is the free month in the price.
     if (kind === "plan" && code !== "free" && item?.price?.recurring?.interval === "year" && sub.status === "active") {
