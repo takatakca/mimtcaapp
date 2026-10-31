@@ -10,11 +10,15 @@ clientes de TAKATAK suivront avec le même code. Aucun service tiers payant : le
 Code : `apps/api/src/routes/partners.ts` (API), `apps/api/src/services/partners.ts` (règles, crochets du standard,
 webhooks), `apps/api/src/services/partnerLinks.ts` (liaison de compte, ligne, appel au nom d'un membre),
 `apps/api/src/services/partnerMembers.ts` (lot B : forfait, transferts de numéro, disponibilité),
-`apps/api/src/repo/partners*.ts` (stockage), `supabase/migrations/0023_partners.sql`, `0027_partner_links.sql` et `0028_partner_member_status.sql`
-(tables et contraintes), `packages/shared/src/partners.ts` (contrat), `apps/webphone/src/pages/business/Partner.tsx`
+`apps/api/src/services/partnerConsent.ts` (consentement : conditions du partenaire, accès, reçus, journal d'accès),
+`apps/api/src/repo/partners*.ts` (stockage), `supabase/migrations/0023_partners.sql`, `0027_partner_links.sql`, `0028_partner_member_status.sql`
+et `0029_partner_consent.sql` (tables et contraintes), `packages/shared/src/partners.ts` et `partnerScopes.ts` (contrat,
+accès et leurs textes), `docs/legal/conditions-partenaire-mimt-connect.md` (conditions partenaire et DPA, brouillon),
+`apps/webphone/src/pages/business/Partner.tsx`
 (section « Partenaire »), `apps/webphone/src/pages/PartnerLink.tsx` (page de consentement `/lier`) et la carte
 « Partenaires » de `apps/webphone/src/pages/Integrations.tsx`.
-Tests : `apps/api/test/partners.test.ts`, `apps/api/test/partnerLinks.test.ts`, `apps/api/test/partnerMembers.test.ts`, `apps/api/test/partners.repo.contract.test.ts`
+Tests : `apps/api/test/partners.test.ts`, `apps/api/test/partnerLinks.test.ts`, `apps/api/test/partnerMembers.test.ts`,
+`apps/api/test/partnerConsent.test.ts`, `apps/api/test/partners.repo.contract.test.ts`
 (mémoire et Postgres), `apps/webphone/src/pages/business/Partner.test.tsx`, `apps/webphone/src/pages/PartnerLink.test.tsx`.
 
 ## Interrupteur
@@ -48,6 +52,144 @@ historique, mais ne sonne plus.
 - En-tête : `Authorization: Bearer mimt_pk_…`. Limite : 120 requêtes par minute par clé (429 `rate_limited`), plus la
   limite générale par adresse IP.
 - Partenaire suspendu : 403 `partner_suspended`. Clé inconnue ou révoquée : 401 `invalid_api_key`.
+
+## Consentement (31 octobre 2026)
+
+Ordre du propriétaire (2026-10-31) : « Tu vas tout le temps demander consentement. On délègue des avocats pour qu'ils
+autorisent tout, n'importe quoi. Ils plug-in, ils payent. Tout doit avoir le meilleur consentement en forme parce
+qu'on délègue des avocats. Ça doit être [pareil] des deux côtés. Puis clair et net pour pas assurer pas de problème. »
+
+Lecture (Loi 25 et LPRPDE) : le consentement est **toujours demandé**, manifeste, libre, éclairé, donné à des fins
+précises et **demandé séparément pour chaque fin**, en termes clairs et simples; il est **enregistré** (reçu),
+**révocable** en tout temps, accès par accès, et **symétrique** : l'avocat consent, et le partenaire s'engage
+d'abord par écrit. Code : `apps/api/src/services/partnerConsent.ts`, `packages/shared/src/partnerScopes.ts`,
+migration `0029_partner_consent.sql`, tests `apps/api/test/partnerConsent.test.ts`.
+
+### Les accès (scopes)
+
+Un accès est accordé par la personne reliée, une case à la fois, décochée par défaut. Chaque route et chaque webhook sur
+ses données vérifie l'accès sur son lien : sans lui, **`403 scope_not_granted`** avec le nom de l'accès
+(`{"error":"scope_not_granted","scope":"subscription.read","message":"…"}`), et l'événement n'est pas envoyé.
+
+| Accès | Ce que le partenaire voit ou fait | Jamais | Routes | Webhooks |
+| --- | --- | --- | --- | --- |
+| `calls.read` | Les appels de ses groupes que la personne répond et les appels lancés en son nom : numéros, heures, durées, crédits | Ses autres appels, textos, messages vocaux personnels, contacts | `GET /v1/partner/calls` (appels sous le lien), section Partenaire du portail Affaires | `call.ringing` (sortant), `call.answered`, `call.completed` |
+| `calls.place` | Appeler en son nom : son application (ou cellulaire) sonne d'abord, l'appel ne part que si elle répond, sa ligne sert d'afficheur; payé en crédits du partenaire | Appeler sans réponse, 9-1-1, surtaxés, hors Canada/É.-U., ses minutes de forfait | `POST …/calls` | — |
+| `line.manage` | Ses numéros MIMT actifs, et le choix de la ligne | Acheter, transférer ou abandonner un numéro | `GET …/numbers`, `PUT …/number`, `lineNumber` des membres | `member.number_changed` |
+| `subscription.read` | Forfait, statut, fin de période, peut appeler | Carte, montants, factures; aucun achat | `GET …/subscription` | `member.subscription_changed` |
+| `porting.read` | Numéro transféré, statut, date prévue | Numéro de compte, NIP, signature, adresse, nom | `GET …/port-ins` | `member.port_in_updated` |
+| `availability.manage` | Régler sa disponibilité (statut, horaire, échéance) et voir son propre choix | Passer outre son choix dans MIMT | `GET`/`PUT …/availability` (membre relié) | `member.availability_changed` (membre relié) |
+| `recordings.read` | Les enregistrements des appels de ses groupes qu'elle répond, si l'entreprise enregistre (liens de 15 min) | Autres enregistrements, messages vocaux, transcriptions | `recordingUrl` de `GET /v1/partner/calls`, `GET /v1/partner/recordings/:id` | `recording.ready` |
+
+- **Vérifié :** des enregistrements sont exposés aujourd'hui (`recordingUrl`, `GET /v1/partner/recordings/:id`,
+  `recording.ready`), d'où l'accès `recordings.read`. Les appels lancés au nom d'un membre ne sont pas enregistrés.
+- **Ce que le lien fait toujours** (sans accès) : les applications MIMT de la personne sonnent pour les groupes d'appel
+  du partenaire quand elle est disponible; c'est l'objet même du lien, dit en tête de la page `/lier`. Elle peut se
+  mettre « hors ligne » pour ce partenaire en tout temps.
+- **Membres sans compte MIMT relié** (cellulaire seulement, ou @nom d'un employé de l'entreprise) : ce sont les
+  registres du partenaire; aucun accès ne s'applique (comme avant).
+- **Appels sous un lien** : un appel répondu ou lancé alors que le membre était relié garde l'identifiant de ce lien
+  (`partner_calls.link_id`). Il n'est montré qu'avec `calls.read` de ce lien, et plus du tout si le lien est retiré.
+- Les textes exacts (français et anglais) et leurs versions : `PARTNER_SCOPE_TEXT`, `PARTNER_CONSENT_COMMON`,
+  `PARTNER_CONSENT_TEXT_VERSION` (`2026-10-31`), `PARTNER_SCOPE_SET_VERSION` (`1`), et `GET /v1/partner/consent-text`.
+
+### Côté partenaire : conditions et DPA, finalités déclarées
+
+1. Le partenaire signe les **conditions partenaire MIMT Connect et l'entente de traitement** (brouillon pour l'avocat :
+   `docs/legal/conditions-partenaire-mimt-connect.md`) : finalités limitées à celles déclarées, aucune revente,
+   sécurité, avis d'incident dans les 72 heures, suppression au retrait d'un accès ou du lien, droits des personnes,
+   vérifications, Loi 25 (MIMT est fournisseur de services pour les appels du partenaire).
+2. Un administrateur MIMT enregistre l'acceptation (confirmation récente exigée, journalisée `partner.terms_accepted`) :
+
+```bash
+curl -X POST https://api.mimt.ca/v1/admin/partners/$PARTNER_ID/terms-acceptance -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "content-type: application/json" -d '{
+    "termsVersion": "2026-10-31", "acceptedAt": "2026-11-02T14:00:00Z",
+    "signerName": "Julie Gagnon", "signerTitle": "Présidente",
+    "legalName": "BesoinAvocat inc.", "privacyContactEmail": "vieprivee@besoinavocat.ca",
+    "purposes": {
+      "calls.read": "Inscrire chaque appel de référence au dossier du client.",
+      "calls.place": "Rappeler un client depuis le portail, avec la ligne de l avocat.",
+      "line.manage": "Afficher la ligne de l avocat aux clients référés.",
+      "availability.manage": "N envoyer des appels qu aux heures choisies par l avocat." } }'
+# 201 { "id": "…", "termsVersion": "2026-10-31", "current": true, … }
+```
+
+3. Sans acceptation de la version en vigueur : `POST …/link-requests` → **`409 partner_terms_required`** (avec
+   `termsVersion`). Un accès non déclaré → **`403 scope_not_declared`**. Le nom légal et le contact vie privée sont
+   montrés à l'avocat sur `/lier` et dans sa carte Partenaires. `GET /v1/admin/partners/:id` donne `terms`.
+
+### Côté avocat : `/lier`, reçu, retrait
+
+- Chaque accès demandé est une case **décochée** avec son explication, ce qu'il ne permet jamais et la finalité du
+  partenaire. Le partenaire peut marquer un accès `required` : l'écran l'indique (« Requis » et la raison), et
+  « Autoriser » reste inactif tant qu'un accès requis n'est pas coché (l'API répond `400 required_scope_missing`).
+  Aussi : `400 scope_not_requested`, `400 no_scope_selected` (au moins un accès), `409 consent_text_changed` (le texte
+  a changé depuis l'affichage). Une erreur ne consomme pas le code.
+- L'écran montre qui demande (nom, nom légal, responsable de la vie privée, version des conditions), comment retirer
+  et la version du texte. Autoriser exige une **confirmation récente** (`requireRecentAuth`).
+- **Reçu** (`partner_consent_receipts`, jamais modifié) : accès accordés, accès changés, accès requis, finalités,
+  version du texte, version de l'ensemble d'accès, version des conditions du partenaire, moment, **appareil grossier**
+  (« Chrome · Windows ») et **réseau** (`203.0.113.0/24` ou `/48`) : le même format que le module de sécurité, **jamais
+  l'adresse IP complète**. Montré dans la carte Partenaires (Compte › Intégrations), historique
+  `GET /v1/me/partner-links/:id/receipts`. Une notification poussée « Reçu de consentement MIMT Connect » part quand
+  le Web Push est configuré. Le partenaire reçoit `member.consent_updated` `{ member_external_id, scopes,
+  consent_version, updated_at }` (les accès seulement).
+- **Retrait** : immédiat, sans confirmation renforcée. Un accès : `DELETE /v1/me/partner-links/:id/scopes/:scope` →
+  `{ "unlinked": false, "link": {…} }`; retirer le dernier retire le lien (`{ "unlinked": true, "link": null }`,
+  `member.unlinked`). Un accès requis peut être retiré (l'écran prévient que le service peut prendre fin). Retirer
+  `availability.manage` efface le réglage du partenaire (le choix de la personne reste). Tout le lien :
+  `DELETE /v1/me/partner-links/:id`. Chaque retrait laisse un reçu (`scope_revoked`, `revoked`).
+
+### Re-consentement quand l'accès change (élargissement)
+
+- La version du texte et celle de l'ensemble d'accès sont gardées sur le lien (`consentVersion`, `consentCurrent` dans
+  `GET /v1/partner/members/:externalId` et dans la carte). **Un lien ne s'agrandit jamais seul** : un nouvel accès, ou
+  un texte de version plus récente, laisse le lien limité à ce qui a été consenti.
+- Pour un nouvel accès, le partenaire refait `POST …/link-requests` sur le membre relié : la réponse a `kind:
+  "upgrade"`. Seule la personne reliée peut l'approuver (`403 upgrade_for_another_account` sinon), sur `/lier`, de la
+  même façon (cases, accès requis, confirmation récente). Les accès que la demande ne nomme pas restent tels quels; un
+  accès nommé et décoché est retiré; ceux déjà accordés apparaissent cochés (« Déjà accordé »).
+
+```bash
+curl -X POST https://api.mimt.ca/v1/partner/members/avocat-42/link-requests -H "$H" -H "content-type: application/json" \
+  -d '{"scopes":[{"scope":"availability.manage","purpose":"N envoyer des appels qu aux heures choisies par l avocat."}]}'
+# 201 { "kind": "upgrade", "code": "…", "url": "https://app.mimt.ca/lier?code=…&r=…", … }
+```
+
+- **Liens d'avant le 31 octobre 2026 (lots A et B)** : la migration 0029 leur donne seulement `calls.read`,
+  `calls.place`, `line.manage` (ce que montrait l'écran du lot A), version `lot-a-2026-10-30`, avec un reçu
+  « migré ». **Les accès du lot B ne sont pas accordés** (décision du propriétaire : toujours demander) : le partenaire
+  envoie une demande d'élargissement. Les codes en attente sans accès nommés sont annulés.
+
+### Journal d'accès
+
+- Chaque accès du partenaire aux données d'une personne reliée (routes ci-dessus, permis ou refusés) est inscrit :
+  accès, moment, méthode et **modèle de route** (`GET /v1/partner/members/:externalId/subscription`); jamais le corps,
+  la requête, l'identifiant du membre ni l'adresse IP. Si l'inscription échoue, la requête échoue.
+- `GET /v1/me/partner-links/:id/access-log` : les 50 plus récents (`{ entries: [{ scope, route, outcome, at }],
+  retentionDays: 90 }`), dans la carte Partenaires (« Voir le journal d'accès »).
+- **Conservation 90 jours** : tâche quotidienne de l'API (`runPartnerAccessLogRetention`, `server.ts`), même avec
+  `PARTNERS=off`. Les reçus, eux, sont gardés comme preuve du consentement (supprimés avec le compte).
+
+### Pour l'équipe d'intégration de BesoinAvocat
+
+- **Avant d'envoyer l'avocat sur `/lier`, le portail doit montrer les mêmes explications** que MIMT pour chaque accès
+  demandé (libellé, ce qu'il permet, ce qu'il ne permet jamais) et votre finalité. Prenez-les telles quelles de
+  `GET /v1/partner/consent-text` (français d'abord, anglais), sans les reformuler ni les minimiser, et notez la
+  `consentVersion` affichée.
+- Ne demandez que ce dont le service a besoin; marquez `required` seulement ce sans quoi il ne fonctionne pas, et
+  dites pourquoi dans `purpose`. N'offrez aucun avantage pour accepter un accès non requis.
+- Traitez `403 scope_not_granted` comme normal : l'avocat a choisi. Écoutez `member.consent_updated` et
+  `member.unlinked`; à un retrait, cessez l'usage et supprimez les données obtenues par cet accès (conditions, art. 10).
+- Pour un nouvel accès : demande d'élargissement, jamais un contournement.
+
+```bash
+curl https://api.mimt.ca/v1/partner/consent-text -H "$H"
+# { "consentVersion": "2026-10-31", "scopeSetVersion": 1, "termsVersion": "2026-10-31",
+#   "scopes": [ { "scope": "calls.read", "fr": { "label": "…", "sees": "…", "never": "…" }, "en": { … } }, … ],
+#   "common": { "fr": { "linkEffect": "…", "revoke": "…", "cannot": "…" }, "en": { … } } }
+```
 
 ## Référence de l'API partenaire
 
@@ -95,35 +237,47 @@ groupe en simultané, par membre en séquentiel. `fallback` : `voicemail` (défa
 Chaque avocat a **son propre compte MIMT**, choisit son numéro et paie son forfait dans app.mimt.ca. Le partenaire ne
 relie un membre (`externalId`) à un vrai compte MIMT **qu'avec la preuve et le consentement de cette personne**.
 
-#### `POST /v1/partner/members/:externalId/link-requests` — demander la liaison
+#### `POST /v1/partner/members/:externalId/link-requests` — demander la liaison (et les accès)
+
+Depuis le 31 octobre 2026, la demande **nomme les accès** voulus, avec la finalité de chacun (voir « Consentement »).
+Elle exige des conditions partenaire acceptées (sinon `409 partner_terms_required`) et seulement des accès déclarés
+(sinon `403 scope_not_declared`).
 
 ```bash
-curl -X POST https://api.mimt.ca/v1/partner/members/avocat-42/link-requests -H "$H"
+curl -X POST https://api.mimt.ca/v1/partner/members/avocat-42/link-requests -H "$H" -H "content-type: application/json" \
+  -d '{"scopes":[
+        {"scope":"calls.read","purpose":"Inscrire chaque appel de référence au dossier du client.","required":true},
+        {"scope":"calls.place","purpose":"Rappeler un client depuis le portail, avec votre ligne."},
+        {"scope":"line.manage","purpose":"Afficher votre ligne aux clients que nous vous envoyons.","required":true}]}'
 ```
 
 Réponse `201` :
 
 ```json
-{ "requestId": "8a1e…", "code": "K7QM4XPA", "url": "https://app.mimt.ca/lier?code=K7QM4XPA&r=8a1e…",
-  "expiresAt": "2026-10-30T15:15:00.000Z" }
+{ "requestId": "8a1e…", "kind": "link", "scopes": [ { "scope": "calls.read", "purpose": "…", "required": true }, "…" ],
+  "code": "K7QM4XPA", "url": "https://app.mimt.ca/lier?code=K7QM4XPA&r=8a1e…", "expiresAt": "2026-10-30T15:15:00.000Z" }
 ```
 
 - **Code à usage unique** : 8 caractères sans caractères ambigus (pas de 0/O, 1/I/L), valide **15 minutes**, gardé
   **haché** (SHA-256) chez MIMT. Une nouvelle demande pour le même membre annule la précédente.
 - Le portail montre le code et le lien à l'avocat (bouton « Relier mon compte MIMT »). Base de l'URL : `APP_BASE_URL`.
-- `409 member_already_linked` si le membre est déjà relié (le délier d'abord), `409 member_inactive` s'il est désactivé.
+- Membre déjà relié : la demande devient une **demande d'élargissement** (`kind: "upgrade"`, voir « Consentement ») que
+  seule la personne reliée peut approuver. `409 member_inactive` si le membre est désactivé.
 
 Côté MIMT, la personne **connectée** ouvre `/lier?code=…`. La page affiche « {partenaire} veut relier votre compte MIMT
-à votre profil (identifiant …) » et ce que le partenaire pourra voir et faire : les appels de ses lignes, les appels
-lancés en son nom, le numéro qu'elle choisit. **Autoriser exige une confirmation récente** (clé d'accès ou code par
-texto, `requireRecentAuth`, docs/MIMT-SECURITY.md), puis appelle `POST /v1/me/partner-links/approve {code, requestId}`.
+à votre profil (identifiant …) », qui demande (nom, nom légal, responsable de la vie privée) et **chaque accès demandé
+dans une case séparée, décochée**, avec ce qu'il permet, ce qu'il ne permet jamais, la finalité du partenaire et la
+mention « Requis » s'il y a lieu. **Autoriser exige une confirmation récente** (clé d'accès ou code par texto,
+`requireRecentAuth`, docs/MIMT-SECURITY.md), puis appelle `POST /v1/me/partner-links/approve {code, requestId, scopes,
+consentVersion}`.
 
 - **Unicité** : un compte MIMT est relié à au plus **un** membre par partenaire (`409 already_linked_to_partner`), et un
   membre à au plus un compte (`409 member_already_linked`). Garanti par des index uniques partiels (0027).
 - **Force brute** : approve et preview limités par utilisateur (10 / 15 min) et par adresse IP (30 / 15 min), `429
   rate_limited`. Avec l'identifiant de la demande (`r=` dans le lien), **5 mauvais codes tuent la demande** (`410
   link_code_expired`). Code inconnu : `400 invalid_link_code`; expiré, déjà utilisé ou annulé : `410 link_code_expired`.
-- Webhook `member.linked` `{ member_external_id, linked_at }` (aucun identifiant d'utilisateur MIMT).
+- Webhook `member.linked` `{ member_external_id, scopes, linked_at }` puis `member.consent_updated` (aucun identifiant
+  d'utilisateur MIMT).
 
 #### `DELETE /v1/partner/members/:externalId/link` — délier (côté partenaire)
 
@@ -133,7 +287,7 @@ curl -X DELETE https://api.mimt.ca/v1/partner/members/avocat-42/link -H "$H"   #
 
 La personne peut aussi retirer le lien elle-même, en tout temps, dans **Compte › Intégrations › Partenaires**
 (`GET /v1/me/partner-links`, `DELETE /v1/me/partner-links/:id`, sans confirmation renforcée : retirer un accès ne
-demande pas de preuve). Dans les deux cas : ses applications ne sonnent plus pour le partenaire (le @nom ou le
+demande pas de preuve), ou retirer **un seul accès** (`DELETE /v1/me/partner-links/:id/scopes/:scope`). Dans les deux cas : ses applications ne sonnent plus pour le partenaire (le @nom ou le
 cellulaire du membre restent), la ligne est détachée, webhook `member.unlinked` `{ member_external_id, by:
 "user"|"partner", unlinked_at }`.
 
@@ -141,7 +295,9 @@ cellulaire du membre restent), la ligne est détachée, webhook `member.unlinked
 
 #### `GET /v1/partner/members/:externalId/numbers`
 
-Les numéros MIMT **actifs** de la personne reliée. Exige un lien actif (sinon `409 member_not_linked`).
+Les numéros MIMT **actifs** de la personne reliée. Exige un lien actif (sinon `409 member_not_linked`) et l'accès
+`line.manage` (sinon `403 scope_not_granted`, comme pour `PUT …/number`). Le `lineNumber` des membres n'est montré
+qu'avec cet accès.
 
 ```bash
 curl https://api.mimt.ca/v1/partner/members/avocat-42/numbers -H "$H"
@@ -177,7 +333,9 @@ curl -X POST https://api.mimt.ca/v1/partner/members/avocat-42/calls -H "$H" -H "
 # 201 {"callId":"…"}
 ```
 
-1. Exige un lien actif et une ligne (`409 member_not_linked` ou `409 member_number_required`, avec `chooseNumberUrl`).
+1. Exige un lien actif, l'accès `calls.place` (`403 scope_not_granted`) et une ligne (`409 member_not_linked` ou
+   `409 member_number_required`, avec `chooseNumberUrl`). Sans `calls.read`, l'appel part mais ses webhooks et son
+   registre ne sont pas montrés au partenaire.
 2. `to` : Canada/É.-U. seulement; **jamais** le 9-1-1, un code N11 (2-1-1 à 9-1-1), un numéro surtaxé 900/976 ni un
    indicatif NANP coûteux (Antilles…) : `400 destination_not_allowed` (mêmes règles que `fraud/destinations.ts`).
    Limite par membre : 6 appels par minute et 60 par heure (`fraud/policy.ts`, `429 rate_limited`), un seul appel à la
@@ -198,8 +356,9 @@ curl -X POST https://api.mimt.ca/v1/partner/members/avocat-42/calls -H "$H" -H "
 ### Statut du membre (lot B, issue #97, points 3, 4 et 7)
 
 Trois lectures sur l'avocat relié, et sa disponibilité pour les groupes de chasse. **Le forfait et les transferts
-exigent un lien actif** (`409 member_not_linked` avec `chooseNumberUrl`, sinon `404 member_not_found`). Comme le reste
-de ce document : `PARTNERS=off` = 404.
+exigent un lien actif** (`409 member_not_linked` avec `chooseNumberUrl`, sinon `404 member_not_found`) **et leur accès** :
+`subscription.read`, `porting.read`; la disponibilité d'un membre relié exige `availability.manage` (`403
+scope_not_granted`). Comme le reste de ce document : `PARTNERS=off` = 404.
 
 #### `GET /v1/partner/members/:externalId/subscription` — forfait MIMT de la personne reliée
 
@@ -300,7 +459,10 @@ curl "https://api.mimt.ca/v1/partner/calls?since=2026-10-29T00:00:00Z&member=avo
 ```
 
 Du plus ancien au plus récent, `startedAt` strictement après `since`; `limit` 1 à 200 (défaut 100). Pour suivre :
-repasser `nextSince` comme `since` (null = fin).
+repasser `nextSince` comme `since` (null = fin). Un appel répondu ou lancé **sous un lien** n'apparaît qu'avec l'accès
+`calls.read` de ce lien (et tant que le lien est actif); son `recordingUrl` seulement avec `recordings.read`. Les autres
+appels (sans réponse, ou répondus par un membre sans compte MIMT relié) sont les registres du partenaire, sans
+changement. La page peut donc compter moins de `limit` appels : suivre `nextSince` quand même.
 
 ```json
 { "calls": [ { "id": "…", "direction": "inbound", "reference": null, "huntGroup": "trouver-un-avocat", "externalId": "avocat-42",
@@ -317,7 +479,8 @@ l'adresse Twilio.
 ### `GET /v1/partner/recordings/:id`
 
 Un lien frais (15 minutes) pour un enregistrement : `{ "recordingId", "url", "expiresAt" }`. À utiliser après le
-webhook `recording.ready`, qui ne contient que l'identifiant.
+webhook `recording.ready`, qui ne contient que l'identifiant. Enregistrement d'un appel répondu sous un lien : `403
+scope_not_granted` (`recordings.read`) sans cet accès.
 
 ### `GET /v1/partner/credits`
 
@@ -348,7 +511,9 @@ webhook `recording.ready`, qui ne contient que l'identifiant.
 Événements : `call.ringing`, `call.answered` (avec `member_external_id`), `call.completed` (durée, crédits),
 `recording.ready`, depuis le lot A `member.linked`, `member.unlinked` et `member.number_changed`, et depuis le lot B
 `member.subscription_changed`, `member.port_in_updated` et `member.availability_changed` (champs plus haut, « Statut
-du membre »). Les événements
+du membre »), et depuis le consentement `member.consent_updated` `{ member_external_id, scopes, consent_version,
+updated_at }`. **Un événement sur une personne reliée ne part qu'avec son accès** (tableau « Consentement »), vérifié à
+la mise en file et de nouveau à la livraison (un accès retiré entre les deux arrête l'envoi). Les événements
 d'appel portent `direction` (`inbound` ou `outbound`); un appel lancé au nom d'un membre ajoute `reference`. Corps :
 
 ```json
@@ -411,6 +576,7 @@ Même liste que `/v1/admin/affiliates` (`CATALOG_ADMIN_USER_IDS`), chaque action
 | `DELETE` | `/v1/admin/partners/:id/keys/:keyId` | révocation |
 | `PUT` | `/v1/admin/partners/:id/webhook` | `{ url, rotateSecret? }` |
 | `POST` | `/v1/admin/partners/:id/credits` | `{ credits, idempotencyKey, note? }` : recharge |
+| `POST` | `/v1/admin/partners/:id/terms-acceptance` | acceptation des conditions partenaire et du DPA (confirmation récente exigée), voir « Consentement » |
 
 Le propriétaire de l'entreprise a les mêmes gestes (clés, webhook) dans l'app Web, section **Partenaire** du portail
 Affaires (`/v1/business/:id/partner*`, rôle propriétaire seulement), avec le solde et les 20 derniers appels.
@@ -424,6 +590,10 @@ Affaires (`/v1/business/:id/partner*`, rôle propriétaire seulement), avec le s
    (« Cet appel peut être enregistré… », français d'abord) est lu à chaque appelant avant la sonnerie.
 3. **Partenaire** (MIMT) : `POST /v1/admin/partners {"businessId":"…","slug":"besoinavocat","creditPerMinute":2}`, puis une recharge
    `POST /v1/admin/partners/:id/credits {"credits":5000,"idempotencyKey":"besoinavocat-2026-11"}`.
+   **Conditions et DPA** : besoinavocat signe les conditions partenaire MIMT Connect (brouillon à faire réviser,
+   `docs/legal/conditions-partenaire-mimt-connect.md`), puis un administrateur enregistre l'acceptation avec ses
+   finalités par accès (`POST /v1/admin/partners/:id/terms-acceptance`, voir « Consentement »). Sans elle, aucune demande
+   de liaison n'est possible.
 4. **Clé et webhook** (propriétaire, section Partenaire) : créer la clé « Site besoinavocat.ca » et la mettre dans les
    secrets du serveur de besoinavocat; adresse du webhook `https://portail.besoinavocat.ca/api/mimt/webhook` (le
    portail des avocats; l'adresse est configurable et peut changer en tout temps), garder le secret.
@@ -437,9 +607,10 @@ Affaires (`/v1/business/:id/partner*`, rôle propriétaire seulement), avec le s
    enregistrer par `member_external_id` : `call.answered` (qui a répondu), `call.completed` (durée, crédits),
    `recording.ready` (puis `GET /v1/partner/recordings/:id` pour écouter). Rattrapage ou réconciliation :
    `GET /v1/partner/calls?since=…`.
-8. **Avocats reliés** (lot A) : pour chaque avocat, le portail lance `POST …/link-requests` et l'avocat approuve dans
-   MIMT (voir « Parcours avocat »); puis `PUT …/number` avec la ligne qu'il a choisie, et les boutons « Appeler » du
-   portail appellent `POST …/calls`.
+8. **Avocats reliés** (lot A) : pour chaque avocat, le portail montre les explications des accès (`GET
+   /v1/partner/consent-text`), lance `POST …/link-requests` avec les accès voulus et l'avocat coche ceux qu'il accepte
+   dans MIMT (voir « Parcours avocat » et « Consentement »); puis `PUT …/number` avec la ligne qu'il a choisie
+   (`line.manage`), et les boutons « Appeler » du portail appellent `POST …/calls` (`calls.place`).
 9. **Plus tard** : appels vidéo avec les Réunions MIMT (LiveKit) existantes.
 
 ## Parcours avocat
@@ -449,9 +620,11 @@ Affaires (`/v1/business/:id/partner*`, rôle propriétaire seulement), avec le s
 2. **Numéro** : il choisit son numéro dans MIMT (`/numero?partner=besoinavocat`).
 3. **Forfait** : il choisit son forfait MIMT.
 4. **Paiement** : il paie lui-même, dans MIMT (Stripe). BesoinAvocat ne paie ni ne choisit à sa place.
-5. **Liaison** : dans le portail BesoinAvocat, « Relier mon compte MIMT » → code et lien `/lier` → il approuve dans
-   MIMT, avec une confirmation (clé d'accès ou code par texto). Le portail reçoit `member.linked`, lit
-   `GET …/numbers` et attache sa ligne (`PUT …/number`, webhook `member.number_changed`).
+5. **Liaison** : dans le portail BesoinAvocat, « Relier mon compte MIMT » → les explications des accès → code et lien
+   `/lier` → il coche, accès par accès, ce qu'il accepte, puis confirme (clé d'accès ou code par texto). Le portail
+   reçoit `member.linked` et `member.consent_updated` (les accès accordés), lit `GET …/numbers` et attache sa ligne
+   (`PUT …/number`, webhook `member.number_changed`). L'avocat garde un reçu et voit le journal des accès dans Compte ›
+   Intégrations › Partenaires, où il retire un accès ou tout le lien en tout temps.
 6. **Appels dans le portail** : les appels du groupe de chasse sonnent dans ses applications MIMT; « Appeler » dans le
    portail fait sonner son application, puis compose le client avec sa ligne comme afficheur. Il retire le lien quand
    il veut (Compte › Intégrations › Partenaires).
@@ -472,14 +645,12 @@ Affaires (`/v1/business/:id/partner*`, rôle propriétaire seulement), avec le s
   sonner.
 - **Consentement à l'enregistrement** : l'avis existant est lu à chaque appelant avant toute sonnerie quand
   l'enregistrement est actif. besoinavocat doit aussi l'indiquer dans sa politique de confidentialité.
-- **Liaison de compte (lot A)** : la personne voit, avant d'accepter, **ce que le partenaire verra et fera** : les
-  appels de ses lignes qui lui sont acheminés (numéros, heures, durées, enregistrements si l'entreprise enregistre),
-  les appels lancés en son nom (son application sonne d'abord; elle décide de répondre), et le numéro qu'elle choisit
-  comme ligne. Depuis le lot B, la page le dit aussi : le statut de son forfait MIMT (jamais carte, montants
-  ni factures), l'avancement de ses transferts de numéro (jamais numéro de compte ni NIP) et le réglage de sa
-  disponibilité pour les groupes d'appel (son propre choix l'emporte). Les liens approuvés avant le lot B couvrent
-  déjà la ligne et les appels; **à décider par le propriétaire** : redemander le consentement aux personnes reliées
-  avant le lot B, ou les en informer (aucun lien n'existait en production au moment du lot B). Le partenaire **ne voit pas** ses textos, ses messages vocaux personnels, ses autres appels, ni son
+- **Liaison de compte (lot A) et consentement (31 octobre 2026)** : la personne voit, avant d'accepter, **chaque accès
+  séparément** (case décochée), ce qu'il permet, ce qu'il ne permet jamais et la finalité du partenaire (section
+  « Consentement »). **Décision du propriétaire (2026-10-31) : on demande toujours.** Les liens approuvés avant le
+  31 octobre gardent seulement les accès que leur écran montrait (lot A : `calls.read`, `calls.place`,
+  `line.manage`); les accès du lot B (`subscription.read`, `porting.read`, `availability.manage`) et `recordings.read`
+  ne sont accordés qu'après une nouvelle approbation. Le partenaire **ne voit pas** ses textos, ses messages vocaux personnels, ses autres appels, ni son
   identifiant MIMT, et ne peut rien acheter en son nom. Le consentement est donné par la personne elle-même
   (connectée + confirmation récente), il est **révocable en tout temps** (Compte › Intégrations › Partenaires), et la
   révocation prend effet immédiatement. Les journaux d'audit ne portent que des identifiants internes (pas de code,
@@ -499,6 +670,10 @@ Affaires (`/v1/business/:id/partner*`, rôle propriétaire seulement), avec le s
 - Transcriptions dans les webhooks (seulement avec IA activée et consentement), vidéo (Réunions LiveKit).
 - ~~Disponibilité des avocats gérée chez MIMT (horaires par membre)~~ : **fait (lot B)**, avec le statut du forfait et
   des transferts de numéro (« Statut du membre »).
+- Consentement, limites connues : le reçu part par notification poussée (`partner_consent_receipt`) quand le Web Push est
+  configuré; il n'y a pas encore de reçu par courriel (la file de courriels ne sert qu'aux messages vocaux). Le journal
+  d'accès couvre l'API partenaire et la section Partenaire du portail Affaires, pas les webhooks (qui suivent les mêmes
+  accès).
 - Lot B, limites connues : `member.subscription_changed` ne part pas quand seul le statut du compte change (suspension
   par la garde de dépense ou un administrateur, sans écriture d'abonnement) : `GET …/subscription` le montre;
   `member.availability_changed` ne part pas quand une plage horaire ou `until` arrive à échéance.
@@ -555,6 +730,21 @@ switch `PARTNERS=on|off`, default **off** (every route 404, call routing unchang
   Non-partner businesses, suspended partners and PARTNERS=off ring as before. Webhooks
   `member.subscription_changed` (plan/status/can_call changes only, deduped per link), `member.port_in_updated`,
   `member.availability_changed`. Migration 0028.
+- **Consent (2026-10-31, owner: « always ask »)**: named scopes `calls.read`, `calls.place`, `line.manage`,
+  `subscription.read`, `porting.read`, `availability.manage`, `recordings.read` (texts and versions in
+  `packages/shared/src/partnerScopes.ts`, `GET /v1/partner/consent-text`). Partner side: an admin records the
+  partner's acceptance of the MIMT Connect partner terms and DPA (`POST /v1/admin/partners/:id/terms-acceptance`,
+  step-up, audited: version, signer, legal name, privacy contact, declared purpose per scope); without it
+  `409 partner_terms_required`; undeclared scopes `403 scope_not_declared`. Link requests name scopes with a purpose
+  each (`required` optional). Person side: `/lier` shows each scope as an unchecked box with its purpose; required ones
+  gate approval; step-up; receipt (scopes, text and scope-set versions, time, coarse device and /24 or /48 network,
+  never the full IP), push notice, `member.consent_updated` (scopes only). Every lot A/B route checks its scope (403
+  `scope_not_granted` with the scope); scoped webhooks are not queued, and dropped at delivery if the scope was
+  removed; calls under a link need `calls.read`, their recordings `recordings.read`. Upgrades: a request on a linked
+  member is `kind: "upgrade"`, approved by the same person on /lier; grants never grow on their own. Per-scope revoke
+  (`DELETE /v1/me/partner-links/:id/scopes/:scope`; the last one unlinks). Access log (`GET
+  /v1/me/partner-links/:id/access-log`, last 50, route templates only, 90-day daily retention). Links from before
+  2026-10-31 were migrated to the lot A scopes only (0029); lot B scopes need re-consent.
 - **Webhook address**: any public https host incl. subdomains, e.g. `https://portail.besoinavocat.ca/api/mimt/webhook`;
   configurable at any time.
 - **PBX hooks**: `pbxInbound` (ringing), a new leg status webhook `/webhooks/twilio/pbx/leg` plus the whisper press-1
