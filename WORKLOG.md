@@ -3,6 +3,8 @@
 Newest first, one line per piece of work. Rule: `AGENTS.md` › Work log rule.
 Format: `YYYY-MM-DD | agent | branch → PR | status | what | next step`
 
+- 2026-10-31 | claude (MIMT agent 2, session 01GtWamF) | claude/clone-spec → PR #103 (not merged: VPS freeze) | done | docs/MIMT-DASHBOARD-SPEC.md (business phone + wireless dashboard model, what MIMT has, Twilio mapping, owner decisions, chantier order) | next: video chantier, then mimt.ca feature pages, one at a time
+- 2026-10-31 | claude (MIMT agent 2, session 01GtWamF) | claude/clone-spec → PR (not merged: VPS freeze) | done | docs/MIMT-CLONE-SPEC.md from the Drive spec (P1/P2/P3 features, what MIMT already has, consent scope mapping to #102, build order, open questions) | next: mimt.ca feature sub-pages once the video chantier is pushed
 - 2026-10-31 | claude (MIMT agent connect-B, session 01GtWamF) | claude/connect-lot-b → PR | done | issue #97 points 3,4,7 | next: lot C (6 video token, 8 Stripe credits/commission)
 - 2026-10-31 | claude (MIMT agent 2, session 01GtWamF) | claude/company-facts → PR | done | mimt.ca legal pages: operator Quadro Holdings Ltée (NEQ 1176760537), 5837 rue Jean-Talon Est H1S 1M4, constituted 2021-07-15 (REQ, owner: « même que Quadro Holdings Ltée ») | owner: phone to publish (optional); AdSense Resubmit after the server is back and pages are verified live
 - 2026-10-30 | claude (MIMT agent connect-A, session 01GtWamF) | claude/connect-lot-a → PR | done | issue #97 points 1,2,5,9 | next: lot B (3,4,7)
