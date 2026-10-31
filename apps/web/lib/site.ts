@@ -26,7 +26,17 @@ export interface CompanyFacts {
   president: string | null;
 }
 
-export const COMPANY: CompanyFacts = { legalName: null, address: null, phone: null, founded: null, president: null };
+/**
+ * Operator of MIMT, from the Registraire des entreprises du Québec (REQ, consulted 2026-10-30; owner: « même que
+ * Quadro Holdings Ltée », 2026-10-31). Phone and president stay null until the owner gives the ones to publish.
+ */
+export const COMPANY: CompanyFacts = {
+  legalName: "Quadro Holdings Ltée (NEQ 1176760537)",
+  address: "5837, rue Jean-Talon Est, Montréal (Québec) H1S 1M4",
+  phone: null,
+  founded: "2021-07-15",
+  president: null,
+};
 
 /** Law 25 « responsable de la protection des renseignements personnels »: the president of GROUPE TAKATAK. */
 export const PRIVACY_OFFICER = {
