@@ -1,0 +1,113 @@
+name: API env (Coolify)
+
+# Sets ONE non-secret environment variable on the MIMT API application in Coolify, then redeploys it.
+# Uses the same repository secrets as deploy.yml (COOLIFY_URL, COOLIFY_TOKEN, COOLIFY_API_UUID); nothing is printed.
+# Only for feature switches and public settings (PARTNERS=on, CATALOG_ADMIN_USER_IDS=…): workflow inputs are visible
+# to everyone who can read the Actions log, so a secret (key, token, password) must be pasted in Coolify by hand.
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: "Variable name, e.g. PARTNERS"
+        type: string
+        required: true
+      value:
+        description: "Value, e.g. on"
+        type: string
+        required: true
+      redeploy:
+        description: "Redeploy the API so the new value is used"
+        type: boolean
+        required: true
+        default: true
+
+concurrency:
+  group: api-env
+  cancel-in-progress: false
+
+jobs:
+  set:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse secret-looking names and bad input
+        shell: bash
+        env:
+          NAME: ${{ inputs.name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$NAME" =~ ^[A-Z][A-Z0-9_]{0,99}$ ]]; then
+            echo "::error::The name must be UPPER_SNAKE_CASE (letters, digits, underscores)."; exit 1
+          fi
+          if [[ "$NAME" =~ (SECRET|TOKEN|PASSWORD|PASS|PRIVATE|CREDENTIAL|API_KEY|_KEY$|^KEY_|_SID$|DSN|_URL_WITH_) ]]; then
+            echo "::error::$NAME looks like a secret. Paste secrets in Coolify by hand; this workflow is only for switches and public settings."; exit 1
+          fi
+
+      - name: Verify the Coolify secrets exist
+        shell: bash
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          set -euo pipefail
+          for name in COOLIFY_URL COOLIFY_TOKEN COOLIFY_API_UUID; do
+            if [[ -z "${!name:-}" ]]; then echo "::error::Missing required repository secret: $name"; exit 1; fi
+          done
+
+      - name: Create or update the variable in Coolify
+        shell: bash
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+          NAME: ${{ inputs.name }}
+          VALUE: ${{ inputs.value }}
+        run: |
+          set -euo pipefail
+          base="${COOLIFY_URL%/}/api/v1/applications/${COOLIFY_API_UUID}/envs"
+          auth="Authorization: Bearer ${COOLIFY_TOKEN}"
+          body="$(jq -cn --arg k "$NAME" --arg v "$VALUE" '{key:$k, value:$v, is_preview:false, is_build_time:false, is_literal:false, is_multiline:false, is_shown_once:false}')"
+          existing="$(curl -fsS -H "$auth" -H "accept: application/json" "$base" | jq -r --arg k "$NAME" '[.[] | select(.key == $k and (.is_preview // false) == false)] | length')"
+          if [[ "$existing" == "0" ]]; then
+            echo "Creating $NAME (not present yet)."
+            curl -fsS -X POST "$base" -H "$auth" -H "content-type: application/json" -H "accept: application/json" -d "$body" >/dev/null
+          else
+            echo "Updating $NAME (already present)."
+            curl -fsS -X PATCH "$base" -H "$auth" -H "content-type: application/json" -H "accept: application/json" -d "$body" >/dev/null
+          fi
+          # Read back the key only (never the value) to prove the write landed.
+          curl -fsS -H "$auth" -H "accept: application/json" "$base" | jq -e --arg k "$NAME" '[.[] | select(.key == $k)] | length > 0' >/dev/null
+          echo "$NAME is set on the API application."
+
+      - name: Redeploy the API
+        if: inputs.redeploy
+        shell: bash
+        env:
+          COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          COOLIFY_API_UUID: ${{ secrets.COOLIFY_API_UUID }}
+        run: |
+          curl -fsS -X POST "${COOLIFY_URL%/}/api/v1/deploy?uuid=${COOLIFY_API_UUID}&force=false" \
+            -H "Authorization: Bearer ${COOLIFY_TOKEN}" >/dev/null
+          echo "Deployment requested."
+
+      - name: Verify public API health and database readiness
+        if: inputs.redeploy
+        shell: bash
+        env:
+          API_HEALTH_BASE_URL: https://api.mimt.ca
+        run: |
+          set -euo pipefail
+          sleep 30
+          for attempt in {1..40}; do
+            if curl -fsS --connect-timeout 5 --max-time 10 "${API_HEALTH_BASE_URL}/healthz" 2>/dev/null | jq -e '.ok == true' >/dev/null &&
+               curl -fsS --connect-timeout 5 --max-time 10 "${API_HEALTH_BASE_URL}/readyz" 2>/dev/null | jq -e '.ok == true and .db == "up"' >/dev/null; then
+              echo "MIMT API is publicly accessible and database-ready."
+              exit 0
+            fi
+            echo "Attempt ${attempt}/40: API not ready; retrying in 15s."
+            sleep 15
+          done
+          echo "::error::Coolify accepted the deployment, but https://api.mimt.ca/healthz and /readyz are not healthy."
+          exit 1
