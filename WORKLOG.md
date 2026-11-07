@@ -3,6 +3,7 @@
 Newest first, one line per piece of work. Rule: `AGENTS.md` › Work log rule.
 Format: `YYYY-MM-DD | agent | branch → PR | status | what | next step`
 
+- 2026-11-07 | claude (BesoinAvocat, thread « Activer le partenaire MIMT pour les appels ») | claude/api-env-workflow → PR | active | New workflow « API env (Coolify) » (.github/workflows/api-env.yml): sets one non-secret env var on the API application through the Coolify API (same COOLIFY_* secrets as deploy.yml) and redeploys; first use: PARTNERS=on for MIMT Connect / besoinavocat.ca | next: run it with PARTNERS=on, then CATALOG_ADMIN_USER_IDS=<owner MIMT user id>; create partner « besoinavocat », key, webhook https://portail.besoinavocat.ca/api/mimt/webhook, credits
 - 2026-10-31 | claude (MIMT agent connect-B, session 01GtWamF) | claude/connect-lot-b → PR | done | issue #97 points 3,4,7 | next: lot C (6 video token, 8 Stripe credits/commission)
 - 2026-10-31 | claude (MIMT agent 2, session 01GtWamF) | claude/company-facts → PR | done | mimt.ca legal pages: operator Quadro Holdings Ltée (NEQ 1176760537), 5837 rue Jean-Talon Est H1S 1M4, constituted 2021-07-15 (REQ, owner: « même que Quadro Holdings Ltée ») | owner: phone to publish (optional); AdSense Resubmit after the server is back and pages are verified live
 - 2026-10-30 | claude (MIMT agent connect-A, session 01GtWamF) | claude/connect-lot-a → PR | done | issue #97 points 1,2,5,9 | next: lot B (3,4,7)
