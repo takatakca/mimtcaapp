@@ -25,6 +25,15 @@ Signé : 16:01 HAE — GPT-6 · agent MIMT (reprise croisée) — travail sur br
 
 ---
 
+## Relève — 29 octobre 2026 (Claude, liste des actions du propriétaire)
+
+- **`docs/OWNER_ACTIONS.md`** : les étapes manuelles (🔧 OWNER) et celles de l'agent (🤖 CLAUDE), numérotées comme dans le fichier principal privé sur Google Drive (00 — Opérations TAKATAK).
+- **Pour MIMT :**
+  - O-14 : approuver la publication de l'API et fournir une clé Resend valide (`EMAIL_API_KEY`).
+  - O-15 : planifier la mise à niveau de Next.js 16.4.0.
+  - La PR #77 (autre agent) retire les envois FTP du workflow Deploy.
+- **Prochaine action exacte :** après O-14, Claude publie l'API et la vérifie (C-11).
+
 
 ## Reprise vérifiée — 26 octobre 2026, Codex
 
