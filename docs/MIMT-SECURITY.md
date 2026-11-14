@@ -94,6 +94,8 @@ envoyé au cellulaire vérifié du compte) est exigée pour :
 | Politique de sécurité d'entreprise | `PUT /v1/business/:id/security` | en place |
 | Transfert sortant (port-out) | — | **n'existe pas encore** : à brancher sur `requireRecentAuth` |
 | Création, rotation de clés partenaires et adresse des avis (MIMT Connect) | `POST /v1/business/:id/partner/keys`, `…/rotate`, `PUT …/partner/webhook` | ✅ `requireRecentAuth` |
+| Approbation d'un lien MIMT Connect ou d'un élargissement de ses accès (docs/MIMT-CONNECT.md « Consentement ») | `POST /v1/me/partner-links/approve` | ✅ `requireRecentAuth` |
+| Enregistrement de l'acceptation des conditions partenaire MIMT Connect (administrateur) | `POST /v1/admin/partners/:id/terms-acceptance` | ✅ `requireRecentAuth` |
 | Connexion et déconnexion de Google Agenda (docs/MIMT-CALENDAR.md) | `GET /v1/integrations/google-calendar/connect`, `DELETE /v1/integrations/google-calendar` | ✅ `requireRecentAuth` |
 
 * Réponse sans confirmation : `403 step_up_required`. L'app affiche « Confirmez votre identité » (clé d'accès ou

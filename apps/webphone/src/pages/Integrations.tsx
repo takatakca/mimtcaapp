@@ -1,14 +1,19 @@
 // Compte › Intégrations (/compte/integrations): the « Google Agenda » card (API apps/api/src/routes/calendar.ts; spec,
 // data flow and Law 25 notes: docs/MIMT-CALENDAR.md; Google sends the browser back here with ?gc=ok|error) and the
-// « Partenaires » card: MIMT Connect account links the person approved, each revocable, and the person's own
-// availability for the partner's hunt groups, which wins over the partner's setting (docs/MIMT-CONNECT.md).
+// « Partenaires » card: MIMT Connect account links the person approved, each access (scope) revocable on its own,
+// the consent receipt, the partner's access log, and the person's own availability for the partner's hunt groups,
+// which wins over the partner's setting (docs/MIMT-CONNECT.md « Consentement »).
 import {
   PARTNER_AVAILABILITY_STATUSES,
+  PARTNER_SCOPE_TEXT,
   SUBSCRIPTION_ADD_ONS,
   formatCad,
   type CalendarSettings,
   type GoogleCalendarStatusResponse,
+  type MyPartnerLinkDto,
+  type PartnerAccessLogResponse,
   type PartnerAvailabilityStatus,
+  type PartnerScope,
 } from "@mimt/shared";
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
@@ -206,7 +211,8 @@ function GoogleCalendarCard() {
 }
 
 function PartnersCard() {
-  const { t, locale } = useI18n();
+  const { t, lang, locale } = useI18n();
+  const L = lang === "en" ? "en" : "fr";
   // 404: the PARTNERS kill switch is off on the server: « bientôt ».
   const links = useAsync(
     () => api.myPartnerLinks().catch((e: unknown) => (e instanceof ApiClientError && e.status === 404 ? null : Promise.reject(e))),
@@ -215,38 +221,58 @@ function PartnersCard() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<TKey | null>(null);
   const [message, setMessage] = useState<TKey | null>(null);
+  const [logs, setLogs] = useState<Record<string, PartnerAccessLogResponse | undefined>>({});
 
-  const revoke = async (id: string, partner: string) => {
+  const act = async (fn: () => Promise<void>, done: TKey) => {
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await fn();
+      setMessage(done);
+      links.reload();
+    } catch (e) {
+      setError(toErrorKey(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const revoke = (id: string, partner: string) => {
     if (!window.confirm(t("partners.revokeConfirm", { partner }))) return;
-    setBusy(true);
+    void act(() => api.revokePartnerLink(id), "partners.revoked");
+  };
+
+  const revokeScope = (l: MyPartnerLinkDto, scope: PartnerScope) => {
+    const label = PARTNER_SCOPE_TEXT[scope][L].label;
+    const key: TKey =
+      l.scopes.length === 1 ? "partners.scopes.revokeLastConfirm" : l.requiredScopes.includes(scope) ? "partners.scopes.revokeRequiredConfirm" : "partners.scopes.revokeConfirm";
+    if (!window.confirm(t(key, { partner: l.partnerName, scope: label }))) return;
+    void act(async () => {
+      const res = await api.revokePartnerScope(l.id, scope);
+      if (res.unlinked) setLogs((prev) => ({ ...prev, [l.id]: undefined }));
+    }, l.scopes.length === 1 ? "partners.revoked" : "partners.scopes.revoked");
+  };
+
+  const toggleLog = async (id: string) => {
+    if (logs[id]) {
+      setLogs((prev) => ({ ...prev, [id]: undefined }));
+      return;
+    }
     setError(null);
-    setMessage(null);
     try {
-      await api.revokePartnerLink(id);
-      setMessage("partners.revoked");
-      links.reload();
+      const log = await api.partnerAccessLog(id);
+      setLogs((prev) => ({ ...prev, [id]: log }));
     } catch (e) {
       setError(toErrorKey(e));
-    } finally {
-      setBusy(false);
     }
   };
 
-  const setStatus = async (id: string, value: string) => {
-    setBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await api.setPartnerAvailability(id, { status: value === "" ? null : (value as PartnerAvailabilityStatus) });
-      setMessage("partners.availability.saved");
-      links.reload();
-    } catch (e) {
-      setError(toErrorKey(e));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const setStatus = (id: string, value: string) =>
+    void act(() => api.setPartnerAvailability(id, { status: value === "" ? null : (value as PartnerAvailabilityStatus) }).then(() => undefined), "partners.availability.saved");
 
+  const date = (iso: string) => new Date(iso).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
+  const scopeList = (scopes: PartnerScope[]) => (scopes.length ? scopes.map((s) => PARTNER_SCOPE_TEXT[s][L].label).join(", ") : t("partners.receipt.none"));
   const list = links.data?.links;
   return (
     <section className="card" aria-labelledby="partners-h">
@@ -259,40 +285,113 @@ function PartnersCard() {
       {list && !list.length ? <p className="muted">{t("partners.empty")}</p> : null}
       {list?.length ? (
         <ul className="stack">
-          {list.map((l) => (
-            <li key={l.id} className="stack">
-              <strong>{t("partners.item", { partner: l.partnerName, externalId: l.externalId })}</strong>
-              <span className="muted small">
-                {l.lineNumber ? t("partners.line", { number: l.lineNumber }) : t("partners.noLine")} ·{" "}
-                {t("partners.since", { date: new Date(l.createdAt).toLocaleDateString(locale) })}
-              </span>
-              <div className="field">
-                <label htmlFor={`avail-${l.id}`}>{t("partners.availability.label")}</label>
-                <select
-                  id={`avail-${l.id}`}
-                  className="input"
-                  value={l.userStatus ?? ""}
-                  disabled={busy}
-                  onChange={(e) => void setStatus(l.id, e.target.value)}
-                >
-                  <option value="">{t("partners.availability.partner")}</option>
-                  {PARTNER_AVAILABILITY_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {t(`partners.availability.${s}`)}
-                    </option>
-                  ))}
-                </select>
+          {list.map((l) => {
+            const log = logs[l.id];
+            return (
+              <li key={l.id} className="stack">
+                <strong>{t("partners.item", { partner: l.partnerName, externalId: l.externalId })}</strong>
+                {l.partnerLegalName && l.privacyContactEmail ? (
+                  <span className="muted small">{t("partners.legalName", { name: l.partnerLegalName, contact: l.privacyContactEmail })}</span>
+                ) : null}
                 <span className="muted small">
-                  {t("partners.availability.now", { status: t(`partners.availability.${l.effectiveStatus}`) })} · {t("partners.availability.hint")}
+                  {l.lineNumber ? t("partners.line", { number: l.lineNumber }) : t("partners.noLine")} ·{" "}
+                  {t("partners.since", { date: new Date(l.createdAt).toLocaleDateString(locale) })}
                 </span>
-              </div>
-              <div>
-                <button type="button" className="btn btn--danger btn--sm" disabled={busy} onClick={() => void revoke(l.id, l.partnerName)}>
-                  {t("partners.revoke")}
-                </button>
-              </div>
-            </li>
-          ))}
+                {!l.consentCurrent ? <p className="note note--info">{t("partners.outdated")}</p> : null}
+
+                <div className="stack">
+                  <strong>{t("partners.scopes.title")}</strong>
+                  <ul className="stack">
+                    {l.scopes.map((s) => (
+                      <li key={s} className="stack">
+                        <span>
+                          {PARTNER_SCOPE_TEXT[s][L].label} {l.requiredScopes.includes(s) ? <Badge tone="warn">{t("partnerLink.required")}</Badge> : null}
+                        </span>
+                        <span className="muted small">{PARTNER_SCOPE_TEXT[s][L].sees}</span>
+                        {l.purposes[s] ? <span className="muted small">{t("partners.scopes.purpose", { purpose: l.purposes[s]! })}</span> : null}
+                        <div>
+                          <button
+                            type="button"
+                            className="btn btn--ghost btn--sm"
+                            disabled={busy}
+                            aria-label={`${t("partners.scopes.revoke")} : ${PARTNER_SCOPE_TEXT[s][L].label}`}
+                            onClick={() => revokeScope(l, s)}
+                          >
+                            {t("partners.scopes.revoke")}
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {l.receipt ? (
+                  <details className="details">
+                    <summary>{t("partners.receipt.title")}</summary>
+                    <div className="stack small">
+                      <span>
+                        {t(`partners.receipt.action.${l.receipt.action}`)} · {t("partners.receipt.when", { date: date(l.receipt.createdAt) })}
+                      </span>
+                      <span>{t("partners.receipt.scopes", { list: scopeList(l.receipt.scopes) })}</span>
+                      <span>{t("partners.receipt.version", { version: l.receipt.consentVersion, set: String(l.receipt.scopeSetVersion) })}</span>
+                      {l.receipt.termsVersion ? <span>{t("partners.receipt.terms", { version: l.receipt.termsVersion })}</span> : null}
+                      <span>
+                        {t("partners.receipt.device", {
+                          device: l.receipt.device ?? t("partners.receipt.unknown"),
+                          network: l.receipt.network ?? t("partners.receipt.unknown"),
+                        })}
+                      </span>
+                    </div>
+                  </details>
+                ) : null}
+
+                <div className="field">
+                  <label htmlFor={`avail-${l.id}`}>{t("partners.availability.label")}</label>
+                  <select id={`avail-${l.id}`} className="input" value={l.userStatus ?? ""} disabled={busy} onChange={(e) => setStatus(l.id, e.target.value)}>
+                    <option value="">{t("partners.availability.partner")}</option>
+                    {PARTNER_AVAILABILITY_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {t(`partners.availability.${s}`)}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="muted small">
+                    {t("partners.availability.now", { status: t(`partners.availability.${l.effectiveStatus}`) })} · {t("partners.availability.hint")}
+                  </span>
+                </div>
+
+                <div>
+                  <button type="button" className="btn btn--ghost btn--sm" aria-expanded={Boolean(log)} onClick={() => void toggleLog(l.id)}>
+                    {log ? t("partners.log.hide") : t("partners.log.show")}
+                  </button>
+                </div>
+                {log ? (
+                  <div className="stack" aria-label={t("partners.log.title")}>
+                    <strong>{t("partners.log.title")}</strong>
+                    <span className="muted small">{t("partners.log.lead", { days: String(log.retentionDays) })}</span>
+                    {log.entries.length ? (
+                      <ul className="stack small">
+                        {log.entries.map((e, i) => (
+                          <li key={`${e.at}-${i}`}>
+                            {date(e.at)} · {PARTNER_SCOPE_TEXT[e.scope][L].label} · <code>{e.route}</code>{" "}
+                            {e.outcome === "denied" ? <Badge tone="error">{t("partners.log.denied")}</Badge> : <Badge tone="muted">{t("partners.log.allowed")}</Badge>}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span className="muted small">{t("partners.log.empty")}</span>
+                    )}
+                  </div>
+                ) : null}
+
+                <div>
+                  <button type="button" className="btn btn--danger btn--sm" disabled={busy} onClick={() => revoke(l.id, l.partnerName)}>
+                    {t("partners.revoke")}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
       {message ? (

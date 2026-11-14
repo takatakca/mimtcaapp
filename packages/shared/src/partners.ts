@@ -4,6 +4,7 @@
 import type { WeeklySchedule } from "./business.js";
 import type { PlanCode } from "./plans.js";
 import type { PortInNumberStatus, PortInStatus } from "./portIn.js";
+import type { PartnerConsentReceiptDto, PartnerScope, PartnerScopeRequestItem } from "./partnerScopes.js";
 
 /** Webhook events sent to a partner. Payloads carry ids and call metadata only: never audio, never a transcript. */
 export const PARTNER_EVENTS = [
@@ -19,6 +20,8 @@ export const PARTNER_EVENTS = [
   "member.subscription_changed",
   "member.port_in_updated",
   "member.availability_changed",
+  // Consent (2026-10-31): the scopes the linked person granted changed (approval, upgrade, one scope removed).
+  "member.consent_updated",
 ] as const;
 export type PartnerEventType = (typeof PARTNER_EVENTS)[number];
 
@@ -53,6 +56,12 @@ export interface PartnerMemberDto {
   lineNumber: string | null;
   /** Where to send the person to choose and pay for a number in MIMT (null once linked with a line). */
   chooseNumberUrl: string | null;
+  /** Scopes the linked person granted (empty when not linked). */
+  scopes: PartnerScope[];
+  /** Version of the consent text the person approved (null when not linked). */
+  consentVersion: string | null;
+  /** False when the person approved an older consent text: send an upgrade request to ask again. */
+  consentCurrent: boolean | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -190,6 +199,10 @@ export const normalizeLinkCode = (raw: string) => raw.toUpperCase().replace(/[\s
 /** POST /v1/partner/members/:externalId/link-requests (partner API). */
 export interface PartnerLinkRequestCreated {
   requestId: string;
+  /** link: a new link; upgrade: the member is already linked and the person is asked to change the granted scopes. */
+  kind: "link" | "upgrade";
+  /** What the person will be asked for, as validated against the partner's declared purposes. */
+  scopes: PartnerScopeRequestItem[];
   /** Shown to the member by the partner; never stored in clear by MIMT. */
   code: string;
   /** Page of the MIMT web app where the signed-in member approves the link. */
@@ -197,17 +210,23 @@ export interface PartnerLinkRequestCreated {
   expiresAt: string;
 }
 
-/** What the partner can see and do once linked (shown on the /lier consent page). */
-export const PARTNER_LINK_PERMISSIONS = ["calls", "click_to_call", "number", "plan_status", "number_transfers", "availability"] as const;
-export type PartnerLinkPermission = (typeof PARTNER_LINK_PERMISSIONS)[number];
-
-/** POST /v1/me/partner-links/preview: what the person is about to approve. */
+/** POST /v1/me/partner-links/preview: who asks, why, and exactly what the person is asked to grant. */
 export interface PartnerLinkPreview {
   requestId: string;
+  kind: "link" | "upgrade";
   partnerName: string;
+  /** From the partner's accepted terms (registry name and privacy contact). */
+  partnerLegalName: string | null;
+  privacyContactEmail: string | null;
+  termsVersion: string | null;
   externalId: string;
   memberName: string;
-  permissions: PartnerLinkPermission[];
+  /** Requested scopes with the partner's purpose; `granted`: already granted today (upgrade only). */
+  scopes: Array<{ scope: PartnerScope; purpose: string; required: boolean; granted: boolean }>;
+  /** Scopes granted today (upgrade); empty for a new link. */
+  currentScopes: PartnerScope[];
+  /** The consent text version this screen shows; sent back on approval. */
+  consentVersion: string;
   expiresAt: string;
 }
 
@@ -217,20 +236,47 @@ export interface PartnerLinkCodeRequest {
   requestId?: string;
 }
 
+/** POST /v1/me/partner-links/approve (step-up). */
+export interface PartnerLinkApproveRequest extends PartnerLinkCodeRequest {
+  /** The scopes the person checked: a subset of the requested ones, including every required one. */
+  scopes: PartnerScope[];
+  /** The version shown (409 consent_text_changed when the texts changed since). */
+  consentVersion: string;
+}
+
 /** A link as its MIMT user sees it (Compte › Intégrations › Partenaires). */
 export interface MyPartnerLinkDto {
   id: string;
   partnerName: string;
+  partnerLegalName: string | null;
+  privacyContactEmail: string | null;
   externalId: string;
   memberName: string;
   /** The line the partner uses as caller ID (one of the user's numbers), if one was attached. */
   lineNumber: string | null;
-  permissions: PartnerLinkPermission[];
+  /** What the partner may see or do now. */
+  scopes: PartnerScope[];
+  /** Scopes the partner said its service needs (removing one may end the service; it is still allowed). */
+  requiredScopes: PartnerScope[];
+  /** The partner's purpose for each granted scope. */
+  purposes: Partial<Record<PartnerScope, string>>;
+  consentVersion: string;
+  /** False when the approved text is older than the current one (the grant stays as approved). */
+  consentCurrent: boolean;
+  consentedAt: string;
+  /** The latest consent receipt. */
+  receipt: PartnerConsentReceiptDto | null;
   /** The person's own availability for this partner's hunt groups (null: the partner's setting applies). */
   userStatus: PartnerAvailabilityStatus | null;
   /** Whether this partner's hunt groups ring the person right now, all rules applied. */
   effectiveStatus: PartnerAvailabilityStatus;
   createdAt: string;
+}
+
+/** DELETE /v1/me/partner-links/:id/scopes/:scope. Removing the last scope unlinks (link null). */
+export interface PartnerScopeRevokeResponse {
+  unlinked: boolean;
+  link: MyPartnerLinkDto | null;
 }
 
 export interface MyPartnerLinksResponse {

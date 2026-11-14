@@ -32,6 +32,7 @@
 | ID | État | Prochaine preuve requise |
 | --- | --- | --- |
 | CONNECT-API | Code prêt derrière `PARTNERS=off` : migration 0023, clés hachées, membres → postes, groupes de chasse → groupes d'appel, crédits (registre en ajout seulement), webhooks signés, section « Partenaire » de l'app Web ([MIMT-CONNECT.md](MIMT-CONNECT.md)) | CI Postgres; après fusion de 0021 (points-clawback) et 0022 (sécurité), déploiement API + webphone, puis `PARTNERS=on` |
+| CONNECT-CONSENT | Code prêt (2026-10-31, branche `claude/connect-consent`, non fusionné : gel du serveur) : migration 0029, accès nommés vérifiés sur chaque route et webhook, conditions partenaire + DPA avant toute demande, `/lier` case par case, reçus, retrait par accès, journal d'accès 90 jours ([MIMT-CONNECT.md](MIMT-CONNECT.md) « Consentement ») | Revue du propriétaire; révision par un avocat de `docs/legal/conditions-partenaire-mimt-connect.md`; fusion et déploiement après le gel (0029 avec l'API) |
 | CONNECT-BESOINAVOCAT | Pas commencé : entente de traitement (Loi 25) à signer, forfait Affaires Pro, numéro public | Appel réel sur le numéro du groupe « Trouver un avocat », webhooks reçus et vérifiés chez besoinavocat |
 
 ## Fiabilité des appels — 29 octobre 2026, Claude (branche `claude/call-reliability`, PR à ouvrir par le propriétaire)

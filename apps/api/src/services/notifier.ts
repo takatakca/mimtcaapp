@@ -17,7 +17,12 @@ export type NotificationTemplate =
   /** « Nouvelle connexion à votre compte MIMT ». data.device: coarse label ("Chrome · Windows") only. */
   | "new_sign_in"
   /** « Google Agenda » stopped (token revoked or expired): reconnect in Compte › Intégrations. Sent once per break. */
-  | "calendar_reconnect";
+  | "calendar_reconnect"
+  /**
+   * « MIMT Connect » consent receipt: the person granted, changed or withdrew a partner's access. data.partner: the
+   * partner's display name; data.action: granted | upgraded | scope_revoked | revoked. Never scopes' data or ids.
+   */
+  | "partner_consent_receipt";
 
 /** Push/email delivery. A placeholder is NOT delivery; never log notification payloads. */
 export interface Notifier {

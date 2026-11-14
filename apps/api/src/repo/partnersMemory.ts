@@ -3,11 +3,14 @@ import type {
   NewPartnerCall,
   PartnerApiKeyRow,
   PartnerAvailabilityPatch,
+  PartnerAccessLogRow,
   PartnerAvailabilityRow,
   PartnerCallPatch,
   PartnerCallRow,
   PartnerCreditInput,
+  PartnerConsentReceiptRow,
   PartnerCreditResult,
+  PartnerGrant,
   PartnerHuntGroupRow,
   PartnerLedgerRow,
   PartnerLinkCreateResult,
@@ -18,8 +21,10 @@ import type {
   PartnerPatch,
   PartnerRepository,
   PartnerRow,
+  PartnerTermsAcceptanceRow,
   PartnerWebhookEventRow,
 } from "./partners.js";
+import type { PartnerScopeRequestItem } from "@mimt/shared";
 
 const copy = <T>(v: T): T => structuredClone(v);
 
@@ -35,6 +40,9 @@ export class MemoryPartnerRepository implements PartnerRepository {
   readonly linkRequests: PartnerLinkRequestRow[] = [];
   readonly links: PartnerMemberLinkRow[] = [];
   readonly availability: PartnerAvailabilityRow[] = [];
+  readonly terms: PartnerTermsAcceptanceRow[] = [];
+  readonly receipts: PartnerConsentReceiptRow[] = [];
+  readonly accessLog: PartnerAccessLogRow[] = [];
   /** Last subscription view sent per link (0028 partner_member_links.subscription_state). */
   readonly subscriptionStates = new Map<string, string>();
 
@@ -233,6 +241,7 @@ export class MemoryPartnerRepository implements PartnerRepository {
       memberId: c.memberId ?? null,
       externalId: c.externalId ?? null,
       reference: c.reference ?? null,
+      linkId: c.linkId ?? null,
       answeredLegSid: null,
       answeredAt: null,
       endedAt: null,
@@ -252,6 +261,11 @@ export class MemoryPartnerRepository implements PartnerRepository {
     return c ? copy(c) : null;
   }
 
+  async getCallByRecording(partnerId: string, recordingId: string) {
+    const c = this.calls.find((x) => x.partnerId === partnerId && x.recordingId === recordingId);
+    return c ? copy(c) : null;
+  }
+
   async updateCall(id: string, patch: PartnerCallPatch) {
     const c = this.calls.find((x) => x.id === id);
     if (!c) return null;
@@ -259,10 +273,11 @@ export class MemoryPartnerRepository implements PartnerRepository {
     return copy(c);
   }
 
-  async markAnswered(id: string, a: { memberId: string; externalId: string; legSid: string; at: Date }) {
+  async markAnswered(id: string, a: { memberId: string; externalId: string; legSid: string; at: Date; linkId?: string | null }) {
     const c = this.calls.find((x) => x.id === id);
     if (!c || c.answeredAt) return null;
     Object.assign(c, { memberId: a.memberId, externalId: a.externalId, answeredLegSid: a.legSid, answeredAt: a.at });
+    if (a.linkId !== undefined) c.linkId = a.linkId;
     return copy(c);
   }
 
@@ -298,7 +313,16 @@ export class MemoryPartnerRepository implements PartnerRepository {
     return this.calls.filter((c) => c.memberId === memberId && c.direction === "outbound" && !c.finalizedAt && c.startedAt.getTime() > since.getTime()).length;
   }
 
-  async createLinkRequest(r: { partnerId: string; memberId: string; codeSha256: string; expiresAt: Date; at: Date }) {
+  async createLinkRequest(r: {
+    partnerId: string;
+    memberId: string;
+    codeSha256: string;
+    expiresAt: Date;
+    at: Date;
+    kind?: "link" | "upgrade";
+    linkId?: string | null;
+    scopes?: PartnerScopeRequestItem[];
+  }) {
     if (this.linkRequests.some((x) => x.codeSha256 === r.codeSha256)) throw new Error("duplicate link code hash");
     for (const old of this.linkRequests) if (old.memberId === r.memberId && !old.usedAt && !old.invalidatedAt) old.invalidatedAt = r.at;
     const row: PartnerLinkRequestRow = {
@@ -310,8 +334,12 @@ export class MemoryPartnerRepository implements PartnerRepository {
       attempts: 0,
       usedAt: null,
       invalidatedAt: null,
+      kind: r.kind ?? "link",
+      linkId: r.linkId ?? null,
+      scopes: copy(r.scopes ?? []),
       createdAt: r.at,
     };
+    if ((row.kind === "upgrade") !== Boolean(row.linkId)) throw new Error("an upgrade request needs its link, a link request has none");
     this.linkRequests.push(row);
     return copy(row);
   }
@@ -341,12 +369,22 @@ export class MemoryPartnerRepository implements PartnerRepository {
     return true;
   }
 
-  async createLink(l: { partnerId: string; memberId: string; userId: string; requestId: string | null; at: Date }): Promise<PartnerLinkCreateResult> {
+  async createLink(l: { partnerId: string; memberId: string; userId: string; requestId: string | null; at: Date; grant: PartnerGrant }): Promise<PartnerLinkCreateResult> {
     const active = this.links.filter((x) => !x.revokedAt);
     if (active.some((x) => x.memberId === l.memberId)) return { status: "member_taken" };
     if (active.some((x) => x.partnerId === l.partnerId && x.userId === l.userId)) return { status: "user_taken" };
-    const { at, ...ids } = l;
-    const row: PartnerMemberLinkRow = { ...ids, id: randomUUID(), numberId: null, createdAt: at, updatedAt: at, revokedAt: null, revokedBy: null };
+    const { at, grant, ...ids } = l;
+    const row: PartnerMemberLinkRow = {
+      ...ids,
+      ...copy(grant),
+      id: randomUUID(),
+      numberId: null,
+      createdAt: at,
+      updatedAt: at,
+      revokedAt: null,
+      revokedBy: null,
+      consentedAt: at,
+    };
     this.links.push(row);
     return { status: "created", link: copy(row) };
   }
@@ -387,6 +425,55 @@ export class MemoryPartnerRepository implements PartnerRepository {
     return copy(l);
   }
 
+  async setLinkGrant(id: string, grant: PartnerGrant, at: Date) {
+    const l = this.links.find((x) => x.id === id && !x.revokedAt);
+    if (!l) return null;
+    Object.assign(l, copy(grant), { consentedAt: at, updatedAt: at });
+    return copy(l);
+  }
+
+  async addTermsAcceptance(t: Omit<PartnerTermsAcceptanceRow, "id" | "createdAt"> & { at: Date }) {
+    const { at, ...rest } = t;
+    const row: PartnerTermsAcceptanceRow = { ...copy(rest), id: randomUUID(), createdAt: at };
+    this.terms.push(row);
+    return copy(row);
+  }
+
+  async latestTermsAcceptance(partnerId: string) {
+    const rows = this.terms.filter((t) => t.partnerId === partnerId);
+    return rows.length ? copy(rows[rows.length - 1]!) : null;
+  }
+
+  async addConsentReceipt(r: Omit<PartnerConsentReceiptRow, "id" | "createdAt"> & { at: Date }) {
+    const { at, ...rest } = r;
+    const row: PartnerConsentReceiptRow = { ...copy(rest), id: randomUUID(), createdAt: at };
+    this.receipts.push(row);
+    return copy(row);
+  }
+
+  async listConsentReceipts(linkId: string, limit: number) {
+    return this.receipts.filter((r) => r.linkId === linkId).reverse().slice(0, limit).map(copy);
+  }
+
+  async logAccess(e: Omit<PartnerAccessLogRow, "id">) {
+    this.accessLog.push({ ...e, id: randomUUID() });
+  }
+
+  async listAccessLog(linkId: string, limit: number) {
+    return this.accessLog
+      .filter((e) => e.linkId === linkId)
+      .sort((a, b) => b.at.getTime() - a.at.getTime())
+      .slice(0, limit)
+      .map(copy);
+  }
+
+  async pruneAccessLog(before: Date) {
+    const keep = this.accessLog.filter((e) => e.at.getTime() >= before.getTime());
+    const deleted = this.accessLog.length - keep.length;
+    this.accessLog.splice(0, this.accessLog.length, ...keep);
+    return deleted;
+  }
+
   async getAvailability(memberId: string) {
     const a = this.availability.find((x) => x.memberId === memberId);
     return a ? copy(a) : null;
@@ -414,7 +501,7 @@ export class MemoryPartnerRepository implements PartnerRepository {
     return true;
   }
 
-  async enqueueEvent(e: { partnerId: string; eventType: PartnerWebhookEventRow["eventType"]; payload: Record<string, unknown>; at: Date }) {
+  async enqueueEvent(e: { partnerId: string; eventType: PartnerWebhookEventRow["eventType"]; payload: Record<string, unknown>; at: Date; linkId?: string | null }) {
     const row: PartnerWebhookEventRow = {
       id: randomUUID(),
       partnerId: e.partnerId,
@@ -424,6 +511,7 @@ export class MemoryPartnerRepository implements PartnerRepository {
       nextAttemptAt: e.at,
       deliveredAt: null,
       lastError: null,
+      linkId: e.linkId ?? null,
       createdAt: e.at,
     };
     this.events.push(row);

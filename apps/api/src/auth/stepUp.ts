@@ -3,7 +3,8 @@
 // - requireRecentAuth: the session authenticated with a passkey or a fresh SMS code within STEP_UP_WINDOW_S
 //   (10 minutes). Used by: call forwarding to an external number, deleting the account, adding/removing a passkey,
 //   changing the business security policy, partner API keys and webhook secrets, approving a « MIMT Connect » account link
-//   (POST /v1/me/partner-links/approve). Port-out must call it too once it exists.
+//   or a scope upgrade (POST /v1/me/partner-links/approve), recording a partner's terms acceptance
+//   (POST /v1/admin/partners/:id/terms-acceptance). Port-out must call it too once it exists.
 // - assertBusinessStrongAuth: owners/admins of a business with require_strong_auth must have confirmed this session
 //   with a passkey before the business admin routes answer.
 import { STEP_UP_WINDOW_S } from "@mimt/shared";

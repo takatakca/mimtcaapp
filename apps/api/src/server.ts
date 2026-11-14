@@ -6,6 +6,7 @@ import { runDailyCostReport } from "./jobs/dailyCost.js";
 import { runAccountDeletion } from "./jobs/accountDeletion.js";
 import { runPointsExpiry } from "./jobs/pointsExpiry.js";
 import { runSessionRetention } from "./jobs/sessionRetention.js";
+import { runPartnerAccessLogRetention } from "./services/partnerConsent.js";
 import { runAffiliateMaintenance } from "./services/affiliates.js";
 import { runNumberLifecycle } from "./jobs/numberLifecycle.js";
 import { runFallbackBackfill } from "./jobs/numberFallback.js";
@@ -156,6 +157,18 @@ sessionRetentionFirst.unref();
 const sessionRetentionTimer = setInterval(sessionRetention, 24 * 60 * 60 * 1000);
 sessionRetentionTimer.unref();
 
+// « MIMT Connect » access log (services/partnerConsent.ts): entries older than 90 days are deleted. Daily. Runs even with
+// PARTNERS=off so nothing outlives its retention while the platform is paused.
+const partnerAccessRetention = () => {
+  runPartnerAccessLogRetention(deps)
+    .then((res) => app.log.info(res, "partner access log retention done"))
+    .catch((err) => app.log.error({ err }, "partner access log retention failed"));
+};
+const partnerAccessRetentionFirst = setTimeout(partnerAccessRetention, 27 * 60 * 1000);
+partnerAccessRetentionFirst.unref();
+const partnerAccessRetentionTimer = setInterval(partnerAccessRetention, 24 * 60 * 60 * 1000);
+partnerAccessRetentionTimer.unref();
+
 async function shutdown(signal: string) {
   app.log.info({ signal }, "shutting down");
   clearInterval(outboxTimer);
@@ -175,6 +188,8 @@ async function shutdown(signal: string) {
   clearInterval(affiliatesTimer);
   clearTimeout(sessionRetentionFirst);
   clearInterval(sessionRetentionTimer);
+  clearTimeout(partnerAccessRetentionFirst);
+  clearInterval(partnerAccessRetentionTimer);
   await app.close();
   await deps.repo.close();
   process.exit(0);

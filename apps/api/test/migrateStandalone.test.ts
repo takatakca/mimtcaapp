@@ -70,6 +70,11 @@ describe("isolated self-hosted MIMT migration guard", () => {
     for (const earlier of MIGRATION_ORDER.filter((m) => m < "0028_")) {
       expect(MIGRATION_ORDER.indexOf(earlier)).toBeLessThan(MIGRATION_ORDER.indexOf("0028_partner_member_status.sql"));
     }
+    // MIMT Connect consent (scopes, partner terms, receipts, access log) is 0029: it alters 0023, 0027 and 0028 tables.
+    expect(MIGRATION_ORDER).toContain("0029_partner_consent.sql");
+    for (const earlier of MIGRATION_ORDER.filter((m) => m < "0029_")) {
+      expect(MIGRATION_ORDER.indexOf(earlier)).toBeLessThan(MIGRATION_ORDER.indexOf("0029_partner_consent.sql"));
+    }
   });
   it("lists every migration file in supabase/migrations", () => {
     const files = readdirSync(join(__dirname, "../../../supabase/migrations")).filter((f) => f.endsWith(".sql"));

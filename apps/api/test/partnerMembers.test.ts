@@ -12,6 +12,7 @@ import { effectiveAvailability } from "../src/services/partnerMembers.js";
 import type { PartnerAvailabilityRow } from "../src/repo/partners.js";
 import { AUTH_TOKEN, BASE_URL, makeUser, setup, twilioPost, type Ctx } from "./helpers.js";
 import { makeBusiness } from "./pbxFixtures.js";
+import { acceptTerms, approveBody, scopeItems } from "./partnerConsentFixtures.js";
 
 let ctx: Ctx;
 let now: Date;
@@ -64,6 +65,7 @@ async function makePartner() {
   const partnerId = created.json().id as string;
   const k = await call("POST", `/v1/admin/partners/${partnerId}/keys`, admin.auth, { label: "portail" });
   await call("PUT", `/v1/admin/partners/${partnerId}/webhook`, admin.auth, { url: "https://portail.besoinavocat.ca/api/mimt/webhook" });
+  await acceptTerms(ctx, admin.auth, partnerId);
   const h = bearer(k.json().key as string);
   expect((await call("PUT", "/v1/partner/members/avocat-42", h, { name: "Me Tremblay", phone: "+15145550142" })).statusCode).toBe(201);
   expect((await call("PUT", "/v1/partner/members/avocat-7", h, { name: "Me Roy", phone: "+15145550107" })).statusCode).toBe(201);
@@ -74,8 +76,8 @@ type P = Awaited<ReturnType<typeof makePartner>>;
 /** A lawyer with their own MIMT account, linked to `externalId` with their consent (lot A). */
 async function linkedLawyer(p: P, externalId = "avocat-42", number = "+15145550177") {
   const lawyer = await makeUser(ctx, { e911: true, ack: true, number });
-  const r = (await call("POST", `/v1/partner/members/${externalId}/link-requests`, p.h)).json();
-  const res = await call("POST", "/v1/me/partner-links/approve", lawyer.auth, { code: r.code, requestId: r.requestId });
+  const r = (await call("POST", `/v1/partner/members/${externalId}/link-requests`, p.h, { scopes: scopeItems() })).json();
+  const res = await call("POST", "/v1/me/partner-links/approve", lawyer.auth, approveBody(r));
   expect(res.statusCode, res.body).toBe(201);
   return { ...lawyer, linkId: res.json().id as string };
 }
