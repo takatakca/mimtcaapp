@@ -28,12 +28,12 @@ export interface CompanyFacts {
 
 /**
  * Operator of MIMT, from the Registraire des entreprises du Québec (REQ, consulted 2026-10-30; owner: « même que
- * Quadro Holdings Ltée », 2026-10-31). Phone and president stay null until the owner gives the ones to publish.
+ * Quadro Holdings Ltée », 2026-10-31). Phone: MIMT's main line in Twilio (owner, 2026-10-31). President stays null until the owner says otherwise.
  */
 export const COMPANY: CompanyFacts = {
   legalName: "Quadro Holdings Ltée (NEQ 1176760537)",
   address: "5837, rue Jean-Talon Est, Montréal (Québec) H1S 1M4",
-  phone: null,
+  phone: "+1 579 999-6789",
   founded: "2021-07-15",
   president: null,
 };
