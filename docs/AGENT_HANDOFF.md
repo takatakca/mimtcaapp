@@ -1,5 +1,11 @@
 # MIMT — Relève du développeur principal
 
+## Relève — 18 novembre 2026 (Claude, « apps partout »)
+
+- **Fait (branche `claude/apps-partout`) :** `docs/store/APPS-PARTOUT.md` = page d'entrée des magasins : app native (`apps/mobile`) pour les téléphones, MIMT Web (PWA, app.mimt.ca) pour Windows, Mac, Linux, Chromebook et tablettes; tableau des 11 plateformes (liens d'inscription et de dépôt, coûts, faisabilité); étapes Microsoft Store par PWABuilder; textes de fiche FR/EN. Manifeste de `apps/webphone` : `display_override` et 5 captures en mode démo (téléphone 780 × 1688, ordinateur 1440 × 900); test `src/manifest.test.ts`.
+- **Non faits, et pourquoi :** télés et consoles (pas de micro ni de clavier pour appeler); Amazon et Huawei (pas de FCM ni de Google Play Billing); Samsung plus tard en mode `companion`.
+- **Prochaine action :** propriétaire : D-U-N-S, comptes entreprise Google Play, Apple, Microsoft. Puis redéployer app.mimt.ca, passer https://app.mimt.ca dans PWABuilder et téléverser le `.msix`.
+
 ## Statut de fusion vérifié — 29 octobre 2026, 16:13 HAE
 
 - **MON-ALERT-01 terminé et fusionné :** PR [#85](https://github.com/takatakca/mimtcaapp/pull/85) fusionnée le 29 octobre 2026 à 20:12:53 UTC, commit `540b295cae9a6540c28dc38e2a43ba839c0d60ba`. CI PR [#40946466956](https://github.com/takatakca/mimtcaapp/actions/runs/40946466956) et migration [#40946466884](https://github.com/takatakca/mimtcaapp/actions/runs/40946466884) réussies avant fusion. CI `main` [#40947007313](https://github.com/takatakca/mimtcaapp/actions/runs/40947007313) et migrations `main` [#40947007441](https://github.com/takatakca/mimtcaapp/actions/runs/40947007441) lancées; lire leur conclusion. Aucune preuve publique de publication du nouveau SHA recueillie à cet instant.
