@@ -43,14 +43,14 @@ Règle : ce qui est fait dans une version est fait dans l'autre quand c'est poss
 
 ### Ordre recommandé
 
-1. **Numéro D-U-N-S** (gratuit, Dun & Bradstreet, demandé depuis la page d'Apple) : Google et Apple l'exigent pour un compte d'entreprise. Le demander en premier.
-2. **Inscriptions de l'entreprise** (GROUPE TAKATAK) : Google Play, Apple, Microsoft. Le propriétaire saisit lui-même mots de passe, codes et paiements; Claude ne les tape jamais.
+1. **Numéro D-U-N-S :** il existe déjà pour l'entreprise (Quadro Holdings Ltée, constaté le 18 novembre 2026). Ne pas en demander un nouveau; le réutiliser pour Google Play et Apple.
+2. **Inscriptions de l'entreprise :** Google Play et Apple. **Microsoft :** un seul compte Partner Center, publié sous le nom « Groupe TAKATAK », pour toutes les marques (MIMT compris); ne pas en ouvrir un deuxième pour MIMT. Le propriétaire saisit lui-même mots de passe, codes et paiements; Claude ne les tape jamais.
 3. **Paquets :** Android et iPhone par les workflows existants; Windows par PWABuilder.
 4. **Plus tard :** Samsung (mode `companion`), puis une app tablette si la demande existe.
 
 ## Windows (Microsoft Store) : étapes
 
-1. Partner Center › **Apps and games** › **New product** › **MSIX or PWA app** › réserver le nom **« MIMT »** (ou « MIMT Web » s'il est pris).
+1. Dans le compte Partner Center commun « Groupe TAKATAK » › **Apps and games** › **New product** › **MSIX or PWA app** › réserver le nom **« MIMT »** (ou « MIMT Web » s'il est pris).
 2. Partner Center › le produit › **Product identity** : noter `Package/Identity/Name`, `Package/Identity/Publisher` et `Package/Properties/PublisherDisplayName`. Ce ne sont pas des secrets.
 3. https://www.pwabuilder.com › entrer `https://app.mimt.ca` › le score doit être sans erreur (manifeste, service worker, HTTPS). Si app.mimt.ca sert encore un ancien build, redéployer `main` d'abord (les captures et `display_override` arrivent avec cette PR).
 4. **Package for stores** › **Windows** › coller les trois valeurs de l'étape 2 › télécharger le `.msixbundle`.
