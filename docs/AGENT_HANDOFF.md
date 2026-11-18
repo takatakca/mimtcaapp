@@ -4,7 +4,7 @@
 
 - **Fait (branche `claude/apps-partout`) :** `docs/store/APPS-PARTOUT.md` = page d'entrée des magasins : app native (`apps/mobile`) pour les téléphones, MIMT Web (PWA, app.mimt.ca) pour Windows, Mac, Linux, Chromebook et tablettes; tableau des 11 plateformes (liens d'inscription et de dépôt, coûts, faisabilité); étapes Microsoft Store par PWABuilder; textes de fiche FR/EN. Manifeste de `apps/webphone` : `display_override` et 5 captures en mode démo (téléphone 780 × 1688, ordinateur 1440 × 900); test `src/manifest.test.ts`.
 - **Non faits, et pourquoi :** télés et consoles (pas de micro ni de clavier pour appeler); Amazon et Huawei (pas de FCM ni de Google Play Billing); Samsung plus tard en mode `companion`.
-- **Prochaine action :** propriétaire : D-U-N-S, comptes entreprise Google Play, Apple, Microsoft. Puis redéployer app.mimt.ca, passer https://app.mimt.ca dans PWABuilder et téléverser le `.msix`.
+- **Prochaine action :** le D-U-N-S existe déjà (Quadro Holdings Ltée); Microsoft = un seul compte Partner Center « Groupe TAKATAK » pour toutes les marques. Propriétaire : comptes entreprise Google Play et Apple. Puis redéployer app.mimt.ca, passer https://app.mimt.ca dans PWABuilder et téléverser le `.msix`.
 
 ## Statut de fusion vérifié — 29 octobre 2026, 16:13 HAE
 
