@@ -192,6 +192,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   extra: {
     eas: env.EAS_PROJECT_ID ? { projectId: env.EAS_PROJECT_ID } : undefined,
     storePurchases,
+    // Firebase (FCM) is in the Android build: src/lib/pushConfig.ts skips push registration without it.
+    androidPush: Boolean(env.GOOGLE_SERVICES_JSON),
     // Real AdMob ad units (public ids). Unset: Google's test units, so a build never shows fake-revenue ads.
     admobUnits: {
       ios: { banner: env.ADMOB_IOS_BANNER_UNIT_ID ?? null, rewarded: env.ADMOB_IOS_REWARDED_UNIT_ID ?? null },
