@@ -30,6 +30,8 @@ jobs:
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: write # only to publish the test APK on the "mobile-test" pre-release page
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -78,6 +80,20 @@ jobs:
           name: mimt-android-test-apk
           path: out/
           retention-days: 30
+      # One fixed page the owner opens on the phone (signed in to GitHub): Releases › « MIMT — version de test » › MIMT-test.apk.
+      - name: Publish the APK on the test release page
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp out/*.apk out/MIMT-test.apk
+          notes="Version de TEST de l'app MIMT pour Android (signée avec la clé de débogage, pas pour Google Play). Commit ${GITHUB_SHA::7}, branche ${GITHUB_REF_NAME}, $(date -u +%F). Installation : docs/store/INSTALLER-APK-TEST.md"
+          if gh release view mobile-test >/dev/null 2>&1; then
+            gh release edit mobile-test --notes "$notes" --prerelease
+          else
+            gh release create mobile-test --prerelease --target "$GITHUB_SHA" --title "MIMT — version de test (Android)" --notes "$notes"
+          fi
+          gh release upload mobile-test out/MIMT-test.apk --clobber
 
   ios:
     runs-on: macos-26
