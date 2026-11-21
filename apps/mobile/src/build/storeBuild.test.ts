@@ -11,8 +11,8 @@ const { applySigning } = require("../../plugins/withAndroidReleaseSigning.js") a
 
 const root = join(__dirname, "..", "..");
 
-// The block Expo SDK 57 prebuild writes into android/app/build.gradle.
-const GENERATED = `
+// The block an older Expo template wrote into android/app/build.gradle (no `=`).
+const LEGACY = `
     signingConfigs {
         debug {
             storeFile file('debug.keystore')
@@ -32,6 +32,9 @@ const GENERATED = `
         }
     }`;
 
+// The block Expo SDK 57 prebuild really writes (Gradle assignment syntax, `signingConfig = ...`).
+const GENERATED = LEGACY.replace(/signingConfig signingConfigs\.debug/g, "signingConfig = signingConfigs.debug");
+
 type PluginEntry = string | [string, Record<string, unknown>];
 
 function config() {
@@ -50,12 +53,18 @@ describe("Android release signing plugin", () => {
     expect(out).toContain("release { // mimt-upload-signing");
     expect(out).toContain("storeFile file(findProperty('MIMT_UPLOAD_STORE_FILE'))");
     expect(out).toContain(
-      "signingConfig findProperty('MIMT_UPLOAD_STORE_FILE') ? signingConfigs.release : signingConfigs.debug",
+      "signingConfig = findProperty('MIMT_UPLOAD_STORE_FILE') ? signingConfigs.release : signingConfigs.debug",
     );
     // The debug build type keeps the debug key.
-    expect(out).toMatch(/debug \{\s*signingConfig signingConfigs\.debug\s*\}/);
+    expect(out).toMatch(/debug \{\s*signingConfig = signingConfigs\.debug\s*\}/);
     // No password or path is ever written into the file.
     expect(out).not.toMatch(/storePassword '(?!android')/);
+  });
+
+  it("still handles the older template without `=`", () => {
+    expect(applySigning(LEGACY)).toContain(
+      "signingConfig = findProperty('MIMT_UPLOAD_STORE_FILE') ? signingConfigs.release : signingConfigs.debug",
+    );
   });
 
   it("is idempotent", () => {
