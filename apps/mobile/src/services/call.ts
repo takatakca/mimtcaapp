@@ -17,6 +17,7 @@ import { Platform } from "react-native";
 import { api } from "../api/client";
 import { outboundParams } from "../lib/business";
 import { formatPhone, toDialableVoice } from "../lib/dial";
+import { canRegisterPush } from "../lib/pushConfig";
 
 /** Sent with GET /v1/voice/token so the token carries this OS's VoIP push credential. */
 const voicePlatform = () => (Platform.OS === "ios" ? "ios" : "android");
@@ -157,6 +158,8 @@ class CallService {
   /** (Re)registers with a fresh token. Call on sign-in and when the app returns to the foreground. */
   async register(): Promise<void> {
     if (!this.voice) return;
+    // Android test build without Firebase: registering would close the app (pushConfig.ts). Outgoing calls still work.
+    if (!canRegisterPush(Platform.OS)) return;
     const { token } = await api.voiceToken(voicePlatform());
     await this.voice.register(token);
     this.registeredToken = token;

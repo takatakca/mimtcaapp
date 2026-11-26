@@ -32,13 +32,14 @@ function applySigning(gradle) {
     throw new Error("withAndroidReleaseSigning: signingConfigs.debug not found in android/app/build.gradle");
   }
   let out = gradle.replace(debugBlock, (block) => block + SIGNING_CONFIG);
-  const releaseUsesDebug = /(release\s*\{[^}]*?)signingConfig signingConfigs\.debug/;
+  // Expo SDK 57 writes `signingConfig = signingConfigs.debug`; older templates wrote it without `=`.
+  const releaseUsesDebug = /(release\s*\{[^}]*?)signingConfig\s*=?\s*signingConfigs\.debug/;
   if (!releaseUsesDebug.test(out)) {
     throw new Error("withAndroidReleaseSigning: release buildType signingConfig not found");
   }
   out = out.replace(
     releaseUsesDebug,
-    "$1signingConfig findProperty('MIMT_UPLOAD_STORE_FILE') ? signingConfigs.release : signingConfigs.debug",
+    "$1signingConfig = findProperty('MIMT_UPLOAD_STORE_FILE') ? signingConfigs.release : signingConfigs.debug",
   );
   return out;
 }

@@ -8,6 +8,7 @@ import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { api } from "../api/client";
+import { canRegisterPush } from "../lib/pushConfig";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -19,7 +20,7 @@ Notifications.setNotificationHandler({
 });
 
 export async function registerForMessagePush(channelName: string): Promise<boolean> {
-  if (!Device.isDevice || Platform.OS === "web") return false;
+  if (!Device.isDevice || !canRegisterPush(Platform.OS)) return false;
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("messages", {
       name: channelName,

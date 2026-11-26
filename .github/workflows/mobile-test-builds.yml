@@ -1,0 +1,135 @@
+name: Mobile test builds (free, no secret)
+# Builds the native MIMT app (apps/mobile) for free on GitHub, with no secret and no Expo/Apple account:
+#   - an Android test APK, signed with the throwaway debug key, that the owner installs on a phone to try the app;
+#   - an iPhone simulator build, which proves the iOS app compiles.
+# These files are for testing only. Store builds stay in mobile-android.yml (Play upload key) and mobile-ios.yml (EAS).
+# Without Firebase (GOOGLE_SERVICES_JSON_BASE64) the app works when open, but incoming calls cannot ring a closed app.
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths: ['apps/mobile/**', 'packages/shared/**', '.github/workflows/mobile-test-builds.yml']
+  pull_request:
+    paths: ['apps/mobile/**', 'packages/shared/**', '.github/workflows/mobile-test-builds.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Public values only (they ship inside the app).
+  EXPO_PUBLIC_API_URL: ${{ vars.MOBILE_API_URL || 'https://api.mimt.ca' }}
+  EXPO_PUBLIC_TAKATAK_ISSUER: ${{ vars.TAKATAK_ISSUER }}
+  EXPO_PUBLIC_TAKATAK_CLIENT_ID: ${{ vars.TAKATAK_MOBILE_CLIENT_ID }}
+  NODE_ENV: production
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write # only to publish the test APK on the "mobile-test" pre-release page
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @mimt/shared build
+      - run: pnpm --filter @mimt/mobile typecheck
+      - run: pnpm --filter @mimt/mobile test
+      - name: Version
+        id: version
+        run: |
+          echo "ANDROID_VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
+          echo "name=$(node -p "require('./apps/mobile/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Firebase config if provided (runner temp only)
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            umask 077
+            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 -d > "$RUNNER_TEMP/google-services.json"
+            echo "GOOGLE_SERVICES_JSON=$RUNNER_TEMP/google-services.json" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Pas de Firebase : l'app de test fonctionne ouverte, mais un appel entrant ne peut pas sonner quand elle est fermée."
+          fi
+      - name: Expo prebuild (android)
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform android --clean --no-install
+      - name: Build the test APK
+        working-directory: apps/mobile/android
+        run: ./gradlew :app:assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86_64
+      - name: Name the file
+        run: |
+          mkdir -p out
+          cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk "out/MIMT-test-${{ steps.version.outputs.name }}-${{ github.run_number }}.apk"
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mimt-android-test-apk
+          path: out/
+          retention-days: 30
+      # One fixed page the owner opens on the phone (signed in to GitHub): Releases › « MIMT — version de test » › MIMT-test.apk.
+      - name: Publish the APK on the test release page
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp out/*.apk out/MIMT-test.apk
+          notes="Version de TEST de l'app MIMT pour Android (signée avec la clé de débogage, pas pour Google Play). Commit ${GITHUB_SHA::7}, branche ${GITHUB_REF_NAME}, $(date -u +%F). Installation : docs/store/INSTALLER-APK-TEST.md"
+          if gh release view mobile-test >/dev/null 2>&1; then
+            gh release edit mobile-test --notes "$notes" --prerelease
+          else
+            gh release create mobile-test --prerelease --target "$GITHUB_SHA" --title "MIMT — version de test (Android)" --notes "$notes"
+          fi
+          gh release upload mobile-test out/MIMT-test.apk --clobber
+
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @mimt/shared build
+      - name: Use Xcode 26 (Swift 6.2, needed by Expo SDK 57)
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC/Contents/Developer"; fi
+          xcodebuild -version
+      - name: Expo prebuild (ios)
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform ios --clean
+      - name: Build for the iPhone simulator (no Apple account needed)
+        working-directory: apps/mobile/ios
+        run: |
+          xcodebuild -workspace MIMT.xcworkspace -scheme MIMT -configuration Release -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build > xcodebuild.log 2>&1 || {
+            echo '--- errors ---'; grep -nE -A12 'error:|xcodebuild: error|BUILD FAILED' xcodebuild.log | head -120
+            echo '--- end of log ---'; tail -80 xcodebuild.log; exit 1; }
+          tail -5 xcodebuild.log
+      - name: Package the simulator app
+        run: |
+          mkdir -p out
+          cd apps/mobile/ios/build/Build/Products/Release-iphonesimulator
+          zip -qry "$GITHUB_WORKSPACE/out/MIMT-ios-simulator.zip" MIMT.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mimt-ios-simulator
+          path: out/
+          retention-days: 30
